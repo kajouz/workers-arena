@@ -6,8 +6,8 @@
  * The RespondDialog test in this folder covers the take-rate split; the i18n
  * parity test covers EN/AR — so this locks the step flow in one locale.
  */
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { act, render, screen, fireEvent, cleanup } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { BookingDialog } from "@/components/worker/booking-dialog";
 import { LocaleProvider } from "@/components/providers/locale-provider";
@@ -32,11 +32,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// Deterministic clock — the live countdown derives from Date.now() (the SLA
-// expiry is the selected slot's start capped at the 48h window), so a fixed
-// "now" makes the asserted countdown text stable regardless of run time.
-vi.useFakeTimers();
-vi.setSystemTime(new Date("2026-08-10T09:00:00.000Z"));
+// Deterministic clock per test — the live countdown derives from Date.now()
+// (the SLA expiry is the selected slot's start capped at the 48h window), so a
+// fixed "now" makes the asserted countdown text stable regardless of run time.
+// Re-applied in beforeEach because afterEach() reverts to real timers, and
+// without the fake clock the ticking test's real Date.now() would see the
+// "tomorrow 09:00" fixture slot as already past (0m — nothing to decrement).
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-08-10T09:00:00.000Z"));
+});
 
 const worker = {
   nameEn: "Khaled Al-Harbi",
@@ -131,6 +136,42 @@ describe("BookingDialog step flow", () => {
     expect(
       screen.getByText(/Auto-cancels in \d+h \d+m if the worker doesn't respond/)
     ).toBeInTheDocument();
+  });
+
+  it("the SLA countdown ticks down against its captured expiry", () => {
+    renderDialog();
+    openDialog();
+
+    // Walk to the details step and read the countdown — the expiry is captured
+    // once on entry (fixed system time: 48h 0m for a slot past the window).
+    fireEvent.click(screen.getByRole("button", { name: /AC Repair/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "09:00 – 10:00" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    const readCountdown = () => {
+      const m = screen.getByText(/Auto-cancels in/).textContent?.match(/(\d+)h (\d+)m/);
+      if (!m) throw new Error("countdown text missing");
+      return { hours: Number(m[1]), minutes: Number(m[2]) };
+    };
+    const before = readCountdown();
+    const beforeTotal = before.hours * 60 + before.minutes;
+
+    // Advance well past a 30s tick. A bare 31s would NOT flip the display: the
+    // expiry is captured on entering the step, so ~31s later only ~30s have
+    // elapsed and Math.ceil keeps the same minute. 61s guarantees a visible
+    // decrement — proving the clock is alive rather than a static render (the
+    // bug it locks: recomputing the expiry from a moving `now` pinned the
+    // countdown at 48h 0m forever).
+    act(() => {
+      vi.advanceTimersByTime(61_000); // two interval ticks → setNow
+    });
+
+    const after = readCountdown();
+    const afterTotal = after.hours * 60 + after.minutes;
+    expect(afterTotal).toBeLessThan(beforeTotal);
+    expect(beforeTotal - afterTotal).toBeGreaterThanOrEqual(1);
+    expect(afterTotal).toBeGreaterThanOrEqual(0);
   });
 
   it("does not show the cancellation policy before the details step", () => {

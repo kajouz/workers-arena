@@ -310,10 +310,20 @@ async function main() {
       d.setHours(hour, 0, 0, 0);
       return d;
     };
+    // Fresh AVAILABLE slots a few days out (+3/+5), mirroring the demo store —
+    // so the real-mode worker page's booking dialog always has bookable chips
+    // in its 14-day window even after the "tomorrow" 09:00 slot is consumed.
+    const plusDays = (hour: number, days: number) => {
+      const d = slotAt(hour);
+      d.setDate(d.getDate() + days);
+      return d;
+    };
     const slotPlans = [
       { startAt: slotAt(9), status: SlotStatus.AVAILABLE },
       { startAt: slotAt(10), status: SlotStatus.RESERVED },
       { startAt: slotAt(14), status: SlotStatus.BLOCKED },
+      { startAt: plusDays(16, 2), status: SlotStatus.AVAILABLE }, // +3 days
+      { startAt: plusDays(11, 4), status: SlotStatus.AVAILABLE }, // +5 days
     ];
     // Reset: drop the previous demo booking + any unclaimed demo slots.
     const existingBooking = await prisma.booking.findUnique({ where: { number: "BK-1001" } });
@@ -357,7 +367,7 @@ async function main() {
     await prisma.bookingEvent.create({
       data: { bookingId: booking.id, status: BookingStatus.REQUESTED, actorType: "customer", actorId: saraId ?? null },
     });
-    console.log("  ✓ 3 booking slots + 1 demo booking (BK-1001)");
+    console.log("  ✓ 5 booking slots + 1 demo booking (BK-1001)");
 
     // ── Recurring contract (W2 — ENHANCEMENT-PLAN §7 #1) ────────────────────
     // One ACTIVE maintenance contract (RC-1001) so the recurring tabs and the
