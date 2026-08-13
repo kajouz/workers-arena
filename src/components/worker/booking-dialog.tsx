@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronLeft, ChevronRight, Hourglass, Loader2, Send, ShieldCheck, TriangleAlert } from "lucide-react";
@@ -31,6 +31,19 @@ type Step = "service" | "slot" | "details";
 const STEPS: Step[] = ["service", "slot", "details"];
 
 /**
+ * §2.2 live countdown — when the request auto-expires from the customer's
+ * POV. The real window starts at submission (creation + BOOKING_SLA_EXPIRE_HOURS),
+ * but pre-submit there is no creation timestamp, so the honest estimate is the
+ * earliest moment the request can die: the selected slot's start (the worker
+ * must respond before the job time) capped at the 48h window. Once the request
+ * exists, the post-submit rows recompute from the real creation event — this is
+ * a pre-commit estimate only.
+ */
+function dialogSlaExpiryMs(slotStartMs: number, nowMs: number): number {
+  return Math.min(slotStartMs, nowMs + BOOKING_SLA_EXPIRE_HOURS * 60 * 60 * 1000);
+}
+
+/**
  * Customer booking dialog (docs/booking-customer-ui.md §5.1). Three steps —
  * service → slot → details — then requestBookingAction. On a "slot-taken"
  * conflict it shows a banner and router.refresh() re-fetches slots server-side.
@@ -52,6 +65,26 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
   const [submitting, setSubmitting] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  // §2.2 — the countdown's expiry is captured ONCE, when the details step is
+  // entered: recomputing it from a moving `now` would pin `min(slot, now+48h) −
+  // now` at exactly 48h for any slot past the window, a static clock.
+  const [slaExpiryAt, setSlaExpiryAt] = useState<number | null>(null);
+
+  const selectedSlot = slots.find((s) => s.id === slotId);
+
+  // §2.2 — tick the SLA countdown while the summary step is open, so the
+  // "auto-expires in …" clock is alive, not a static number. Depend on the
+  // stable slotId, not the selectedSlot object (a fresh reference every
+  // render would reset the interval + expiry on each re-render).
+  useEffect(() => {
+    if (step !== "details" || !slotId) return;
+    const slot = slots.find((s) => s.id === slotId);
+    if (!slot) return;
+    setSlaExpiryAt(dialogSlaExpiryMs(Date.parse(slot.startAt), Date.now()));
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [step, slotId, slots]);
 
   const workerName = locale === "ar" ? worker.nameAr : worker.nameEn;
   const stepIndex = STEPS.indexOf(step);
@@ -69,6 +102,8 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
     setFrequency(null);
     setConflict(false);
     setDone(false);
+    setNow(Date.now());
+    setSlaExpiryAt(null);
     setOpen(true);
   };
 
@@ -303,19 +338,29 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                 {/* §2.2 request SLA — disclosed before the request is sent so the
                     customer knows the request has a clock: auto-cancels (slot
                     freed) after BOOKING_SLA_EXPIRE_HOURS if unanswered, and they
-                    get a notification either way. Static policy copy, not a
-                    countdown — there is no booking row (hence no expiry timestamp)
-                    until the request is submitted, and the {hours} placeholder is
-                    interpolated from the same constant the cron enforces. */}
-                <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
-                  <Hourglass className="mt-0.5 size-4 shrink-0 text-amber-500" />
-                  <div>
-                    <p className="text-xs font-black text-ink-900 dark:text-ink-50">{t("booking.slaDialogTitle")}</p>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
-                      {t("booking.slaDialogBody").replace(/\{hours\}/g, String(BOOKING_SLA_EXPIRE_HOURS))}
-                    </p>
-                  </div>
-                </div>
+                    get a notification either way. LIVE countdown: the expiry is
+                    estimated from the selected slot's start (capped at the 48h
+                    window) because no booking row exists yet — the post-submit
+                    rows recompute from the real creation event. */}
+                {selectedSlot && slaExpiryAt !== null &&
+                  (() => {
+                    const totalMin = Math.max(0, Math.ceil((slaExpiryAt - now) / 60_000));
+                    const hours = Math.floor(totalMin / 60);
+                    const minutes = totalMin % 60;
+                    return (
+                      <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                        <Hourglass className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                        <div>
+                          <p className="text-xs font-black text-ink-900 dark:text-ink-50">{t("booking.slaDialogTitle")}</p>
+                          <p className="mt-0.5 text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
+                            {hours >= 1
+                              ? t("booking.slaDialogCountdown").replace("{hours}", String(hours)).replace("{minutes}", String(minutes))
+                              : t("booking.slaDialogSoon").replace("{minutes}", String(minutes))}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
               </div>
             )}
 

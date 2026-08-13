@@ -168,11 +168,24 @@ function seed(): void {
   const s9 = hourSlot(9);
   const s10 = hourSlot(10);
   const s14 = hourSlot(14);
+  // Fresh AVAILABLE slots a few days out (+3/+5), so the live worker page's
+  // booking dialog always has bookable chips in its 14-day window even after
+  // the "tomorrow" 09:00 slot gets consumed by a demo request.
+  const sPlus3 = hourSlot(16);
+  const sPlus5 = hourSlot(11);
+  const plusDays = (iso: string, days: number) =>
+    new Date(new Date(iso).getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+  sPlus3.start = plusDays(sPlus3.start, 2);
+  sPlus3.end = plusDays(sPlus3.end, 2);
+  sPlus5.start = plusDays(sPlus5.start, 4);
+  sPlus5.end = plusDays(sPlus5.end, 4);
 
   STORE.slots.push(
     { id: "slot-khaled-9", workerId: demoWorkerId, startAt: s9.start, endAt: s9.end, status: "available" },
     { id: "slot-khaled-10", workerId: demoWorkerId, startAt: s10.start, endAt: s10.end, status: "reserved", bookingId: "bk-1001" },
-    { id: "slot-khaled-14", workerId: demoWorkerId, startAt: s14.start, endAt: s14.end, status: "blocked", note: "Site visit" }
+    { id: "slot-khaled-14", workerId: demoWorkerId, startAt: s14.start, endAt: s14.end, status: "blocked", note: "Site visit" },
+    { id: "slot-khaled-plus3", workerId: demoWorkerId, startAt: sPlus3.start, endAt: sPlus3.end, status: "available" },
+    { id: "slot-khaled-plus5", workerId: demoWorkerId, startAt: sPlus5.start, endAt: sPlus5.end, status: "available" }
   );
   const reserved = STORE.slots[1]!;
 

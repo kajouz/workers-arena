@@ -27,7 +27,16 @@ vi.mock("@/app/actions/bookings", () => ({
 
 // vitest `globals` is off, so RTL cannot auto-register its cleanup — unmount
 // between tests or the Radix dialog portals leak into the next case.
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+// Deterministic clock — the live countdown derives from Date.now() (the SLA
+// expiry is the selected slot's start capped at the 48h window), so a fixed
+// "now" makes the asserted countdown text stable regardless of run time.
+vi.useFakeTimers();
+vi.setSystemTime(new Date("2026-08-10T09:00:00.000Z"));
 
 const worker = {
   nameEn: "Khaled Al-Harbi",
@@ -115,12 +124,12 @@ describe("BookingDialog step flow", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/within 24 hours the deposit is kept/)).toBeInTheDocument();
 
-    // …and the §2.2 request-SLA disclosure shows the expire window constant
-    // interpolated (BOOKING_SLA_EXPIRE_HOURS → 48), the same window the cron
-    // enforces — no countdown here, because no booking row exists yet.
+    // …and the §2.2 request-SLA disclosure shows a LIVE countdown derived from
+    // the selected slot (its start capped at the 48h window — the earliest the
+    // request can auto-cancel, since no booking row exists yet).
     expect(screen.getByText("Request auto-expiry")).toBeInTheDocument();
     expect(
-      screen.getByText(/If the worker doesn't respond within 48 hours, the request auto-cancels/)
+      screen.getByText(/Auto-cancels in \d+h \d+m if the worker doesn't respond/)
     ).toBeInTheDocument();
   });
 
@@ -133,7 +142,7 @@ describe("BookingDialog step flow", () => {
     expect(screen.queryByText("Cancellation & refunds")).not.toBeInTheDocument();
     expect(screen.queryByText(/more than 24 hours/)).not.toBeInTheDocument();
     expect(screen.queryByText("Request auto-expiry")).not.toBeInTheDocument();
-    expect(screen.queryByText(/respond within 48 hours/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Auto-cancels in/)).not.toBeInTheDocument();
   });
 
   it("shows the fee-waiver note on the details step for an Enterprise worker", () => {

@@ -85,10 +85,12 @@ afterEach(async () => {
 });
 
 describe("seeded demo store", () => {
-  it("mirrors the DB seed: 3 slots + REQUESTED BK-1001 for the demo worker", async () => {
+  it("mirrors the DB seed: 5 slots (incl. 2 fresh AVAILABLE for the live dialog walkthrough) + REQUESTED BK-1001", async () => {
     const slots = await getWorkerSlots(khaled().id);
-    expect(slots).toHaveLength(3);
-    expect(slots.map((s) => s.status)).toEqual(["available", "reserved", "blocked"]);
+    expect(slots).toHaveLength(5);
+    expect(slots.map((s) => s.status)).toEqual(["available", "reserved", "blocked", "available", "available"]);
+    expect(slots.map((s) => s.id)).toContain("slot-khaled-plus3");
+    expect(slots.map((s) => s.id)).toContain("slot-khaled-plus5");
     expect(slots[1]?.bookingId).toBe("bk-1001");
 
     const bookings = await getWorkerBookings(khaled().id);
