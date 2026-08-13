@@ -817,6 +817,11 @@ export const en = {
     slaWorkerNote: "Auto-cancels in {hours}h without a response",
     slaWorkerNudged: "Nudge sent · auto-cancels in {hours}h",
     slaWorkerSoon: "Auto-cancels soon — respond now to keep the slot",
+    slaDialogTitle: "Request auto-expiry",
+    slaDialogBody: "If the worker doesn't respond within {hours} hours, the request auto-cancels and the slot is freed — you'll be notified either way.",
+    slaAdminNote: "Request auto-cancels in {hours}h without a worker response",
+    slaAdminNudged: "Nudge sent · auto-cancels in {hours}h",
+    slaAdminSoon: "Auto-cancels soon — worker must respond to keep the slot",
     cancelSuccess: "Booking cancelled",
     // M4 cancellation-policy disclosure (BOOKING_CANCEL_REFUND_WINDOW_MS) —
     // shown at booking time and wherever a deposit is at stake. The {hours}

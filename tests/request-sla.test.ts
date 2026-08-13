@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   demoAddSlot,
   demoCreateBookingRequest,
+  demoGetBookingByNumber,
   demoGetWorkerBookings,
   demoGetWorkerSlots,
   demoRunRequestSla,
@@ -149,6 +150,13 @@ describe("Request SLA — demo engine", () => {
     expect((await demoGetWorkerBookings(khaled().id)).find((b) => b.id === booking.id)?.slaNudgeSent).toBe(true);
     // The nudge never flipped the request — still requested.
     expect(booking.status).toBe("requested");
+  });
+
+  it("the single-booking read (dispute view) stamps slaNudgeSent too (§2.2 surface)", async () => {
+    const booking = await staleRequest((BOOKING_SLA_NUDGE_HOURS + 1) * HOUR);
+    expect((await demoGetBookingByNumber(booking.number))?.slaNudgeSent).toBeUndefined();
+    await demoRunRequestSla(NOW);
+    expect((await demoGetBookingByNumber(booking.number))?.slaNudgeSent).toBe(true);
   });
 
   it("is idempotent — a second pass re-nudges nothing and expires nothing", async () => {

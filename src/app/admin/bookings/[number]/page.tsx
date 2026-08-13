@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CalendarClock, Repeat, ScrollText, ShieldAlert } from "lucide-react";
+import { ArrowLeft, CalendarClock, Hourglass, Repeat, ScrollText, ShieldAlert } from "lucide-react";
 import { getSession } from "@/lib/auth-demo";
 import { getI18n } from "@/lib/i18n/server";
 import { getBookingByNumber, getRecurringById, getWorkerById } from "@/lib/data/repo";
@@ -8,6 +8,7 @@ import { formatSlotRange } from "@/lib/data/booking-ui";
 import { customerEmailKind, bookingNotification } from "@/lib/data/booking-notifications";
 import { renderBookingEmail } from "@/lib/notifications/templates";
 import type { ChannelPayload } from "@/lib/notifications/types";
+import { requestSlaExpiryMs } from "@/lib/data/types";
 import type { Notification } from "@/lib/data/types";
 import { timeAgo } from "@/lib/utils";
 import { BookingStatusBadge } from "@/components/bookings/booking-status-badge";
@@ -120,6 +121,29 @@ export default async function AdminBookingDisputePage({
           />
         )}
       </div>
+
+      {/* §2.2 request SLA — an unanswered REQUESTED booking auto-cancels
+          (slot freed) after BOOKING_SLA_EXPIRE_HOURS. The countdown comes from
+          the shared requestSlaExpiryMs (same window the cron enforces) and the
+          nudge state from Booking.slaNudgeSent (demo + prisma both stamp it),
+          so the dispute view reads the same clock the worker and customer see. */}
+      {booking.status === "requested" &&
+        (() => {
+          const hoursLeft = Math.ceil((requestSlaExpiryMs(booking) - Date.now()) / 3_600_000);
+          const copy = booking.slaNudgeSent
+            ? hoursLeft >= 1
+              ? t("booking.slaAdminNudged")
+              : t("booking.slaAdminSoon")
+            : hoursLeft >= 1
+              ? t("booking.slaAdminNote")
+              : t("booking.slaAdminSoon");
+          return (
+            <p className="mt-4 flex items-start gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+              <Hourglass className="mt-px size-3.5 shrink-0" />
+              <span>{copy.replace("{hours}", String(hoursLeft))}</span>
+            </p>
+          );
+        })()}
 
       {recurring && (
         <Card className="mt-8 border-brand-500/30 bg-brand-500/[0.03]">

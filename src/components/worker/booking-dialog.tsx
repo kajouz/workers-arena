@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Send, ShieldCheck, TriangleAlert } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Hourglass, Loader2, Send, ShieldCheck, TriangleAlert } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { SlotPicker } from "./slot-picker";
 import { requestBookingAction, requestRecurringBookingAction } from "@/app/actions/bookings";
 import { cn } from "@/lib/utils";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
-import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
+import { BOOKING_CANCEL_REFUND_WINDOW_MS, BOOKING_SLA_EXPIRE_HOURS } from "@/lib/data/types";
 import type { BookingSlot, RecurringFrequency, Worker } from "@/lib/data/types";
 
 /** Repeat options shown in the details step (§7 #1 — recurring bookings). */
@@ -296,6 +296,23 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                     <p className="text-xs font-black text-ink-900 dark:text-ink-50">{t("booking.cancelPolicyTitle")}</p>
                     <p className="mt-0.5 text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
                       {t("booking.cancelPolicyBody").replace(/\{hours\}/g, String(BOOKING_CANCEL_REFUND_WINDOW_MS / 3_600_000))}
+                    </p>
+                  </div>
+                </div>
+
+                {/* §2.2 request SLA — disclosed before the request is sent so the
+                    customer knows the request has a clock: auto-cancels (slot
+                    freed) after BOOKING_SLA_EXPIRE_HOURS if unanswered, and they
+                    get a notification either way. Static policy copy, not a
+                    countdown — there is no booking row (hence no expiry timestamp)
+                    until the request is submitted, and the {hours} placeholder is
+                    interpolated from the same constant the cron enforces. */}
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                  <Hourglass className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                  <div>
+                    <p className="text-xs font-black text-ink-900 dark:text-ink-50">{t("booking.slaDialogTitle")}</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
+                      {t("booking.slaDialogBody").replace(/\{hours\}/g, String(BOOKING_SLA_EXPIRE_HOURS))}
                     </p>
                   </div>
                 </div>

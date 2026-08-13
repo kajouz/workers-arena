@@ -514,7 +514,8 @@ export function demoGetPendingPayouts(): LedgerEntry[] {
  * booking entries deep-link to.
  */
 export function demoGetBookingByNumber(number: string): Booking | null {
-  return STORE.bookings.find((b) => b.number === number) ?? null;
+  const b = STORE.bookings.find((x) => x.number === number) ?? null;
+  return b ? withSlaSignal(b) : null;
 }
 
 /** A customer's bookings, matched by email or normalized phone. */

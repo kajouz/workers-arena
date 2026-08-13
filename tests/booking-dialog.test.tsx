@@ -114,16 +114,26 @@ describe("BookingDialog step flow", () => {
       screen.getByText(/more than 24 hours before the start, you get a full refund/)
     ).toBeInTheDocument();
     expect(screen.getByText(/within 24 hours the deposit is kept/)).toBeInTheDocument();
+
+    // …and the §2.2 request-SLA disclosure shows the expire window constant
+    // interpolated (BOOKING_SLA_EXPIRE_HOURS → 48), the same window the cron
+    // enforces — no countdown here, because no booking row exists yet.
+    expect(screen.getByText("Request auto-expiry")).toBeInTheDocument();
+    expect(
+      screen.getByText(/If the worker doesn't respond within 48 hours, the request auto-cancels/)
+    ).toBeInTheDocument();
   });
 
   it("does not show the cancellation policy before the details step", () => {
     renderDialog();
     openDialog();
 
-    // On the service step the disclosure must be absent — it only appears on
+    // On the service step the disclosures must be absent — they only appear on
     // the final step, right before the request is sent.
     expect(screen.queryByText("Cancellation & refunds")).not.toBeInTheDocument();
     expect(screen.queryByText(/more than 24 hours/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Request auto-expiry")).not.toBeInTheDocument();
+    expect(screen.queryByText(/respond within 48 hours/)).not.toBeInTheDocument();
   });
 
   it("shows the fee-waiver note on the details step for an Enterprise worker", () => {
@@ -142,5 +152,6 @@ describe("BookingDialog step flow", () => {
     // SAME copy (booking.feeWaivedNote) the booking row shows afterwards.
     expect(screen.getByText("Fee waived by the worker's plan")).toBeInTheDocument();
     expect(screen.getByText("Cancellation & refunds")).toBeInTheDocument();
+    expect(screen.getByText("Request auto-expiry")).toBeInTheDocument();
   });
 });
