@@ -1,0 +1,993 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// WorkersArena — PostgreSQL schema (Prisma ORM)
+//
+// Design notes:
+//  • Multilingual content stored as paired *_en / *_ar columns (Arabic RTL).
+//  • Soft-delete via isActive + deletedAt where useful.
+//  • All monetary amounts stored in minor units as Int (no floats).
+//  • JSON columns for flexible structures (socials, working hours, ad targets).
+//  • Every mutation-friendly table has createdAt/updatedAt for audit trail;
+//    sensitive mutations are additionally logged to ActivityLog.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────── Enums ───────────────────────────────
+
+enum Role {
+  CUSTOMER
+  WORKER
+  COMPANY
+  ADMIN
+}
+
+enum WorkerStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  INACTIVE // subscription expired or suspended
+  BLOCKED
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PROFESSIONAL
+  PREMIUM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  CANCELED
+}
+
+enum PaymentMethod {
+  STRIPE
+  PAYPAL
+  MYFATOORAH
+  TAP
+  BANK_TRANSFER
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum AdType {
+  BANNER
+  SLIDER
+  FEATURED_CARD
+  SPONSORED_SEARCH
+  SPONSORED_CATEGORY
+  POPUP
+  NATIVE
+  VIDEO
+}
+
+enum AdStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  ENDED
+  REJECTED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  WHATSAPP
+  IN_APP
+}
+
+enum NotificationType {
+  LEAD
+  REVIEW
+  SUBSCRIPTION_REMINDER
+  SUBSCRIPTION_EXPIRED
+  VERIFICATION
+  PAYMENT
+  ADMIN_ALERT
+  PROMO
+  SYSTEM
+  BOOKING_REQUEST
+  BOOKING_CONFIRMED
+  BOOKING_DECLINED
+  BOOKING_CANCELLED
+  BOOKING_REMINDER
+  BOOKING_COMPLETED
+  BOOKING_PAID
+  BOOKING_RESCHEDULED
+  BOOKING_REFUND
+  CAMPAIGN_REFUNDED
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum BookingStatus {
+  REQUESTED
+  PENDING_PAYMENT
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DECLINED
+  NO_SHOW
+  RESCHEDULED // audit-event only: the booking moved to a new slot (M4)
+}
+
+enum SlotStatus {
+  AVAILABLE
+  RESERVED
+  BOOKED
+  BLOCKED
+}
+
+enum LedgerKind {
+  EARNING
+  WITHDRAWAL
+  ADJUSTMENT
+}
+
+enum LedgerStatus {
+  POSTED
+  PENDING
+  PROCESSED
+  REJECTED
+}
+
+// ─────────────────────────────── Auth ───────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String? // null when OAuth-only
+  phone         String?
+  role          Role      @default(CUSTOMER)
+  locale        String    @default("en") // "en" | "ar"
+  image         String? // avatar URL (Cloudinary)
+  hue           Int       @default(0) // deterministic gradient avatar
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  worker        Worker?
+  company       Company?
+  accounts      Account[]
+  sessions      Session[]
+  reviewsGiven  Review[]
+  favorites     Favorite[]
+  notifications Notification[]
+  pushSubscriptions PushSubscription[]
+  leads         Lead[]
+  searches      SearchLog[]
+  tickets       Ticket[]
+  referrals    Referral[]    @relation("Referrer")
+  referralCode  String?      @unique
+  invoices      Invoice[]
+  payments      Payment[]
+  activityLogs  ActivityLog[]
+  bookings      Booking[] // customer-side bookings
+
+  @@index([role])
+  @@index([email])
+}
+
+// NextAuth.js (Auth.js v5) tables
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────── Catalog ───────────────────────────────
+
+model Category {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  nameEn      String
+  nameAr      String
+  icon        String // lucide icon name
+  taglineEn   String?
+  taglineAr   String?
+  hue         Int       @default(0)
+  parentId    String?
+  parent      Category? @relation("Subcategories", fields: [parentId], references: [id])
+  children    Category[] @relation("Subcategories")
+  sortOrder   Int       @default(0)
+  isFeatured  Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workers      Worker[]
+  adTargets    Advertisement[]
+  blogPosts    BlogPost[]
+
+  @@index([parentId])
+}
+
+model City {
+  id        String  @id @default(cuid())
+  slug      String  @unique
+  nameEn    String
+  nameAr    String
+  countryEn String
+  countryAr String
+  currency  String  @default("SAR")
+  lat       Float
+  lng       Float
+  isActive  Boolean @default(true)
+
+  areas   Area[]
+  workers Worker[]
+  adTargets Advertisement[]
+}
+
+model Area {
+  id     String @id @default(cuid())
+  slug   String
+  nameEn String
+  nameAr String
+  cityId String
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  workers Worker[]
+
+  @@unique([cityId, slug])
+  @@index([cityId])
+}
+
+// ─────────────────────────────── Workers ───────────────────────────────
+
+model Worker {
+  id           String   @id @default(cuid())
+  userId       String?  @unique // null for admin-imported workers
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  slug         String   @unique
+  nameEn       String
+  nameAr       String
+  taglineEn    String?
+  taglineAr    String?
+  bioEn        String?  @db.Text
+  bioAr        String?  @db.Text
+
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id])
+  cityId       String
+  city         City     @relation(fields: [cityId], references: [id])
+  areaId       String
+  area         Area     @relation(fields: [areaId], references: [id])
+
+  lat          Float?
+  lng          Float?
+
+  phone        String
+  whatsapp     String?
+  email        String?
+  website      String?
+  socials      Json? // [{ platform, url }]
+
+  priceMin     Int      @default(0) // minor units of city currency
+  priceMax     Int      @default(0)
+  hourlyRate   Int?
+  yearsExp     Int      @default(0)
+  languages    Json? // [{ code, nameEn, nameAr }]
+
+  rating       Float    @default(0)
+  reviewCount  Int      @default(0)
+  viewCount    Int      @default(0)
+  leadCount    Int      @default(0)
+
+  verified     Boolean  @default(false)
+  premium      Boolean  @default(false)
+  emergency    Boolean  @default(false)
+  available    Boolean  @default(true)
+  hue          Int      @default(0)
+  completion   Int      @default(0) // profile completion %
+
+  status       WorkerStatus @default(PENDING_VERIFICATION)
+  isFeatured   Boolean  @default(false)
+  verifiedAt   DateTime?
+  joinedAt     DateTime @default(now())
+  deletedAt    DateTime?
+
+  subscription Subscription?
+  services     ServiceItem[]
+  certifications Certification[]
+  portfolio    PortfolioItem[]
+  hours        WorkingHour[]
+  reviews      Review[]
+  favorites    Favorite[]
+  ledger       WorkerLedgerEntry[]
+  leads        Lead[]
+  views        WorkerView[]
+  slots        BookingSlot[]
+  bookings     Booking[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([categoryId, cityId])
+  @@index([status, verified])
+  @@index([rating(sort: Desc)])
+  @@index([slug])
+}
+
+model ServiceItem {
+  id          String @id @default(cuid())
+  workerId    String
+  worker      Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  nameEn      String
+  nameAr      String
+  descriptionEn String?
+  descriptionAr String?
+  price       Int // minor units
+  unit        String @default("job") // "hour" | "job"
+  durationMin Int?
+  sortOrder   Int    @default(0)
+
+  bookings Booking[]
+
+  @@index([workerId])
+}
+
+model WorkingHour {
+  id       String @id @default(cuid())
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  day      Int // 0 = Sunday … 6 = Saturday
+  open     String // "08:00"
+  close    String // "18:00"
+  closed   Boolean @default(false)
+
+  @@unique([workerId, day])
+}
+
+model Certification {
+  id        String @id @default(cuid())
+  workerId  String
+  worker    Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  nameEn    String
+  nameAr    String
+  issuerEn  String?
+  issuerAr  String?
+  year      Int?
+  fileUrl   String? // Cloudinary PDF/image
+  verified  Boolean @default(false)
+
+  @@index([workerId])
+}
+
+model PortfolioItem {
+  id          String @id @default(cuid())
+  workerId    String
+  worker      Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  titleEn     String
+  titleAr     String
+  descriptionEn String?
+  descriptionAr String?
+  imageUrl    String // Cloudinary
+  category    String?
+  tags        String[] @default([])
+  sortOrder   Int     @default(0)
+
+  @@index([workerId])
+}
+
+model WorkerView {
+  id        String   @id @default(cuid())
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  userId    String?
+  sessionId String?
+  referrer  String?
+  country   String?
+  createdAt DateTime @default(now())
+
+  @@index([workerId, createdAt])
+}
+
+// ─────────────────────────────── Reviews ───────────────────────────────
+
+model Review {
+  id               String       @id @default(cuid())
+  workerId         String
+  worker           Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  authorId         String
+  author           User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  rating           Int
+  title            String?
+  textEn           String?      @db.Text
+  textAr           String?      @db.Text
+  status           ReviewStatus @default(PENDING)
+  verifiedPurchase Boolean      @default(false)
+  helpfulCount     Int          @default(0)
+  aiFlags          Json? // spam/fake-detection signals from the AI moderation pipeline
+  moderatedById    String?
+  moderatedAt      DateTime?
+  createdAt        DateTime     @default(now())
+
+  @@unique([workerId, authorId])
+  @@index([workerId, status])
+  @@index([authorId])
+}
+
+// ─────────────────────────────── Favorites / Leads ───────────────────────────────
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, workerId])
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  email     String?
+  phone     String?
+  message   String?  @db.Text
+  source    String   @default("profile") // profile | search | whatsapp | ad
+  status    String   @default("new") // new | contacted | won | lost
+  createdAt DateTime @default(now())
+
+  bookings Booking[] // a lead can convert into a booking
+
+  @@index([workerId, createdAt])
+  @@index([status])
+}
+
+// ─────────────────────────────── Subscriptions & Billing ───────────────────────────────
+
+model Subscription {
+  id            String             @id @default(cuid())
+  workerId      String             @unique
+  worker        Worker             @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  plan          SubscriptionPlan
+  status        SubscriptionStatus @default(ACTIVE)
+  price         Int // minor units per period
+  currency      String             @default("USD")
+  periodDays    Int                @default(30)
+  autoRenew     Boolean            @default(true)
+  startedAt     DateTime
+  expiresAt     DateTime
+  canceledAt    DateTime?
+  lastReminderSent Int             @default(0) // 0=none, 1=7d, 2=3d, 3=1d, 4=expired
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  payments Payment[]
+
+  @@index([status, expiresAt])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  userId         String? // null for guest (phone-keyed) bookings — see Booking.customerId
+  user           User?         @relation(fields: [userId], references: [id])
+  workerId       String?
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  companyId      String?
+  advertisementId String?
+  amount         Int // minor units
+  currency       String        @default("USD")
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  providerRef    String? // Stripe pi_xxx / PayPal tx / MyFatoorah id / Tap ref
+  refundRef      String? // provider's refund id (worker-cancel deposit refund)
+  metadata       Json?
+  paidAt         DateTime?
+  refundedAt     DateTime?
+  createdAt      DateTime      @default(now())
+
+  invoice Invoice?
+  booking Booking? // deposit/quote payment for a booking
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([method])
+}
+
+model Invoice {
+  id        String        @id @default(cuid())
+  number    String        @unique
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  paymentId String?       @unique
+  payment   Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  amount    Int // minor units
+  currency  String        @default("USD")
+  status    InvoiceStatus @default(DRAFT)
+  items     Json? // [{ description, qty, unitPrice }]
+  dueAt     DateTime?
+  paidAt    DateTime?
+  pdfUrl    String?
+  createdAt DateTime      @default(now())
+
+  @@index([userId, status])
+  @@index([number])
+}
+
+// ─────────────────────────────── Companies & Ads ───────────────────────────────
+
+model Company {
+  id        String  @id @default(cuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nameEn    String
+  nameAr    String
+  slug      String  @unique
+  logoUrl   String?
+  website   String?
+  phone     String?
+  verified  Boolean @default(false)
+  balance   Int     @default(0) // minor units, pre-paid ad credit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ads         Advertisement[]
+  campaigns   AdCampaign[]
+}
+
+model AdCampaign {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  nameEn      String
+  nameAr      String
+  objective   String? // brand | leads | sales
+  budget      Int // minor units
+  spent       Int      @default(0)
+  currency    String   @default("USD")
+  startsAt    DateTime
+  endsAt      DateTime
+  status      AdStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ads Advertisement[]
+
+  @@index([companyId, status])
+}
+
+model Advertisement {
+  id             String    @id @default(cuid())
+  campaignId     String?
+  campaign       AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type           AdType
+  status         AdStatus  @default(PENDING)
+  titleEn        String
+  titleAr        String
+  imageUrl       String?
+  videoUrl       String?
+  targetUrl      String
+  categoryId     String?
+  category       Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  cityId         String?
+  city           City?     @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  placement      String    @default("homepage") // homepage | category | search | sidebar | footer | featured
+  price          Int // minor units
+  currency       String    @default("USD")
+  rotation       Int       @default(1) // 1 = always, N = 1/N impressions
+  impressions    Int       @default(0)
+  clicks         Int       @default(0)
+  ctr            Float     @default(0)
+  maxImpressions Int?
+  maxClicks      Int?
+  startsAt       DateTime
+  endsAt         DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, type, placement])
+  @@index([categoryId, cityId])
+  @@index([companyId])
+}
+
+// ─────────────────────────────── Notifications & Support ───────────────────────────────
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  channel   NotificationChannel @default(IN_APP)
+  titleEn   String
+  titleAr   String
+  bodyEn    String?
+  bodyAr    String?
+  data      Json?
+  isRead    Boolean            @default(false)
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  @@index([userId, isRead])
+  @@index([type])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique // one row per browser subscription (dedupes re-registrations)
+  p256dh    String
+  auth      String
+  // Owner identity. Two stamps — only one is populated at a time:
+  //   • ownerId — demo/dev: plain string stamped with the cookie-session id
+  //     (u-worker, u-admin, …). NO FK by design, because demo sessions have no
+  //     user row and writing them into a foreign key would violate integrity.
+  //   • userId  — production: FK to the real User row once NextAuth is wired
+  //     (see docs/ARCHITECTURE.md → Push subscriptions for the swap steps).
+  //     ON DELETE CASCADE: deleting a user removes their subscriptions.
+  ownerId   String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Friendly device label (e.g. "Chrome 126 · macOS") captured from the
+  // registering client's User-Agent — surfaced in the admin subscription view.
+  device    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([userId])
+}
+
+model SearchLog {
+  id         String   @id @default(cuid())
+  query      String
+  locale     String   @default("en")
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  filters    Json?
+  resultsCount Int    @default(0)
+  tookMs     Int?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([query])
+}
+
+// ─────────────────────────────── Analytics & Audit ───────────────────────────────
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  type       String // page_view | profile_view | lead_created | ad_impression | ad_click | conversion
+  entityType String? // worker | company | ad | category
+  entityId   String?
+  meta       Json?
+  sessionId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([entityType, entityId])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  // Real user id of the acting admin (FK to User.id, ON DELETE SET NULL — an
+  // audit row survives the actor's deletion, the reference just clears). Null
+  // for system events (push prunes, cron, …). The display name round-trips
+  // through meta.actor (see src/lib/data/activity.ts → rowToActivityEntry).
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorRole Role?
+  action    String // structured ACTION_CODES value, e.g. "WORKER_VERIFIED"
+  entity    String?
+  entityId  String?
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([action])
+}
+
+// ─────────────────────────────── Content & Misc ───────────────────────────────
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  titleEn     String
+  titleAr     String
+  excerptEn   String?
+  excerptAr   String?
+  bodyEn      String   @db.Text
+  bodyAr      String   @db.Text
+  coverUrl    String?
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tags        String[] @default([])
+  isPublished Boolean  @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isPublished, publishedAt])
+}
+
+model HelpArticle {
+  id        String @id @default(cuid())
+  slug      String @unique
+  titleEn   String
+  titleAr   String
+  bodyEn    String @db.Text
+  bodyAr    String @db.Text
+  category  String
+  sortOrder Int    @default(0)
+  isActive  Boolean @default(true)
+}
+
+model Ticket {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  status    TicketStatus @default(OPEN)
+  priority  String       @default("normal")
+  messages  Json? // [{ authorId, text, createdAt }]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([userId, status])
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  url       String // Cloudinary secure_url
+  publicId  String?
+  provider  String   @default("cloudinary")
+  mimeType  String?
+  altEn     String?
+  altAr     String?
+  ownerType String // worker | company | blog | review
+  ownerId   String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([ownerType, ownerId])
+}
+
+model Referral {
+  id           String   @id @default(cuid())
+  referrerId   String
+  referrer     User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  code         String   @unique
+  clicks       Int      @default(0)
+  signups      Int      @default(0)
+  conversions  Int      @default(0)
+  reward       Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([referrerId])
+}
+
+model PromoCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  description String?
+  discountPct Int       @default(0)
+  discountFixed Int? // minor units
+  maxUses     Int?
+  usedCount   Int       @default(0)
+  appliesTo   String    @default("subscription") // subscription | ad
+  startsAt    DateTime?
+  endsAt      DateTime?
+  isActive    Boolean   @default(true)
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model Language {
+  id        String  @id @default(cuid())
+  code      String  @unique // "en" | "ar"
+  nameEn    String
+  nameAr    String
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+}
+
+// ─────────────────────────────── Bookings & scheduling ───────────────────────────────
+// See docs/booking-scheduling.md — P1 #1. Design: concrete calendared slots
+// (generated from the worker's weekly WorkingHour template) + a booking
+// request lifecycle with an append-only event trail.
+
+/// A concrete, calendared time range (UTC). Generated from the worker's
+/// weekly WorkingHour template, with per-slot overrides. The exact
+/// (workerId, startAt) uniqueness guards double-booking; overlapping-range
+/// checks live in the service layer.
+model BookingSlot {
+  id        String     @id @default(cuid())
+  workerId  String
+  worker    Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  startAt   DateTime
+  endAt     DateTime
+  status    SlotStatus @default(AVAILABLE)
+  note      String? // worker-visible note (e.g. "site visit", "off day")
+  bookingId String?   @unique // the Booking that claims this slot
+  booking   Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@unique([workerId, startAt])
+  @@index([workerId, status, startAt])
+}
+
+/// A booking request + its lifecycle. Numbered for humans ("BK-1049"),
+/// money in minor units (schema convention), optional tie to a Lead and a
+/// Payment (deposit/quote), and a full event trail for disputes.
+model Booking {
+  id            String        @id @default(cuid())
+  number        String        @unique
+  workerId      String
+  worker        Worker        @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  customerId    String? // null for guest requests
+  customer      User?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  leadId        String? // converted from a contact lead, if any
+  lead          Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  slot          BookingSlot? // back-relation — the FK lives on BookingSlot.bookingId
+  serviceItemId String?
+  serviceItem   ServiceItem?  @relation(fields: [serviceItemId], references: [id], onDelete: SetNull)
+
+  customerName  String
+  customerPhone String
+  customerEmail String?
+  jobTitle      String // free-text description (user-generated, not bilingual)
+  note          String? @db.Text
+
+  startAt       DateTime
+  endAt         DateTime
+  status        BookingStatus @default(REQUESTED)
+
+  quote         Int? // minor units — worker's price for this job
+  deposit       Int? // minor units — required upfront when set
+  // M5 take rate (docs/booking-take-rate.md) — the platform-fee snapshot at
+  // accept-with-quote (minor units). Null until a quoted accept; NEVER
+  // recomputed from a later rate change. Exempt plans store 0 + the rate.
+  platformFee      Int?
+  platformFeeRateBps Int?
+  currency      String @default("USD")
+
+  // Idempotency marker for the "job starts tomorrow" reminder (same pattern
+  // as Subscription.lastReminderSent): null = never sent; the cron engine
+  // stamps it once per booking so a re-run can never double-send.
+  lastReminderSent DateTime?
+
+  paymentId     String?       @unique
+  payment       Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  cancelReason   String?
+  cancelledBy    String? // "customer" | "worker" | "system"
+  declinedReason String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  events BookingEvent[]
+  ledger        WorkerLedgerEntry[]
+
+  @@index([workerId, status, startAt])
+  @@index([customerId, status])
+}
+
+/// Append-only audit trail per booking — who changed what and why. Feeds
+/// dispute lookup and the admin activity feed (mirrors ActivityLog style).
+model BookingEvent {
+  id        String   @id @default(cuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  status    BookingStatus
+  actorType String // "customer" | "worker" | "system" | "admin"
+  actorId   String?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([bookingId, createdAt])
+}
+
+/// Worker earnings ledger (docs/payouts.md) — the single source of truth for
+/// a worker's withdrawable balance. EARNING/ADJUSTMENT entries post
+/// immediately (status POSTED); WITHDRAWAL starts PENDING (reserves its
+/// amount — excluded from the available balance), becomes PROCESSED on admin
+/// approval (now a debit) or REJECTED (never counts). `amount` is SIGNED
+/// minor units (earnings +, withdrawals/adjustments −); `balanceAfter`
+/// snapshots the running balance for audit. Balance = Σ amount where status
+/// IN (POSTED, PROCESSED).
+model WorkerLedgerEntry {
+  id           String       @id @default(cuid())
+  workerId     String
+  worker       Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  bookingId    String?
+  booking      Booking?     @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  kind         LedgerKind
+  status       LedgerStatus
+  amount       Int // signed minor units: earnings +, withdrawals/adjustments −
+  balanceAfter Int
+  currency     String       @default("USD")
+  reason       String?
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@unique([bookingId]) // EARNING rows only — one credit per completed booking
+  @@index([workerId, createdAt])
+  @@index([status])
+}

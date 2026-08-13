@@ -1,0 +1,46 @@
+# WorkersArena local stack
+#   docker compose up -d postgres
+#   npm run db:push && npm run db:seed
+#   npm run dev            (demo mode, no DB required)
+#
+# Production: docker compose up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: workersarena-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: workersarena
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # redis:  # cache + rate limiting (production)
+  #   image: redis:7-alpine
+  #   container_name: workersarena-redis
+  #   ports:
+  #     - "6379:6379"
+
+  app:
+    build: .
+    container_name: workersarena-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/workersarena?schema=public
+      DEMO_MODE: "false"
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

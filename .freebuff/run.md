@@ -1,0 +1,51 @@
+# Preview run doc — WorkersArena
+
+## Reproduce the uncommitted artifacts
+
+- This thread's workspace **is** the main checkout (`/Users/ka/Documents/WorkersArena-freebuff`), so there is no separate worktree to copy from.
+- `.env.local` does not exist; the app reads **`.env`** (already present, gitignored). On a fresh checkout, copy `.env` from a working checkout — it must include at least `DEMO_MODE="true"`, `NEXT_PUBLIC_APP_URL`, `AUTH_SECRET`, and (for real Web Push) the `VAPID_*` keys. Never commit `.env`.
+- Demo runtime stores (admin activity feed, push subscriptions) default to gitignored `.data/` files in demo mode.
+- Install dependencies: `npm install` (Next 16 / Turbopack).
+
+## Run the dev server (demo preview, port 3001)
+
+- From the project root: `npx next dev -p 3001` (i.e. `npm run dev`). `DEMO_MODE=true` is read from `.env`.
+- Wait for `✓ Ready` and HTTP 200 on `http://localhost:3001/` before registering the preview.
+- The app is bilingual — the header menu switches EN↔AR (cookie `wa_locale`, SSR `dir`/`lang`), and the theme toggle persists via the `wa_theme` cookie.
+- Demo accounts are set via the `wa_session` cookie (JSON): admin (Platform Admin), worker (Khaled Al-Harbi), company (BuildCo Ltd).
+- Server log: `.freebuff/preview-<thread>.log`.
+
+## Run the dev server (real mode, port 3001, Postgres-backed)
+
+- Real mode flips the repo to Prisma and auth to Auth.js. Requires `DATABASE_URL` (Postgres, migrated + seeded via `npm run db:seed`), a real `AUTH_SECRET`, and `AUTH_URL=http://localhost:3001` — all already in `.env`. The env override MUST be passed on the command line because `.env` sets `DEMO_MODE="true"`:
+  ```bash
+  DEMO_MODE=false npx next dev -p 3001
+  ```
+- The tool shell kills background children, so start it detached: `DEMO_MODE=false node .freebuff/daemonize.mjs npx next dev -p 3001` (double-fork launcher in this dir), log at `.freebuff/real-mode-3001.log`.
+- ⚠️ **Restart after seam changes:** after landing new exports in `src/lib/data/prisma-repo.ts` (or any module loaded via the lazy `import()` in `repo.ts`), the real-mode dev server MUST be restarted. Turbopack keeps stale dynamic-import chunks in `.next/`, so the UI 500s with `TypeError: X is not a function` even though typecheck and `db:smoke` pass — restart with the same `DEMO_MODE=false` command above (delete `.next/dev` + `.next/cache` first if disk space is tight; the server recreates them on boot).
+- Sign-in uses the seeded users (prisma/seed.ts) with password `Password123!`: `sara@example.com` (customer), `khaled@plumbfix.sa` (worker), `ads@buildco.sa` (company), `admin@workersarena.com` (admin). The demo one-click role buttons also work (they call the real credentials path).
+- Booking slots for Khaled (`khaled-al-harbi-plumbing`) are seeded: tomorrow 09:00 AVAILABLE, 10:00 RESERVED (BK-1001), 14:00 BLOCKED. The M2 availability editor (generate/block) warns + no-ops in real mode until its Prisma wave lands.
+- Sanity: `npm run db:smoke` exercises the W2 booking transaction against the live DB (create → RESERVED, double-book rejected, overlap guard, accept → BOOKED, cleanup) — plus M4's booking lifecycle activity-feed logging (REQUESTED/CONFIRMED/CANCELLED with the booking number, the dispute-view deep link) and the admin funnel; and the W2 campaign purchase circle (prismaCreateCampaign → confirm → refund: campaign ENDED, payment REFUNDED, minted invoice VOID, company notifications + rendered refund email, feed entry). It requires the seed's BuildCo Ltd Company row (re-run `npm run db:seed` after pulling that seed change). On exit it restores the seed exactly, including an ActivityLog orphan sweep (any BOOKING_* feed entry whose booking number no longer resolves is removed) so the live admin feed never accumulates smoke entries.
+- ⚠️ **Run live-DB suites serially:** `npm run db:smoke` and the vitest prisma chain tests (`tests/booking-email-chain-prisma.test.ts`, `tests/campaign-email-chain-prisma.test.ts`) all mutate the same `DATABASE_URL` and must never run concurrently (each assumes the DB is in the seed state). Parallel runs interleave count-derived booking numbers and slot claims → spurious `Unique constraint failed on (number)` / `slot-taken` failures. If that happens, re-run `npm run db:smoke` once alone — its self-heal sweeps every leftover test booking (`smoke@`/`reminder@`/`ops@`/`deposit@`/`reschedule@`/`depositu@`/`activity@`) and restores the seed — then the chain test passes alone again.
+- **E2E pre-run check:** `tests/e2e-smoke.test.ts` rejects fast (before spawning anything) if a crashed run left artifacts — the doubled-path tree (`<root>/Users` or `<root>/home`, the 43G disk-filler from an absolute `NEXT_DIST_DIR`), leftover `.data/.next-e2e-*` isolated dist dirs (incl. the `dev/dev`·`prod/prod` doubling signature), stale `.data/.next-e2e` entries in `tsconfig.json`'s include array, or free disk below the **5 GiB floor** (`E2E_MIN_FREE_GB` overrides, `0` disables — a near-full disk is caught before the build starts, not mid-write). Set **`E2E_AUTOCLEAN=1`** to have the check print and then remove the crash artifacts itself (leftover dist dirs, the doubled tree, stale include lines — which are now dropped cleanly, restoring strict JSON) instead of rejecting, then re-check the workspace and log a **freed-space summary tied to the artifacts** ("autoclean removed 1 dir + 1 stale tsconfig line, freed 0.020 GiB (47.50 → 47.52 GiB free)") plus a parseable `E2E_AUTOCLEAN_RESULT=<freed>|<before>|<after>|<dirs>|<tsconfig lines>` GiB line so CI shows exactly what was recovered; the disk floor still rejects when nothing can free space. Unit-tested in `tests/e2e-smoke.test.ts` (`assertCleanWorkspace` describe). If a run refuses, delete the named paths (`rm -rf "<path>"` — build artifacts, not source); the teardown is now finally-like (allSettled cleanup + guaranteed tsconfig restore) with a process-exit/SIGINT/SIGTERM guard (shared `tests/helpers/signal-guard.mjs`) so even a hard kill restores `tsconfig.json` — covered by the `assertCleanWorkspace` unit tests in the same file and `tests/signal-guard.test.ts`, which spawns a real child, SIGTERMs it, and proves the file is restored before exit (both run without Chrome). The structured `E2E_AUTOCLEAN_RESULT` line is emitted on **every** autoclean run — even when freed is `0.000` (empty-dir or tsconfig-only fixes) — so CI dashboards always see a record per run and can distinguish "cleaned nothing" from "no autoclean ran".
+
+## CI — test script ladder (timeout budgets for pipeline planning)
+
+Measured on the dev machine, Aug 2026 (local wall time; CI budgets are safe ceilings — double them on 2-core runners):
+
+| Stage | Command | Local | CI budget |
+|---|---|---|---|
+| Typecheck | `npm run typecheck` | ~2s | 30s |
+| Unit suite (no browser, no DB) | `npx vitest run --exclude tests/e2e-smoke.test.ts` | ~5s · 417 tests / 25 files | 1 min |
+| E2E quick — dev matrix | `npm run test:e2e:quick` | ~77s · 18 tests | 4 min |
+| E2E full — dev + prod matrix | `npm run test:e2e` | ~137s · 20 tests (prod `next build`+`next start` ≈ 62s) | 8 min |
+| Everything serial | `npm run test:all` | typecheck + unit + E2E full | 10 min |
+| Self-healing E2E | `npm run test:e2e:autoclean` | E2E + ~5s | stage + 1 min |
+| Live-DB smoke | `npm run db:smoke` | ~30s | 2 min |
+
+Sharding guidance for parallel pipelines:
+
+- **Parallel shards need separate checkouts.** The E2E rewrites `tsconfig.json`'s include array for the duration of its run (isolated dist-types paths, restored in `afterAll`) and boots servers on dynamic free ports with pid-scoped `.data/.next-e2e-*` dist dirs. A concurrent typecheck/unit run in the same checkout reads the transient tsconfig rewrite, and a crash mid-run is exactly the artifact situation the pre-run check exists for. Give each parallel shard its own worktree.
+- **Never run the live-DB suites concurrently** — `npm run db:smoke` and the prisma chain tests (`tests/booking-email-chain-prisma.test.ts`, `tests/campaign-email-chain-prisma.test.ts`) all mutate the same `DATABASE_URL`; interleaved runs collide on count-derived booking numbers and slot claims (`Unique constraint failed on (number)` / slot-taken). Serialize them or give each its own DB; a solo `db:smoke` re-run self-heals leftovers.
+- **Suggested pipeline:** ① fast gate — `npm run typecheck` + the unit suite (~1 min, no browser, no DB); ② browser gate — `npm run test:e2e:quick` (~4 min) for fast feedback; ③ full gate — `npm run test:e2e` (or `npm run test:all` for one command) covering the production-build matrix; ④ nightly — `npm run db:smoke` against the seeded Postgres.
+- **CI hygiene:** run the E2E with `E2E_AUTOCLEAN=1` (the `test:e2e:autoclean` script) and the `E2E_MIN_FREE_GB` floor (default 5 GiB) so crashed-run artifacts self-heal and a near-full disk fails before the build; parse `E2E_AUTOCLEAN_RESULT=<freed>|<before>|<after>|<dirs>|<tsconfig lines>` — always emitted per autoclean run — for the recovery dashboard.

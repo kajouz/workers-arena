@@ -1,0 +1,206 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { CalendarClock, ChevronDown, CreditCard, ExternalLink, FileText, ShieldCheck } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { GradientAvatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { BookingStatusBadge } from "./booking-status-badge";
+import { useLocale } from "@/components/providers/locale-provider";
+import { toast } from "@/components/ui/toast";
+import { cn, formatDate, timeAgo } from "@/lib/utils";
+import { Price } from "@/components/shared/price";
+import { payBookingAction } from "@/app/actions/bookings";
+import { RescheduleDialog } from "./reschedule-dialog";
+import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
+import type { CustomerBookingRow } from "@/app/bookings/page";
+
+/**
+ * One customer booking (docs/booking-customer-ui.md §5.5): worker avatar +
+ * name, booking number, localized time, status badge, quote (÷100 from minor
+ * units), and an expandable audit trail of the last events.
+ */
+export function BookingRow({ row }: { row: CustomerBookingRow }) {
+  const { locale, t } = useLocale();
+  const [expanded, setExpanded] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [, startTransition] = useTransition();
+  const { booking, worker } = row;
+  const name = locale === "ar" ? worker?.nameAr : worker?.nameEn;
+  const recent = booking.events.slice(-3);
+  const needsPayment = booking.status === "pendingPayment" && booking.deposit !== undefined;
+
+  const startCheckout = () => {
+    if (paying) return;
+    setPaying(true);
+    startTransition(async () => {
+      const res = await payBookingAction(booking.id);
+      if (res.ok && res.url) {
+        window.location.href = res.url;
+      } else {
+        setPaying(false);
+        toast("error", t("booking.paymentFailed"));
+      }
+    });
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-5">
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+          {worker ? (
+            <Link href={`/workers/${worker.slug}`} className="shrink-0">
+              <GradientAvatar name={name ?? "W"} hue={worker.hue} className="size-11" />
+            </Link>
+          ) : (
+            <GradientAvatar name="W" className="size-11" />
+          )}
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-black text-ink-900 dark:text-ink-50">{name ?? t("booking.bookingWith")}</p>
+              <span className="text-xs text-ink-400">
+                {t("booking.bookingNumber")} {booking.number}
+              </span>
+              <BookingStatusBadge status={booking.status} className="ms-auto" />
+            </div>
+
+            <p className="mt-1.5 text-sm font-semibold text-ink-700 dark:text-ink-200">{booking.jobTitle}</p>
+            {booking.serviceItem && (
+              <p className="mt-0.5 text-xs text-ink-400">
+                {locale === "ar" ? booking.serviceItem.nameAr : booking.serviceItem.nameEn}
+              </p>
+            )}
+
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-500 dark:text-ink-400">
+              <span className="flex items-center gap-1.5">
+                <CalendarClock className="size-3.5" />
+                {formatDate(booking.startAt, locale)}
+              </span>
+              {booking.quote !== undefined && (
+                <span className="flex items-center gap-1.5">
+                  <Price amount={booking.quote / 100} currency={booking.currency} locale={locale} className="font-bold text-brand-600 dark:text-brand-400" />
+                </span>
+              )}
+              {worker && (
+                <Link href={`/workers/${worker.slug}`} className="flex items-center gap-1 font-bold text-brand-600 hover:underline dark:text-brand-400">
+                  {t("booking.viewWorker")}
+                  <ExternalLink className="size-3" />
+                </Link>
+              )}
+            </div>
+
+            {/* M5 take rate (docs/booking-take-rate.md §5) — the transparency
+                line under the quote: the customer pays the quote total, the
+                platform settles its cut from it. A fee > 0 shows the split;
+                an exempt plan stores exactly 0 (computePlatformFee only
+                returns 0 for exempt — the min-clamp guarantees it), so the
+                row says the fee is waived instead of hiding the line. */}
+            {booking.platformFee ? (
+              <p className="mt-1.5 text-[11px] text-ink-400">
+                {t("booking.includesFee")}{" "}
+                <Price amount={booking.platformFee / 100} currency={booking.currency} locale={locale} className="font-bold" />
+                <span className="mx-1 text-ink-300 dark:text-ink-600">·</span>
+                {t("booking.workerReceives")}{" "}
+                <Price
+                  amount={((booking.quote ?? 0) - booking.platformFee) / 100}
+                  currency={booking.currency}
+                  locale={locale}
+                  className="font-bold"
+                />
+              </p>
+            ) : booking.platformFee === 0 ? (
+              <p className="mt-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                {t("booking.feeWaivedNote")}
+              </p>
+            ) : null}
+
+            {(booking.status === "confirmed" || booking.status === "inProgress") && (
+              <div className="mt-3">
+                <RescheduleDialog booking={booking} by="customer" />
+              </div>
+            )}
+
+            {needsPayment && (
+              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-ink-900 dark:text-ink-50">
+                    {t("booking.payDeposit")}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-500 dark:text-ink-400">
+                    {t("booking.payDepositBody").replace(
+                      "{amount}",
+                      `${(booking.deposit! / 100).toLocaleString(locale)} ${booking.currency}`
+                    )}
+                  </p>
+                </div>
+                <Button size="sm" onClick={startCheckout} disabled={paying}>
+                  <CreditCard className="size-4" />
+                  {paying ? t("booking.paying") : t("booking.payNow")}
+                </Button>
+              </div>
+            )}
+
+            {/* M4 cancellation/refund policy — shown wherever a deposit is at
+                stake so the refund rules are visible next to the money
+                (docs/ENHANCEMENT-PLAN.md §2.4). The {hours} placeholder is
+                interpolated from the shared policy constant (bookingCancelRefundDue). */}
+            {booking.deposit !== undefined && (
+              <p className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-relaxed text-ink-400">
+                <ShieldCheck className="mt-px size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span>
+                  {t("booking.cancelPolicyRow").replace(/\{hours\}/g, String(BOOKING_CANCEL_REFUND_WINDOW_MS / 3_600_000))}
+                </span>
+              </p>
+            )}
+
+            {/* M3 receipt — created at payment-confirm for signed-in customers only. */}
+            {booking.invoice && (
+              <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
+                <FileText className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <p className="min-w-0 flex-1 truncate text-xs text-ink-600 dark:text-ink-300">
+                  {t("booking.invoice")}{" "}
+                  <span className="font-bold text-ink-900 dark:text-ink-50">{booking.invoice.number}</span>
+                  <span className="mx-1.5 text-ink-300 dark:text-ink-600">·</span>
+                  <Price
+                    amount={booking.invoice.amount / 100}
+                    currency={booking.invoice.currency}
+                    locale={locale}
+                    className="font-bold text-emerald-600 dark:text-emerald-400"
+                  />
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* audit trail */}
+        {recent.length > 0 && (
+          <div className="mt-3 border-t border-ink-100 pt-3 dark:border-ink-800">
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="flex items-center gap-1 text-xs font-bold text-ink-400 transition-colors hover:text-ink-600 dark:hover:text-ink-200"
+            >
+              <ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
+              {t("notifications.viewAll")}
+            </button>
+            {expanded && (
+              <ul className="mt-2 space-y-1.5">
+                {recent.map((e, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="flex items-center gap-2 text-ink-600 dark:text-ink-300">
+                      <span className={cn("size-1.5 rounded-full", i === recent.length - 1 ? "bg-brand-500" : "bg-ink-300 dark:bg-ink-600")} />
+                      {t(`booking.status.${e.status}`)}
+                    </span>
+                    <span className="text-[11px] text-ink-400">{timeAgo(e.time, locale)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
