@@ -34,7 +34,11 @@ export interface BookingNotificationOptions {
 }
 
 /** Worker-facing events (deep-link /dashboard). */
-export type WorkerNotificationKind = "worker-request" | "worker-cancelled" | "worker-rescheduled";
+export type WorkerNotificationKind =
+  | "worker-request"
+  | "worker-cancelled"
+  | "worker-rescheduled"
+  | "worker-request-nudge";
 
 /** Customer-facing events (deep-link /bookings) — the kinds a preview can show. */
 export type CustomerNotificationKind =
@@ -45,7 +49,8 @@ export type CustomerNotificationKind =
   | "customer-paid"
   | "customer-rescheduled"
   | "customer-refund"
-  | "customer-recurring-visit";
+  | "customer-recurring-visit"
+  | "customer-request-expired";
 
 export type BookingNotificationKind = WorkerNotificationKind | CustomerNotificationKind | "customer-reminder";
 
@@ -180,6 +185,30 @@ export function bookingNotification(
         titleAr: "تم جدولة الزيارة القادمة",
         bodyEn: `Your next visit for ${booking.number} (${booking.jobTitle}) is scheduled for ${time}.`,
         bodyAr: `تمت جدولة زيارتك القادمة للحجز ${booking.number} (${booking.jobTitle}) في ${time}.`,
+        href: "/bookings",
+        booking: ctx,
+      };
+    case "worker-request-nudge":
+      // Request SLA (ENHANCEMENT-PLAN §2.2) — the cron nudges the worker that
+      // a request has sat unanswered past the nudge window.
+      return {
+        type: "bookingRequestNudge",
+        titleEn: "Booking request needs a response",
+        titleAr: "طلب الحجز ينتظر ردّك",
+        bodyEn: `${booking.customerName}'s request for ${time} is waiting — respond before it expires.`,
+        bodyAr: `طلب ${booking.customerName} في ${time} ينتظر ردّك — ردّ قبل انتهائه.`,
+        href: "/dashboard",
+        booking: ctx,
+      };
+    case "customer-request-expired":
+      // Request SLA — the worker never answered, the cron auto-cancelled the
+      // request and freed the slot.
+      return {
+        type: "bookingRequestExpired",
+        titleEn: "Booking request expired",
+        titleAr: "انتهت صلاحية طلب الحجز",
+        bodyEn: `Your request ${booking.number} for ${time} was closed — the worker didn't respond in time. The slot is free; try another worker.`,
+        bodyAr: `أُغلق طلبك ${booking.number} في ${time} — لم يستجب العامل في الوقت المحدد. الموعد متاح؛ جرّب عاملاً آخر.`,
         href: "/bookings",
         booking: ctx,
       };

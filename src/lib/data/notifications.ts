@@ -164,6 +164,8 @@ type DbNotificationType =
   | "BOOKING_RESCHEDULED"
   | "BOOKING_REFUND"
   | "BOOKING_VISIT_SCHEDULED"
+  | "BOOKING_REQUEST_NUDGED"
+  | "BOOKING_REQUEST_EXPIRED"
   | "CAMPAIGN_REFUNDED";
 
 const APP_TYPE_TO_DB: Record<Notification["type"], DbNotificationType> = {
@@ -183,6 +185,8 @@ const APP_TYPE_TO_DB: Record<Notification["type"], DbNotificationType> = {
   bookingRescheduled: "BOOKING_RESCHEDULED",
   bookingRefund: "BOOKING_REFUND",
   recurringVisitScheduled: "BOOKING_VISIT_SCHEDULED",
+  bookingRequestNudge: "BOOKING_REQUEST_NUDGED",
+  bookingRequestExpired: "BOOKING_REQUEST_EXPIRED",
   campaignRefunded: "CAMPAIGN_REFUNDED",
 };
 
@@ -205,6 +209,8 @@ const DB_TYPE_TO_APP: Record<string, Notification["type"]> = {
   BOOKING_COMPLETED: "bookingCompleted",
   BOOKING_REFUND: "bookingRefund",
   BOOKING_VISIT_SCHEDULED: "recurringVisitScheduled",
+  BOOKING_REQUEST_NUDGED: "bookingRequestNudge",
+  BOOKING_REQUEST_EXPIRED: "bookingRequestExpired",
   CAMPAIGN_REFUNDED: "campaignRefunded",
 };
 

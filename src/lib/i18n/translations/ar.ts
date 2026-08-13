@@ -650,6 +650,8 @@ export const ar: Dictionary = {
       bookingConfirmed: "تأكيد الحجز",
       bookingDeclined: "رفض الحجز",
       bookingCancelled: "إلغاء الحجز",
+      bookingRequestNudge: "طلب الحجز ينتظر ردّك",
+      bookingRequestExpired: "انتهت صلاحية طلب الحجز",
       bookingReminder: "تذكير بالحجز",
       bookingCompleted: "اكتمال الحجز",
       bookingPaid: "تم استلام الدفع",

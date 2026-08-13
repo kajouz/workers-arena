@@ -648,6 +648,8 @@ export const en = {
       bookingConfirmed: "Booking confirmed",
       bookingDeclined: "Booking declined",
       bookingCancelled: "Booking cancelled",
+      bookingRequestNudge: "Booking request needs a response",
+      bookingRequestExpired: "Booking request expired",
       bookingReminder: "Booking reminder",
       bookingCompleted: "Booking completed",
       bookingPaid: "Payment received",

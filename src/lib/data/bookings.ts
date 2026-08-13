@@ -14,12 +14,15 @@ import {
   BOOKING_TRANSITION_FROM,
   bookingCancelRefundDue,
   formatInvoiceNumber,
+  slaExpireDue,
+  slaNudgeDue,
   tallyBookingFunnel,
   tallyPlatformFeeStats,
   type Booking,
   type BookingFunnel,
   type LedgerEntry,
   type PlatformFeeStats,
+  type RequestSlaRun,
   type WorkerBalance,
   type BookingCancelInput,
   type BookingEvent,
@@ -718,6 +721,65 @@ export async function demoCancelBooking(
     });
   }
   return booking;
+}
+
+/** Request-SLA nudge dedupe (demo mode only — prisma persists lastSlaNudgeAt). */
+const slaNudgedKeys = new Set<string>();
+
+/** Test helper: reset the per-process nudge dedupe. */
+export function resetRequestSla(): void {
+  slaNudgedKeys.clear();
+}
+
+/**
+ * Request SLA (ENHANCEMENT-PLAN §2.2) — the demo cron scan: REQUESTED
+ * bookings are NUDGED (worker) once past BOOKING_SLA_NUDGE_HOURS and
+ * AUTO-EXPIRED past BOOKING_SLA_EXPIRE_HOURS. The expiry reuses the cancel
+ * mechanics (status → cancelled, slot freed back to AVAILABLE — rule 3) with
+ * a SYSTEM actor event, and the customer is told the request expired instead
+ * of the generic cancellation. Nudge idempotency is per-process here (the
+ * prisma adapter stamps lastSlaNudgeAt with a CAS).
+ */
+export async function demoRunRequestSla(now = new Date()): Promise<RequestSlaRun> {
+  const nowMs = now.getTime();
+  const pending = demoGetAllBookings().filter((b) => b.status === "requested");
+  let nudged = 0;
+  let expired = 0;
+  const expiredNumbers: string[] = [];
+
+  for (const booking of pending) {
+    // Creation time = the first audit event (the demo store has no column).
+    const createdMs = Date.parse(booking.events[0]?.time ?? "");
+    if (Number.isNaN(createdMs)) continue;
+    if (slaExpireDue(createdMs, nowMs)) {
+      await demoExpireBookingRequest(booking);
+      expired += 1;
+      expiredNumbers.push(booking.number);
+    } else if (slaNudgeDue(createdMs, nowMs) && !slaNudgedKeys.has(booking.id)) {
+      slaNudgedKeys.add(booking.id);
+      await notifyWorker(booking, "worker-request-nudge");
+      nudged += 1;
+    }
+  }
+
+  return { nudged, expired, scanned: pending.length, expiredNumbers };
+}
+
+/** Auto-expire a stale request: cancel + free the slot + tell the customer. */
+async function demoExpireBookingRequest(booking: Booking): Promise<void> {
+  booking.status = "cancelled";
+  const slot = STORE.slots.find((s) => s.bookingId === booking.id);
+  if (slot) {
+    slot.status = "available";
+    slot.bookingId = undefined;
+  }
+  booking.events.push({
+    status: "cancelled",
+    actorType: "system",
+    reason: "Request auto-expired — no worker response within the SLA window",
+    time: new Date().toISOString(),
+  });
+  await notifyCustomer(booking, "customer-request-expired");
 }
 
 /**

@@ -86,6 +86,8 @@ import {
   prismaSetSlotBlocked,
   prismaTransitionBooking,
 } from "../src/lib/data/prisma-repo";
+import { BOOKING_SLA_EXPIRE_HOURS } from "../src/lib/data/types";
+import { runRequestSlaEngine } from "../src/lib/data/request-sla";
 import { campaignRefundNotification } from "../src/lib/data/campaign-notifications";
 import { renderCampaignRefundEmail } from "../src/lib/notifications/templates";
 
@@ -103,6 +105,8 @@ const SMOKE_NOTIFICATION_TYPES = [
   "BOOKING_RESCHEDULED",
   "BOOKING_REFUND",
   "BOOKING_VISIT_SCHEDULED",
+  "BOOKING_REQUEST_NUDGED",
+  "BOOKING_REQUEST_EXPIRED",
   "PROMO",
   "CAMPAIGN_REFUNDED",
 ] as const;
@@ -255,7 +259,7 @@ async function main() {
   }
   await prisma.bookingSlot.deleteMany({
     where: {
-      note: { in: ["smoke-m3", "smoke-reschedule", "smoke-reminder", "smoke-ops", "smoke-activity", "smoke-recurring-anchor", "smoke-recurring-7d", "smoke-recurring-14d", "smoke-recurring-decline"] },
+      note: { in: ["smoke-m3", "smoke-reschedule", "smoke-reminder", "smoke-ops", "smoke-activity", "smoke-recurring-anchor", "smoke-recurring-7d", "smoke-recurring-14d", "smoke-recurring-decline", "smoke-sla"] },
     },
   });
   if (m3rsLeftovers.length > 0) console.log("self-heal: cleared", m3rsLeftovers.length, "leftover deposit/reschedule booking(s)");
@@ -1614,6 +1618,82 @@ async function main() {
     "W2 recurring: request → slot-taken dup rejected → accept (quote + take-rate, +7d materialized) → cron (+14d, idempotent) → decline frees slot → customer cancel frees all slots"
   );
 
+  // ── W2 — Request SLA cron (nudge + auto-expire, live DB) ─────────────────
+  // A REQUESTED booking the worker ignores is dead air: past
+  // BOOKING_SLA_NUDGE_HOURS the cron nudges the worker once (stamping
+  // Booking.lastSlaNudgeAt — the CAS makes a re-run re-nudge nothing); past
+  // BOOKING_SLA_EXPIRE_HOURS it auto-cancels, frees the slot (rule 3),
+  // notifies the customer and logs BOOKING_CANCELLED to the feed. The
+  // booking below is BACKDATED past the expire window so the engine sees it
+  // as stale on a fresh seed — the seed's own BK-1001 is re-created <1h old
+  // by db:seed, and the assertions use >= for the counts because a stale
+  // dev DB (seeded days ago) may legitimately have other stale requests.
+  const slaSlotStart = await (async (): Promise<Date> => {
+    const SIBLING_HOURS = new Set([1, 5, 6, 8, 9]);
+    for (let h = 3; h < 24; h++) {
+      if (SIBLING_HOURS.has(h) || SIBLING_HOURS.has(h - 1)) continue;
+      const start = new Date(Date.now() + h * 60 * 60 * 1000);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const clash = await prisma.bookingSlot.count({
+        where: {
+          workerId: khaled!.id,
+          status: { in: ["RESERVED", "BOOKED", "BLOCKED"] },
+          startAt: { lt: end },
+          endAt: { gt: start },
+        },
+      });
+      if (clash === 0) return start;
+    }
+    throw new Error("SMOKE ASSERT FAILED: no free request-SLA slot window within 24h");
+  })();
+  const slaSlot = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: slaSlotStart,
+      endAt: new Date(slaSlotStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-sla",
+    },
+  });
+  const slaCreated = await prismaCreateBookingRequest({
+    workerId: khaled!.id,
+    slotId: slaSlot.id,
+    customerName: "SLA Tester",
+    customerPhone: "+966 50 888 4321",
+    customerEmail: "smoke@workersarena.test",
+    jobTitle: "Smoke SLA booking",
+  });
+  if ("error" in slaCreated) throw new Error(`SMOKE ASSERT FAILED: SLA create → ${slaCreated.error}`);
+  // Backdate past the expire window (+1h slack) so the request is stale NOW.
+  await prisma.booking.update({
+    where: { id: slaCreated.id },
+    data: { createdAt: new Date(Date.now() - (BOOKING_SLA_EXPIRE_HOURS + 1) * 60 * 60 * 1000) },
+  });
+  const slaRun = await runRequestSlaEngine();
+  console.log("request SLA engine:", JSON.stringify(slaRun));
+  assert(slaRun.expired >= 1 && slaRun.expiredNumbers.includes(slaCreated.number), "stale request auto-expired");
+  assert(slaRun.nudged >= 1, "worker nudged for the stale request");
+  const slaAfter = await prisma.booking.findUnique({ where: { id: slaCreated.id } });
+  assert(slaAfter?.status === "CANCELLED" && slaAfter.cancelledBy === "system", "auto-expired request CANCELLED by system");
+  const slaSlotAfter = await prisma.bookingSlot.findUnique({ where: { id: slaSlot.id } });
+  assert(slaSlotAfter?.status === "AVAILABLE" && slaSlotAfter.bookingId === null, "SLA expiry frees the slot (rule 3)");
+  const slaEvents = await prisma.bookingEvent.findMany({ where: { bookingId: slaCreated.id } });
+  assert(slaEvents.some((e) => e.status === "CANCELLED" && e.actorType === "system"), "SYSTEM audit event recorded");
+  const slaNudgeRows = await prisma.notification.findMany({ where: { type: "BOOKING_REQUEST_NUDGED" } });
+  assert(slaNudgeRows.some((r) => r.bodyEn?.includes("SLA Tester")), "worker nudge notification persisted");
+  const slaExpiredRows = await prisma.notification.findMany({ where: { type: "BOOKING_REQUEST_EXPIRED" } });
+  assert(slaExpiredRows.some((r) => r.bodyEn?.includes(slaCreated.number)), "customer expired notification persisted");
+  const slaFeed = await listActivityEntries({ code: "BOOKING_CANCELLED" });
+  assert(slaFeed.items.some((e) => e.bookingNo === slaCreated.number), "auto-expiry logged to the activity feed");
+  // Idempotency — a second tick: the request is already CANCELLED (never
+  // rescanned) and the nudge stamp prevents re-nudging anything else.
+  const slaRun2 = await runRequestSlaEngine();
+  assert(slaRun2.expired === 0, "second SLA run expires nothing (already cancelled)");
+  assert(slaRun2.nudged === 0, "second SLA run re-nudges nothing (stamp dedupes)");
+  console.log(
+    "W2 request SLA: nudge → auto-expire → slot freed → customer + worker notified → feed entry → idempotent re-run"
+  );
+
   // Cleanup — restore the seeded rows so the smoke stays idempotent.
   // W2 recurring — the smoke contracts' occurrences (Bookings, events
   // cascade), the contract rows, then the dedicated slots (the freed slots
@@ -1622,6 +1702,13 @@ async function main() {
   await prisma.booking.deleteMany({ where: { recurringBookingId: { in: [recReq.recurring.id, recDecl.recurring.id] } } });
   await prisma.recurringBooking.deleteMany({ where: { id: { in: [recReq.recurring.id, recDecl.recurring.id] } } });
   await prisma.bookingSlot.deleteMany({ where: { id: { in: [recSlot.id, recSlot7.id, recSlot14.id, recDeclSlot.id] } } });
+  // Request SLA — the backdated booking + its dedicated slot (already freed
+  // by the expiry, but ours to drop). The feed entry and the two notification
+  // rows ride the ActivityLog/notification sweeps below.
+  await prisma.bookingEvent.deleteMany({ where: { bookingId: slaCreated.id } });
+  await prisma.booking.delete({ where: { id: slaCreated.id } });
+  await prisma.bookingSlot.delete({ where: { id: slaSlot.id } });
+  await prisma.activityLog.deleteMany({ where: { meta: { path: ["bookingNo"], equals: slaCreated.number } } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: created.id } });
   await prisma.booking.delete({ where: { id: created.id } });
   await prisma.bookingSlot.update({ where: { id: free!.id }, data: { status: "AVAILABLE", bookingId: null } });

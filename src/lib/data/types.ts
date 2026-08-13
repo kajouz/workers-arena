@@ -18,6 +18,38 @@ export const BOOKING_REMINDER_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const BOOKING_CANCEL_REFUND_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * Request SLA (ENHANCEMENT-PLAN §2.2) — a REQUESTED booking the worker hasn't
+ * answered is NUDGED after BOOKING_SLA_NUDGE_HOURS and AUTO-EXPIRED (slot
+ * freed, request closed) after BOOKING_SLA_EXPIRE_HOURS. Tune these two
+ * constants to change the policy; shared by the demo + prisma adapters and
+ * the cron engine so copy and logic can never drift.
+ */
+export const BOOKING_SLA_NUDGE_HOURS = 24;
+export const BOOKING_SLA_EXPIRE_HOURS = 48;
+
+/** Request SLA — has a request sat unresponded past the worker-nudge window? */
+export function slaNudgeDue(createdAtMs: number, nowMs: number): boolean {
+  return nowMs - createdAtMs >= BOOKING_SLA_NUDGE_HOURS * 60 * 60 * 1000;
+}
+
+/** Request SLA — has a request sat unresponded past the auto-expire window? */
+export function slaExpireDue(createdAtMs: number, nowMs: number): boolean {
+  return nowMs - createdAtMs >= BOOKING_SLA_EXPIRE_HOURS * 60 * 60 * 1000;
+}
+
+/** Result of one Request-SLA cron pass (both adapters return this shape). */
+export interface RequestSlaRun {
+  /** Workers nudged (request unanswered past the nudge window). */
+  nudged: number;
+  /** Requests auto-cancelled (unanswered past the expire window). */
+  expired: number;
+  /** REQUESTED bookings scanned this run. */
+  scanned: number;
+  /** Numbers of the bookings auto-expired this run (feed logging). */
+  expiredNumbers: string[];
+}
+
+/**
  * M4 cancellation policy — should a cancelled booking's paid deposit be
  * refunded? A worker cancel refunds only when it lands more than
  * BOOKING_CANCEL_REFUND_WINDOW_MS before startAt (the strict `>` keeps the
@@ -578,6 +610,8 @@ export interface Notification {
     | "system"
     | "campaign"
     | "bookingRequest"
+    | "bookingRequestNudge"
+    | "bookingRequestExpired"
     | "bookingConfirmed"
     | "bookingDeclined"
     | "bookingCancelled"

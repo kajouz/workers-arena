@@ -127,6 +127,8 @@ enum NotificationType {
   BOOKING_RESCHEDULED
   BOOKING_REFUND
   BOOKING_VISIT_SCHEDULED
+  BOOKING_REQUEST_NUDGED
+  BOOKING_REQUEST_EXPIRED
   CAMPAIGN_REFUNDED
 }
 
@@ -946,6 +948,11 @@ model Booking {
   // as Subscription.lastReminderSent): null = never sent; the cron engine
   // stamps it once per booking so a re-run can never double-send.
   lastReminderSent DateTime?
+
+  // Request SLA (ENHANCEMENT-PLAN §2.2) — idempotency marker for the worker
+  // nudge: null = never nudged; the cron stamps it once per booking so a
+  // re-run can never double-nudge (the lastReminderSent CAS pattern).
+  lastSlaNudgeAt DateTime?
 
   paymentId     String?       @unique
   payment       Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)

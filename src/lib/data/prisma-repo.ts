@@ -70,6 +70,8 @@ import { distanceKm, isOpenNow, type CurrencyCode } from "@/lib/utils";
 import {
   BOOKING_REMINDER_WINDOW_MS,
   BOOKING_RESCHEDULABLE_FROM,
+  BOOKING_SLA_EXPIRE_HOURS,
+  BOOKING_SLA_NUDGE_HOURS,
   BOOKING_TERMINAL_STATUSES,
   BOOKING_TRANSITION_FROM,
   bookingCancelRefundDue,
@@ -77,6 +79,7 @@ import {
   emptyBookingFunnelCounts,
   bookingConversionRate,
   tallyPlatformFeeStats,
+  type RequestSlaRun,
   type Booking,
   type BookingCancelInput,
   type BookingFunnel,
@@ -3235,4 +3238,103 @@ export async function prismaCancelRecurringContract(
     console.error("[prisma-repo] cancelRecurringContract failed:", err);
     return null;
   }
+}
+
+/**
+ * Request SLA (ENHANCEMENT-PLAN §2.2) — the real-mode cron scan: REQUESTED
+ * bookings are NUDGED (worker) once past BOOKING_SLA_NUDGE_HOURS and
+ * AUTO-EXPIRED past BOOKING_SLA_EXPIRE_HOURS. The nudge stamps
+ * Booking.lastSlaNudgeAt with a CAS (the lastReminderSent pattern) so
+ * overlapping cron invocations can never double-nudge. Each expiry runs in
+ * its own $transaction: CAS status REQUESTED→CANCELLED, the slot frees back
+ * to AVAILABLE (rule 3), a SYSTEM audit event is appended, and the customer
+ * is told the request expired — dispatched AFTER the tx, per the repo's
+ * row-lock rule. Returns the same RequestSlaRun shape as the demo adapter.
+ */
+export async function prismaRunRequestSla(now = new Date()): Promise<RequestSlaRun> {
+  const prisma = getPrisma();
+  const nudgeCutoff = new Date(now.getTime() - BOOKING_SLA_NUDGE_HOURS * 60 * 60 * 1000);
+  const expireCutoff = new Date(now.getTime() - BOOKING_SLA_EXPIRE_HOURS * 60 * 60 * 1000);
+  let nudged = 0;
+  let expired = 0;
+  const expiredNumbers: string[] = [];
+
+  // Same shape as prismaCancelBooking's post-tx read (events for the domain
+  // mapper, serviceItem + payment for the email context, worker for addressing).
+  const include = {
+    events: { orderBy: { createdAt: "asc" as const } },
+    serviceItem: true,
+    payment: { include: { invoice: true } },
+    worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+  } as const;
+
+  // Nudge — CAS on the null lastSlaNudgeAt column: a concurrent cron run
+  // loses the claim and is counted as skipped.
+  const nudgeRows = await prisma.booking.findMany({
+    where: { status: "REQUESTED", createdAt: { lt: nudgeCutoff }, lastSlaNudgeAt: null },
+    include,
+  });
+  for (const row of nudgeRows) {
+    const claimed = await prisma.booking.updateMany({
+      where: { id: row.id, lastSlaNudgeAt: null },
+      data: { lastSlaNudgeAt: now },
+    });
+    if (claimed.count === 0) continue;
+    nudged += 1;
+    const workerLocale =
+      (row.worker?.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en";
+    await pushNotification(
+      bookingNotification(toDomainBooking(row), "worker-request-nudge"),
+      row.worker?.email
+        ? { name: row.worker.nameEn, email: row.worker.email, phone: row.worker.phone, locale: workerLocale }
+        : undefined
+    );
+  }
+
+  // Expire — each stale request flips to CANCELLED inside its own tx. The
+  // scan adds slot so the tx can free it (rule 3); the post-tx read below
+  // stays on the base include.
+  const expireRows = await prisma.booking.findMany({
+    where: { status: "REQUESTED", createdAt: { lt: expireCutoff } },
+    include: { ...include, slot: true },
+  });
+  for (const row of expireRows) {
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.booking.updateMany({
+        where: { id: row.id, status: "REQUESTED" },
+        data: {
+          status: "CANCELLED",
+          cancelReason: "Request auto-expired — no worker response within the SLA window",
+          cancelledBy: "system",
+        },
+      });
+      if (updated.count === 0) return null;
+      if (row.slot) {
+        await tx.bookingSlot.updateMany({
+          where: { id: row.slot.id, bookingId: row.id },
+          data: { status: "AVAILABLE", bookingId: null },
+        });
+      }
+      await tx.bookingEvent.create({
+        data: {
+          bookingId: row.id,
+          status: "CANCELLED",
+          actorType: "system",
+          reason: "Request auto-expired — no worker response within the SLA window",
+        },
+      });
+      return tx.booking.findUnique({ where: { id: row.id }, include });
+    });
+    if (!result) continue;
+    expired += 1;
+    expiredNumbers.push(result.number);
+    await pushNotification(
+      bookingNotification(toDomainBooking(result), "customer-request-expired"),
+      result.customerEmail
+        ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+        : undefined
+    );
+  }
+
+  return { nudged, expired, scanned: nudgeRows.length + expireRows.length, expiredNumbers };
 }
