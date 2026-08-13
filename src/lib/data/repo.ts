@@ -32,6 +32,7 @@ import {
   demoGetWorkerPayouts,
   demoGetPendingPayouts,
   demoGetCustomerRecurrings,
+  demoGetRecurringById,
   demoGetWorkerRecurrings,
   demoRescheduleBooking,
   demoRespondToBooking,
@@ -870,6 +871,11 @@ export async function getCustomerRecurrings(
   return realDataEnabled
     ? (await prismaRepo()).prismaGetCustomerRecurrings(identifier)
     : demoGetCustomerRecurrings(identifier);
+}
+
+/** A contract by id — the admin dispute view resolves an occurrence's contract. */
+export async function getRecurringById(id: string): Promise<RecurringBooking | null> {
+  return realDataEnabled ? (await prismaRepo()).prismaGetRecurringById(id) : demoGetRecurringById(id);
 }
 
 /** Customer cancels an active contract — anchor slot frees, cadence stops. */

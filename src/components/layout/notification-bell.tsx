@@ -25,6 +25,7 @@ const TYPE_DOT: Record<Notification["type"], string> = {
   bookingPaid: "bg-emerald-500",
   bookingRescheduled: "bg-sky-500",
   bookingRefund: "bg-emerald-500",
+  recurringVisitScheduled: "bg-indigo-500",
   campaignRefunded: "bg-emerald-500",
 };
 

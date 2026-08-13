@@ -653,6 +653,7 @@ export const en = {
       bookingPaid: "Payment received",
       bookingRescheduled: "Booking rescheduled",
       bookingRefund: "Deposit refunded",
+      recurringVisitScheduled: "Next visit scheduled",
     },
   },
   verification: {
@@ -863,6 +864,11 @@ export const en = {
     recurringCancelConfirm: "Cancel this contract? Future visits will be cancelled.",
     recurringCancelNow: "Yes, cancel",
     recurringCancelled: "Contract cancelled — future visits stopped",
+    // Admin dispute view — the recurring contract card behind an occurrence.
+    recurringContract: "Recurring contract",
+    recurringNextVisit: "Next visit",
+    recurringNoNextVisit: "No upcoming visits",
+    recurringOccurrences: "Visits",
   },
   misc: {
     backHome: "Back to home",

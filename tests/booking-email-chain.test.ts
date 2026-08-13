@@ -28,12 +28,15 @@ import {
   demoCancelBooking,
   demoConfirmBookingPayment,
   demoCreateBookingRequest,
+  demoCreateRecurringRequest,
   demoRespondToBooking,
+  demoRespondToRecurring,
   resetBookingsStore,
 } from "../src/lib/data/bookings";
 import { simulatedProvider } from "../src/lib/payments/simulated";
 import { workerBySlug } from "../src/lib/data/workers";
 import { renderBookingEmail } from "../src/lib/notifications/templates";
+import { formatDate } from "../src/lib/utils";
 
 beforeEach(() => {
   resetBookingsStore();
@@ -379,5 +382,63 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     expect(email.html).toContain("Booking cancelled");
     expect(email.html).toContain("SAR 80"); // quote 8000 minor → 80 major
     expect(email.html).toContain(`/admin/bookings/${cancelled!.number}`);
+  });
+
+  it("accepting a recurring contract dispatches ONE recurringVisitScheduled payload (the next visit, with its date) that renderBookingEmail renders", async () => {
+    const worker = workerBySlug("khaled-al-harbi-plumbing");
+    if (!worker) throw new Error("demo worker missing");
+
+    // Recurring request → accept. The demo adapter materializes the cadence at
+    // accept (1 anchor + RECURRING_OCCURRENCE_COUNT future visits) and — like
+    // the prisma generation cron — must notify the customer about the NEXT
+    // scheduled visit exactly once, not once per occurrence.
+    const slot = demoAddSlot(
+      worker.id,
+      "2026-08-20T09:00:00.000Z",
+      "2026-08-20T10:00:00.000Z",
+      "available"
+    );
+    const created = await demoCreateRecurringRequest({
+      workerId: worker.id,
+      slotId: slot.id,
+      customerName: "Noor E.",
+      customerPhone: "+966 55 123 4871",
+      customerEmail: "noor@example.com",
+      jobTitle: "Weekly AC maintenance",
+      frequency: "weekly",
+    });
+    if ("error" in created) throw new Error(`create failed: ${created.error}`);
+
+    const accepted = await demoRespondToRecurring(created.recurring.id, { accept: true, quote: 8000 });
+    expect(accepted).not.toBeNull();
+    expect(accepted!.occurrences[0].status).toBe("confirmed");
+    const nextVisit = accepted!.occurrences[1]; // the +7d occurrence
+
+    // Exactly one recurringVisitScheduled payload, addressed to the customer,
+    // carrying the NEXT visit's booking context (number + slot date).
+    const visitPayloads = dispatched.filter((p) => p.type === "recurringVisitScheduled");
+    expect(visitPayloads).toHaveLength(1);
+    const visitPayload = visitPayloads[0]!;
+    expect(visitPayload.href).toBe("/bookings");
+    expect(visitPayload.recipient?.email).toBe("noor@example.com");
+    expect(visitPayload.titleEn).toBe("Next visit scheduled");
+    expect(visitPayload.booking).toMatchObject({
+      number: nextVisit.number,
+      startAt: nextVisit.startAt,
+      endAt: nextVisit.endAt,
+      quote: nextVisit.quote,
+      currency: nextVisit.currency,
+      jobTitle: nextVisit.jobTitle,
+    });
+
+    // The body names the date, and the email renders the same booking's date.
+    expect(visitPayload.bodyEn).toContain(nextVisit.number);
+    const email = renderBookingEmail(visitPayload, "en");
+    expect(email.subject).toContain(nextVisit.number);
+    expect(email.html).toContain("Next visit scheduled");
+    expect(email.html).toContain(nextVisit.number);
+    expect(email.html).toContain(formatDate(nextVisit.startAt, "en"));
+    expect(email.text).toContain(formatDate(nextVisit.startAt, "en"));
+    expect(email.html).toContain(`/admin/bookings/${nextVisit.number}`);
   });
 });

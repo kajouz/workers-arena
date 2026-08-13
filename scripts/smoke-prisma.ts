@@ -102,6 +102,7 @@ const SMOKE_NOTIFICATION_TYPES = [
   "BOOKING_PAID",
   "BOOKING_RESCHEDULED",
   "BOOKING_REFUND",
+  "BOOKING_VISIT_SCHEDULED",
   "PROMO",
   "CAMPAIGN_REFUNDED",
 ] as const;
@@ -1548,6 +1549,18 @@ async function main() {
   assert(gen2.materialized === 1 && gen2.contracts >= 1, "cron materializes the +14d occurrence once availability covers it");
   const gen3 = await prismaGenerateRecurringOccurrences();
   assert(gen3.materialized === 0, "cron re-run materializes nothing (idempotent)");
+
+  // The cron notified the customer about the next scheduled visit — exactly one
+  // BOOKING_VISIT_SCHEDULED inbox row, from the +14d materialization (the
+  // seeded RC-1001 never gains occurrences — its cadence times have no covering
+  // slots), with the app-level type + /bookings href riding the data JSON.
+  const visitNotifs = await prisma.notification.findMany({ where: { type: "BOOKING_VISIT_SCHEDULED" } });
+  assert(visitNotifs.length === 1, "cron dispatches one next-visit notification for the materialized occurrence");
+  const visitData = (visitNotifs[0]!.data ?? {}) as { type?: string; href?: string };
+  assert(
+    visitData.type === "recurringVisitScheduled" && visitData.href === "/bookings",
+    "next-visit notification carries the app type + /bookings href"
+  );
 
   // Reads — customer lookup (email) + worker list both see the contract.
   const custRec = await prismaGetCustomerRecurrings({ email: "recurring@workersarena.test" });

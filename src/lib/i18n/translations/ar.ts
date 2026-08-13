@@ -655,6 +655,7 @@ export const ar: Dictionary = {
       bookingPaid: "تم استلام الدفع",
       bookingRescheduled: "تم تغيير موعد الحجز",
       bookingRefund: "تم استرداد الدفعة المقدمة",
+      recurringVisitScheduled: "تم جدولة الزيارة القادمة",
     },
   },
   verification: {
@@ -864,6 +865,11 @@ export const ar: Dictionary = {
     recurringCancelConfirm: "إلغاء هذا العقد؟ ستُلغى الزيارات القادمة.",
     recurringCancelNow: "نعم، ألغِ",
     recurringCancelled: "تم إلغاء العقد — توقفت الزيارات القادمة",
+    // واجهة النزاع الإدارية — بطاقة العقد المتكرر خلف الزيارة.
+    recurringContract: "عقد متكرر",
+    recurringNextVisit: "الزيارة القادمة",
+    recurringNoNextVisit: "لا توجد زيارات قادمة",
+    recurringOccurrences: "الزيارات",
   },
   misc: {
     backHome: "العودة للرئيسية",

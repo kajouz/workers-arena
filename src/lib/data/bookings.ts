@@ -1097,6 +1097,12 @@ export async function demoRespondToRecurring(
       recurring.occurrences.push(occ);
       STORE.bookings.push(occ);
     }
+    // Demo parity with the prisma generation cron: the cadence was just
+    // materialized, so the customer learns their next visit is scheduled (with
+    // its date in the notification body and the email card). One notification
+    // about the first future occurrence — not one per occurrence.
+    const future = recurring.occurrences.slice(1);
+    if (future.length > 0) await notifyCustomer(future[0], "customer-recurring-visit");
   } else {
     // Decline the contract = decline the first occurrence (frees the slot);
     // the normal respond path already notifies the customer.
@@ -1117,6 +1123,12 @@ export function demoGetCustomerRecurrings(identifier: { email?: string; phone?: 
       return false;
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** A contract by id — the admin dispute view resolves an occurrence's
+ * recurringId to the full contract (number, cadence, occurrences). */
+export function demoGetRecurringById(id: string): RecurringBooking | null {
+  return STORE.recurrings.find((r) => r.id === id) ?? null;
 }
 
 /**

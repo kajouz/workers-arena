@@ -3037,6 +3037,10 @@ export async function prismaGenerateRecurringOccurrences(
       .filter((d) => !existing.has(d.getTime()));
     if (due.length === 0) continue;
 
+    // The occurrences materialized this run (ascending — `due` comes from
+    // occurrencesInWindow) — the earliest is the "next visit" the customer
+    // gets notified about after the tx.
+    const createdRows: PrismaBookingRow[] = [];
     await prisma.$transaction(async (tx) => {
       for (const occStart of due) {
         const occEnd = new Date(occStart.getTime() + (contract.anchorEnd.getTime() - contract.anchorStart.getTime()));
@@ -3089,10 +3093,26 @@ export async function prismaGenerateRecurringOccurrences(
           data: { bookingId: occ.id, status: "CONFIRMED", actorType: "system", reason: `recurring ${frequency}` },
         });
         await tx.bookingSlot.update({ where: { id: cover.id }, data: { bookingId: occ.id } });
+        createdRows.push(occ as unknown as PrismaBookingRow);
         materialized += 1;
       }
     });
     contractsTouched += 1;
+
+    // Notify the customer about the next scheduled visit AFTER the tx (the
+    // inbox write must not share the tx's row locks — same rule as every other
+    // booking notification). One notification per contract per run, about the
+    // earliest materialized occurrence — its date rides both the body and the
+    // email's receipt card (BookingEmailContext.startAt).
+    if (createdRows.length > 0) {
+      const next = createdRows[0];
+      await pushNotification(
+        bookingNotification(toDomainBooking(next), "customer-recurring-visit"),
+        next.customerEmail
+          ? { name: next.customerName, email: next.customerEmail, phone: next.customerPhone, locale: "en" }
+          : undefined
+      );
+    }
   }
   return { contracts: contractsTouched, materialized };
 }
@@ -3136,6 +3156,17 @@ export async function prismaGetCustomerRecurrings(
     include: { occurrences: RECURRING_OCCURRENCES, serviceItem: true },
   });
   return rows.map((r) => toDomainRecurring(r as unknown as PrismaRecurringRow));
+}
+
+/** A contract by id — the admin dispute view resolves an occurrence's
+ * recurringId to the full contract (number, cadence, occurrences). */
+export async function prismaGetRecurringById(id: string): Promise<RecurringBooking | null> {
+  const prisma = getPrisma();
+  const row = await prisma.recurringBooking.findUnique({
+    where: { id },
+    include: { occurrences: RECURRING_OCCURRENCES, serviceItem: true },
+  });
+  return row ? toDomainRecurring(row as unknown as PrismaRecurringRow) : null;
 }
 
 /**

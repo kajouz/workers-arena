@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CalendarClock, ScrollText, ShieldAlert } from "lucide-react";
+import { ArrowLeft, CalendarClock, Repeat, ScrollText, ShieldAlert } from "lucide-react";
 import { getSession } from "@/lib/auth-demo";
 import { getI18n } from "@/lib/i18n/server";
-import { getBookingByNumber, getWorkerById } from "@/lib/data/repo";
+import { getBookingByNumber, getRecurringById, getWorkerById } from "@/lib/data/repo";
 import { formatSlotRange } from "@/lib/data/booking-ui";
 import { customerEmailKind, bookingNotification } from "@/lib/data/booking-notifications";
 import { renderBookingEmail } from "@/lib/notifications/templates";
@@ -24,6 +24,16 @@ const ACTOR_LABEL_KEY: Record<string, string> = {
   system: "booking.disputeActorSystem",
   admin: "booking.disputeActorAdmin",
 };
+
+/** Cadence label for the recurring-contract card (mirrors the booking UIs). */
+const FREQ_LABEL_KEY: Record<string, string> = {
+  weekly: "booking.repeatWeekly",
+  biweekly: "booking.repeatBiweekly",
+  monthly: "booking.repeatMonthly",
+};
+
+/** Occurrence statuses that no longer count as an upcoming visit. */
+const RECURRING_TERMINAL_STATUSES = ["completed", "cancelled", "declined", "noShow"];
 
 /**
  * Admin dispute view — the full audit trail of one booking, reached from the
@@ -48,6 +58,16 @@ export default async function AdminBookingDisputePage({
   if (!booking) notFound();
 
   const worker = await getWorkerById(booking.workerId);
+
+  // Recurring context (W2) — when this booking is an occurrence of a
+  // maintenance contract (recurringId set), surface the contract behind it:
+  // number, cadence, the next upcoming visit and every occurrence's status, so
+  // a dispute about one visit reads against the whole cadence. Each occurrence
+  // deep-links to its own dispute page.
+  const recurring = booking.recurringId ? await getRecurringById(booking.recurringId) : null;
+  const nextVisit = recurring?.occurrences.find(
+    (o) => !RECURRING_TERMINAL_STATUSES.includes(o.status) && new Date(o.endAt).getTime() >= Date.now()
+  );
 
   // "Preview email" — render the exact confirmation email the customer
   // received, built from the SAME bookingNotification payload the adapters
@@ -100,6 +120,67 @@ export default async function AdminBookingDisputePage({
           />
         )}
       </div>
+
+      {recurring && (
+        <Card className="mt-8 border-brand-500/30 bg-brand-500/[0.03]">
+          <CardHeader className="flex-row items-center gap-2">
+            <Repeat className="size-4 shrink-0 text-brand-500" />
+            <CardTitle className="min-w-0 text-base">{t("booking.recurringContract")}</CardTitle>
+            <span className="font-mono text-sm font-bold text-ink-900 dark:text-ink-50" dir="ltr">
+              {recurring.number}
+            </span>
+            <Badge variant="outline" className="shrink-0 text-[10px]">
+              {t(FREQ_LABEL_KEY[recurring.frequency] ?? "booking.repeatWeekly")}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-ink-100/60 px-3 py-2 dark:bg-ink-800/60">
+              <CalendarClock className="size-4 text-brand-500" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">
+                {t("booking.recurringNextVisit")}
+              </p>
+              {nextVisit ? (
+                <p className="font-medium text-ink-800 dark:text-ink-100" dir="ltr">
+                  {new Date(nextVisit.startAt).toLocaleDateString(locale === "ar" ? "ar-SA" : "en-US", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                  })}
+                  {" "}·{" "}
+                  {formatSlotRange(nextVisit, locale)}
+                </p>
+              ) : (
+                <p className="text-sm text-ink-400">{t("booking.recurringNoNextVisit")}</p>
+              )}
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">
+                {t("booking.recurringOccurrences")}
+              </p>
+              <Badge variant="outline" className="text-[10px]">{recurring.occurrences.length}</Badge>
+            </div>
+            <ol className="mt-1 divide-y divide-ink-50 dark:divide-ink-800/60">
+              {recurring.occurrences.map((o) => (
+                <li key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                  <span className="text-xs font-medium text-ink-500 dark:text-ink-400" dir="ltr">
+                    {formatSlotRange(o, locale)}
+                  </span>
+                  <BookingStatusBadge status={o.status} />
+                  {o.number !== booking.number && (
+                    <Link
+                      href={`/admin/bookings/${o.number}`}
+                      className="ms-auto font-mono text-[11px] text-brand-600 hover:underline dark:text-brand-400"
+                      dir="ltr"
+                    >
+                      {o.number}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         {/* Booking details */}

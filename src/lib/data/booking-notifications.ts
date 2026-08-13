@@ -44,7 +44,8 @@ export type CustomerNotificationKind =
   | "customer-cancelled"
   | "customer-paid"
   | "customer-rescheduled"
-  | "customer-refund";
+  | "customer-refund"
+  | "customer-recurring-visit";
 
 export type BookingNotificationKind = WorkerNotificationKind | CustomerNotificationKind | "customer-reminder";
 
@@ -166,6 +167,19 @@ export function bookingNotification(
         titleAr: "تم استرداد الدفعة المقدمة",
         bodyEn: `Your deposit for ${booking.number} was refunded to your original payment method.`,
         bodyAr: `تم استرداد دفعتك المقدمة للحجز ${booking.number} إلى طريقة الدفع الأصلية.`,
+        href: "/bookings",
+        booking: ctx,
+      };
+    case "customer-recurring-visit":
+      // The cron (or, in demo mode, the accept-time materialization) scheduled
+      // the contract's next visit — the date rides the body AND the email's
+      // receipt card (BookingEmailContext.startAt renders the full date).
+      return {
+        type: "recurringVisitScheduled",
+        titleEn: "Next visit scheduled",
+        titleAr: "تم جدولة الزيارة القادمة",
+        bodyEn: `Your next visit for ${booking.number} (${booking.jobTitle}) is scheduled for ${time}.`,
+        bodyAr: `تمت جدولة زيارتك القادمة للحجز ${booking.number} (${booking.jobTitle}) في ${time}.`,
         href: "/bookings",
         booking: ctx,
       };

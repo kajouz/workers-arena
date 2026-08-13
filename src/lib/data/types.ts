@@ -586,6 +586,7 @@ export interface Notification {
     | "bookingPaid"
     | "bookingRescheduled"
     | "bookingRefund"
+    | "recurringVisitScheduled"
     | "campaignRefunded";
   titleEn: string;
   titleAr: string;
