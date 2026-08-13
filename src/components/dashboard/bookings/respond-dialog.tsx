@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, Hourglass, XCircle, Loader2 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
+import { useCountdownTick } from "@/hooks/use-countdown-tick";
 import { PLATFORM_FEE_MIN_MINOR, PLATFORM_FEE_RATE_BPS, computePlatformFee, isPlanFeeExempt } from "@/lib/data/booking-ui";
 import { Price } from "@/components/shared/price";
 import { respondBookingAction } from "@/app/actions/bookings";
@@ -14,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { requestSlaExpiryMs } from "@/lib/data/types";
 import type { Booking, Worker } from "@/lib/data/types";
 
 /**
@@ -33,6 +35,13 @@ export function RespondDialog({ booking, worker }: { booking: Booking; worker: W
   const [requireDeposit, setRequireDeposit] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // §2.2 — live SLA countdown while the dialog is open: the request auto-
+  // cancels at requestSlaExpiryMs (creation + the expire window — the REAL
+  // deadline, unlike the customer dialog's pre-submit estimate), ticking every
+  // 30s against that fixed timestamp. Visibility-aware: pauses while the tab
+  // is hidden, resyncs on visibilitychange, so it never drifts.
+  const now = useCountdownTick(open && booking.status === "requested");
 
   const submit = async () => {
     setBusy(true);
@@ -81,6 +90,30 @@ export function RespondDialog({ booking, worker }: { booking: Booking; worker: W
           <DialogTitle>{t("booking.respondTitle")}</DialogTitle>
           <DialogDescription>{t("booking.respondSubtitle")}</DialogDescription>
         </DialogHeader>
+
+        {/* §2.2 request SLA — the worker's live deadline. Mirrors the customer
+            dialog's ticking clock, but from the REAL requestSlaExpiryMs (the
+            booking exists here), so the worker sees exactly how long before the
+            request auto-cancels and the slot frees. The nudge note rides
+            alongside (booking.slaNudgeSent, stamped by both adapters). */}
+        {booking.status === "requested" &&
+          (() => {
+            const totalMin = Math.max(0, Math.ceil((requestSlaExpiryMs(booking) - now) / 60_000));
+            const hours = Math.floor(totalMin / 60);
+            const minutes = totalMin % 60;
+            const copy = hours >= 1
+              ? t("booking.slaWorkerDialogCountdown")
+              : t("booking.slaWorkerDialogSoon");
+            return (
+              <p className="flex items-start gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+                <Hourglass className="mt-px size-3.5 shrink-0" />
+                <span>
+                  {copy.replace("{hours}", String(hours)).replace("{minutes}", String(minutes))}
+                  {booking.slaNudgeSent && <span className="ms-1 font-semibold">· {t("booking.slaNudgeTag")}</span>}
+                </span>
+              </p>
+            );
+          })()}
 
         {/* Accept / decline toggle */}
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-800">

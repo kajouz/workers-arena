@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/components/providers/locale-provider";
+import { useCountdownTick } from "@/hooks/use-countdown-tick";
 import { toast } from "@/components/ui/toast";
 import { ServicePicker } from "./service-picker";
 import { SlotPicker } from "./slot-picker";
@@ -65,7 +66,6 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
   const [submitting, setSubmitting] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
   // §2.2 — the countdown's expiry is captured ONCE, when the details step is
   // entered: recomputing it from a moving `now` would pin `min(slot, now+48h) −
   // now` at exactly 48h for any slot past the window, a static clock.
@@ -73,18 +73,18 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
 
   const selectedSlot = slots.find((s) => s.id === slotId);
 
-  // §2.2 — tick the SLA countdown while the summary step is open, so the
-  // "auto-expires in …" clock is alive, not a static number. Depend on the
-  // stable slotId, not the selectedSlot object (a fresh reference every
-  // render would reset the interval + expiry on each re-render).
+  // §2.2 — capture the expiry when the details step is entered (stable slotId
+  // dep, NOT the selectedSlot object — a fresh reference per render would
+  // reset it). The clock itself is visibility-aware: pauses while the tab is
+  // hidden, resyncs on visibilitychange, so it never drifts.
   useEffect(() => {
     if (step !== "details" || !slotId) return;
     const slot = slots.find((s) => s.id === slotId);
     if (!slot) return;
     setSlaExpiryAt(dialogSlaExpiryMs(Date.parse(slot.startAt), Date.now()));
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
   }, [step, slotId, slots]);
+
+  const now = useCountdownTick(step === "details" && selectedSlot !== undefined);
 
   const workerName = locale === "ar" ? worker.nameAr : worker.nameEn;
   const stepIndex = STEPS.indexOf(step);
@@ -102,7 +102,6 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
     setFrequency(null);
     setConflict(false);
     setDone(false);
-    setNow(Date.now());
     setSlaExpiryAt(null);
     setOpen(true);
   };
