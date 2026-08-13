@@ -14,7 +14,9 @@ import {
 import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCode } from "./activity";
 import {
   demoCancelBooking,
+  demoCancelRecurringContract,
   demoCreateBookingRequest,
+  demoCreateRecurringRequest,
   demoGenerateSlots,
   demoConfirmBookingPayment,
   demoCreateBookingCheckout,
@@ -29,8 +31,11 @@ import {
   demoDecidePayout,
   demoGetWorkerPayouts,
   demoGetPendingPayouts,
+  demoGetCustomerRecurrings,
+  demoGetWorkerRecurrings,
   demoRescheduleBooking,
   demoRespondToBooking,
+  demoRespondToRecurring,
   demoSetSlotBlocked,
   demoTransitionBooking,
 } from "./bookings";
@@ -56,6 +61,9 @@ import type {
   BookingCancelInput,
   BookingRequestInput,
   BookingFunnel,
+  RecurringBooking,
+  RecurringRequestInput,
+  RecurringRespondInput,
   PlatformFeeStats,
   LedgerEntry,
   WorkerBalance,
@@ -796,6 +804,76 @@ export async function respondToBooking(
     );
   }
   return result;
+}
+
+/**
+ * M1 recurring bookings (ENHANCEMENT-PLAN §7 #1) — worker's contracts. Demo
+ * adapter only for now; real mode no-ops with a warning until the prisma wave.
+ */
+export async function getWorkerRecurrings(workerId: string): Promise<RecurringBooking[]> {
+  if (realDataEnabled) {
+    realModeMutationUnsupported("getWorkerRecurrings");
+    return [];
+  }
+  return demoGetWorkerRecurrings(workerId);
+}
+
+/** M1 — customer requests a repeat service; first occurrence claims the slot. */
+export async function createRecurringRequest(
+  input: RecurringRequestInput
+): Promise<{ recurring: RecurringBooking; booking: Booking } | { error: "slot-taken" | "invalid" }> {
+  if (realDataEnabled) {
+    realModeMutationUnsupported("createRecurringRequest");
+    return { error: "invalid" };
+  }
+  const result = await demoCreateRecurringRequest(input);
+  if (!("error" in result)) {
+    await logBookingLifecycle(
+      ACTION_CODES.BOOKING_REQUESTED,
+      result.booking,
+      {
+        en: `${result.booking.customerName} requested recurring ${result.booking.number} — ${result.booking.jobTitle}`,
+        ar: `${result.booking.customerName} طلب تكرار ${result.booking.number} — ${result.booking.jobTitle}`,
+      },
+      result.booking.customerName
+    );
+  }
+  return result;
+}
+
+/** M1 — worker accepts (quote/deposit) or declines the whole contract. */
+export async function respondToRecurring(
+  recurringId: string,
+  input: RecurringRespondInput
+): Promise<RecurringBooking | null> {
+  if (realDataEnabled) {
+    realModeMutationUnsupported("respondToRecurring");
+    return null;
+  }
+  return demoRespondToRecurring(recurringId, input);
+}
+
+/** A customer's contracts — email for signed-in, normalized phone for guests. */
+export async function getCustomerRecurrings(
+  identifier: { email?: string; phone?: string } = {}
+): Promise<RecurringBooking[]> {
+  if (realDataEnabled) {
+    realModeMutationUnsupported("getCustomerRecurrings");
+    return [];
+  }
+  return demoGetCustomerRecurrings(identifier);
+}
+
+/** Customer cancels an active contract — anchor slot frees, cadence stops. */
+export async function cancelRecurringContract(
+  recurringId: string,
+  reason?: string
+): Promise<RecurringBooking | null> {
+  if (realDataEnabled) {
+    realModeMutationUnsupported("cancelRecurringContract");
+    return null;
+  }
+  return demoCancelRecurringContract(recurringId, reason);
 }
 
 

@@ -155,6 +155,18 @@ enum SlotStatus {
   BLOCKED
 }
 
+enum RecurringFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum RecurringStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
 enum LedgerKind {
   EARNING
   WITHDRAWAL
@@ -203,6 +215,7 @@ model User {
   payments      Payment[]
   activityLogs  ActivityLog[]
   bookings      Booking[] // customer-side bookings
+  recurringBookings RecurringBooking[]
 
   @@index([role])
   @@index([email])
@@ -371,6 +384,7 @@ model Worker {
   views        WorkerView[]
   slots        BookingSlot[]
   bookings     Booking[]
+  recurringBookings RecurringBooking[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -395,6 +409,7 @@ model ServiceItem {
   sortOrder   Int    @default(0)
 
   bookings Booking[]
+  recurringBookings RecurringBooking[]
 
   @@index([workerId])
 }
@@ -941,10 +956,47 @@ model Booking {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // M1 recurring contracts (ENHANCEMENT-PLAN §7 #1) — set when this booking is
+  // an occurrence of a contract (the first occurrence IS the request).
+  recurringBookingId String?
+  recurringBooking   RecurringBooking? @relation(fields: [recurringBookingId], references: [id], onDelete: SetNull)
+
   events BookingEvent[]
   ledger        WorkerLedgerEntry[]
 
   @@index([workerId, status, startAt])
+  @@index([customerId, status])
+  @@index([recurringBookingId])
+}
+
+/// A maintenance contract (ENHANCEMENT-PLAN §7 #1): one customer request, a
+/// cadence, and auto-materialized occurrences. The first occurrence is the
+/// request itself (a normal Booking); the worker accepts the CONTRACT once and
+/// the future occurrences are generated from the anchor at the cadence.
+model RecurringBooking {
+  id            String             @id @default(cuid())
+  number        String             @unique // human-readable, e.g. "RC-1001"
+  workerId      String
+  worker        Worker             @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  customerId    String? // null for guest (phone-keyed) requests
+  customer      User?              @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  serviceItemId String?
+  serviceItem   ServiceItem?       @relation(fields: [serviceItemId], references: [id], onDelete: SetNull)
+  customerName  String
+  customerPhone String
+  customerEmail String?
+  jobTitle      String
+  note          String?            @db.Text
+  frequency     RecurringFrequency
+  anchorStart   DateTime
+  anchorEnd     DateTime
+  status        RecurringStatus    @default(ACTIVE)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  occurrences Booking[]
+
+  @@index([workerId, status])
   @@index([customerId, status])
 }
 

@@ -116,4 +116,25 @@ Improvements to how customers, workers, and admins *move through* the product. O
 
 ---
 
+## 7. Fresh ideas (not yet in the plan)
+
+Ideas surfaced after the waves above were written. **Priority** — 🔥 start next · 💡 high value · 🟡 opportunistic. **Effort** — S (≤1 day) / M (2–5 days) / L (1–2 weeks) / XL (wave).
+
+| # | Idea | Priority | Effort | Why it matters |
+|---|---|---|---|---|
+| 1 | **Recurring bookings & maintenance contracts** — AC servicing, pest control, water-heater checks are repeat jobs; today the model is one-shot only. `RecurringBooking` (frequency weekly/biweekly/monthly, anchor slot) auto-materializes future occurrences from the worker's availability via the existing slot/booking rails; worker accepts the contract once, occurrences flow automatically. | 🔥 | ✅ **M1 shipped** (demo adapter + UI + tests; prisma wave next) | Turns a transactional marketplace into recurring GMV + worker retention; regionally the #1 repeat category |
+| 2 | **WhatsApp booking actions** — the notification seam already has a WhatsApp provider; extend from notify-only to action ("reply 1 to confirm/accept") for customers and workers. | 💡 | M | MENA customers complete flows where they already are |
+| 3 | **Worker calendar sync + auto-block** — iCal/Google feed of the worker's availability; confirmed bookings auto-block and appear in their external calendar. | 💡 | S–M | Kills the #1 worker complaint (double-booking real life) |
+| 4 | **Digital warranty / guarantee receipts** — on COMPLETED, auto-mint a 90-day workmanship guarantee tied to the `WA-*` invoice. | 💡 | S | Cheap trust differentiator + drives repeat bookings in-app |
+| 5 | **Escrow / pay-on-completion** — hold the quote in escrow, release on customer-confirmed completion (with §2.3). Ledger + Payment models are ready. | 💡 | L | Biggest remaining trust + monetization leap |
+| 6 | **Emergency surge pricing** — `emergency` is a flag today; make after-hours/urgent jobs priceable 1.5–2× up front. | 🟡 | S–M | Region's biggest pain becomes a lever |
+| 7 | **Admin fraud-signals card** — decline/refund/no-show rates, duplicate-phone accounts, unverified-completion ratios from the existing `ACTION_CODES` trail. | 🟡 | M | Protects marketplace quality before it becomes a reputation problem |
+| 8 | **Worker funnel analytics** — profile views → contact → lead → booking conversion per worker (admin has funnels; workers don't). | 🟡 | M | Upgrade + retention driver for workers |
+| 9 | **Corporate PO / work-order flow (B2B)** — companies issue POs with work orders for crew bookings, invoiced net-30. | 🟡 | L | Unlocks the B2B ARR stream BUSINESS-MODEL.md predicts |
+| 10 | **Public "verified jobs" counter** — live completed-job count + verified-purchase review share on the profile. | 🟡 | S | Compounding trust signal |
+
+**Sequencing:** #1's **M1 is shipped** — `RecurringBooking` model + migration (`20260813104011_recurring_booking`), the pure `generateRecurringOccurrences` cadence helper (weekly/biweekly/monthly, month-end clamp), the demo adapter (`demoCreateRecurringRequest` / `demoRespondToRecurring` / `demoGetWorkerRecurrings` — first occurrence claims the slot like a one-shot, accept materializes `RECURRING_OCCURRENCE_COUNT` future confirmed bookings with the same quote/take-rate), the `createRecurringRequest` / `respondToRecurring` / `getWorkerRecurrings` seams + `requestRecurringBookingAction` / `respondRecurringBookingAction`, a repeat selector in the BookingDialog details step, a **Recurring** tab in the worker BookingsPanel (inline accept with quote/deposit or decline), EN/AR i18n, and 11 tests (cadence + full lifecycle). **Next wave (W2):** the prisma adapter (occurrences claim real slots via the CAS inside `prisma.$transaction`, generation cron for future occurrences, `/bookings` customer view, seed rows + `db:smoke` section). #2 and #3 are small and independent — good gap-fillers. #4 rides on the invoice system already shipped. #5 is the natural successor to the take rate + payouts pair.
+
+---
+
 **Related docs:** [PRODUCT.md](PRODUCT.md) · [selection-workflow.md](selection-workflow.md) · [booking-scheduling.md](booking-scheduling.md) · [booking-take-rate.md](booking-take-rate.md) · [BUSINESS-MODEL.md](BUSINESS-MODEL.md) · [PAYMENTS.md](PAYMENTS.md) · [mobile-architecture.md](mobile-architecture.md)

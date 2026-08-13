@@ -30,8 +30,12 @@ import {
   type BookingStatus,
   type BookingPayment,
   type BookingTransitionTarget,
+  type RecurringBooking,
+  type RecurringRequestInput,
+  type RecurringRespondInput,
   type SlotStatus,
 } from "./types";
+import { RECURRING_OCCURRENCE_COUNT, generateRecurringOccurrences } from "./recurring";
 import { getPaymentProvider } from "@/lib/payments/registry";
 
 /**
@@ -76,6 +80,10 @@ type DemoStore = {
   /** Worker earnings ledger (docs/payouts.md) — the balance source of truth. */
   ledger: LedgerEntry[];
   ledgerSeq: number;
+  /** Recurring contracts (M1 — ENHANCEMENT-PLAN §7 #1). */
+  recurrings: RecurringBooking[];
+  /** Next recurring-contract number — the seeded RC-1000 is the last used. */
+  recurringSeq: number;
 };
 
 const GLOBAL_KEY = "__workersArenaDemoBookingStore";
@@ -106,6 +114,8 @@ const STORE: DemoStore =
     invoiceSeq: 0,
     ledger: [],
     ledgerSeq: 0,
+    recurrings: [],
+    recurringSeq: 1001,
   } as DemoStore);
 
 function nextDemoInvoiceNumber(): string {
@@ -142,6 +152,8 @@ function seed(): void {
   STORE.invoiceSeq = 0;
   STORE.ledger.length = 0;
   STORE.ledgerSeq = 0;
+  STORE.recurrings.length = 0;
+  STORE.recurringSeq = 1001;
 
   const worker = workerById(demoWorkerId);
   // Every slot is a 1-hour range: start at the top of the hour, end +60 min.
@@ -967,4 +979,172 @@ export async function demoRespondToBooking(
     await notifyCustomer(booking, "customer-declined");
   }
   return booking;
+}
+
+/**
+ * M1 recurring bookings (ENHANCEMENT-PLAN §7 #1) — worker's active contracts.
+ */
+export function demoGetWorkerRecurrings(workerId: string): RecurringBooking[] {
+  return STORE.recurrings
+    .filter((r) => r.workerId === workerId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * M1 — customer asks for a repeat service (weekly/biweekly/monthly). The first
+ * occurrence goes through the exact one-shot claim (slot AVAILABLE, overlap
+ * guard, RESERVED, REQUESTED booking + worker notification), then a contract
+ * wraps it. The worker's single accept confirms the whole cadence.
+ */
+export async function demoCreateRecurringRequest(
+  input: RecurringRequestInput
+): Promise<{ recurring: RecurringBooking; booking: Booking } | { error: "slot-taken" | "invalid" }> {
+  // Rule 1+2 — the same claim + overlap guard as a one-shot request.
+  const booking = await demoCreateBookingRequest(input);
+  if ("error" in booking) return booking;
+
+  const recurring: RecurringBooking = {
+    id: `rc-${STORE.recurringSeq}`,
+    number: `RC-${STORE.recurringSeq}`,
+    workerId: input.workerId,
+    customerId: input.customerId,
+    customerName: input.customerName,
+    customerPhone: input.customerPhone,
+    customerEmail: input.customerEmail,
+    serviceItem: input.serviceItem,
+    jobTitle: input.jobTitle,
+    note: input.note,
+    frequency: input.frequency,
+    anchorStart: booking.startAt,
+    anchorEnd: booking.endAt,
+    status: "active",
+    occurrences: [booking],
+    createdAt: new Date().toISOString(),
+  };
+  STORE.recurringSeq += 1;
+  booking.recurringId = recurring.id;
+  STORE.recurrings.push(recurring);
+  return { recurring, booking };
+}
+
+/**
+ * M1 — worker accepts (quote/deposit) or declines the whole contract. Accept
+ * confirms the first occurrence through the normal respond path (slot → BOOKED,
+ * take-rate stamp, customer notification) and materializes the next
+ * RECURRING_OCCURRENCE_COUNT occurrences as confirmed bookings with the same
+ * terms — each on its cadence time, slot-less in the demo adapter (the prisma
+ * wave claims real slots via the CAS). Decline cancels the contract and frees
+ * the first occurrence's slot.
+ */
+export async function demoRespondToRecurring(
+  recurringId: string,
+  input: RecurringRespondInput
+): Promise<RecurringBooking | null> {
+  const recurring = STORE.recurrings.find((r) => r.id === recurringId);
+  if (!recurring || recurring.status !== "active") return null;
+  const first = recurring.occurrences[0];
+  if (!first) return null;
+
+  if (input.accept) {
+    const responded = await demoRespondToBooking(first.id, {
+      accept: true,
+      quote: input.quote,
+      deposit: input.deposit,
+    });
+    if (!responded) return null;
+
+    // Materialize the cadence — same terms, each occurrence keeps the anchor's
+    // time-of-day. Slot-less in the demo adapter; the prisma wave generates
+    // real AVAILABLE slots and claims them via the same CAS.
+    const nextStarts = generateRecurringOccurrences(
+      recurring.anchorStart,
+      recurring.frequency,
+      RECURRING_OCCURRENCE_COUNT
+    );
+    const duration = new Date(recurring.anchorEnd).getTime() - new Date(recurring.anchorStart).getTime();
+    const worker = workerById(recurring.workerId);
+    for (const startAt of nextStarts) {
+      STORE.counter += 1;
+      const occ: Booking = {
+        id: `bk-${STORE.counter}`,
+        number: `BK-${STORE.counter}`,
+        workerId: recurring.workerId,
+        customerId: recurring.customerId,
+        customerName: recurring.customerName,
+        customerPhone: recurring.customerPhone,
+        customerEmail: recurring.customerEmail,
+        serviceItem: recurring.serviceItem,
+        jobTitle: recurring.jobTitle,
+        note: recurring.note,
+        startAt,
+        endAt: new Date(new Date(startAt).getTime() + duration).toISOString(),
+        status: "confirmed",
+        quote: responded.quote,
+        deposit: responded.deposit,
+        platformFee: responded.platformFee,
+        platformFeeRateBps: responded.platformFeeRateBps,
+        currency: worker?.currency ?? responded.currency,
+        recurringId: recurring.id,
+        events: [
+          {
+            status: "confirmed",
+            actorType: "system",
+            reason: `recurring ${recurring.frequency}`,
+            time: new Date().toISOString(),
+          },
+        ],
+      };
+      recurring.occurrences.push(occ);
+      STORE.bookings.push(occ);
+    }
+  } else {
+    // Decline the contract = decline the first occurrence (frees the slot);
+    // the normal respond path already notifies the customer.
+    await demoRespondToBooking(first.id, { accept: false, declineReason: input.declineReason });
+    recurring.status = "cancelled";
+  }
+  return recurring;
+}
+
+/** A customer's contracts, matched by email or normalized phone (mirrors
+ * demoGetCustomerBookings). */
+export function demoGetCustomerRecurrings(identifier: { email?: string; phone?: string } = {}): RecurringBooking[] {
+  const phone = identifier.phone?.replace(/[\s\-()]/g, "");
+  return STORE.recurrings
+    .filter((r) => {
+      if (identifier.email && r.customerEmail?.toLowerCase() === identifier.email.toLowerCase()) return true;
+      if (phone && r.customerPhone.replace(/[\s\-()]/g, "") === phone) return true;
+      return false;
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * Customer cancels an active contract: the anchor occurrence goes through the
+ * normal cancel path (frees the slot + notifies), every future occurrence is
+ * cancelled in place (slot-less), and the contract flips to CANCELLED.
+ */
+export async function demoCancelRecurringContract(
+  recurringId: string,
+  reason?: string
+): Promise<RecurringBooking | null> {
+  const recurring = STORE.recurrings.find((r) => r.id === recurringId);
+  if (!recurring || recurring.status !== "active") return null;
+
+  for (const occ of recurring.occurrences.slice(1)) {
+    if (BOOKING_TERMINAL_STATUSES.includes(occ.status)) continue;
+    occ.status = "cancelled";
+    occ.events.push({
+      status: "cancelled",
+      actorType: "customer",
+      reason,
+      time: new Date().toISOString(),
+    });
+  }
+  const first = recurring.occurrences[0];
+  if (first && !BOOKING_TERMINAL_STATUSES.includes(first.status)) {
+    await demoCancelBooking(first.id, { by: "customer", reason });
+  }
+  recurring.status = "cancelled";
+  return recurring;
 }

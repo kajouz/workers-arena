@@ -12,11 +12,19 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { toast } from "@/components/ui/toast";
 import { ServicePicker } from "./service-picker";
 import { SlotPicker } from "./slot-picker";
-import { requestBookingAction } from "@/app/actions/bookings";
+import { requestBookingAction, requestRecurringBookingAction } from "@/app/actions/bookings";
 import { cn } from "@/lib/utils";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
-import type { BookingSlot, Worker } from "@/lib/data/types";
+import type { BookingSlot, RecurringFrequency, Worker } from "@/lib/data/types";
+
+/** Repeat options shown in the details step (§7 #1 — recurring bookings). */
+const REPEAT_OPTIONS: { value: RecurringFrequency | null; labelKey: string }[] = [
+  { value: null, labelKey: "booking.repeatNone" },
+  { value: "weekly", labelKey: "booking.repeatWeekly" },
+  { value: "biweekly", labelKey: "booking.repeatBiweekly" },
+  { value: "monthly", labelKey: "booking.repeatMonthly" },
+];
 
 type Step = "service" | "slot" | "details";
 
@@ -40,6 +48,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
+  const [frequency, setFrequency] = useState<RecurringFrequency | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState(false);
@@ -57,6 +66,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
     setPhone("");
     setEmail("");
     setNote("");
+    setFrequency(null);
     setConflict(false);
     setDone(false);
     setOpen(true);
@@ -93,8 +103,13 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
     fd.set("jobTitle", jobTitle.trim());
     fd.set("note", note.trim());
     fd.set("serviceItemName", serviceName ?? "");
+    if (frequency) fd.set("frequency", frequency);
 
-    const res = await requestBookingAction(worker.slug, fd);
+    // A repeat cadence routes to the recurring action — same first-occurrence
+    // claim, plus the contract the worker accepts once (§7 #1).
+    const res = frequency
+      ? await requestRecurringBookingAction(worker.slug, fd)
+      : await requestBookingAction(worker.slug, fd);
     setSubmitting(false);
 
     if (res.ok) {
@@ -230,6 +245,31 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                     placeholder={t("booking.jobNotePlaceholder")}
                     rows={3}
                   />
+                </div>
+
+                {/* M1 (§7 #1) — repeat cadence: off by default; a frequency turns
+                    this request into a maintenance contract the worker accepts
+                    once and future visits are auto-booked. */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.repeat")}</label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {REPEAT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.labelKey}
+                        type="button"
+                        onClick={() => setFrequency(opt.value)}
+                        className={cn(
+                          "rounded-lg border px-2 py-1.5 text-xs font-bold transition-colors",
+                          frequency === opt.value
+                            ? "border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300"
+                            : "border-ink-100 bg-white text-ink-500 hover:border-brand-300 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-300"
+                        )}
+                      >
+                        {t(opt.labelKey)}
+                      </button>
+                    ))}
+                  </div>
+                  {frequency && <p className="mt-1 text-[11px] text-ink-400">{t("booking.repeatHint")}</p>}
                 </div>
 
                 {/* M5 — fee-waiver note on the summary step, so the perk copy at

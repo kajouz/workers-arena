@@ -6,6 +6,7 @@ import {
   getWorkers,
   getInvoices,
   getWorkerBookings,
+  getWorkerRecurrings,
   getWorkerSlots,
   getWorkerBalance,
   getWorkerPayouts,
@@ -32,6 +33,8 @@ export default async function DashboardPage() {
   // belong to the company dashboard).
   const subInvoices = invoices.filter((i) => i.scope === "subscription");
   const bookings = await getWorkerBookings(demoWorker.id);
+  // M1 recurring contracts (§7 #1) — accept/decline once, cadence auto-books.
+  const recurrings = await getWorkerRecurrings(demoWorker.id);
   // Next-7-days slot window for the availability editor (M2). The slot read
   // is `startAt <= to`, so `to` must be the END of the 7th day — a bare
   // today+6d midnight would drop the last day's slots entirely (its open
@@ -53,6 +56,7 @@ export default async function DashboardPage() {
       worker={demoWorker}
       invoices={subInvoices}
       bookings={bookings}
+      recurrings={recurrings}
       slots={slots}
       balance={balance}
       payouts={payouts}

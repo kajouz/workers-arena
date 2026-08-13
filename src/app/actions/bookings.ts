@@ -5,18 +5,21 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth-demo";
 import {
   cancelBooking,
+  cancelRecurringContract,
   confirmBookingPayment,
   createBookingCheckout,
   createBookingRequest,
+  createRecurringRequest,
   generateSlots,
   getWorkerBySlug,
   getWorkerSlots,
   rescheduleBooking,
   respondToBooking,
+  respondToRecurring,
   setSlotBlocked,
   transitionBooking,
 } from "@/lib/data/repo";
-import type { BookingTransitionTarget } from "@/lib/data/types";
+import type { BookingTransitionTarget, RecurringFrequency } from "@/lib/data/types";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -89,6 +92,51 @@ export async function requestBookingAction(
   return { ok: true };
 }
 
+const recurringFrequencySchema = z.enum(["weekly", "biweekly", "monthly"]);
+
+/**
+ * M1 recurring bookings (§7 #1) — same request shape plus a repeat cadence.
+ * The first occurrence claims the slot exactly like a one-shot request; the
+ * contract wraps it and the worker's single accept materializes the cadence.
+ */
+export async function requestRecurringBookingAction(
+  workerSlug: string,
+  formData: FormData
+): Promise<BookingActionResult> {
+  const parsed = requestSchema.safeParse({
+    slotId: formData.get("slotId"),
+    customerName: formData.get("customerName"),
+    customerPhone: formData.get("customerPhone"),
+    customerEmail: formData.get("customerEmail"),
+    jobTitle: formData.get("jobTitle"),
+    note: formData.get("note"),
+    serviceItemName: formData.get("serviceItemName"),
+  });
+  const frequency = recurringFrequencySchema.safeParse(formData.get("frequency"));
+  if (!parsed.success || !frequency.success) return { ok: false, error: "invalid" };
+
+  const worker = await getWorkerBySlug(workerSlug);
+  if (!worker) return { ok: false, error: "invalid" };
+
+  const result = await createRecurringRequest({
+    workerId: worker.id,
+    slotId: parsed.data.slotId,
+    customerName: parsed.data.customerName,
+    customerPhone: parsed.data.customerPhone,
+    customerEmail: parsed.data.customerEmail || undefined,
+    jobTitle: parsed.data.jobTitle,
+    note: parsed.data.note || undefined,
+    serviceItem: worker.services.find((s) => s.nameEn === parsed.data.serviceItemName),
+    frequency: frequency.data as RecurringFrequency,
+  });
+  if ("error" in result) return { ok: false, error: result.error };
+
+  revalidatePath(`/workers/${workerSlug}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/bookings");
+  return { ok: true };
+}
+
 /** Money in major units from the form — must parse to a finite number (×100 → minor). */
 const moneyField = z
   .string()
@@ -133,6 +181,47 @@ export async function respondBookingAction(
   if (!booking) return { ok: false, error: "not-found" };
 
   revalidatePath("/dashboard");
+  revalidatePath("/bookings");
+  return { ok: true };
+}
+
+/** M1 — worker accepts (quote/deposit) or declines a whole recurring contract. */
+export async function respondRecurringBookingAction(
+  recurringId: string,
+  formData: FormData
+): Promise<BookingActionResult> {
+  const parsed = respondSchema.safeParse({
+    accept: formData.get("accept"),
+    quote: formData.get("quote") || undefined,
+    deposit: formData.get("deposit") || undefined,
+    declineReason: formData.get("declineReason") || undefined,
+  });
+  if (!parsed.success) return { ok: false, error: "invalid" };
+
+  const accept = parsed.data.accept === "true";
+  const toMinor = (v?: string) => (v ? Math.round(Number(v) * 100) : undefined);
+
+  const recurring = await respondToRecurring(recurringId, {
+    accept,
+    quote: toMinor(parsed.data.quote),
+    deposit: toMinor(parsed.data.deposit),
+    declineReason: parsed.data.declineReason || undefined,
+  });
+  if (!recurring) return { ok: false, error: "not-found" };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/bookings");
+  return { ok: true };
+}
+
+/** Customer side: cancel an active recurring contract — future visits stop. */
+export async function cancelRecurringContractAction(
+  recurringId: string,
+  formData: FormData
+): Promise<BookingActionResult> {
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const recurring = await cancelRecurringContract(recurringId, reason || undefined);
+  if (!recurring) return { ok: false, error: "not-found" };
   revalidatePath("/bookings");
   return { ok: true };
 }

@@ -218,7 +218,59 @@ export interface Booking {
   paymentId?: string;
   /** Receipt created at payment-confirm for signed-in customers (M3). */
   invoice?: BookingInvoice;
+  /** M1 recurring bookings (§7 #1) — set when this booking is an occurrence of a contract. */
+  recurringId?: string;
   events: BookingEvent[];
+}
+
+/** Recurring cadence for maintenance contracts (ENHANCEMENT-PLAN §7 #1). */
+export type RecurringFrequency = "weekly" | "biweekly" | "monthly";
+
+/** Lifecycle of a recurring contract. */
+export type RecurringStatus = "active" | "paused" | "cancelled";
+
+/**
+ * A maintenance contract: one customer request, auto-materialized occurrences.
+ * The first occurrence is a normal REQUESTED booking (same slot claim); the
+ * worker accepts the CONTRACT once, and the future occurrences are generated
+ * from the anchor slot at the chosen cadence (M1 demo adapter — the prisma
+ * wave materializes them as real slot claims).
+ */
+export interface RecurringBooking {
+  id: string;
+  number: string; // human-readable, e.g. "RC-1001"
+  workerId: string;
+  /** The signed-in customer's user id — null for guest (phone-keyed) requests. */
+  customerId?: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  serviceItem?: ServiceItem;
+  jobTitle: string;
+  note?: string;
+  frequency: RecurringFrequency;
+  /** The first occurrence's slot range — every occurrence reuses its time-of-day. */
+  anchorStart: string; // ISO
+  anchorEnd: string; // ISO
+  status: RecurringStatus;
+  /** Occurrences materialized so far, oldest first (the first is the request). */
+  occurrences: Booking[];
+  createdAt: string; // ISO
+}
+
+/** Customer-side input for creating a recurring request (M1). */
+export interface RecurringRequestInput extends BookingRequestInput {
+  frequency: RecurringFrequency;
+}
+
+/** Worker-side decision on a pending recurring contract (M1). */
+export interface RecurringRespondInput {
+  accept: boolean;
+  /** Price per visit — minor units (only when accepting). */
+  quote?: number;
+  /** Required upfront payment — minor units (only when accepting). */
+  deposit?: number;
+  declineReason?: string;
 }
 
 /**

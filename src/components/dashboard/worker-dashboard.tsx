@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
-import type { AnalyticsOverview, Booking, BookingSlot, Invoice, LedgerEntry, Worker, WorkerBalance } from "@/lib/data/types";
+import type { AnalyticsOverview, Booking, BookingSlot, Invoice, LedgerEntry, RecurringBooking, Worker, WorkerBalance } from "@/lib/data/types";
 import { PLANS, subscriptionStatus, daysUntil } from "@/lib/data/subscriptions";
 import { computeResponseRate } from "@/lib/data/booking-ui";
 import { WithdrawDialog } from "./withdraw-dialog";
@@ -44,6 +44,7 @@ export function WorkerDashboard({
   worker,
   invoices,
   bookings,
+  recurrings,
   slots,
   balance,
   payouts,
@@ -53,6 +54,8 @@ export function WorkerDashboard({
   worker: Worker;
   invoices: Invoice[];
   bookings: Booking[];
+  /** M1 recurring contracts (§7 #1) — the BookingsPanel's Recurring tab. */
+  recurrings: RecurringBooking[];
   slots: BookingSlot[];
   /** Payouts (docs/payouts.md) — spendable balance + withdrawal history. */
   balance: WorkerBalance;
@@ -130,7 +133,7 @@ export function WorkerDashboard({
         {/* chart + reviews */}
         <div className="space-y-6 lg:col-span-2">
           {/* bookings — M1 worker panel (docs/booking-scheduling.md §6) */}
-          <BookingsPanel bookings={bookings} worker={worker} />
+          <BookingsPanel bookings={bookings} recurrings={recurrings} worker={worker} />
 
           <Card>
             <CardHeader className="flex-row items-center justify-between">

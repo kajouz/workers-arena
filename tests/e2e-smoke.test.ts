@@ -386,8 +386,13 @@ function assertCleanWorkspace(
     // Freed-space summary so CI output shows exactly what the autoclean
     // recovered: the counts tie the space to the artifacts, the freed label
     // keeps 3 decimals for sub-0.1 GiB leftovers, and before→after reads at 2.
-    if (after > before) {
-      const freed = after - before;
+    // The gate is the 3-decimal GiB granularity (≥ 0.5 MiB), NOT a strict
+    // after > before: shared CI runners see free-space drift from concurrent
+    // jobs, so a strict comparison fires the line for noise even when nothing
+    // was recovered. The structured E2E_AUTOCLEAN_RESULT line below is the
+    // always-emitted record; the human line only claims real recoveries.
+    const freed = after - before;
+    if (freed >= 0.0005) {
       const freedLabel = freed < 0.1 ? `${freed.toFixed(3)} GiB` : `${freed.toFixed(2)} GiB`;
       const dirLabel = `${dirsRemoved} ${dirsRemoved === 1 ? "dir" : "dirs"}`;
       const lineLabel = `${tsconfigLinesRemoved} stale tsconfig ${tsconfigLinesRemoved === 1 ? "line" : "lines"}`;

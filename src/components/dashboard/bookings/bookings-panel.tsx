@@ -1,14 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Inbox, ArrowUpRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarClock, Inbox, ArrowUpRight, Loader2, Repeat } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { bucketBookings } from "@/lib/data/booking-ui";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
+import { bucketBookings, formatSlotRange } from "@/lib/data/booking-ui";
+import { RECURRING_OCCURRENCE_COUNT } from "@/lib/data/recurring";
+import { respondRecurringBookingAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
-import type { Booking, Worker } from "@/lib/data/types";
+import type { Booking, RecurringBooking, Worker } from "@/lib/data/types";
+
+const FREQ_LABEL_KEY: Record<RecurringBooking["frequency"], string> = {
+  weekly: "booking.repeatWeekly",
+  biweekly: "booking.repeatBiweekly",
+  monthly: "booking.repeatMonthly",
+};
 
 function EmptyState({
   icon,
@@ -43,7 +56,93 @@ function EmptyState({
  * list — Requests (waiting on the worker), Upcoming (accepted/scheduled),
  * Past (completed/voided) — with counts on each tab and empty states per tab.
  */
-export function BookingsPanel({ bookings, worker }: { bookings: Booking[]; worker: Worker }) {
+/**
+ * M1 (§7 #1) — one contract row: the first occurrence + cadence, with an
+ * inline accept (optional quote/deposit — the take-rate path) or decline.
+ */
+function RecurringContractRow({ contract }: { contract: RecurringBooking }) {
+  const { locale, t } = useLocale();
+  const router = useRouter();
+  const [quote, setQuote] = useState("");
+  const [deposit, setDeposit] = useState("");
+  const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
+  const first = contract.occurrences[0];
+
+  const act = async (accept: boolean) => {
+    if (busy) return;
+    setBusy(accept ? "accept" : "decline");
+    const fd = new FormData();
+    fd.set("accept", String(accept));
+    if (accept) {
+      fd.set("quote", quote);
+      if (deposit) fd.set("deposit", deposit);
+    }
+    const res = await respondRecurringBookingAction(contract.id, fd);
+    setBusy(null);
+    if (res.ok) {
+      toast("success", t(accept ? "booking.recurringAccepted" : "booking.recurringDeclined"));
+      router.refresh();
+    } else {
+      toast("error", t("booking.recurringError"));
+    }
+  };
+
+  const dateLabel = first
+    ? new Date(first.startAt).toLocaleDateString(locale === "ar" ? "ar-SA" : "en-US", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      })
+    : "";
+  const total = 1 + RECURRING_OCCURRENCE_COUNT;
+
+  return (
+    <div className="rounded-xl border border-ink-100 p-3 dark:border-ink-800">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="rounded-md bg-brand-500/10 px-1.5 py-0.5 text-[11px] font-black text-brand-600 dark:text-brand-400">
+              {contract.number}
+            </span>
+            <Badge variant="secondary">{t(FREQ_LABEL_KEY[contract.frequency])}</Badge>
+          </div>
+          <p className="mt-1 truncate text-sm font-black text-ink-900 dark:text-ink-50">{contract.jobTitle}</p>
+          <p className="truncate text-xs text-ink-500 dark:text-ink-400">
+            {contract.customerName} · {t("booking.recurringVisits").replace("{total}", String(total)).replace("{freq}", t(FREQ_LABEL_KEY[contract.frequency]))}
+          </p>
+          {first && (
+            <p className="mt-0.5 text-xs font-bold text-ink-600 dark:text-ink-300">
+              {dateLabel} · {formatSlotRange({ startAt: first.startAt, endAt: first.endAt }, locale)}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <label className="text-[11px] font-bold text-ink-500 dark:text-ink-400">
+          {t("booking.quote")}
+          <Input value={quote} onChange={(e) => setQuote(e.target.value)} className="mt-0.5 h-8 w-24" dir="ltr" placeholder="50" />
+        </label>
+        <label className="text-[11px] font-bold text-ink-500 dark:text-ink-400">
+          {t("booking.deposit")}
+          <Input value={deposit} onChange={(e) => setDeposit(e.target.value)} className="mt-0.5 h-8 w-24" dir="ltr" placeholder="0" />
+        </label>
+        <div className="ms-auto flex gap-2">
+          <Button size="sm" variant="ghost" onClick={() => act(false)} disabled={busy !== null}>
+            {busy === "decline" ? <Loader2 className="size-3.5 animate-spin" /> : null}
+            {t("booking.recurringDecline")}
+          </Button>
+          <Button size="sm" onClick={() => act(true)} disabled={busy !== null}>
+            {busy === "accept" ? <Loader2 className="size-3.5 animate-spin" /> : null}
+            {t("booking.recurringAccept")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function BookingsPanel({ bookings, worker, recurrings }: { bookings: Booking[]; worker: Worker; recurrings: RecurringBooking[] }) {
   const { t } = useLocale();
   const { requests, upcoming, past } = bucketBookings(bookings);
 
@@ -66,7 +165,7 @@ export function BookingsPanel({ bookings, worker }: { bookings: Booking[]; worke
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="requests">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="requests">
               {t("booking.requests")}
               <span className="ms-1 rounded-full bg-brand-500/15 px-1.5 text-[11px] font-black text-brand-600 dark:text-brand-400">
@@ -83,6 +182,12 @@ export function BookingsPanel({ bookings, worker }: { bookings: Booking[]; worke
               {t("booking.past")}
               <span className="ms-1 rounded-full bg-ink-500/10 px-1.5 text-[11px] font-black text-ink-500 dark:text-ink-400">
                 {past.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="recurring">
+              {t("booking.recurring")}
+              <span className="ms-1 rounded-full bg-brand-500/15 px-1.5 text-[11px] font-black text-brand-600 dark:text-brand-400">
+                {recurrings.length}
               </span>
             </TabsTrigger>
           </TabsList>
@@ -117,6 +222,14 @@ export function BookingsPanel({ bookings, worker }: { bookings: Booking[]; worke
               <EmptyState icon={<CalendarClock className="size-5" />} title={t("booking.pastEmpty")} body={t("booking.pastEmptyBody")} />
             ) : (
               past.map((b) => <BookingRow key={b.id} booking={b} worker={worker} />)
+            )}
+          </TabsContent>
+
+          <TabsContent value="recurring" className="space-y-3">
+            {recurrings.length === 0 ? (
+              <EmptyState icon={<Repeat className="size-5" />} title={t("booking.recurringEmpty")} body={t("booking.recurringEmptyBody")} />
+            ) : (
+              recurrings.map((r) => <RecurringContractRow key={r.id} contract={r} />)
             )}
           </TabsContent>
         </Tabs>
