@@ -1,5 +1,9 @@
 # 🛠️ WorkersArena — Professional Workers Directory
 
+[![CI](https://github.com/kajouz/workers-arena/actions/workflows/ci.yml/badge.svg)](https://github.com/kajouz/workers-arena/actions/workflows/ci.yml)
+
+Source & issues: [github.com/kajouz/workers-arena](https://github.com/kajouz/workers-arena)
+
 A **production-ready, bilingual (English LTR / Arabic RTL) SaaS marketplace** where customers find, compare and hire trusted professional workers — plumbers, electricians, AC technicians, carpenters and 20+ more trades — while workers grow their business with subscriptions and companies advertise to a qualified audience.
 
 Built on **Next.js 16 (App Router) · React 19 · TypeScript · TailwindCSS 4 · shadcn/ui-style Radix components · Framer Motion · Zustand · React Hook Form · Zod · Prisma · PostgreSQL** — and designed for Vercel + Docker deployment.
@@ -52,6 +56,8 @@ npm run dev
 
 ## 🧪 Quality
 
+[![CI](https://github.com/kajouz/workers-arena/actions/workflows/ci.yml/badge.svg)](https://github.com/kajouz/workers-arena/actions/workflows/ci.yml)
+
 ```bash
 npm run typecheck          # strict tsc
 npm test                   # vitest — search engine, i18n parity, formatting
@@ -61,6 +67,8 @@ npm run test:e2e:autoclean # same, but the pre-run check removes crash artifacts
 npm run test:all           # typecheck + the full test suite
 npm run build              # production build
 ```
+
+CI is codified in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — on every push/PR: typecheck + unit suite, E2E quick (dev matrix), and full E2E (dev + prod-build matrix), each on its own runner; plus a nightly live-Postgres `db:smoke` (+ prisma chain tests) that you can also trigger on demand from the Actions tab.
 
 **E2E pre-run check env flags** (`tests/e2e-smoke.test.ts`): before booting anything, the check rejects fast if a crashed run left artifacts — the doubled-path tree (`<root>/Users` · `<root>/home` · a drive-letter segment), leftover `.data/.next-e2e-*` isolated dist dirs, stale `.data/.next-e2e` entries in `tsconfig.json`'s include array — or if the disk is critically full:
 
@@ -103,3 +111,42 @@ docs/             # architecture & ops docs
 
 - **Demo mode** (`DEMO_MODE=true`) serves `src/lib/data/*` — the same dataset the seeder writes to PostgreSQL, so previews and production stay consistent.
 - **Production** swaps the repository functions in `src/lib/data/repo.ts` for Prisma queries (identical signatures), enables Auth.js, real payments, Cloudinary uploads and Redis caching — each documented in `docs/`.
+
+---
+
+## 🧑‍💻 Development & contributing
+
+**Clone**
+
+```bash
+git clone git@github.com:kajouz/workers-arena.git   # SSH
+git clone https://github.com/kajouz/workers-arena.git # HTTPS
+```
+
+**Setup** (demo mode — no database required)
+
+```bash
+cd workers-arena
+npm install
+cp .env.example .env   # defaults are demo-mode ready
+npm run dev            # → http://localhost:3001
+```
+
+For the full PostgreSQL stack (Auth.js, real payments), follow the **Full stack (PostgreSQL + Docker)** section above: `docker compose up -d postgres`, flip `DEMO_MODE="false"`, `npx prisma migrate dev`, `npm run db:seed`.
+
+**Test** — every stage of the ladder lives in the **Quality** section above and CI runs it automatically on every push/PR (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+
+```bash
+npm run test:all        # the full gate: typecheck + unit + E2E (dev & prod-build matrices)
+npm run test:e2e:quick  # fast browser pass (dev matrix only)
+npm run test:e2e:autoclean  # self-healing E2E (E2E_AUTOCLEAN=1)
+npm run db:smoke        # live-Postgres booking/campaign smoke (needs the seed)
+```
+
+**Opening a PR**
+
+- Branch from `main` and keep changes focused; the CI badge at the top of this README shows the current workflow status.
+- Run `npm run test:all` locally before pushing — CI mirrors it (typecheck + unit, E2E quick, E2E full, each on its own runner).
+- The E2E pre-run check fails fast on crash artifacts and full disks: use `npm run test:e2e:autoclean` (or `E2E_AUTOCLEAN=1`) to have it clean up and re-run instead.
+- The live-DB suites (`npm run db:smoke`, the prisma chain tests) must run **serially**, never concurrently — they share one `DATABASE_URL` (details in `.freebuff/run.md`).
+- Docs live in `docs/` (product plan, booking, payments, mobile, architecture…); update the relevant one when a feature changes behavior.

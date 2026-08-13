@@ -31,6 +31,8 @@
 
 ## CI — test script ladder (timeout budgets for pipeline planning)
 
+**The pipeline is codified in `.github/workflows/ci.yml`** — four jobs on separate runners: ① `typecheck-unit` (typecheck + `vitest run --exclude tests/e2e-smoke.test.ts`, no browser/DB) on every push/PR; ② `e2e-quick` (dev matrix) on every push/PR; ③ `e2e-full` (dev + prod-build matrix) on every push/PR; ④ `db-smoke` (Postgres service → `migrate deploy` → `db:seed` → `db:smoke` → the two prisma chain tests serially) on the nightly `0 2 * * *` cron + `workflow_dispatch`. Every job writes its own demo-mode `.env`; the E2E jobs set `E2E_AUTOCLEAN=1` + the 5 GiB floor; Chrome is the runner-preinstalled `/usr/bin/google-chrome`.
+
 Measured on the dev machine, Aug 2026 (local wall time; CI budgets are safe ceilings — double them on 2-core runners):
 
 | Stage | Command | Local | CI budget |

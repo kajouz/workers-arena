@@ -1,0 +1,137 @@
+# WorkersArena CI — implements the pipeline in `.freebuff/run.md` → "CI — test
+# script ladder". Every job runs in its own checkout on its own runner: the E2E
+# rewrites `tsconfig.json`'s include array for the duration of its run and boots
+# servers on pid-scoped `.data/.next-e2e-*` dist dirs, so typecheck/unit must
+# never share a runner with an E2E job (the run doc's "parallel shards need
+# separate checkouts" rule). Live-DB work (db:smoke + the prisma chain tests) is
+# confined to the nightly job so it is never concurrent with anything else.
+#
+# Budgets (measured locally Aug 2026, doubled as CI ceilings — see the run doc):
+#   typecheck ~2s · unit suite ~5s · E2E quick ~77s · E2E full ~137s
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Nightly live-DB smoke; also triggerable on demand from the Actions tab.
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  # ① Fast gate — no browser, no database. The prisma chain describes
+  # (booking-email-chain-prisma / campaign-email-chain-prisma) self-skip
+  # without DATABASE_URL, so this job covers the fixture + component suites.
+  typecheck-unit:
+    name: Typecheck + unit suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit suite (E2E file + prisma chain tests excluded/skip)
+        run: npx vitest run --exclude tests/e2e-smoke.test.ts
+
+  # ② Fast browser feedback — dev matrix only (E2E_SKIP_PROD=1).
+  # Chrome ships preinstalled on ubuntu-latest at /usr/bin/google-chrome; the
+  # E2E finds it via its CHROME_CANDIDATES list.
+  e2e-quick:
+    name: E2E quick (dev matrix)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_SKIP_PROD: "1"
+      E2E_AUTOCLEAN: "1"
+      E2E_MIN_FREE_GB: "5"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write demo-mode .env (the E2E forces DEMO_MODE=true anyway)
+        run: |
+          cat > .env <<'EOF'
+          DEMO_MODE="true"
+          AUTH_SECRET="ci-e2e-secret-please-change-in-production"
+          NEXT_PUBLIC_APP_URL="http://localhost:3000"
+          EOF
+      - run: npm run test:e2e:quick
+
+  # ③ Full gate — dev matrix + production build (next build + next start).
+  e2e-full:
+    name: E2E full (dev + prod build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      E2E_AUTOCLEAN: "1"
+      E2E_MIN_FREE_GB: "5"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write demo-mode .env (the E2E forces DEMO_MODE=true anyway)
+        run: |
+          cat > .env <<'EOF'
+          DEMO_MODE="true"
+          AUTH_SECRET="ci-e2e-secret-please-change-in-production"
+          NEXT_PUBLIC_APP_URL="http://localhost:3000"
+          EOF
+      - run: npm run test:e2e
+
+  # ④ Nightly live-DB smoke — Postgres service, migrated + seeded, then the
+  # prisma chain tests serially (never concurrent: all mutate the same DB; the
+  # run doc's serialization rule). Schedule runs target the default branch;
+  # workflow_dispatch allows an on-demand run.
+  db-smoke:
+    name: db:smoke + prisma chain tests (live Postgres)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 20
+    env:
+      DEMO_MODE: "false"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/workers_arena?schema=public"
+      AUTH_SECRET: "ci-db-secret-please-change-in-production"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: workers_arena
+        ports:
+          - 5432:5432
+        # Health check so migrate/seed never race the service container.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Migrate + seed the live DB
+        run: |
+          npx prisma migrate deploy
+          npm run db:seed
+      - name: db:smoke (restores the seed exactly on exit)
+        run: npm run db:smoke
+      - name: Prisma chain tests (serial, after db:smoke leaves a clean seed)
+        run: |
+          npx vitest run tests/booking-email-chain-prisma.test.ts tests/campaign-email-chain-prisma.test.ts
