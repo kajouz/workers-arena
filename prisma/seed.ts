@@ -6,7 +6,7 @@
  * Reuses the exact same source of truth as demo mode
  * (src/lib/data/*), so demo and production stay consistent.
  */
-import { BookingStatus, PrismaClient, Role, SlotStatus, SubscriptionPlan, WorkerStatus } from "@prisma/client";
+import { BookingStatus, PrismaClient, RecurringFrequency, RecurringStatus, Role, SlotStatus, SubscriptionPlan, WorkerStatus } from "@prisma/client";
 import { CATEGORIES } from "../src/lib/data/categories";
 import { CITIES } from "../src/lib/data/cities";
 import { WORKERS } from "../src/lib/data/workers";
@@ -358,6 +358,73 @@ async function main() {
       data: { bookingId: booking.id, status: BookingStatus.REQUESTED, actorType: "customer", actorId: saraId ?? null },
     });
     console.log("  ✓ 3 booking slots + 1 demo booking (BK-1001)");
+
+    // ── Recurring contract (W2 — ENHANCEMENT-PLAN §7 #1) ────────────────────
+    // One ACTIVE maintenance contract (RC-1001) so the recurring tabs and the
+    // generation cron are exercisable against the seeded DB: an AVAILABLE slot
+    // tomorrow at 11:00 anchors it, and the first occurrence is CONFIRMED with
+    // a quote (slot BOOKED). The weekly cadence rolls forward via
+    // GET /api/cron/recurring. Idempotent: the previous RC-1001 + its
+    // occurrences + the anchor slot are recreated fresh on every seed run.
+    const existingRecurring = await prisma.recurringBooking.findUnique({ where: { number: "RC-1001" } });
+    if (existingRecurring) {
+      // BookingSlot.bookingId is SetNull — deleting the occurrences frees the
+      // anchor slot for the unclaimed-slot cleanup below.
+      await prisma.booking.deleteMany({ where: { recurringBookingId: existingRecurring.id } });
+      await prisma.recurringBooking.delete({ where: { number: "RC-1001" } });
+    }
+    await prisma.bookingSlot.deleteMany({
+      where: { workerId: demoWorker.id, bookingId: null, startAt: slotAt(11) },
+    });
+    const recurringSlot = await prisma.bookingSlot.create({
+      data: {
+        workerId: demoWorker.id,
+        startAt: slotAt(11),
+        endAt: new Date(slotAt(11).getTime() + 60 * 60 * 1000),
+        status: SlotStatus.AVAILABLE,
+      },
+    });
+    const recurring = await prisma.recurringBooking.create({
+      data: {
+        number: "RC-1001",
+        workerId: demoWorker.id,
+        customerId: saraId ?? null,
+        customerName: "Sara Customer",
+        customerPhone: "+966 50 000 0000",
+        customerEmail: "sara@example.com",
+        jobTitle: "Weekly AC maintenance",
+        note: "Filter clean + pressure check, every week.",
+        frequency: RecurringFrequency.WEEKLY,
+        anchorStart: recurringSlot.startAt,
+        anchorEnd: recurringSlot.endAt,
+        status: RecurringStatus.ACTIVE,
+      },
+    });
+    const recurringOcc = await prisma.booking.create({
+      data: {
+        number: "BK-1002",
+        workerId: demoWorker.id,
+        customerId: saraId ?? null,
+        customerName: "Sara Customer",
+        customerPhone: "+966 50 000 0000",
+        customerEmail: "sara@example.com",
+        jobTitle: "Weekly AC maintenance",
+        note: "Filter clean + pressure check, every week.",
+        startAt: recurringSlot.startAt,
+        endAt: recurringSlot.endAt,
+        status: BookingStatus.CONFIRMED,
+        quote: 15000, // 150 SAR — minor units, like the adapter's stamps
+        platformFee: 1500, // 10% take rate snapshot
+        platformFeeRateBps: 1000,
+        currency: "SAR",
+        recurringBookingId: recurring.id,
+      },
+    });
+    await prisma.bookingSlot.update({ where: { id: recurringSlot.id }, data: { bookingId: recurringOcc.id, status: SlotStatus.BOOKED } });
+    await prisma.bookingEvent.create({
+      data: { bookingId: recurringOcc.id, status: BookingStatus.CONFIRMED, actorType: "system", reason: "recurring weekly" },
+    });
+    console.log("  ✓ 1 recurring contract (RC-1001) + 1 confirmed occurrence (BK-1002)");
   }
 
   console.log("✅ Seed complete.");

@@ -58,3 +58,29 @@ export function generateRecurringOccurrences(
   }
   return results;
 }
+
+/**
+ * Occurrence start-times within the half-open window (from, to] — exclusive of
+ * the anchor itself (the anchor is the first occurrence, materialized by the
+ * request). Steps the cadence from the anchor until past the window end. The
+ * generation cron (prismaGenerateRecurringOccurrences) uses this to find which
+ * occurrences are due next without materializing the whole infinite tail.
+ * Returns ISO strings, ascending.
+ */
+export function occurrencesInWindow(
+  anchorStart: string,
+  frequency: RecurringFrequency,
+  from: Date,
+  to: Date
+): string[] {
+  const results: string[] = [];
+  let d = new Date(anchorStart);
+  const toMs = to.getTime();
+  for (;;) {
+    d = nextOccurrence(d, frequency);
+    const ms = d.getTime();
+    if (ms > toMs) break;
+    if (ms >= from.getTime()) results.push(d.toISOString());
+  }
+  return results;
+}

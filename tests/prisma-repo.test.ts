@@ -7,9 +7,11 @@ import {
   sqlOrderBy,
   toDomainBooking,
   toDomainCategory,
+  toDomainRecurring,
   toDomainWorker,
   type PrismaBookingRow,
   type PrismaBookingSlotRow,
+  type PrismaRecurringRow,
 } from "../src/lib/data/prisma-repo";
 import {
   BOOKING_CANCEL_REFUND_WINDOW_MS,
@@ -427,6 +429,7 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
       platformFeeRateBps: 700,
       currency: "SAR",
       paymentId: null,
+      recurringBookingId: null,
       events: [
         { status: "REQUESTED", actorType: "customer", reason: null, createdAt: new Date(iso) },
         { status: "CONFIRMED", actorType: "worker", reason: null, createdAt: new Date("2026-08-10T09:05:00.000Z") },
@@ -616,5 +619,103 @@ describe("bookingCancelRefundDue (M4 cancellation policy — prisma cancel branc
 
   it("always refunds a system cancel", () => {
     expect(bookingCancelRefundDue({ startAt: START }, at(0), "system")).toBe(true);
+  });
+});
+
+describe("toDomainRecurring (W2 recurring mapper)", () => {
+  const ANCHOR = new Date("2026-08-14T07:00:00.000Z");
+
+  function makeOccRow(overrides: Partial<PrismaBookingRow> = {}): PrismaBookingRow {
+    return {
+      id: "bk-rec-1",
+      number: "BK-1002",
+      workerId: "w1",
+      customerId: null,
+      customerName: "Noor E.",
+      customerPhone: "+966 55 000 0000",
+      customerEmail: "noor@example.com",
+      jobTitle: "Weekly AC maintenance",
+      note: null,
+      startAt: ANCHOR,
+      endAt: new Date("2026-08-14T08:00:00.000Z"),
+      status: "CONFIRMED",
+      quote: 8000,
+      deposit: null,
+      platformFee: 560,
+      platformFeeRateBps: 700,
+      currency: "SAR",
+      paymentId: null,
+      recurringBookingId: "rc-1",
+      ...overrides,
+    };
+  }
+
+  function makeRecurringRow(overrides: Partial<PrismaRecurringRow> = {}): PrismaRecurringRow {
+    return {
+      id: "rc-1",
+      number: "RC-1001",
+      workerId: "w1",
+      customerId: "u1",
+      customerName: "Noor E.",
+      customerPhone: "+966 55 000 0000",
+      customerEmail: "noor@example.com",
+      serviceItem: { nameEn: "AC maintenance", nameAr: "صيانة مكيف", price: 150, unit: "job" },
+      jobTitle: "Weekly AC maintenance",
+      note: "Filter clean + pressure check.",
+      frequency: "WEEKLY",
+      anchorStart: ANCHOR,
+      anchorEnd: new Date("2026-08-14T08:00:00.000Z"),
+      status: "ACTIVE",
+      createdAt: new Date("2026-08-14T06:00:00.000Z"),
+      occurrences: [makeOccRow()],
+      ...overrides,
+    };
+  }
+
+  it("maps the contract: enums lowercased, occurrences mapped, optionals", () => {
+    const r = toDomainRecurring(makeRecurringRow());
+    expect(r.id).toBe("rc-1");
+    expect(r.number).toBe("RC-1001");
+    expect(r.frequency).toBe("weekly");
+    expect(r.status).toBe("active");
+    expect(r.anchorStart).toBe("2026-08-14T07:00:00.000Z");
+    expect(r.customerId).toBe("u1");
+    expect(r.serviceItem?.nameEn).toBe("AC maintenance");
+    expect(r.occurrences.length).toBe(1);
+    // The anchor occurrence maps through toDomainBooking — status lowercased,
+    // recurringId stamped from the DB column.
+    expect(r.occurrences[0]!.status).toBe("confirmed");
+    expect(r.occurrences[0]!.recurringId).toBe("rc-1");
+  });
+
+  it("maps every frequency and status enum", () => {
+    for (const [db, app] of [
+      ["WEEKLY", "weekly"],
+      ["BIWEEKLY", "biweekly"],
+      ["MONTHLY", "monthly"],
+    ] as const) {
+      expect(toDomainRecurring(makeRecurringRow({ frequency: db })).frequency).toBe(app);
+    }
+    for (const [db, app] of [
+      ["ACTIVE", "active"],
+      ["PAUSED", "paused"],
+      ["CANCELLED", "cancelled"],
+    ] as const) {
+      expect(toDomainRecurring(makeRecurringRow({ status: db })).status).toBe(app);
+    }
+  });
+
+  it("maps occurrences oldest first with their own statuses", () => {
+    const r = toDomainRecurring(
+      makeRecurringRow({
+        occurrences: [
+          makeOccRow({ id: "bk-rec-1", status: "REQUESTED" }),
+          makeOccRow({ id: "bk-rec-2", number: "BK-1003", startAt: new Date("2026-08-21T07:00:00.000Z"), endAt: new Date("2026-08-21T08:00:00.000Z") }),
+        ],
+      })
+    );
+    expect(r.occurrences.map((o) => o.number)).toEqual(["BK-1002", "BK-1003"]);
+    expect(r.occurrences[0]!.status).toBe("requested");
+    expect(r.occurrences[1]!.status).toBe("confirmed");
   });
 });

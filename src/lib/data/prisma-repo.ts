@@ -52,6 +52,7 @@ import { cityBySlug } from "./cities";
 import { addMonths, planPrice, PLANS, subscriptionStatus } from "./subscriptions";
 import { pushNotification } from "./notifications";
 import { bookingNotification } from "./booking-notifications";
+import { RECURRING_OCCURRENCE_COUNT, generateRecurringOccurrences, occurrencesInWindow } from "./recurring";
 import { campaignRefundNotification } from "./campaign-notifications";
 import type { CampaignCreateInput } from "./campaigns";
 import { ACTION_CODES, logAdminActivity } from "./activity";
@@ -87,6 +88,11 @@ import {
   type BookingRespondInput,
   type BookingSlot,
   type BookingStatus,
+  type RecurringBooking,
+  type RecurringFrequency,
+  type RecurringRequestInput,
+  type RecurringRespondInput,
+  type RecurringStatus,
   type BookingTransitionTarget,
   type Campaign,
   type CampaignPayment,
@@ -625,6 +631,27 @@ const SLOT_STATUS_APP_TO_DB: Record<SlotStatus, $Enums.SlotStatus> = {
   blocked: "BLOCKED",
 };
 
+const RECURRING_FREQUENCY_DB_TO_APP: Record<string, RecurringFrequency> = {
+  WEEKLY: "weekly",
+  BIWEEKLY: "biweekly",
+  MONTHLY: "monthly",
+};
+
+const RECURRING_STATUS_DB_TO_APP: Record<string, RecurringStatus> = {
+  ACTIVE: "active",
+  PAUSED: "paused",
+  CANCELLED: "cancelled",
+};
+
+const RECURRING_STATUS_APP_TO_DB: Record<RecurringStatus, $Enums.RecurringStatus> = {
+  active: "ACTIVE",
+  paused: "PAUSED",
+  cancelled: "CANCELLED",
+};
+
+/** How far ahead the generation cron materializes occurrences (W2). */
+export const RECURRING_LOOKAHEAD_DAYS = 30;
+
 /** Shape of a BookingSlot row — structural, so mapper tests need no live DB. */
 export interface PrismaBookingSlotRow {
   id: string;
@@ -656,6 +683,8 @@ export interface PrismaBookingRow {
   platformFeeRateBps: number | null;
   currency: string;
   paymentId: string | null;
+  /** Set when this booking is an occurrence of a recurring contract (W2). */
+  recurringBookingId: string | null;
   serviceItem?: {
     nameEn: string;
     nameAr: string;
@@ -733,6 +762,7 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
     startAt: row.startAt.toISOString(),
     endAt: row.endAt.toISOString(),
     status: BOOKING_STATUS_DB_TO_APP[row.status] ?? "requested",
+    recurringId: row.recurringBookingId ?? undefined,
     serviceItem: row.serviceItem
       ? {
           nameEn: row.serviceItem.nameEn,
@@ -749,6 +779,61 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
       reason: e.reason ?? undefined,
       time: e.createdAt.toISOString(),
     })),
+  };
+}
+
+/** Shape of a RecurringBooking row (+ its materialized occurrences, oldest
+ * first) — structural, so mapper tests need no live DB. */
+export interface PrismaRecurringRow {
+  id: string;
+  number: string;
+  workerId: string;
+  customerId: string | null;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string | null;
+  serviceItem?: {
+    nameEn: string;
+    nameAr: string;
+    price: number;
+    unit: string;
+  } | null;
+  jobTitle: string;
+  note: string | null;
+  frequency: string;
+  anchorStart: Date;
+  anchorEnd: Date;
+  status: string;
+  createdAt: Date;
+  occurrences: PrismaBookingRow[];
+}
+
+/** Map a RecurringBooking row (+ occurrences) to the domain type (W2). */
+export function toDomainRecurring(row: PrismaRecurringRow): RecurringBooking {
+  return {
+    id: row.id,
+    number: row.number,
+    workerId: row.workerId,
+    customerId: row.customerId ?? undefined,
+    customerName: row.customerName,
+    customerPhone: row.customerPhone,
+    customerEmail: row.customerEmail ?? undefined,
+    serviceItem: row.serviceItem
+      ? {
+          nameEn: row.serviceItem.nameEn,
+          nameAr: row.serviceItem.nameAr,
+          price: row.serviceItem.price,
+          unit: row.serviceItem.unit === "hour" ? "hour" : "job",
+        }
+      : undefined,
+    jobTitle: row.jobTitle,
+    note: row.note ?? undefined,
+    frequency: RECURRING_FREQUENCY_DB_TO_APP[row.frequency] ?? "weekly",
+    anchorStart: row.anchorStart.toISOString(),
+    anchorEnd: row.anchorEnd.toISOString(),
+    status: RECURRING_STATUS_DB_TO_APP[row.status] ?? "active",
+    occurrences: (row.occurrences ?? []).map(toDomainBooking),
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
@@ -1146,6 +1231,108 @@ type BookingWorkerInfo = {
   languages: unknown;
 };
 
+/**
+ * The one-shot slot claim + booking create, shared by prismaCreateBookingRequest
+ * and prismaCreateRecurringRequest (the recurring request runs it INSIDE its
+ * own tx, then adds the contract row — so a contract-number collision rolls
+ * back the slot claim too). Returns the full booking row + the worker's
+ * notification fields.
+ */
+async function createBookingRequestTx(
+  tx: Prisma.TransactionClient,
+  input: BookingRequestInput
+): Promise<{ ok: true; booking: BookingFullRow; worker: BookingWorkerInfo } | { ok: false; error: "slot-taken" | "invalid" }> {
+  const worker = await tx.worker.findUnique({
+    where: { id: input.workerId },
+    select: {
+      id: true,
+      nameEn: true,
+      email: true,
+      phone: true,
+      languages: true,
+      city: { select: { currency: true } },
+    },
+  });
+  if (!worker) return { ok: false, error: "invalid" };
+
+  const slot = await tx.bookingSlot.findUnique({ where: { id: input.slotId } });
+  if (!slot || slot.workerId !== input.workerId) return { ok: false, error: "invalid" };
+
+  // Rule 2 FIRST — overlap guard against the same worker's
+  // RESERVED/BOOKED/BLOCKED slots (half-open [startAt, endAt)). This
+  // must run BEFORE the claim: a rejection here RETURNS (it doesn't
+  // throw), and a returning transaction COMMITS — claiming first would
+  // leave an orphaned RESERVED slot with no booking (review-caught
+  // parity bug vs the demo adapter, which checks overlap first).
+  const clash = await tx.bookingSlot.findFirst({
+    where: {
+      workerId: input.workerId,
+      id: { not: slot.id },
+      status: { in: ["RESERVED", "BOOKED", "BLOCKED"] },
+      startAt: { lt: slot.endAt },
+      endAt: { gt: slot.startAt },
+    },
+    select: { id: true },
+  });
+  if (clash) return { ok: false, error: "slot-taken" };
+
+  // Rule 1 — atomic claim: WHERE status=AVAILABLE re-checks the slot
+  // state at write time while the row is locked (the Postgres row-lock
+  // the doc calls for) and stays the backstop for the exact-slot race.
+  const claimed = await tx.bookingSlot.updateMany({
+    where: { id: slot.id, workerId: input.workerId, status: "AVAILABLE" },
+    data: { status: "RESERVED" },
+  });
+  if (claimed.count === 0) return { ok: false, error: "slot-taken" };
+
+  // Resolve the picked service item to its stable DB row (by nameEn,
+  // the identity the customer dialog sends — same as the action).
+  const serviceItem = input.serviceItem
+    ? await tx.serviceItem.findFirst({
+        where: { workerId: input.workerId, nameEn: input.serviceItem.nameEn },
+        select: { id: true, nameEn: true, nameAr: true, price: true, unit: true },
+      })
+    : null;
+
+  // Human-readable number: seed owns BK-1001, so the next one derives
+  // from the row count (bookings are never hard-deleted, so count stays
+  // stable; concurrent collisions retry above on P2002).
+  const count = await tx.booking.count();
+  const booking = await tx.booking.create({
+    data: {
+      number: `BK-${1001 + count}`,
+      workerId: input.workerId,
+      // Signed-in customer id — null for guest (phone-keyed) requests.
+      // The confirm tx uses it to decide whether to mint an Invoice.
+      customerId: input.customerId ?? null,
+      customerName: input.customerName,
+      customerPhone: input.customerPhone,
+      customerEmail: input.customerEmail,
+      jobTitle: input.jobTitle,
+      note: input.note,
+      serviceItemId: serviceItem?.id ?? null,
+      startAt: slot.startAt,
+      endAt: slot.endAt,
+      status: "REQUESTED",
+      currency: worker.city?.currency ?? "USD",
+    },
+  });
+  // Rule 5 — audit event (same tx as the claim + create).
+  await tx.bookingEvent.create({
+    data: { bookingId: booking.id, status: "REQUESTED", actorType: "customer" },
+  });
+  // Ordering invariant (mirrors the demo adapter): the slot's bookingId
+  // is stamped last, still inside the tx — a RESERVED slot always has
+  // a booking.
+  await tx.bookingSlot.update({ where: { id: slot.id }, data: { bookingId: booking.id } });
+
+  const full = await tx.booking.findUnique({
+    where: { id: booking.id },
+    include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
+  });
+  return { ok: true, booking: full!, worker };
+}
+
 export async function prismaCreateBookingRequest(
   input: BookingRequestInput
 ): Promise<Booking | { error: "slot-taken" | "invalid" }> {
@@ -1161,99 +1348,7 @@ export async function prismaCreateBookingRequest(
   for (let attempt = 0; attempt < 3; attempt++) {
     let created: { ok: true; booking: BookingFullRow; worker: BookingWorkerInfo } | { ok: false; error: "slot-taken" | "invalid" };
     try {
-      created = await prisma.$transaction(
-        async (tx): Promise<typeof created> => {
-          const worker = await tx.worker.findUnique({
-            where: { id: input.workerId },
-            select: {
-              id: true,
-              nameEn: true,
-              email: true,
-              phone: true,
-              languages: true,
-              city: { select: { currency: true } },
-            },
-          });
-          if (!worker) return { ok: false, error: "invalid" };
-
-          const slot = await tx.bookingSlot.findUnique({ where: { id: input.slotId } });
-          if (!slot || slot.workerId !== input.workerId) return { ok: false, error: "invalid" };
-
-          // Rule 2 FIRST — overlap guard against the same worker's
-          // RESERVED/BOOKED/BLOCKED slots (half-open [startAt, endAt)). This
-          // must run BEFORE the claim: a rejection here RETURNS (it doesn't
-          // throw), and a returning transaction COMMITS — claiming first would
-          // leave an orphaned RESERVED slot with no booking (review-caught
-          // parity bug vs the demo adapter, which checks overlap first).
-          const clash = await tx.bookingSlot.findFirst({
-            where: {
-              workerId: input.workerId,
-              id: { not: slot.id },
-              status: { in: ["RESERVED", "BOOKED", "BLOCKED"] },
-              startAt: { lt: slot.endAt },
-              endAt: { gt: slot.startAt },
-            },
-            select: { id: true },
-          });
-          if (clash) return { ok: false, error: "slot-taken" };
-
-          // Rule 1 — atomic claim: WHERE status=AVAILABLE re-checks the slot
-          // state at write time while the row is locked (the Postgres row-lock
-          // the doc calls for) and stays the backstop for the exact-slot race.
-          const claimed = await tx.bookingSlot.updateMany({
-            where: { id: slot.id, workerId: input.workerId, status: "AVAILABLE" },
-            data: { status: "RESERVED" },
-          });
-          if (claimed.count === 0) return { ok: false, error: "slot-taken" };
-
-          // Resolve the picked service item to its stable DB row (by nameEn,
-          // the identity the customer dialog sends — same as the action).
-          const serviceItem = input.serviceItem
-            ? await tx.serviceItem.findFirst({
-                where: { workerId: input.workerId, nameEn: input.serviceItem.nameEn },
-                select: { id: true, nameEn: true, nameAr: true, price: true, unit: true },
-              })
-            : null;
-
-          // Human-readable number: seed owns BK-1001, so the next one derives
-          // from the row count (bookings are never hard-deleted, so count stays
-          // stable; concurrent collisions retry above on P2002).
-          const count = await tx.booking.count();
-          const booking = await tx.booking.create({
-            data: {
-              number: `BK-${1001 + count}`,
-              workerId: input.workerId,
-              // Signed-in customer id — null for guest (phone-keyed) requests.
-              // The confirm tx uses it to decide whether to mint an Invoice.
-              customerId: input.customerId ?? null,
-              customerName: input.customerName,
-              customerPhone: input.customerPhone,
-              customerEmail: input.customerEmail,
-              jobTitle: input.jobTitle,
-              note: input.note,
-              serviceItemId: serviceItem?.id ?? null,
-              startAt: slot.startAt,
-              endAt: slot.endAt,
-              status: "REQUESTED",
-              currency: worker.city?.currency ?? "USD",
-            },
-          });
-          // Rule 5 — audit event (same tx as the claim + create).
-          await tx.bookingEvent.create({
-            data: { bookingId: booking.id, status: "REQUESTED", actorType: "customer" },
-          });
-          // Ordering invariant (mirrors the demo adapter): the slot's bookingId
-          // is stamped last, still inside the tx — a RESERVED slot always has
-          // a booking.
-          await tx.bookingSlot.update({ where: { id: slot.id }, data: { bookingId: booking.id } });
-
-          const full = await tx.booking.findUnique({
-            where: { id: booking.id },
-            include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
-          });
-          return { ok: true, booking: full!, worker };
-        }
-      );
+      created = await prisma.$transaction((tx) => createBookingRequestTx(tx, input));
     } catch (err) {
       if (attempt < 2 && isNumberCollision(err)) continue; // whole tx rolled back — retry
       console.error("[prisma-repo] createBookingRequest failed:", err);
@@ -2633,4 +2728,480 @@ export async function prismaConfirmCampaignPayment(
     }
   }
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// W2 RECURRING BOOKINGS — maintenance contracts (docs/ENHANCEMENT-PLAN.md §7 #1)
+// ─────────────────────────────────────────────────────────────────────────────
+// Mirrors the demo adapter: the first occurrence is a normal REQUESTED booking
+// claimed through the exact same CAS path as a one-shot request (shared
+// createBookingRequestTx); the worker accepts the CONTRACT once and the future
+// occurrences are materialized at the cadence by claiming real AVAILABLE slots
+// (any occurrence whose cadence time has no covering slot is skipped — the
+// generation cron retries it as the worker's availability rolls forward).
+// Decline cancels the contract and frees the first occurrence's slot (rule 3).
+// Occurrence identity is (recurringBookingId, startAt) — a unique index — so
+// overlapping accept + cron runs can never double-materialize.
+
+const RECURRING_OCCURRENCES = {
+  orderBy: { startAt: "asc" as const },
+  include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
+} as const;
+
+/** Worker-side: create a recurring request. The first occurrence claims the
+ * slot through the one-shot path, then the contract row wraps it (same tx — a
+ * contract-number collision rolls the slot claim back too). */
+export async function prismaCreateRecurringRequest(
+  input: RecurringRequestInput
+): Promise<{ recurring: RecurringBooking; booking: Booking } | { error: "slot-taken" | "invalid" }> {
+  const prisma = getPrisma();
+  const isNumberCollision = (err: unknown) => (err as { code?: string })?.code === "P2002";
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let created:
+      | { ok: true; recurring: PrismaRecurringRow; booking: BookingFullRow; worker: BookingWorkerInfo }
+      | { ok: false; error: "slot-taken" | "invalid" };
+    try {
+      created = await prisma.$transaction(async (tx) => {
+        const res = await createBookingRequestTx(tx, input);
+        if (!res.ok) return res;
+
+        const count = await tx.recurringBooking.count();
+        const recurring = await tx.recurringBooking.create({
+          data: {
+            number: `RC-${1001 + count}`,
+            workerId: input.workerId,
+            customerId: input.customerId ?? null,
+            customerName: input.customerName,
+            customerPhone: input.customerPhone,
+            customerEmail: input.customerEmail,
+            serviceItemId: res.booking.serviceItemId ?? null,
+            jobTitle: input.jobTitle,
+            note: input.note,
+            frequency: input.frequency.toUpperCase() as $Enums.RecurringFrequency,
+            anchorStart: res.booking.startAt,
+            anchorEnd: res.booking.endAt,
+            status: "ACTIVE",
+          },
+        });
+        await tx.booking.update({
+          where: { id: res.booking.id },
+          data: { recurringBookingId: recurring.id },
+        });
+
+        const full = await tx.booking.findUnique({
+          where: { id: res.booking.id },
+          include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
+        });
+        const rec = await tx.recurringBooking.findUnique({
+          where: { id: recurring.id },
+          include: { occurrences: RECURRING_OCCURRENCES, serviceItem: true },
+        });
+        return {
+          ok: true,
+          recurring: rec as unknown as PrismaRecurringRow,
+          booking: full!,
+          worker: res.worker,
+        };
+      });
+    } catch (err) {
+      if (attempt < 2 && isNumberCollision(err)) continue; // whole tx rolled back — retry
+      console.error("[prisma-repo] createRecurringRequest failed:", err);
+      return { error: "invalid" };
+    }
+
+    if (!created.ok) return { error: created.error };
+
+    // Notify the worker AFTER the tx (same as the one-shot request).
+    const workerLocale = (created.worker.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en";
+    await pushNotification(
+      bookingNotification(toDomainBooking(created.booking), "worker-request"),
+      {
+        name: created.worker.nameEn,
+        email: created.worker.email ?? undefined,
+        phone: created.worker.phone,
+        locale: workerLocale,
+      }
+    );
+    return { recurring: toDomainRecurring(created.recurring), booking: toDomainBooking(created.booking) };
+  }
+  return { error: "invalid" };
+}
+
+/**
+ * Worker side: accept (quote/deposit) or decline the whole contract. Accept
+ * confirms the first occurrence through the one-shot respond path (slot →
+ * BOOKED, take-rate stamp, Payment row on deposit) and materializes the next
+ * RECURRING_OCCURRENCE_COUNT occurrences as CONFIRMED bookings claiming real
+ * AVAILABLE slots that cover each cadence time (skipped ones stay pending for
+ * the generation cron). Decline cancels the contract and frees the first slot.
+ */
+export async function prismaRespondToRecurring(
+  recurringId: string,
+  input: RecurringRespondInput
+): Promise<RecurringBooking | null> {
+  const prisma = getPrisma();
+  const isNumberCollision = (err: unknown) => (err as { code?: string })?.code === "P2002";
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let result: PrismaRecurringRow | null = null;
+    try {
+      result = await prisma.$transaction(async (tx): Promise<PrismaRecurringRow | null> => {
+        const recurring = await tx.recurringBooking.findUnique({
+          where: { id: recurringId },
+          include: {
+            serviceItem: true,
+            occurrences: {
+              orderBy: { startAt: "asc" as const },
+              include: { slot: true, worker: { include: { subscription: true } } },
+            },
+          },
+        });
+        if (!recurring || recurring.status !== "ACTIVE") return null;
+        const first = recurring.occurrences[0];
+        if (!first || first.status !== "REQUESTED") return null;
+        const slot = first.slot;
+
+        if (input.accept) {
+          // Rule 4 — a deposit flips to PENDING_PAYMENT until paymentId lands.
+          const status = input.deposit ? "PENDING_PAYMENT" : "CONFIRMED";
+          // M5 take rate — same snapshot the one-shot accept takes.
+          const quoteMinor = input.quote ?? null;
+          const exempt = isPlanFeeExempt(first.worker.subscription?.plan);
+          const platformFee = quoteMinor ? computePlatformFee(quoteMinor, { exempt }) : null;
+          const updated = await tx.booking.updateMany({
+            where: { id: first.id, status: "REQUESTED" },
+            data: {
+              status,
+              quote: quoteMinor,
+              deposit: input.deposit ?? null,
+              platformFee,
+              platformFeeRateBps: quoteMinor ? PLATFORM_FEE_RATE_BPS : null,
+            },
+          });
+          if (updated.count === 0) return null;
+          if (input.deposit) {
+            const payment = await tx.payment.create({
+              data: {
+                userId: first.customerId,
+                amount: input.deposit,
+                currency: first.currency || "USD",
+                method: "STRIPE",
+                status: "PENDING",
+                metadata: { bookingId: first.id },
+              },
+            });
+            await tx.booking.update({ where: { id: first.id }, data: { paymentId: payment.id } });
+          }
+          if (slot) await tx.bookingSlot.update({ where: { id: slot.id }, data: { status: "BOOKED" } });
+          await tx.bookingEvent.create({ data: { bookingId: first.id, status, actorType: "worker" } });
+
+          // Materialize the cadence — same terms as the first occurrence, each
+          // claiming a real AVAILABLE slot that covers its window (CAS, so a
+          // concurrent one-shot grab loses the slot and the occurrence stays
+          // pending for the cron). No covering slot → skip, not fail.
+          const frequency = RECURRING_FREQUENCY_DB_TO_APP[recurring.frequency] ?? "weekly";
+          const nextStarts = generateRecurringOccurrences(
+            recurring.anchorStart.toISOString(),
+            frequency,
+            RECURRING_OCCURRENCE_COUNT
+          );
+          const duration = recurring.anchorEnd.getTime() - recurring.anchorStart.getTime();
+          for (const startIso of nextStarts) {
+            const occStart = new Date(startIso);
+            const occEnd = new Date(occStart.getTime() + duration);
+            const cover = await tx.bookingSlot.findFirst({
+              where: {
+                workerId: recurring.workerId,
+                status: "AVAILABLE",
+                startAt: { lte: occStart },
+                endAt: { gte: occEnd },
+              },
+              orderBy: { startAt: "asc" },
+            });
+            if (!cover) continue;
+            const claimed = await tx.bookingSlot.updateMany({
+              where: { id: cover.id, workerId: recurring.workerId, status: "AVAILABLE" },
+              data: { status: "BOOKED" },
+            });
+            if (claimed.count === 0) continue;
+            const count = await tx.booking.count();
+            const occ = await tx.booking.create({
+              data: {
+                number: `BK-${1001 + count}`,
+                workerId: recurring.workerId,
+                customerId: recurring.customerId,
+                customerName: recurring.customerName,
+                customerPhone: recurring.customerPhone,
+                customerEmail: recurring.customerEmail,
+                jobTitle: recurring.jobTitle,
+                note: recurring.note,
+                serviceItemId: recurring.serviceItemId,
+                startAt: occStart,
+                endAt: occEnd,
+                status: "CONFIRMED",
+                quote: quoteMinor,
+                deposit: input.deposit ?? null,
+                platformFee,
+                platformFeeRateBps: quoteMinor ? PLATFORM_FEE_RATE_BPS : null,
+                currency: first.currency || "USD",
+                recurringBookingId: recurring.id,
+              },
+            });
+            await tx.bookingEvent.create({
+              data: { bookingId: occ.id, status: "CONFIRMED", actorType: "system", reason: `recurring ${frequency}` },
+            });
+            await tx.bookingSlot.update({ where: { id: cover.id }, data: { bookingId: occ.id } });
+          }
+        } else {
+          // Decline the contract = decline the first occurrence (frees its slot,
+          // rule 3) and cancel the whole cadence.
+          const updated = await tx.booking.updateMany({
+            where: { id: first.id, status: "REQUESTED" },
+            data: { status: "DECLINED", declinedReason: input.declineReason ?? null },
+          });
+          if (updated.count === 0) return null;
+          if (slot) {
+            await tx.bookingSlot.update({
+              where: { id: slot.id },
+              data: { status: "AVAILABLE", bookingId: null },
+            });
+          }
+          await tx.bookingEvent.create({
+            data: { bookingId: first.id, status: "DECLINED", actorType: "worker", reason: input.declineReason ?? null },
+          });
+          await tx.recurringBooking.update({ where: { id: recurringId }, data: { status: "CANCELLED" } });
+        }
+
+        const full = await tx.recurringBooking.findUnique({
+          where: { id: recurringId },
+          include: { occurrences: RECURRING_OCCURRENCES, serviceItem: true },
+        });
+        return full as unknown as PrismaRecurringRow;
+      });
+    } catch (err) {
+      if (attempt < 2 && isNumberCollision(err)) continue; // materialized occurrence number collided — retry
+      console.error("[prisma-repo] respondToRecurring failed:", err);
+      return null;
+    }
+
+    if (!result) return null;
+    const first = result.occurrences[0];
+    if (first) {
+      const accepted = first.status === "CONFIRMED" || first.status === "PENDING_PAYMENT";
+      await pushNotification(
+        bookingNotification(toDomainBooking(first), accepted ? "customer-confirmed" : "customer-declined"),
+        first.customerEmail
+          ? { name: first.customerName, email: first.customerEmail, phone: first.customerPhone, locale: "en" }
+          : undefined
+      );
+    }
+    return toDomainRecurring(result);
+  }
+  return null;
+}
+
+/**
+ * The recurring generation cron (W2): for every ACTIVE contract whose first
+ * occurrence has been accepted (CONFIRMED / PENDING_PAYMENT), materialize the
+ * cadence occurrences that fall within the lookahead window (now,
+ * now + RECURRING_LOOKAHEAD_DAYS] and are not yet materialized — each claiming
+ * a real AVAILABLE slot that covers its window (CAS). Idempotent: the
+ * (recurringBookingId, startAt) unique index is the backstop, and the slot CAS
+ * means two overlapping runs can't both claim the same occurrence. Returns
+ * { contracts, materialized } for the cron response.
+ */
+export async function prismaGenerateRecurringOccurrences(
+  now = new Date()
+): Promise<{ contracts: number; materialized: number }> {
+  const prisma = getPrisma();
+  const to = new Date(now.getTime() + RECURRING_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000);
+  const contracts = await prisma.recurringBooking.findMany({
+    where: { status: "ACTIVE" },
+    include: {
+      serviceItem: true,
+      occurrences: { orderBy: { startAt: "asc" as const }, select: { startAt: true, status: true, quote: true, deposit: true, platformFee: true, platformFeeRateBps: true, currency: true } },
+    },
+  });
+
+  let contractsTouched = 0;
+  let materialized = 0;
+  for (const contract of contracts) {
+    const first = contract.occurrences[0];
+    if (!first) continue;
+    if (first.status !== "CONFIRMED" && first.status !== "PENDING_PAYMENT") continue; // not accepted yet
+    const frequency = RECURRING_FREQUENCY_DB_TO_APP[contract.frequency] ?? "weekly";
+    const existing = new Set(contract.occurrences.map((o) => o.startAt.getTime()));
+    const due = occurrencesInWindow(contract.anchorStart.toISOString(), frequency, now, to)
+      .map((iso) => new Date(iso))
+      .filter((d) => !existing.has(d.getTime()));
+    if (due.length === 0) continue;
+
+    await prisma.$transaction(async (tx) => {
+      for (const occStart of due) {
+        const occEnd = new Date(occStart.getTime() + (contract.anchorEnd.getTime() - contract.anchorStart.getTime()));
+        // Re-check inside the tx (a concurrent run may have materialized since
+        // the outer read) — the unique index would reject the create anyway.
+        const dup = await tx.booking.findFirst({
+          where: { recurringBookingId: contract.id, startAt: occStart },
+          select: { id: true },
+        });
+        if (dup) continue;
+        const cover = await tx.bookingSlot.findFirst({
+          where: {
+            workerId: contract.workerId,
+            status: "AVAILABLE",
+            startAt: { lte: occStart },
+            endAt: { gte: occEnd },
+          },
+          orderBy: { startAt: "asc" },
+        });
+        if (!cover) continue;
+        const claimed = await tx.bookingSlot.updateMany({
+          where: { id: cover.id, workerId: contract.workerId, status: "AVAILABLE" },
+          data: { status: "BOOKED" },
+        });
+        if (claimed.count === 0) continue;
+        const count = await tx.booking.count();
+        const occ = await tx.booking.create({
+          data: {
+            number: `BK-${1001 + count}`,
+            workerId: contract.workerId,
+            customerId: contract.customerId,
+            customerName: contract.customerName,
+            customerPhone: contract.customerPhone,
+            customerEmail: contract.customerEmail,
+            jobTitle: contract.jobTitle,
+            note: contract.note,
+            serviceItemId: contract.serviceItemId,
+            startAt: occStart,
+            endAt: occEnd,
+            status: "CONFIRMED",
+            quote: first.quote,
+            deposit: first.deposit,
+            platformFee: first.platformFee,
+            platformFeeRateBps: first.platformFeeRateBps,
+            currency: first.currency || "USD",
+            recurringBookingId: contract.id,
+          },
+        });
+        await tx.bookingEvent.create({
+          data: { bookingId: occ.id, status: "CONFIRMED", actorType: "system", reason: `recurring ${frequency}` },
+        });
+        await tx.bookingSlot.update({ where: { id: cover.id }, data: { bookingId: occ.id } });
+        materialized += 1;
+      }
+    });
+    contractsTouched += 1;
+  }
+  return { contracts: contractsTouched, materialized };
+}
+
+/** A worker's recurring contracts, newest first (mirrors demoGetWorkerRecurrings). */
+export async function prismaGetWorkerRecurrings(workerId: string): Promise<RecurringBooking[]> {
+  const prisma = getPrisma();
+  const rows = await prisma.recurringBooking.findMany({
+    where: { workerId },
+    orderBy: { createdAt: "desc" },
+    include: { occurrences: RECURRING_OCCURRENCES, serviceItem: true },
+  });
+  return rows.map((r) => toDomainRecurring(r as unknown as PrismaRecurringRow));
+}
+
+/** A customer's contracts, matched by email or normalized phone (mirrors
+ * prismaGetCustomerBookings' lookup — same regexp_replace on both sides). */
+export async function prismaGetCustomerRecurrings(
+  identifier: { email?: string; phone?: string } = {}
+): Promise<RecurringBooking[]> {
+  const prisma = getPrisma();
+  const email = identifier.email?.trim().toLowerCase();
+  const phone = identifier.phone?.replace(/[\s\-()]/g, "");
+
+  let ids: string[] = [];
+  if (email || phone) {
+    const rows = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT r."id"
+      FROM "RecurringBooking" r
+      WHERE (${email ?? null}::text IS NOT NULL AND LOWER(r."customerEmail") = ${email ?? null})
+         OR (${phone ?? null}::text IS NOT NULL
+             AND REGEXP_REPLACE(r."customerPhone", ${PHONE_SEP_PATTERN}, '', 'g') = ${phone ?? null})
+    `;
+    ids = rows.map((r) => r.id);
+  }
+  if (ids.length === 0) return [];
+
+  const rows = await prisma.recurringBooking.findMany({
+    where: { id: { in: ids } },
+    orderBy: { createdAt: "desc" },
+    include: { occurrences: RECURRING_OCCURRENCES, serviceItem: true },
+  });
+  return rows.map((r) => toDomainRecurring(r as unknown as PrismaRecurringRow));
+}
+
+/**
+ * Customer cancels an active contract (W2): every non-terminal occurrence is
+ * cancelled in place (slot freed, rule 3, audit event), the contract flips to
+ * CANCELLED, and the worker is notified after the tx. Returns the contract or
+ * null for unknown/already-cancelled contracts.
+ */
+export async function prismaCancelRecurringContract(
+  recurringId: string,
+  reason?: string
+): Promise<RecurringBooking | null> {
+  const prisma = getPrisma();
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const recurring = await tx.recurringBooking.findUnique({
+        where: { id: recurringId },
+        include: {
+          worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+          occurrences: { orderBy: { startAt: "asc" as const }, include: { slot: true } },
+        },
+      });
+      if (!recurring || recurring.status !== "ACTIVE") return null;
+
+      for (const occ of recurring.occurrences) {
+        if (BOOKING_TERMINAL_STATUSES.includes(BOOKING_STATUS_DB_TO_APP[occ.status] ?? "requested")) continue;
+        await tx.booking.update({
+          where: { id: occ.id },
+          data: { status: "CANCELLED", cancelReason: reason ?? null, cancelledBy: "customer" },
+        });
+        if (occ.slot) {
+          await tx.bookingSlot.update({
+            where: { id: occ.slot.id },
+            data: { status: "AVAILABLE", bookingId: null },
+          });
+        }
+        await tx.bookingEvent.create({
+          data: { bookingId: occ.id, status: "CANCELLED", actorType: "customer", reason: reason ?? null },
+        });
+      }
+      await tx.recurringBooking.update({ where: { id: recurringId }, data: { status: "CANCELLED" } });
+
+      const full = await tx.recurringBooking.findUnique({
+        where: { id: recurringId },
+        include: { occurrences: RECURRING_OCCURRENCES, serviceItem: true },
+      });
+      return { row: full as unknown as PrismaRecurringRow, worker: recurring.worker };
+    });
+
+    if (!result) return null;
+    const first = result.row.occurrences[0];
+    if (first) {
+      const workerLocale = (result.worker.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en";
+      await pushNotification(
+        bookingNotification(toDomainBooking(first), "customer-cancelled"),
+        {
+          name: result.worker.nameEn,
+          email: result.worker.email ?? undefined,
+          phone: result.worker.phone,
+          locale: workerLocale,
+        }
+      );
+    }
+    return toDomainRecurring(result.row);
+  } catch (err) {
+    console.error("[prisma-repo] cancelRecurringContract failed:", err);
+    return null;
+  }
 }

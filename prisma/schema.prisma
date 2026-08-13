@@ -966,6 +966,10 @@ model Booking {
 
   @@index([workerId, status, startAt])
   @@index([customerId, status])
+  // W2 recurring — one occurrence per contract per start: the generation cron
+  // and the accept-time materializer both guard on this unique (createMany
+  // skipDuplicates / P2002), so overlapping runs can never double-materialize.
+  @@unique([recurringBookingId, startAt])
   @@index([recurringBookingId])
 }
 

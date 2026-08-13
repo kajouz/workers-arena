@@ -74,6 +74,12 @@ import {
   prismaGetWorkerBookings,
   prismaGetWorkerBySlug,
   prismaGetWorkerSlots,
+  prismaCancelRecurringContract,
+  prismaCreateRecurringRequest,
+  prismaGenerateRecurringOccurrences,
+  prismaGetCustomerRecurrings,
+  prismaGetWorkerRecurrings,
+  prismaRespondToRecurring,
   prismaRefundCampaignPayment,
   prismaRespondToBooking,
   prismaSearchWorkers,
@@ -196,6 +202,17 @@ async function main() {
   }
   if (opsLeftovers.length > 0) console.log("self-heal: cleared", opsLeftovers.length, "leftover ops booking(s)");
 
+  // W2 recurring self-heal — a crashed run's contracts (recurring@…): drop
+  // the occurrences (Bookings — their events cascade), the contract rows, and
+  // the dedicated slots (the note sweep below picks up any orphaned AVAILABLE
+  // slot too).
+  const recLeftovers = await prisma.recurringBooking.findMany({ where: { customerEmail: "recurring@workersarena.test" } });
+  for (const rc of recLeftovers) {
+    await prisma.booking.deleteMany({ where: { recurringBookingId: rc.id } });
+    await prisma.recurringBooking.delete({ where: { id: rc.id } });
+  }
+  if (recLeftovers.length > 0) console.log("self-heal: removed", recLeftovers.length, "leftover smoke recurring contract(s)");
+
   // Dedicated-slot sweep — every smoke section marks its dedicated slots with
   // a note (smoke-m3 / smoke-reschedule / smoke-reminder / smoke-ops) so a
   // crashed run's slots are always findable even when unlinked (a crash
@@ -235,7 +252,11 @@ async function main() {
     await prisma.workerLedgerEntry.deleteMany({ where: { bookingId: b.id } });
     await prisma.booking.delete({ where: { id: b.id } });
   }
-  await prisma.bookingSlot.deleteMany({ where: { note: { in: ["smoke-m3", "smoke-reschedule", "smoke-reminder", "smoke-ops", "smoke-activity"] } } });
+  await prisma.bookingSlot.deleteMany({
+    where: {
+      note: { in: ["smoke-m3", "smoke-reschedule", "smoke-reminder", "smoke-ops", "smoke-activity", "smoke-recurring-anchor", "smoke-recurring-7d", "smoke-recurring-14d", "smoke-recurring-decline"] },
+    },
+  });
   if (m3rsLeftovers.length > 0) console.log("self-heal: cleared", m3rsLeftovers.length, "leftover deposit/reschedule booking(s)");
 
   // M4 activity self-heal — booking lifecycle feed entries (ActivityLog rows
@@ -276,7 +297,9 @@ async function main() {
       Date.parse(s.startAt) <= Date.now() + 7 * 24 * 60 * 60 * 1000
   );
   assert(signalWorker?.availableThisWeek === expectedFree, "availableThisWeek mirrors the AVAILABLE-slot window");
-  assert(signalWorker?.responseRate === 0, "response rate computed from the seeded booking (BK-1001 requested → 0%)");
+  // The seed now owns TWO bookings for Khaled: BK-1001 (REQUESTED, unanswered)
+  // + the recurring contract's BK-1002 (CONFIRMED, answered) → 1 of 2 = 50%.
+  assert(signalWorker?.responseRate === 50, "response rate computed from the seeded bookings (BK-1001 requested + BK-1002 confirmed → 50%)");
   console.log("W1 trust signals: responseRate", signalWorker?.responseRate, "| availableThisWeek", signalWorker?.availableThisWeek);
 
   // ── M5 — fee-waived search filter (real mode, live DB) ────────────────────
@@ -418,7 +441,8 @@ async function main() {
   });
   if ("error" in created) throw new Error(`SMOKE ASSERT FAILED: createBookingRequest → ${created.error}`);
   console.log("created:", created.number, created.status, "| slot now:", (await prismaGetWorkerSlots(khaled!.id)).find((s) => s.id === free!.id)?.status);
-  assert(created.number === "BK-1002", "booking number continues from the seed");
+  // Seed bookings: BK-1001 (request) + BK-1002 (recurring occurrence) → next is BK-1003.
+  assert(created.number === "BK-1003", "booking number continues from the seed (BK-1001 + recurring BK-1002)");
   assert(created.status === "requested", "new booking is REQUESTED");
   assert(created.events[0]?.status === "requested", "REQUESTED audit event appended");
 
@@ -1426,7 +1450,165 @@ async function main() {
     where: { action: "CAMPAIGN_REFUNDED", meta: { path: ["actionEn"], string_contains: "SMOKE CAMPAIGN" } },
   });
 
+  // ── W2 — recurring bookings (maintenance contracts, live DB) ─────────────
+  // prismaCreateRecurringRequest claims the anchor slot through the one-shot
+  // CAS path and mints the contract row (RC-NNNNN) in the SAME tx; a duplicate
+  // request for the same slot is rejected (slot-taken); prismaRespondToRecurring
+  // accept confirms the first occurrence (quote + take-rate stamp, slot →
+  // BOOKED) and materializes the cadence into covering AVAILABLE slots (the
+  // +7d one — the rest have no availability yet); the generation cron
+  // (prismaGenerateRecurringOccurrences) rolls the cadence forward
+  // idempotently (nothing due → 0; +14d slot appears → 1; re-run → 0);
+  // decline cancels the contract + frees the slot (rule 3);
+  // prismaCancelRecurringContract cancels the cadence and frees every
+  // occurrence's slot. Dedicated slots at +48h/+57h/+65h/+49h — day-granular,
+  // clear of the sibling sections' hour windows.
+  const recAnchorStart = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const recSlot = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: recAnchorStart,
+      endAt: new Date(recAnchorStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-recurring-anchor",
+    },
+  });
+  const recReq = await prismaCreateRecurringRequest({
+    workerId: khaled!.id,
+    slotId: recSlot.id,
+    customerName: "Recurring Tester",
+    customerPhone: "+966 50 888 1234",
+    customerEmail: "recurring@workersarena.test",
+    jobTitle: "Smoke weekly maintenance",
+    frequency: "weekly",
+  });
+  assert(!("error" in recReq), "recurring request created");
+  assert(recReq.recurring.status === "active" && recReq.recurring.occurrences.length === 1, "contract ACTIVE with the anchor occurrence");
+  assert(recReq.booking.status === "requested", "anchor occurrence REQUESTED");
+  const recAnchorAfter = await prisma.bookingSlot.findUnique({ where: { id: recSlot.id } });
+  assert(recAnchorAfter?.status === "RESERVED" && recAnchorAfter.bookingId === recReq.booking.id, "anchor slot RESERVED + linked");
+
+  const recDup = await prismaCreateRecurringRequest({
+    workerId: khaled!.id,
+    slotId: recSlot.id,
+    customerName: "Recurring Tester",
+    customerPhone: "+966 50 888 1234",
+    customerEmail: "recurring@workersarena.test",
+    jobTitle: "Smoke weekly maintenance",
+    frequency: "weekly",
+  });
+  assert("error" in recDup && recDup.error === "slot-taken", "second request on the same slot rejected (slot-taken)");
+
+  // A covering slot for the +7d cadence time — the only occurrence that can
+  // materialize at accept (the +14d/+21d/+28d have no AVAILABLE slot yet).
+  const recSlot7 = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: new Date(recAnchorStart.getTime() + 7 * 24 * 60 * 60 * 1000),
+      endAt: new Date(recAnchorStart.getTime() + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-recurring-7d",
+    },
+  });
+  const recAccepted = await prismaRespondToRecurring(recReq.recurring.id, { accept: true, quote: 10000 });
+  assert(recAccepted !== null, "recurring accept returns the contract");
+  assert(recAccepted!.occurrences[0]?.status === "confirmed", "anchor occurrence CONFIRMED");
+  // 7% take rate (PLATFORM_FEE_RATE_BPS = 700) on the 10000 quote → 700 minor.
+  assert(
+    recAccepted!.occurrences[0]?.quote === 10000 && recAccepted!.occurrences[0]?.platformFee === 700,
+    "quote + take-rate stamped (10000 × 7% = 700 minor)"
+  );
+  const recAnchorAfter2 = await prisma.bookingSlot.findUnique({ where: { id: recSlot.id } });
+  assert(recAnchorAfter2?.status === "BOOKED", "anchor slot BOOKED after accept");
+  assert(recAccepted!.occurrences.length === 2, "exactly one future occurrence materialized (+7d)");
+  assert(
+    recAccepted!.occurrences[1]?.status === "confirmed" && recAccepted!.occurrences[1]?.recurringId === recReq.recurring.id,
+    "materialized occurrence CONFIRMED + linked to the contract"
+  );
+  const recSlot7After = await prisma.bookingSlot.findUnique({ where: { id: recSlot7.id } });
+  assert(recSlot7After?.status === "BOOKED" && recSlot7After.bookingId === recAccepted!.occurrences[1]!.id, "+7d slot claimed by the occurrence");
+
+  // Generation cron — +14d has no slot yet: run → 0; give +14d a slot: run →
+  // 1; re-run → 0 (idempotent).
+  const gen1 = await prismaGenerateRecurringOccurrences();
+  assert(gen1.materialized === 0, "cron run before +14d availability materializes nothing");
+  const recSlot14 = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: new Date(recAnchorStart.getTime() + 14 * 24 * 60 * 60 * 1000),
+      endAt: new Date(recAnchorStart.getTime() + 14 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-recurring-14d",
+    },
+  });
+  // contracts >= 1: the SEEDED RC-1001 is also an active accepted contract the
+  // engine considers (its future occurrences have no covering slots, so it
+  // never contributes to materialized).
+  const gen2 = await prismaGenerateRecurringOccurrences();
+  assert(gen2.materialized === 1 && gen2.contracts >= 1, "cron materializes the +14d occurrence once availability covers it");
+  const gen3 = await prismaGenerateRecurringOccurrences();
+  assert(gen3.materialized === 0, "cron re-run materializes nothing (idempotent)");
+
+  // Reads — customer lookup (email) + worker list both see the contract.
+  const custRec = await prismaGetCustomerRecurrings({ email: "recurring@workersarena.test" });
+  assert(
+    custRec.some((r) => r.id === recReq.recurring.id && r.occurrences.length === 3),
+    "customer lookup finds the contract with 3 occurrences"
+  );
+  const workerRec = await prismaGetWorkerRecurrings(khaled!.id);
+  assert(workerRec.some((r) => r.id === recReq.recurring.id), "worker list finds the contract");
+
+  // Decline path — a second contract, declined: CANCELLED + first DECLINED +
+  // slot freed (rule 3).
+  const recDeclStart = new Date(Date.now() + 49 * 60 * 60 * 1000);
+  const recDeclSlot = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: recDeclStart,
+      endAt: new Date(recDeclStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-recurring-decline",
+    },
+  });
+  const recDecl = await prismaCreateRecurringRequest({
+    workerId: khaled!.id,
+    slotId: recDeclSlot.id,
+    customerName: "Recurring Tester",
+    customerPhone: "+966 50 888 1234",
+    customerEmail: "recurring@workersarena.test",
+    jobTitle: "Smoke weekly maintenance (decline)",
+    frequency: "monthly",
+  });
+  assert(!("error" in recDecl), "decline-path contract created");
+  const recDeclined = await prismaRespondToRecurring(recDecl.recurring.id, { accept: false, declineReason: "not available" });
+  assert(recDeclined?.status === "cancelled", "declined contract CANCELLED");
+  assert(recDeclined!.occurrences[0]?.status === "declined", "declined first occurrence DECLINED");
+  const recDeclSlotAfter = await prisma.bookingSlot.findUnique({ where: { id: recDeclSlot.id } });
+  assert(recDeclSlotAfter?.status === "AVAILABLE" && recDeclSlotAfter.bookingId === null, "decline frees the slot (rule 3)");
+
+  // Customer cancel — the accepted contract: cadence cancelled, slots freed.
+  const recCancelled = await prismaCancelRecurringContract(recReq.recurring.id, "smoke teardown");
+  assert(recCancelled?.status === "cancelled", "customer cancel flips the contract to CANCELLED");
+  assert(recCancelled!.occurrences.every((o) => o.status === "cancelled"), "all occurrences cancelled");
+  const recAnchorAfter3 = await prisma.bookingSlot.findUnique({ where: { id: recSlot.id } });
+  const recSlot7After2 = await prisma.bookingSlot.findUnique({ where: { id: recSlot7.id } });
+  const recSlot14After2 = await prisma.bookingSlot.findUnique({ where: { id: recSlot14.id } });
+  assert(
+    recAnchorAfter3?.status === "AVAILABLE" && recSlot7After2?.status === "AVAILABLE" && recSlot14After2?.status === "AVAILABLE",
+    "customer cancel frees every occurrence's slot"
+  );
+  console.log(
+    "W2 recurring: request → slot-taken dup rejected → accept (quote + take-rate, +7d materialized) → cron (+14d, idempotent) → decline frees slot → customer cancel frees all slots"
+  );
+
   // Cleanup — restore the seeded rows so the smoke stays idempotent.
+  // W2 recurring — the smoke contracts' occurrences (Bookings, events
+  // cascade), the contract rows, then the dedicated slots (the freed slots
+  // are unlinked but ours to drop). Notifications ride the
+  // SMOKE_NOTIFICATION_TYPES sweep below.
+  await prisma.booking.deleteMany({ where: { recurringBookingId: { in: [recReq.recurring.id, recDecl.recurring.id] } } });
+  await prisma.recurringBooking.deleteMany({ where: { id: { in: [recReq.recurring.id, recDecl.recurring.id] } } });
+  await prisma.bookingSlot.deleteMany({ where: { id: { in: [recSlot.id, recSlot7.id, recSlot14.id, recDeclSlot.id] } } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: created.id } });
   await prisma.booking.delete({ where: { id: created.id } });
   await prisma.bookingSlot.update({ where: { id: free!.id }, data: { status: "AVAILABLE", bookingId: null } });

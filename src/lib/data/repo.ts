@@ -807,26 +807,24 @@ export async function respondToBooking(
 }
 
 /**
- * M1 recurring bookings (ENHANCEMENT-PLAN §7 #1) — worker's contracts. Demo
- * adapter only for now; real mode no-ops with a warning until the prisma wave.
+ * M1 recurring bookings (ENHANCEMENT-PLAN §7 #1) — worker's contracts.
+ * W2: fully prisma-backed (createRecurringRequest / respondToRecurring claim
+ * real slots via the CAS inside $transaction; the generation cron rolls the
+ * cadence forward).
  */
 export async function getWorkerRecurrings(workerId: string): Promise<RecurringBooking[]> {
-  if (realDataEnabled) {
-    realModeMutationUnsupported("getWorkerRecurrings");
-    return [];
-  }
-  return demoGetWorkerRecurrings(workerId);
+  return realDataEnabled
+    ? (await prismaRepo()).prismaGetWorkerRecurrings(workerId)
+    : demoGetWorkerRecurrings(workerId);
 }
 
 /** M1 — customer requests a repeat service; first occurrence claims the slot. */
 export async function createRecurringRequest(
   input: RecurringRequestInput
 ): Promise<{ recurring: RecurringBooking; booking: Booking } | { error: "slot-taken" | "invalid" }> {
-  if (realDataEnabled) {
-    realModeMutationUnsupported("createRecurringRequest");
-    return { error: "invalid" };
-  }
-  const result = await demoCreateRecurringRequest(input);
+  const result = realDataEnabled
+    ? await (await prismaRepo()).prismaCreateRecurringRequest(input)
+    : await demoCreateRecurringRequest(input);
   if (!("error" in result)) {
     await logBookingLifecycle(
       ACTION_CODES.BOOKING_REQUESTED,
@@ -846,22 +844,32 @@ export async function respondToRecurring(
   recurringId: string,
   input: RecurringRespondInput
 ): Promise<RecurringBooking | null> {
-  if (realDataEnabled) {
-    realModeMutationUnsupported("respondToRecurring");
-    return null;
+  const result = realDataEnabled
+    ? await (await prismaRepo()).prismaRespondToRecurring(recurringId, input)
+    : await demoRespondToRecurring(recurringId, input);
+  // Log CONFIRMED only when the first occurrence actually reached it — a
+  // deposit accept sits in PENDING_PAYMENT until the payment lands (mirrors
+  // the one-shot respondToBooking's feed rule).
+  if (result && input.accept && result.occurrences[0]?.status === "confirmed") {
+    const worker = await getWorkerById(result.workerId);
+    const name = worker?.nameEn ?? "Worker";
+    await logBookingLifecycle(
+      ACTION_CODES.BOOKING_CONFIRMED,
+      result.occurrences[0],
+      { en: `${name} confirmed recurring ${result.number}`, ar: `${name} أكّد العقد الدوري ${result.number}` },
+      name
+    );
   }
-  return demoRespondToRecurring(recurringId, input);
+  return result;
 }
 
 /** A customer's contracts — email for signed-in, normalized phone for guests. */
 export async function getCustomerRecurrings(
   identifier: { email?: string; phone?: string } = {}
 ): Promise<RecurringBooking[]> {
-  if (realDataEnabled) {
-    realModeMutationUnsupported("getCustomerRecurrings");
-    return [];
-  }
-  return demoGetCustomerRecurrings(identifier);
+  return realDataEnabled
+    ? (await prismaRepo()).prismaGetCustomerRecurrings(identifier)
+    : demoGetCustomerRecurrings(identifier);
 }
 
 /** Customer cancels an active contract — anchor slot frees, cadence stops. */
@@ -869,11 +877,29 @@ export async function cancelRecurringContract(
   recurringId: string,
   reason?: string
 ): Promise<RecurringBooking | null> {
-  if (realDataEnabled) {
-    realModeMutationUnsupported("cancelRecurringContract");
-    return null;
+  const result = realDataEnabled
+    ? await (await prismaRepo()).prismaCancelRecurringContract(recurringId, reason)
+    : await demoCancelRecurringContract(recurringId, reason);
+  if (result) {
+    // The contract number is the feed key — the dispute deep-link resolves to
+    // the first occurrence's booking page (like the cancelBooking logging).
+    const first = result.occurrences[0];
+    await logBookingLifecycle(
+      ACTION_CODES.BOOKING_CANCELLED,
+      first ?? ({
+        number: result.number,
+        workerId: result.workerId,
+        customerName: result.customerName,
+        jobTitle: result.jobTitle,
+      } as Booking),
+      {
+        en: `${result.customerName} cancelled recurring contract ${result.number}${reason ? ` — ${reason}` : ""}`,
+        ar: `${result.customerName} ألغى العقد الدوري ${result.number}${reason ? ` — ${reason}` : ""}`,
+      },
+      result.customerName
+    );
   }
-  return demoCancelRecurringContract(recurringId, reason);
+  return result;
 }
 
 
