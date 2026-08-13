@@ -130,6 +130,10 @@ jobs:
         run: |
           npx prisma migrate deploy
           npm run db:seed
+      # The smoke exercises both cron ENGINES the deployed scheduler hits:
+      # runBookingReminderEngine (M4 booking reminders) and the W2 recurring
+      # generation (prismaGenerateRecurringOccurrences — the same engine behind
+      # GET /api/cron/recurring), so the nightly run proves what the cron hits.
       - name: db:smoke (restores the seed exactly on exit)
         run: npm run db:smoke
       - name: Prisma chain tests (serial, after db:smoke leaves a clean seed)

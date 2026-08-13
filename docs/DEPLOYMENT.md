@@ -13,7 +13,7 @@ vercel --prod
 
 - **PostgreSQL:** Neon / Supabase / RDS. Run `npx prisma migrate deploy` then `npm run db:seed` (one-time).
 - **ISR:** public pages use `revalidate`/`dynamic` as needed; `/api/workers` sets `s-maxage` for CDN caching.
-- **Cron:** add `vercel.json` cron entries for the subscription-reminder (`/api/cron/reminders`), push-cleanup (`/api/cron/push-prune`) and activity-retention (`/api/cron/activity-prune`) jobs, each with the `x-cron-secret: $CRON_SECRET` header. Set `ACTIVITY_LOG_RETENTION_DAYS` to bound the audit table (default 90).
+- **Cron:** add `vercel.json` cron entries for the subscription/booking-reminder job (`/api/cron/reminders`, daily), the recurring-generation job (`/api/cron/recurring`, daily — materializes maintenance-contract occurrences, idempotent), push-cleanup (`/api/cron/push-prune`) and activity-retention (`/api/cron/activity-prune`) jobs, each with the `x-cron-secret: $CRON_SECRET` header. The two daily jobs (reminders + recurring) can share one entry cadence. Set `ACTIVITY_LOG_RETENTION_DAYS` to bound the audit table (default 90).
 
 ## 2. Docker
 
