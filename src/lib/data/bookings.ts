@@ -13,6 +13,7 @@ import {
   BOOKING_TERMINAL_STATUSES,
   BOOKING_TRANSITION_FROM,
   bookingCancelRefundDue,
+  completionGraceElapsed,
   formatInvoiceNumber,
   slaExpireDue,
   slaNudgeDue,
@@ -341,12 +342,22 @@ export function demoGetWorkerSlots(workerId: string, range: { from?: string; to?
   }).sort((a, b) => a.startAt.localeCompare(b.startAt));
 }
 
+/**
+ * §2.2 — stamp whether the SLA cron has nudged the worker about this request
+ * (the per-process nudge set; prisma mirrors it with Booking.lastSlaNudgeAt).
+ * Attached on the UI-facing reads so the worker dashboard + customer rows can
+ * surface the SLA state without mutating the store.
+ */
+function withSlaSignal(b: Booking): Booking {
+  return b.slaNudgeSent === true || slaNudgedKeys.has(b.id) ? { ...b, slaNudgeSent: true } : b;
+}
+
 /** A worker's bookings, newest first, with optional status filter + limit. */
 export function demoGetWorkerBookings(workerId: string, opts: { status?: BookingStatus; limit?: number } = {}): Booking[] {
   const list = STORE.bookings.filter(
     (b) => b.workerId === workerId && (!opts.status || b.status === opts.status)
   ).sort((a, b) => b.startAt.localeCompare(a.startAt));
-  return opts.limit ? list.slice(0, opts.limit) : list;
+  return (opts.limit ? list.slice(0, opts.limit) : list).map(withSlaSignal);
 }
 
 /** Every booking in the demo store, oldest first (cron reminder scan). */
@@ -513,7 +524,7 @@ export function demoGetCustomerBookings(identifier: { email?: string; phone?: st
     if (identifier.email && b.customerEmail?.toLowerCase() === identifier.email.toLowerCase()) return true;
     if (phone && b.customerPhone.replace(/[\s\-()]/g, "") === phone) return true;
     return false;
-  }).sort((a, b) => b.startAt.localeCompare(a.startAt));
+  }).sort((a, b) => b.startAt.localeCompare(a.startAt)).map(withSlaSignal);
 }
 
 /* ─────────────────────────────── Availability (M2) ─────────────────────────────── */
@@ -646,16 +657,62 @@ export async function demoTransitionBooking(
   if (!booking) return null;
   if (!BOOKING_TRANSITION_FROM[to].includes(booking.status)) return null;
 
-  booking.status = to;
-  booking.events.push({ status: to, actorType: "worker", time: new Date().toISOString() });
-  if (to === "completed") {
-    // Payouts (docs/payouts.md) — the job is done, so the net earnings
-    // (quote − platform fee) credit the worker's ledger in the SAME step as
-    // the completed flip (the prisma adapter does it inside the tx).
-    creditEarnings(booking);
-    await notifyCustomer(booking, "customer-completed");
+  // §2.3 customer-confirms-completion — a worker "completed" flip is STAGED:
+  // the job is done per the worker, the customer confirms (or the grace cron
+  // auto-confirms) before it counts as completed. Earnings credit + the
+  // completed email move to the confirmed flip (confirmCompletionBooking /
+  // autoConfirmCompletions) so fake-COMPLETED can't pollute the funnel,
+  // ratings, and no-show stats.
+  const staged = to === "completed";
+  booking.status = staged ? "completionPending" : to;
+  booking.events.push({
+    status: staged ? "completionPending" : to,
+    actorType: "worker",
+    time: new Date().toISOString(),
+  });
+  if (staged) {
+    await notifyCustomer(booking, "customer-completion-pending");
   }
   return booking;
+}
+
+/**
+ * §2.3 — the customer confirms a staged completion: completionPending →
+ * completed (customer actor), net earnings credit the ledger, and the WORKER
+ * is told the payout is on its way. Returns null unless the booking is staged.
+ */
+export async function demoConfirmBookingCompletion(bookingId: string): Promise<Booking | null> {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  if (!booking || booking.status !== "completionPending") return null;
+
+  booking.status = "completed";
+  booking.events.push({ status: "completed", actorType: "customer", time: new Date().toISOString() });
+  // Payouts (docs/payouts.md) — net earnings (quote − platform fee) credit the
+  // ledger on the CONFIRMED flip (mirrors the prisma adapter's in-tx credit).
+  creditEarnings(booking);
+  await notifyWorker(booking, "worker-completion-confirmed");
+  return booking;
+}
+
+/**
+ * §2.3 — the grace cron: staged completions past BOOKING_COMPLETION_CONFIRM_GRACE_HOURS
+ * auto-confirm (system actor), credit the ledger, and the customer gets the
+ * completion receipt. Returns how many were auto-confirmed this pass.
+ */
+export async function demoAutoConfirmCompletions(now = new Date()): Promise<number> {
+  const nowMs = now.getTime();
+  let autoConfirmed = 0;
+  for (const booking of STORE.bookings.filter((b) => b.status === "completionPending")) {
+    const staged = [...booking.events].reverse().find((e) => e.status === "completionPending");
+    const stagedMs = Date.parse(staged?.time ?? "");
+    if (Number.isNaN(stagedMs) || !completionGraceElapsed(stagedMs, nowMs)) continue;
+    booking.status = "completed";
+    booking.events.push({ status: "completed", actorType: "system", time: now.toISOString() });
+    creditEarnings(booking);
+    await notifyCustomer(booking, "customer-completed");
+    autoConfirmed += 1;
+  }
+  return autoConfirmed;
 }
 
 /**

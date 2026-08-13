@@ -124,6 +124,16 @@ describe("bucketBookings", () => {
     expect(past.map((b) => b.id).sort()).toEqual(["3", "4", "6", "8"]);
   });
 
+  it("buckets a §2.3 staged completion (completionPending) into past — a done slot awaiting the customer's confirm", () => {
+    const all = [
+      booking("staged", "2026-08-08T09:00:00.000Z", "completionPending"),
+      booking("live", "2026-08-11T09:00:00.000Z", "inProgress"),
+    ];
+    const { upcoming, past } = bucketBookings(all);
+    expect(upcoming.map((b) => b.id)).toEqual(["live"]);
+    expect(past.map((b) => b.id)).toEqual(["staged"]);
+  });
+
   it("sorts each bucket newest-first regardless of input order", () => {
     const all = [
       booking("early", "2026-08-01T09:00:00.000Z", "completed"),

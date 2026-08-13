@@ -212,7 +212,9 @@ export function bucketBookings(bookings: Booking[]): {
   for (const b of bookings) {
     if (b.status === "requested") requests.push(b);
     else if (b.status === "pendingPayment" || b.status === "confirmed" || b.status === "inProgress") upcoming.push(b);
-    else past.push(b);
+    // §2.3 — a staged completion (awaiting the customer's confirm) is a past
+    // slot; it lands in the Past tab with an "Awaiting confirmation" badge.
+    else past.push(b); // completionPending, completed, cancelled, declined, noShow
   }
   // Newest first within each tab, regardless of input order.
   const byNewest = (a: Booking, b: Booking) => b.startAt.localeCompare(a.startAt);

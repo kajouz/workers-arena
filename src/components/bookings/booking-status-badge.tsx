@@ -15,6 +15,7 @@ const STATUS_STYLE: Record<BookingStatus, string> = {
   pendingPayment: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400",
   confirmed: "border-transparent bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   inProgress: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
+  completionPending: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400",
   completed: "border-transparent bg-ink-100 text-ink-700 dark:bg-ink-800 dark:text-ink-200",
   cancelled: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
   declined: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",

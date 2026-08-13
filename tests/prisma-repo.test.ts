@@ -497,6 +497,15 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
     expect(b.events).toEqual([]);
   });
 
+  it("maps the §2.2 request-SLA nudge stamp (lastSlaNudgeAt → slaNudgeSent)", () => {
+    // Never nudged → undefined (the UI shows the plain countdown).
+    const fresh = toDomainBooking(makeBookingRow({ lastSlaNudgeAt: null }));
+    expect(fresh.slaNudgeSent).toBeUndefined();
+    // Nudged → true (the worker dashboard shows the "nudge sent" chip).
+    const nudged = toDomainBooking(makeBookingRow({ lastSlaNudgeAt: new Date("2026-08-10T08:00:00.000Z") }));
+    expect(nudged.slaNudgeSent).toBe(true);
+  });
+
   it("maps customerId + the M3 invoice from the payment relation", () => {
     const b = toDomainBooking(
       makeBookingRow({

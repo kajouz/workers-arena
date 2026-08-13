@@ -16,6 +16,7 @@ import {
 } from "../src/app/actions/bookings";
 import {
   cancelBooking,
+  confirmBookingCompletion,
   confirmBookingPayment,
   createBookingCheckout,
   createBookingRequest,
@@ -780,7 +781,8 @@ describe("getBookingFunnel — M4 admin funnel (demo adapter)", () => {
     const w = khaled();
     await respondToBooking("bk-1001", { accept: true });
     await transitionBooking("bk-1001", "inProgress");
-    await transitionBooking("bk-1001", "completed");
+    await transitionBooking("bk-1001", "completed"); // §2.3 — staged
+    await confirmBookingCompletion("bk-1001");
     const available = (await getWorkerSlots(w.id)).find((s) => s.status === "available")!;
     const second = bookingOf(await createBookingRequest(request(available.id)));
     await cancelBooking(second.id, { by: "customer" });
@@ -822,7 +824,7 @@ describe("getBookingFunnel — M4 admin funnel (demo adapter)", () => {
 });
 
 describe("transitionBooking — M4 lifecycle", () => {
-  it("confirmed → inProgress → completed with audit events, slot stays BOOKED, customer notified on completion", async () => {
+  it("§2.3 stages completion (completionPending), customer confirm → completed, worker notified", async () => {
     const w = khaled();
     await respondToBooking("bk-1001", { accept: true });
 
@@ -833,14 +835,26 @@ describe("transitionBooking — M4 lifecycle", () => {
     const slotDuring = (await getWorkerSlots(w.id)).find((s) => s.bookingId === "bk-1001")!;
     expect(slotDuring.status).toBe("booked");
 
-    const done = bookingOf((await transitionBooking("bk-1001", "completed")) ?? { error: "not-found" });
-    expect(done.status).toBe("completed");
-    expect(done.events.at(-1)).toMatchObject({ status: "completed", actorType: "worker" });
+    // The worker's "completed" flip is STAGED — not completed yet.
+    const staged = bookingOf((await transitionBooking("bk-1001", "completed")) ?? { error: "not-found" });
+    expect(staged.status).toBe("completionPending");
+    expect(staged.events.at(-1)).toMatchObject({ status: "completionPending", actorType: "worker" });
     const slotAfter = (await getWorkerSlots(w.id)).find((s) => s.bookingId === "bk-1001")!;
     expect(slotAfter.status).toBe("booked"); // only cancellation frees the slot
 
+    // The customer is prompted to confirm — no "completed" push yet.
+    const inboxAfterStage = await getNotificationsList();
+    expect(inboxAfterStage.some((n) => n.type === "bookingCompletionPending" && n.href === "/bookings")).toBe(true);
+    expect(inboxAfterStage.some((n) => n.type === "bookingCompleted")).toBe(false);
+
+    // Confirming flips it to completed (customer actor) and tells the worker.
+    const done = bookingOf((await confirmBookingCompletion("bk-1001")) ?? { error: "not-found" });
+    expect(done.status).toBe("completed");
+    expect(done.events.at(-1)).toMatchObject({ status: "completed", actorType: "customer" });
     const inbox = await getNotificationsList();
-    expect(inbox.some((n) => n.type === "bookingCompleted" && n.href === "/bookings")).toBe(true);
+    expect(inbox.some((n) => n.type === "bookingCompletionConfirmed" && n.href === "/dashboard")).toBe(true);
+    // A second confirm is a no-op (already completed).
+    expect(await confirmBookingCompletion("bk-1001")).toBeNull();
   });
 
   it("rejects an illegal transition — completed requires inProgress", async () => {
@@ -902,8 +916,11 @@ describe("cancelBooking — M4 cancellation", () => {
   it("cannot cancel a terminal booking (completed) or an unknown one", async () => {
     await respondToBooking("bk-1001", { accept: true });
     await transitionBooking("bk-1001", "inProgress");
-    await transitionBooking("bk-1001", "completed");
-    expect(await cancelBooking("bk-1001", { by: "worker" })).toBeNull();
+    await transitionBooking("bk-1001", "completed"); // staged
+    // A staged completion is NOT terminal — cancellation still allowed.
+    expect(await cancelBooking("bk-1001", { by: "worker" })).not.toBeNull();
+    await confirmBookingCompletion("bk-1001");
+    expect(await cancelBooking("bk-1001", { by: "worker" })).toBeNull(); // completed is terminal
     expect(await cancelBooking("no-such-booking", { by: "worker" })).toBeNull();
   });
 });
@@ -1112,7 +1129,8 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     const created = bookingOf(await createBookingRequest(request(available.id)));
     await respondToBooking(created.id, { accept: true, quote });
     await transitionBooking(created.id, "inProgress");
-    await transitionBooking(created.id, "completed");
+    await transitionBooking(created.id, "completed"); // §2.3 — staged
+    await confirmBookingCompletion(created.id); // customer confirms → completed
     return created;
   }
 
@@ -1131,6 +1149,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     // A second completion of the same booking cannot double-credit (the
     // ledger's one-entry-per-booking guard mirrors the prisma @@unique).
     await transitionBooking(created.id, "completed"); // illegal (terminal) → null
+    expect(await confirmBookingCompletion(created.id)).toBeNull(); // already completed
     expect((await getWorkerBalance(khaled().id)).availableMinor).toBe(7440);
   });
 
@@ -1140,7 +1159,8 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     const created = bookingOf(await createBookingRequest(request(available.id)));
     await respondToBooking(created.id, { accept: true }); // no quote → fee unset
     await transitionBooking(created.id, "inProgress");
-    await transitionBooking(created.id, "completed");
+    await transitionBooking(created.id, "completed"); // staged
+    await confirmBookingCompletion(created.id);
     expect((await getWorkerBalance(w.id)).availableMinor).toBe(0);
   });
 
@@ -1208,7 +1228,8 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
       );
       await respondToBooking(created.id, { accept: true, quote: 10000 });
       await transitionBooking(created.id, "inProgress");
-      await transitionBooking(created.id, "completed");
+      await transitionBooking(created.id, "completed"); // staged
+      await confirmBookingCompletion(created.id);
       expect((await getWorkerBalance(w.id)).availableMinor).toBe(10000); // full quote
     } finally {
       w.subscription.plan = original;

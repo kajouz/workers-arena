@@ -37,6 +37,18 @@ export function slaExpireDue(createdAtMs: number, nowMs: number): boolean {
   return nowMs - createdAtMs >= BOOKING_SLA_EXPIRE_HOURS * 60 * 60 * 1000;
 }
 
+/**
+ * §2.2 — when a REQUESTED booking auto-expires (creation + the expire window).
+ * Creation time is the first audit event (the demo store has no column); a
+ * booking without one falls back to its slot start. Shared by the demo + prisma
+ * adapters and the UI countdown, so copy and logic can never drift.
+ */
+export function requestSlaExpiryMs(booking: Pick<Booking, "events" | "startAt">): number {
+  const created = Date.parse(booking.events[0]?.time ?? "");
+  const createdMs = Number.isNaN(created) ? Date.parse(booking.startAt) : created;
+  return createdMs + BOOKING_SLA_EXPIRE_HOURS * 60 * 60 * 1000;
+}
+
 /** Result of one Request-SLA cron pass (both adapters return this shape). */
 export interface RequestSlaRun {
   /** Workers nudged (request unanswered past the nudge window). */
@@ -186,6 +198,7 @@ export type BookingStatus =
   | "pendingPayment"
   | "confirmed"
   | "inProgress"
+  | "completionPending" // §2.3 — worker staged completion, awaiting customer confirmation
   | "completed"
   | "cancelled"
   | "declined"
@@ -252,6 +265,10 @@ export interface Booking {
   invoice?: BookingInvoice;
   /** M1 recurring bookings (§7 #1) — set when this booking is an occurrence of a contract. */
   recurringId?: string;
+  /** §2.2 request SLA — true once the cron has nudged the worker about this
+   * unanswered request (demo reads the per-process nudge set; prisma reads
+   * Booking.lastSlaNudgeAt). Surfaces on the worker dashboard + customer rows. */
+  slaNudgeSent?: boolean;
   events: BookingEvent[];
 }
 
@@ -385,8 +402,23 @@ export interface BookingRespondInput {
   declineReason?: string;
 }
 
-/** Worker-side lifecycle transitions (M4): which stage the job moves to. */
+/** Worker-side lifecycle transitions (M4): which stage the job moves to. The
+ * worker's `completed` flip is STAGED — the booking lands in completionPending
+ * and only reaches `completed` once the customer confirms (or the grace cron
+ * auto-confirms), so fake-COMPLETED noise can't pollute the funnel/ratings. */
 export type BookingTransitionTarget = "inProgress" | "completed" | "noShow";
+
+/**
+ * §2.3 completion grace — how long a staged completion waits for the customer
+ * before the cron auto-confirms it. Tune this single constant to change the
+ * policy; shared by the demo + prisma adapters.
+ */
+export const BOOKING_COMPLETION_CONFIRM_GRACE_HOURS = 72;
+
+/** §2.3 — has a staged completion sat unconfirmed past the grace window? */
+export function completionGraceElapsed(stagedAtMs: number, nowMs: number): boolean {
+  return nowMs - stagedAtMs >= BOOKING_COMPLETION_CONFIRM_GRACE_HOURS * 60 * 60 * 1000;
+}
 
 /** Who cancels a booking and why (M4 — stored in cancelledBy / cancelReason). */
 export interface BookingCancelInput {
@@ -415,7 +447,7 @@ export const BOOKING_RESCHEDULABLE_FROM: readonly BookingStatus[] = ["confirmed"
  */
 export const BOOKING_TRANSITION_FROM: Record<BookingTransitionTarget, BookingStatus[]> = {
   inProgress: ["confirmed", "pendingPayment"],
-  completed: ["inProgress"],
+  completed: ["inProgress"], // the flip is staged → completionPending (§2.3)
   noShow: ["confirmed", "pendingPayment", "inProgress"],
 };
 
@@ -450,6 +482,7 @@ export function emptyBookingFunnelCounts(): Record<BookingStatus, number> {
     pendingPayment: 0,
     confirmed: 0,
     inProgress: 0,
+    completionPending: 0,
     completed: 0,
     cancelled: 0,
     declined: 0,
@@ -467,7 +500,10 @@ export function emptyBookingFunnelCounts(): Record<BookingStatus, number> {
  */
 export function bookingConversionRate(counts: Record<BookingStatus, number>): number {
   const total = Object.values(counts).reduce((s, n) => s + n, 0);
-  const confirmed = counts.confirmed + counts.inProgress + counts.completed;
+  // Accepted = the worker took the job: confirmed, in progress, staged for
+  // completion, or completed.
+  const confirmed =
+    counts.confirmed + counts.inProgress + counts.completionPending + counts.completed;
   return total > 0 ? Math.round((confirmed / total) * 100) : 0;
 }
 
@@ -612,6 +648,8 @@ export interface Notification {
     | "bookingRequest"
     | "bookingRequestNudge"
     | "bookingRequestExpired"
+    | "bookingCompletionPending"
+    | "bookingCompletionConfirmed"
     | "bookingConfirmed"
     | "bookingDeclined"
     | "bookingCancelled"

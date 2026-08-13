@@ -68,6 +68,7 @@ function origin(): string {
 }
 import { distanceKm, isOpenNow, type CurrencyCode } from "@/lib/utils";
 import {
+  BOOKING_COMPLETION_CONFIRM_GRACE_HOURS,
   BOOKING_REMINDER_WINDOW_MS,
   BOOKING_RESCHEDULABLE_FROM,
   BOOKING_SLA_EXPIRE_HOURS,
@@ -597,6 +598,7 @@ const BOOKING_STATUS_DB_TO_APP: Record<string, BookingStatus> = {
   PENDING_PAYMENT: "pendingPayment",
   CONFIRMED: "confirmed",
   IN_PROGRESS: "inProgress",
+  COMPLETION_PENDING: "completionPending", // §2.3 staged completion
   COMPLETED: "completed",
   CANCELLED: "cancelled",
   DECLINED: "declined",
@@ -609,6 +611,7 @@ const BOOKING_STATUS_APP_TO_DB: Record<BookingStatus, $Enums.BookingStatus> = {
   pendingPayment: "PENDING_PAYMENT",
   confirmed: "CONFIRMED",
   inProgress: "IN_PROGRESS",
+  completionPending: "COMPLETION_PENDING", // §2.3 staged completion
   completed: "COMPLETED",
   cancelled: "CANCELLED",
   declined: "DECLINED",
@@ -688,6 +691,8 @@ export interface PrismaBookingRow {
   paymentId: string | null;
   /** Set when this booking is an occurrence of a recurring contract (W2). */
   recurringBookingId: string | null;
+  /** §2.2 request SLA — the nudge stamp (null/absent = never nudged). */
+  lastSlaNudgeAt?: Date | null;
   serviceItem?: {
     nameEn: string;
     nameAr: string;
@@ -766,6 +771,9 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
     endAt: row.endAt.toISOString(),
     status: BOOKING_STATUS_DB_TO_APP[row.status] ?? "requested",
     recurringId: row.recurringBookingId ?? undefined,
+    // §2.2 — the request-SLA nudge stamp (true once the cron has nudged the
+    // worker about this unanswered request).
+    slaNudgeSent: row.lastSlaNudgeAt != null ? true : undefined,
     serviceItem: row.serviceItem
       ? {
           nameEn: row.serviceItem.nameEn,
@@ -1697,7 +1705,12 @@ export async function prismaTransitionBooking(
 ): Promise<Booking | null> {
   const prisma = getPrisma();
   try {
-    const dbTo = BOOKING_STATUS_APP_TO_DB[to];
+    // §2.3 — a worker "completed" flip is STAGED (COMPLETION_PENDING + the
+    // completionPendingAt stamp); the customer confirms (prismaConfirmBookingCompletion)
+    // or the grace cron auto-confirms before the job counts as completed, so
+    // fake-COMPLETED can't pollute the funnel, ratings, and no-show stats.
+    const staged = to === "completed";
+    const dbTo = staged ? "COMPLETION_PENDING" : BOOKING_STATUS_APP_TO_DB[to];
     const result = await prisma.$transaction(async (tx) => {
       // Transitions never touch the slot (it stays BOOKED — only cancellation
       // frees it), so no slot include is needed here.
@@ -1710,25 +1723,22 @@ export async function prismaTransitionBooking(
 
       const updated = await tx.booking.updateMany({
         where: { id: bookingId, status: row.status },
-        data: { status: dbTo },
+        data: { status: dbTo, completionPendingAt: staged ? new Date() : null },
       });
       if (updated.count === 0) return null;
       await tx.bookingEvent.create({ data: { bookingId, status: dbTo, actorType: "worker" } });
-      // Payouts (docs/payouts.md) — the job is done, so the net earnings
-      // (quote − platform fee) credit the worker's ledger in the SAME tx as
-      // the completed flip (idempotent via @@unique([bookingId])).
-      if (to === "completed") {
-        await creditEarningsInTx(tx, row);
-      }
+      // Payouts (docs/payouts.md) — earnings credit on the CONFIRMED flip, not
+      // the worker's staged one (prismaConfirmBookingCompletion /
+      // prismaAutoConfirmCompletions run creditEarningsInTx in their txs).
       return tx.booking.findUnique({
         where: { id: bookingId },
         include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
       });
     });
     if (!result) return null;
-    if (to === "completed") {
+    if (staged) {
       await pushNotification(
-        bookingNotification(toDomainBooking(result), "customer-completed"),
+        bookingNotification(toDomainBooking(result), "customer-completion-pending"),
         result.customerEmail
           ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
           : undefined
@@ -1739,6 +1749,100 @@ export async function prismaTransitionBooking(
     console.error("[prisma-repo] transitionBooking failed:", err);
     return null;
   }
+}
+
+/**
+ * §2.3 — the customer confirms a staged completion: COMPLETION_PENDING →
+ * COMPLETED inside a $transaction (CAS on the status so a concurrent confirm
+ * or the grace cron can't double-flip), net earnings credit the ledger
+ * (idempotent via @@unique([bookingId])), a customer-actor audit event is
+ * appended, and the WORKER is told the payout is on its way (after the tx).
+ * Returns null unless the booking is staged.
+ */
+export async function prismaConfirmBookingCompletion(bookingId: string): Promise<Booking | null> {
+  const prisma = getPrisma();
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const row = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: { worker: { select: { nameEn: true, email: true, phone: true, languages: true } } },
+      });
+      if (!row || row.status !== "COMPLETION_PENDING") return null;
+
+      const updated = await tx.booking.updateMany({
+        where: { id: bookingId, status: "COMPLETION_PENDING" },
+        data: { status: "COMPLETED", completionPendingAt: null },
+      });
+      if (updated.count === 0) return null;
+      await creditEarningsInTx(tx, row);
+      await tx.bookingEvent.create({ data: { bookingId, status: "COMPLETED", actorType: "customer" } });
+      return tx.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          events: { orderBy: { createdAt: "asc" as const } },
+          serviceItem: true,
+          payment: { include: { invoice: true } },
+          worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+        },
+      });
+    });
+    if (!result) return null;
+    const workerLocale =
+      (result.worker?.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en";
+    await pushNotification(
+      bookingNotification(toDomainBooking(result), "worker-completion-confirmed"),
+      result.worker?.email
+        ? { name: result.worker.nameEn, email: result.worker.email, phone: result.worker.phone, locale: workerLocale }
+        : undefined
+    );
+    return toDomainBooking(result);
+  } catch (err) {
+    console.error("[prisma-repo] confirmBookingCompletion failed:", err);
+    return null;
+  }
+}
+
+/**
+ * §2.3 — the grace cron: COMPLETION_PENDING bookings whose completionPendingAt
+ * is past BOOKING_COMPLETION_CONFIRM_GRACE_HOURS auto-confirm (system actor),
+ * crediting the ledger and emailing the customer the completion receipt.
+ * Idempotent — the CAS on the status means overlapping cron invocations can
+ * never double-flip, and a confirmed booking is never rescanned.
+ */
+export async function prismaAutoConfirmCompletions(now = new Date()): Promise<number> {
+  const prisma = getPrisma();
+  const cutoff = new Date(now.getTime() - BOOKING_COMPLETION_CONFIRM_GRACE_HOURS * 60 * 60 * 1000);
+  const due = await prisma.booking.findMany({
+    where: { status: "COMPLETION_PENDING", completionPendingAt: { lt: cutoff } },
+    include: {
+      events: { orderBy: { createdAt: "asc" as const } },
+      serviceItem: true,
+      payment: { include: { invoice: true } },
+      worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+    },
+  });
+  let autoConfirmed = 0;
+  for (const row of due) {
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.booking.updateMany({
+        where: { id: row.id, status: "COMPLETION_PENDING" },
+        data: { status: "COMPLETED", completionPendingAt: null },
+      });
+      if (updated.count === 0) return null;
+      await creditEarningsInTx(tx, row);
+      await tx.bookingEvent.create({ data: { bookingId: row.id, status: "COMPLETED", actorType: "system" } });
+      return tx.booking.findUnique({ where: { id: row.id }, include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true } });
+    });
+    if (!result) continue;
+    autoConfirmed += 1;
+    await pushNotification(
+      bookingNotification(toDomainBooking(result), "customer-completed"),
+      result.customerEmail
+        ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+        : undefined
+    );
+  }
+  return autoConfirmed;
 }
 
 /**

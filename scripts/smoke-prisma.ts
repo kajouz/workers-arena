@@ -75,6 +75,7 @@ import {
   prismaGetWorkerBySlug,
   prismaGetWorkerSlots,
   prismaCancelRecurringContract,
+  prismaConfirmBookingCompletion,
   prismaCreateRecurringRequest,
   prismaGenerateRecurringOccurrences,
   prismaGetCustomerRecurrings,
@@ -86,8 +87,9 @@ import {
   prismaSetSlotBlocked,
   prismaTransitionBooking,
 } from "../src/lib/data/prisma-repo";
-import { BOOKING_SLA_EXPIRE_HOURS } from "../src/lib/data/types";
+import { BOOKING_COMPLETION_CONFIRM_GRACE_HOURS, BOOKING_SLA_EXPIRE_HOURS, BOOKING_SLA_NUDGE_HOURS } from "../src/lib/data/types";
 import { runRequestSlaEngine } from "../src/lib/data/request-sla";
+import { runCompletionAutoConfirmEngine } from "../src/lib/data/completion-auto-confirm";
 import { campaignRefundNotification } from "../src/lib/data/campaign-notifications";
 import { renderCampaignRefundEmail } from "../src/lib/notifications/templates";
 
@@ -107,6 +109,8 @@ const SMOKE_NOTIFICATION_TYPES = [
   "BOOKING_VISIT_SCHEDULED",
   "BOOKING_REQUEST_NUDGED",
   "BOOKING_REQUEST_EXPIRED",
+  "BOOKING_COMPLETION_PENDING",
+  "BOOKING_COMPLETION_CONFIRMED",
   "PROMO",
   "CAMPAIGN_REFUNDED",
 ] as const;
@@ -774,8 +778,21 @@ async function main() {
   const opsSlotDuring = await prisma.bookingSlot.findUnique({ where: { id: opsSlot.id } });
   assert(opsSlotDuring?.status === "BOOKED", "slot stays BOOKED through transitions");
 
-  const completed = await prismaTransitionBooking(opsCreated.id, "completed");
-  assert(completed?.status === "completed", "IN_PROGRESS → COMPLETED");
+  // §2.3 customer-confirms-completion — the worker's "completed" flip is
+  // STAGED (COMPLETION_PENDING + the completionPendingAt stamp); the customer
+  // confirms before it counts as completed, so fake-COMPLETED can't pollute
+  // the funnel/ratings. No earnings credit at the staged flip.
+  const staged = await prismaTransitionBooking(opsCreated.id, "completed");
+  assert(staged?.status === "completionPending", "worker 'completed' flip is STAGED (COMPLETION_PENDING)");
+  assert(staged!.events.at(-1)?.status === "completionPending" && staged!.events.at(-1)?.actorType === "worker", "COMPLETION_PENDING audit event by worker");
+  const stagedRow = await prisma.booking.findUnique({ where: { id: opsCreated.id } });
+  assert(stagedRow?.completionPendingAt !== null, "completionPendingAt stamped at the staged flip");
+  assert((await prismaTransitionBooking(opsCreated.id, "noShow")) === null, "COMPLETION_PENDING rejects noShow");
+  const completed = await prismaConfirmBookingCompletion(opsCreated.id);
+  assert(completed?.status === "completed", "customer confirm → COMPLETED");
+  assert(completed!.events.at(-1)?.status === "completed" && completed!.events.at(-1)?.actorType === "customer", "customer-actor COMPLETED audit event");
+  const completedRow = await prisma.booking.findUnique({ where: { id: opsCreated.id } });
+  assert(completedRow?.completionPendingAt === null, "completionPendingAt cleared on confirm");
   const illegalFromCompleted = await prismaTransitionBooking(opsCreated.id, "noShow");
   assert(illegalFromCompleted === null, "terminal COMPLETED rejects further transitions");
   const completedEarly = await prismaTransitionBooking(opsCreated.id, "inProgress");
@@ -812,7 +829,64 @@ async function main() {
   assert(freedSlot?.status === "AVAILABLE" && freedSlot.bookingId === null, "cancellation frees the slot (rule 3)");
   const cancelAgain = await prismaCancelBooking(opsCreated2.id, { by: "worker" });
   assert(cancelAgain === null, "terminal CANCELLED cannot be cancelled again");
-  console.log("M4 ops: inProgress → completed ok, illegal transitions rejected, cancel freed the slot");
+  console.log("M4 ops: inProgress → staged (COMPLETION_PENDING) → customer-confirmed COMPLETED, illegal transitions rejected, cancel freed the slot");
+
+  // ── M4 §2.3 — completion auto-confirm grace cron (live DB) ───────────────
+  // A staged completion the customer never confirms auto-confirms after
+  // BOOKING_COMPLETION_CONFIRM_GRACE_HOURS: COMPLETED (system actor), net
+  // earnings credit, customer receipt. Backdate completionPendingAt past the
+  // grace window and run the ENGINE (the cron path) — the CAS on the status
+  // means a re-run auto-confirms nothing.
+  // +37h — clear of every sibling section's windows (hour-walk sections use
+  // 3–23, m3 +30/31, activity +32, feed no-show +35, payouts +40, recurring
+  // +48/49/57/65): a neighbor hour half-overlaps by the seconds of drift
+  // between Date.now() calls (the ops2 → slot-taken flake the reminder walk
+  // documents), so keep 2h of clearance on each side.
+  const ccSlotStart = new Date(Date.now() + 37 * 60 * 60 * 1000);
+  const ccSlot = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: ccSlotStart,
+      endAt: new Date(ccSlotStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-ops",
+    },
+  });
+  const ccCreated = await prismaCreateBookingRequest({
+    workerId: khaled!.id,
+    slotId: ccSlot.id,
+    customerName: "Complete Tester",
+    customerPhone: "+966 50 999 1234",
+    customerEmail: "ops@workersarena.test",
+    jobTitle: "Smoke completion auto-confirm",
+  });
+  if ("error" in ccCreated) throw new Error(`SMOKE ASSERT FAILED: completion create → ${ccCreated.error}`);
+  await prismaRespondToBooking(ccCreated.id, { accept: true, quote: 8000 });
+  await prismaTransitionBooking(ccCreated.id, "inProgress");
+  assert(
+    (await prismaTransitionBooking(ccCreated.id, "completed"))?.status === "completionPending",
+    "completion booking staged"
+  );
+  await prisma.booking.update({
+    where: { id: ccCreated.id },
+    data: { completionPendingAt: new Date(Date.now() - (BOOKING_COMPLETION_CONFIRM_GRACE_HOURS + 1) * 60 * 60 * 1000) },
+  });
+  const ccRun = await runCompletionAutoConfirmEngine();
+  console.log("completion auto-confirm engine:", JSON.stringify(ccRun));
+  assert(ccRun.autoConfirmed >= 1, "stale staged completion auto-confirmed");
+  const ccAfter = await prisma.booking.findUnique({ where: { id: ccCreated.id } });
+  assert(ccAfter?.status === "COMPLETED" && ccAfter.completionPendingAt === null, "auto-confirm → COMPLETED, stamp cleared");
+  const ccEvents = await prisma.bookingEvent.findMany({ where: { bookingId: ccCreated.id } });
+  assert(ccEvents.some((e) => e.status === "COMPLETED" && e.actorType === "system"), "system-actor COMPLETED audit event");
+  const ccLedger = await prisma.workerLedgerEntry.findFirst({ where: { bookingId: ccCreated.id } });
+  assert(ccLedger?.kind === "EARNING" && ccLedger.amount === 7440, "auto-confirm credits net earnings (8000 − 560 fee)");
+  const ccReceipt = await prisma.notification.findMany({ where: { type: "BOOKING_COMPLETED" } });
+  assert(ccReceipt.some((n) => n.bodyEn?.includes(ccCreated.number)), "customer completion receipt persisted");
+  const ccAgain = await runCompletionAutoConfirmEngine();
+  assert(ccAgain.autoConfirmed === 0, "auto-confirm re-run confirms nothing (already COMPLETED)");
+  console.log(
+    "M4 §2.3 completion: staged → backdated past grace → auto-confirm → COMPLETED + receipt + ledger, re-run no-op"
+  );
 
   // ── W2 — customer-side booking lookup (prismaGetCustomerBookings) ─────────
   // The `created` booking (smoke@workersarena.test / +966 50 999 9999) is
@@ -1024,7 +1098,9 @@ async function main() {
   if ("error" in poCreated) throw new Error(`SMOKE ASSERT FAILED: payout create → ${poCreated.error}`);
   await prismaRespondToBooking(poCreated.id, { accept: true, quote: 10000 }); // fee 700 → net 9300
   assert((await prismaTransitionBooking(poCreated.id, "inProgress")) !== null, "payout booking → inProgress");
-  assert((await prismaTransitionBooking(poCreated.id, "completed")) !== null, "payout booking → completed");
+  // §2.3 — the worker's flip stages; the customer's confirm credits the ledger.
+  assert((await prismaTransitionBooking(poCreated.id, "completed"))?.status === "completionPending", "payout booking staged (COMPLETION_PENDING)");
+  assert((await prismaConfirmBookingCompletion(poCreated.id))?.status === "completed", "customer confirm → COMPLETED");
 
   const poBalance = await prismaGetWorkerBalance(khaled!.id);
   assert(
@@ -1309,9 +1385,14 @@ async function main() {
   const sum = Object.values(funnel.counts).reduce((s, n) => s + n, 0);
   assert(sum === funnel.total, "funnel counts sum to total");
   const expectedConversion = Math.round(
-    ((funnel.counts.confirmed + funnel.counts.inProgress + funnel.counts.completed) / funnel.total) * 100
+    ((funnel.counts.confirmed +
+      funnel.counts.inProgress +
+      funnel.counts.completionPending +
+      funnel.counts.completed) /
+      funnel.total) *
+      100
   );
-  assert(funnel.conversionRate === expectedConversion, "conversion = confirmed-ish / total (rounded)");
+  assert(funnel.conversionRate === expectedConversion, "conversion = accepted-ish / total (rounded)");
   console.log(
     "M4 admin funnel: total", funnel.total,
     "| requested", funnel.counts.requested,
@@ -1669,10 +1750,58 @@ async function main() {
     where: { id: slaCreated.id },
     data: { createdAt: new Date(Date.now() - (BOOKING_SLA_EXPIRE_HOURS + 1) * 60 * 60 * 1000) },
   });
+  // §2.2 UI surface — a NUDGE-ONLY booking (past 24h, before 48h): run 1
+  // nudges it and leaves it REQUESTED, so the worker read must stamp
+  // slaNudgeSent: true (the dashboard's "Nudge sent" chip).
+  const slaNudgeSlotStart = await (async (): Promise<Date> => {
+    const SIBLING_HOURS = new Set([1, 5, 6, 8, 9]);
+    for (let h = 3; h < 24; h++) {
+      if (SIBLING_HOURS.has(h) || SIBLING_HOURS.has(h - 1)) continue;
+      const start = new Date(Date.now() + h * 60 * 60 * 1000);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const clash = await prisma.bookingSlot.count({
+        where: {
+          workerId: khaled!.id,
+          status: { in: ["RESERVED", "BOOKED", "BLOCKED"] },
+          startAt: { lt: end },
+          endAt: { gt: start },
+        },
+      });
+      if (clash === 0) return start;
+    }
+    throw new Error("SMOKE ASSERT FAILED: no free request-SLA nudge slot window within 24h");
+  })();
+  const slaNudgeSlot = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: slaNudgeSlotStart,
+      endAt: new Date(slaNudgeSlotStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-sla",
+    },
+  });
+  const slaNudgeCreated = await prismaCreateBookingRequest({
+    workerId: khaled!.id,
+    slotId: slaNudgeSlot.id,
+    customerName: "SLA Nudge Tester",
+    customerPhone: "+966 50 888 4322",
+    customerEmail: "smoke@workersarena.test",
+    jobTitle: "Smoke SLA nudge",
+  });
+  if ("error" in slaNudgeCreated) throw new Error(`SMOKE ASSERT FAILED: SLA nudge create → ${slaNudgeCreated.error}`);
+  await prisma.booking.update({
+    where: { id: slaNudgeCreated.id },
+    data: { createdAt: new Date(Date.now() - (BOOKING_SLA_NUDGE_HOURS + 1) * 60 * 60 * 1000) },
+  });
   const slaRun = await runRequestSlaEngine();
   console.log("request SLA engine:", JSON.stringify(slaRun));
   assert(slaRun.expired >= 1 && slaRun.expiredNumbers.includes(slaCreated.number), "stale request auto-expired");
   assert(slaRun.nudged >= 1, "worker nudged for the stale request");
+  const slaNudgeRead = (await prismaGetWorkerBookings(khaled!.id)).find((b) => b.id === slaNudgeCreated.id);
+  assert(
+    slaNudgeRead?.status === "requested" && slaNudgeRead.slaNudgeSent === true,
+    "nudge-only request stays REQUESTED with slaNudgeSent stamped (worker dashboard chip)"
+  );
   const slaAfter = await prisma.booking.findUnique({ where: { id: slaCreated.id } });
   assert(slaAfter?.status === "CANCELLED" && slaAfter.cancelledBy === "system", "auto-expired request CANCELLED by system");
   const slaSlotAfter = await prisma.bookingSlot.findUnique({ where: { id: slaSlot.id } });
@@ -1702,12 +1831,15 @@ async function main() {
   await prisma.booking.deleteMany({ where: { recurringBookingId: { in: [recReq.recurring.id, recDecl.recurring.id] } } });
   await prisma.recurringBooking.deleteMany({ where: { id: { in: [recReq.recurring.id, recDecl.recurring.id] } } });
   await prisma.bookingSlot.deleteMany({ where: { id: { in: [recSlot.id, recSlot7.id, recSlot14.id, recDeclSlot.id] } } });
-  // Request SLA — the backdated booking + its dedicated slot (already freed
-  // by the expiry, but ours to drop). The feed entry and the two notification
+  // Request SLA — the backdated bookings + their dedicated slots (already
+  // freed by the expiry, but ours to drop). The feed entry and the notification
   // rows ride the ActivityLog/notification sweeps below.
   await prisma.bookingEvent.deleteMany({ where: { bookingId: slaCreated.id } });
   await prisma.booking.delete({ where: { id: slaCreated.id } });
   await prisma.bookingSlot.delete({ where: { id: slaSlot.id } });
+  await prisma.bookingEvent.deleteMany({ where: { bookingId: slaNudgeCreated.id } });
+  await prisma.booking.delete({ where: { id: slaNudgeCreated.id } });
+  await prisma.bookingSlot.delete({ where: { id: slaNudgeSlot.id } });
   await prisma.activityLog.deleteMany({ where: { meta: { path: ["bookingNo"], equals: slaCreated.number } } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: created.id } });
   await prisma.booking.delete({ where: { id: created.id } });
@@ -1721,6 +1853,11 @@ async function main() {
   await prisma.bookingEvent.deleteMany({ where: { bookingId: opsCreated2.id } });
   await prisma.booking.delete({ where: { id: opsCreated2.id } });
   await prisma.bookingSlot.delete({ where: { id: opsSlot2.id } });
+  // M4 §2.3 — the auto-confirm booking's ledger row (no cascade) + booking + slot.
+  await prisma.workerLedgerEntry.deleteMany({ where: { bookingId: ccCreated.id } });
+  await prisma.bookingEvent.deleteMany({ where: { bookingId: ccCreated.id } });
+  await prisma.booking.delete({ where: { id: ccCreated.id } });
+  await prisma.bookingSlot.delete({ where: { id: ccSlot.id } });
   // M3 — the deposit bookings' Payment rows (booking delete SetNulls the links).
   await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: m3Created.id } } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: m3Created.id } });

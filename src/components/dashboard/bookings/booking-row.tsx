@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Phone } from "lucide-react";
+import { CalendarClock, Hourglass, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { BookingStatusBadge } from "@/components/bookings/booking-status-badge";
 import { useLocale } from "@/components/providers/locale-provider";
 import { formatDate, cn } from "@/lib/utils";
 import { formatSlotRange } from "@/lib/data/booking-ui";
+import { requestSlaExpiryMs } from "@/lib/data/types";
 import { RespondDialog } from "./respond-dialog";
 import { BookingActions } from "./booking-actions";
 import type { Booking, Worker } from "@/lib/data/types";
@@ -60,6 +61,28 @@ export function BookingRow({ booking, worker }: { booking: Booking; worker: Work
               </a>
             </div>
           </div>
+
+          {/* §2.2 request SLA — an unanswered REQUESTED booking auto-cancels
+              (slot freed) after BOOKING_SLA_EXPIRE_HOURS. The worker sees the
+              countdown (from the shared requestSlaExpiryMs) and whether the
+              nudge push already went out (Booking.lastSlaNudgeAt). */}
+          {booking.status === "requested" &&
+            (() => {
+              const hoursLeft = Math.ceil((requestSlaExpiryMs(booking) - Date.now()) / 3_600_000);
+              const copy = booking.slaNudgeSent
+                ? hoursLeft >= 1
+                  ? t("booking.slaWorkerNudged")
+                  : t("booking.slaWorkerSoon")
+                : hoursLeft >= 1
+                  ? t("booking.slaWorkerNote")
+                  : t("booking.slaWorkerSoon");
+              return (
+                <p className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+                  <Hourglass className="mt-px size-3.5 shrink-0" />
+                  <span>{copy.replace("{hours}", String(hoursLeft))}</span>
+                </p>
+              );
+            })()}
 
           {/* Actions — respond to a pending request (M1); lifecycle for
               scheduled bookings (M4: start/complete/no-show/cancel). */}

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   demoAddSlot,
   demoCreateBookingRequest,
+  demoGetWorkerBookings,
   demoGetWorkerSlots,
   demoRunRequestSla,
   resetBookingsStore,
@@ -12,6 +13,7 @@ import { workerBySlug } from "../src/lib/data/workers";
 import {
   BOOKING_SLA_EXPIRE_HOURS,
   BOOKING_SLA_NUDGE_HOURS,
+  requestSlaExpiryMs,
   slaExpireDue,
   slaNudgeDue,
   type Booking,
@@ -74,6 +76,14 @@ describe("Request SLA — pure window helpers", () => {
     expect(slaExpireDue(NOW.getTime() - boundary, NOW.getTime())).toBe(true);
     expect(slaExpireDue(NOW.getTime() - boundary + 1, NOW.getTime())).toBe(false);
   });
+
+  it("requestSlaExpiryMs = creation (first audit event) + the expire window", () => {
+    const b = {
+      events: [{ status: "requested" as const, actorType: "customer", time: "2026-08-08T09:00:00.000Z" }],
+      startAt: "2026-08-10T09:00:00.000Z",
+    };
+    expect(requestSlaExpiryMs(b)).toBe(Date.parse("2026-08-08T09:00:00.000Z") + BOOKING_SLA_EXPIRE_HOURS * HOUR);
+  });
 });
 
 describe("Request SLA — demo engine", () => {
@@ -130,6 +140,15 @@ describe("Request SLA — demo engine", () => {
     const run = await demoRunRequestSla(NOW);
     expect(run.nudged).toBe(1);
     expect(run.expired).toBe(1);
+  });
+
+  it("the worker read stamps slaNudgeSent once the cron has nudged (§2.2 surface)", async () => {
+    const booking = await staleRequest((BOOKING_SLA_NUDGE_HOURS + 1) * HOUR); // past nudge, before expire
+    expect((await demoGetWorkerBookings(khaled().id)).find((b) => b.id === booking.id)?.slaNudgeSent).toBeUndefined();
+    await demoRunRequestSla(NOW);
+    expect((await demoGetWorkerBookings(khaled().id)).find((b) => b.id === booking.id)?.slaNudgeSent).toBe(true);
+    // The nudge never flipped the request — still requested.
+    expect(booking.status).toBe("requested");
   });
 
   it("is idempotent — a second pass re-nudges nothing and expires nothing", async () => {

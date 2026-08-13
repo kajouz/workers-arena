@@ -19,6 +19,8 @@ const TYPE_DOT: Record<Notification["type"], string> = {
   bookingRequest: "bg-orange-500",
   bookingRequestNudge: "bg-amber-500",
   bookingRequestExpired: "bg-slate-400",
+  bookingCompletionPending: "bg-violet-400",
+  bookingCompletionConfirmed: "bg-teal-500",
   bookingConfirmed: "bg-emerald-500",
   bookingDeclined: "bg-red-500",
   bookingCancelled: "bg-red-400",

@@ -15,6 +15,7 @@ import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCod
 import {
   demoCancelBooking,
   demoCancelRecurringContract,
+  demoConfirmBookingCompletion,
   demoCreateBookingRequest,
   demoCreateRecurringRequest,
   demoGenerateSlots,
@@ -920,6 +921,7 @@ export async function transitionBooking(
   const result = realDataEnabled
     ? await (await prismaRepo()).prismaTransitionBooking(bookingId, to)
     : await demoTransitionBooking(bookingId, to);
+
   // NO_SHOW is the only transition that voids a booked job — log it so the
   // feed's lifecycle story matches the dispute trail (inProgress/completed
   // are visible in the dispute view's events either way, and get no codes).
@@ -934,6 +936,18 @@ export async function transitionBooking(
     );
   }
   return result;
+}
+
+/**
+ * §2.3 customer-confirms-completion — the customer confirms a staged
+ * completion (completionPending → completed, earnings credit + worker
+ * notified). Returns null unless the booking is staged. Completes get no
+ * lifecycle codes by design (the dispute view's event trail carries them).
+ */
+export async function confirmBookingCompletion(bookingId: string): Promise<Booking | null> {
+  return realDataEnabled
+    ? await (await prismaRepo()).prismaConfirmBookingCompletion(bookingId)
+    : await demoConfirmBookingCompletion(bookingId);
 }
 
 /**

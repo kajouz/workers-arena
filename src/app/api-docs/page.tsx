@@ -17,6 +17,7 @@ const ENDPOINTS = [
   { method: "GET", path: "/api/cron/reminders", desc: "Cron: subscription-expiry + booking 'job starts tomorrow' reminders (CRON_SECRET-guarded)" },
   { method: "GET", path: "/api/cron/recurring", desc: "Cron: recurring-generation — materialize maintenance-contract occurrences (CRON_SECRET-guarded)" },
   { method: "GET", path: "/api/cron/requests", desc: "Cron: request SLA — nudge the worker at 24h, auto-cancel at 48h and free the slot (CRON_SECRET-guarded)" },
+  { method: "GET", path: "/api/cron/completions", desc: "Cron: completion auto-confirm — staged completions past the 72h grace flip to COMPLETED + credit the ledger (CRON_SECRET-guarded)" },
   { method: "GET", path: "/api/cron/push-prune", desc: "Cron: scheduled dead-endpoint cleanup (CRON_SECRET-guarded)" },
   { method: "GET", path: "/api/cron/activity-prune", desc: "Cron: ActivityLog retention — delete rows older than N days (CRON_SECRET-guarded)" },
   { method: "GET", path: "/api/health", desc: "Health check (mode: demo | production)" },

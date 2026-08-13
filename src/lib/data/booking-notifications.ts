@@ -38,7 +38,8 @@ export type WorkerNotificationKind =
   | "worker-request"
   | "worker-cancelled"
   | "worker-rescheduled"
-  | "worker-request-nudge";
+  | "worker-request-nudge"
+  | "worker-completion-confirmed";
 
 /** Customer-facing events (deep-link /bookings) — the kinds a preview can show. */
 export type CustomerNotificationKind =
@@ -50,7 +51,8 @@ export type CustomerNotificationKind =
   | "customer-rescheduled"
   | "customer-refund"
   | "customer-recurring-visit"
-  | "customer-request-expired";
+  | "customer-request-expired"
+  | "customer-completion-pending";
 
 export type BookingNotificationKind = WorkerNotificationKind | CustomerNotificationKind | "customer-reminder";
 
@@ -188,6 +190,28 @@ export function bookingNotification(
         href: "/bookings",
         booking: ctx,
       };
+    case "customer-completion-pending":
+      // §2.3 — the worker staged completion; the customer confirms (or the
+      // grace cron auto-confirms), so fake-COMPLETED can't pollute the funnel.
+      return {
+        type: "bookingCompletionPending",
+        titleEn: "Confirm job completion",
+        titleAr: "أكّد إتمام المهمة",
+        bodyEn: `The worker marked your job ${booking.number} done — confirm completion so the payout can be released.`,
+        bodyAr: `أكمل العامل مهمتك ${booking.number} — أكّد الإتمام ليتم تحرير الدفعة.`,
+        href: "/bookings",
+        booking: ctx,
+      };
+    case "worker-completion-confirmed":
+      return {
+        type: "bookingCompletionConfirmed",
+        titleEn: "Customer confirmed completion",
+        titleAr: "أكّد العميل إتمام المهمة",
+        bodyEn: `${booking.customerName} confirmed ${booking.number} is done — your payout is on its way.`,
+        bodyAr: `أكّد ${booking.customerName} إتمام ${booking.number} — دفعتك في الطريق.`,
+        href: "/dashboard",
+        booking: ctx,
+      };
     case "worker-request-nudge":
       // Request SLA (ENHANCEMENT-PLAN §2.2) — the cron nudges the worker that
       // a request has sat unanswered past the nudge window.
@@ -230,8 +254,16 @@ export function customerEmailKind(
   booking: Pick<Booking, "status" | "paymentId" | "events">
 ): CustomerNotificationKind | null {
   switch (booking.status) {
-    case "completed":
-      return "customer-completed";
+    case "completionPending":
+      // The staged-completion prompt is a push, not an email — the customer
+      // has received nothing yet (the receipt arrives on the confirmed flip).
+      return null;
+    case "completed": {
+      const last = [...booking.events].reverse().find((e) => e.status === "completed");
+      // Customer-confirmed completions email the WORKER — the customer got
+      // nothing; worker/system (legacy + auto-confirm) flips email the customer.
+      return last?.actorType === "customer" ? null : "customer-completed";
+    }
     case "declined":
       return "customer-declined";
     case "cancelled": {

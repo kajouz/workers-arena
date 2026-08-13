@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth-demo";
 import {
   cancelBooking,
   cancelRecurringContract,
+  confirmBookingCompletion,
   confirmBookingPayment,
   createBookingCheckout,
   createBookingRequest,
@@ -269,6 +270,20 @@ export async function transitionBookingAction(
   const booking = await transitionBooking(bookingId, parsed.data.to);
   if (!booking) return { ok: false, error: "not-found" };
 
+  revalidatePath("/dashboard");
+  revalidatePath("/bookings");
+  return { ok: true };
+}
+
+/**
+ * §2.3 customer-confirms-completion — the customer confirms a staged
+ * completion (completionPending → completed; earnings credit + worker
+ * notified). Returns not-found unless the booking is staged.
+ */
+export async function confirmCompletionAction(bookingId: string): Promise<BookingActionResult> {
+  if (!bookingId) return { ok: false, error: "invalid" };
+  const booking = await confirmBookingCompletion(bookingId);
+  if (!booking) return { ok: false, error: "not-found" };
   revalidatePath("/dashboard");
   revalidatePath("/bookings");
   return { ok: true };

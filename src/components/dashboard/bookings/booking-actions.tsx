@@ -75,7 +75,7 @@ export function BookingActions({ booking }: { booking: Booking }) {
       {canComplete && (
         <Button
           size="sm"
-          onClick={() => runTransition("completed", "booking.jobCompleted")}
+          onClick={() => runTransition("completed", "booking.jobStaged")}
           disabled={busy !== null}
           className="w-full sm:w-auto"
         >

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { CalendarClock, ChevronDown, CreditCard, ExternalLink, FileText, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarClock, CheckCircle2, ChevronDown, CreditCard, ExternalLink, FileText, Hourglass, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,9 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { toast } from "@/components/ui/toast";
 import { cn, formatDate, timeAgo } from "@/lib/utils";
 import { Price } from "@/components/shared/price";
-import { payBookingAction } from "@/app/actions/bookings";
+import { confirmCompletionAction, payBookingAction } from "@/app/actions/bookings";
 import { RescheduleDialog } from "./reschedule-dialog";
-import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
+import { BOOKING_CANCEL_REFUND_WINDOW_MS, requestSlaExpiryMs } from "@/lib/data/types";
 import type { CustomerBookingRow } from "@/app/bookings/page";
 
 /**
@@ -23,8 +24,10 @@ import type { CustomerBookingRow } from "@/app/bookings/page";
  */
 export function BookingRow({ row }: { row: CustomerBookingRow }) {
   const { locale, t } = useLocale();
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [, startTransition] = useTransition();
   const { booking, worker } = row;
   const name = locale === "ar" ? worker?.nameAr : worker?.nameEn;
@@ -122,6 +125,39 @@ export function BookingRow({ row }: { row: CustomerBookingRow }) {
               </div>
             )}
 
+            {/* §2.3 customer-confirms-completion — the worker staged the job
+                as done; the customer's confirm releases the payout. Without
+                it the grace cron auto-confirms after 72h. */}
+            {booking.status === "completionPending" && (
+              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-ink-900 dark:text-ink-50">{t("booking.confirmCompletion")}</p>
+                  <p className="mt-0.5 text-xs text-ink-500 dark:text-ink-400">{t("booking.confirmCompletionBody")}</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (confirming) return;
+                    setConfirming(true);
+                    startTransition(async () => {
+                      const res = await confirmCompletionAction(booking.id);
+                      setConfirming(false);
+                      if (res.ok) {
+                        toast("success", t("booking.confirmCompletionToast"));
+                        router.refresh();
+                      } else {
+                        toast("error", t("booking.confirmCompletionError"));
+                      }
+                    });
+                  }}
+                  disabled={confirming}
+                >
+                  <CheckCircle2 className="size-4" />
+                  {confirming ? t("booking.confirming") : t("booking.confirmButton")}
+                </Button>
+              </div>
+            )}
+
             {needsPayment && (
               <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
                 <div className="min-w-0 flex-1">
@@ -141,6 +177,25 @@ export function BookingRow({ row }: { row: CustomerBookingRow }) {
                 </Button>
               </div>
             )}
+
+            {/* §2.2 request SLA — an unanswered REQUESTED booking auto-cancels
+                (slot freed) after BOOKING_SLA_EXPIRE_HOURS. The {hours} is
+                derived from the shared requestSlaExpiryMs so the countdown can
+                never drift from the cron's window. */}
+            {booking.status === "requested" &&
+              (() => {
+                const hoursLeft = Math.ceil((requestSlaExpiryMs(booking) - Date.now()) / 3_600_000);
+                return (
+                  <p className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+                    <Hourglass className="mt-px size-3.5 shrink-0" />
+                    <span>
+                      {hoursLeft >= 1
+                        ? t("booking.slaCustomerNote").replace("{hours}", String(hoursLeft))
+                        : t("booking.slaCustomerSoon")}
+                    </span>
+                  </p>
+                );
+              })()}
 
             {/* M4 cancellation/refund policy — shown wherever a deposit is at
                 stake so the refund rules are visible next to the money
