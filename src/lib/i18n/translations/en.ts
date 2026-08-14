@@ -823,9 +823,8 @@ export const en = {
     slaDialogTitle: "Request auto-expiry",
     slaDialogCountdown: "Auto-cancels in {hours}h {minutes}m if the worker doesn't respond — you'll be notified either way.",
     slaDialogSoon: "Auto-cancels in under {minutes}m — the worker must respond soon or the slot is freed.",
-    slaAdminNote: "Request auto-cancels in {hours}h without a worker response",
-    slaAdminNudged: "Nudge sent · auto-cancels in {hours}h",
-    slaAdminSoon: "Auto-cancels soon — worker must respond to keep the slot",
+    slaAdminCountdown: "Auto-cancels in {hours}h {minutes}m without a worker response",
+    slaAdminSoon: "Auto-cancels in under {minutes}m — the worker must respond to keep the slot",
     cancelSuccess: "Booking cancelled",
     // M4 cancellation-policy disclosure (BOOKING_CANCEL_REFUND_WINDOW_MS) —
     // shown at booking time and wherever a deposit is at stake. The {hours}
