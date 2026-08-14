@@ -82,6 +82,11 @@ describe("RespondDialog", () => {
       screen.getByText(/Respond in \d+h \d+m or the request auto-cancels/)
     ).toBeInTheDocument();
 
+    // Urgency bar — 47h of the 48h window remain, so it's ~98% full and green.
+    const bar = screen.getByRole("progressbar", { name: "Request auto-expiry" });
+    expect(bar).toHaveAttribute("aria-valuenow", "98");
+    expect(bar.firstElementChild).toHaveClass("bg-emerald-500");
+
     // It ticks — advance well past a 30s interval (61s: the booking's expiry
     // is fixed, so the remaining time MUST visibly drop; the row-level bug of a
     // pinned countdown would fail this).
@@ -93,6 +98,34 @@ describe("RespondDialog", () => {
     ).toBeInTheDocument();
   });
 
+  it("drains the urgency bar green → amber → red as the deadline approaches", () => {
+    renderDialog(premiumWorker);
+    openDialog();
+
+    const fill = () => screen.getByRole("progressbar").firstElementChild as HTMLElement;
+
+    // Start: 47h/48h left (98%) → green, no pulse.
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "98");
+    expect(fill()).toHaveClass("bg-emerald-500");
+    expect(fill()).not.toHaveClass("animate-pulse-soft");
+
+    // +25h → 22h left (46%) → amber, still no pulse.
+    act(() => {
+      vi.advanceTimersByTime(25 * 3_600_000);
+    });
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "46");
+    expect(fill()).toHaveClass("bg-amber-500");
+    expect(fill()).not.toHaveClass("animate-pulse-soft");
+
+    // +14h more → 8h left (17%) → red AND pulsing to draw the eye.
+    act(() => {
+      vi.advanceTimersByTime(14 * 3_600_000);
+    });
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "17");
+    expect(fill()).toHaveClass("bg-red-500");
+    expect(fill()).toHaveClass("animate-pulse-soft");
+  });
+
   it("does not show the SLA countdown for a non-requested booking", () => {
     const confirmed = { ...booking, status: "confirmed" } as unknown as Booking;
     render(
@@ -102,6 +135,7 @@ describe("RespondDialog", () => {
     );
     openDialog();
     expect(screen.queryByText(/Respond in \d+h \d+m/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
 describe("RespondDialog take-rate display", () => {

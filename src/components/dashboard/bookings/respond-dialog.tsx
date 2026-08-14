@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { requestSlaExpiryMs } from "@/lib/data/types";
+import { BOOKING_SLA_EXPIRE_HOURS, requestSlaExpiryMs } from "@/lib/data/types";
 import type { Booking, Worker } from "@/lib/data/types";
 
 /**
@@ -98,20 +98,52 @@ export function RespondDialog({ booking, worker }: { booking: Booking; worker: W
             alongside (booking.slaNudgeSent, stamped by both adapters). */}
         {booking.status === "requested" &&
           (() => {
-            const totalMin = Math.max(0, Math.ceil((requestSlaExpiryMs(booking) - now) / 60_000));
+            const expiryMs = requestSlaExpiryMs(booking);
+            const totalMin = Math.max(0, Math.ceil((expiryMs - now) / 60_000));
             const hours = Math.floor(totalMin / 60);
             const minutes = totalMin % 60;
             const copy = hours >= 1
               ? t("booking.slaWorkerDialogCountdown")
               : t("booking.slaWorkerDialogSoon");
+            // Urgency bar — fraction of the 48h window remaining, scannable at
+            // a glance: >50% green, 20–50% amber, <20% red as the deadline
+            // nears. Drains with the countdown (right-to-left in Arabic via
+            // the RTL layout); the text line keeps the exact time.
+            const pct = Math.max(
+              0,
+              Math.min(100, ((expiryMs - now) / (BOOKING_SLA_EXPIRE_HOURS * 3_600_000)) * 100)
+            );
+            const barColor = pct > 50 ? "bg-emerald-500" : pct > 20 ? "bg-amber-500" : "bg-red-500";
+            // Below 20% the bar pulses softly (animate-pulse-soft, opacity
+            // 1→0.55) so the red urgency state draws the eye without a modal.
+            const urgent = pct <= 20;
             return (
-              <p className="flex items-start gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
-                <Hourglass className="mt-px size-3.5 shrink-0" />
-                <span>
-                  {copy.replace("{hours}", String(hours)).replace("{minutes}", String(minutes))}
-                  {booking.slaNudgeSent && <span className="ms-1 font-semibold">· {t("booking.slaNudgeTag")}</span>}
-                </span>
-              </p>
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+                  <Hourglass className="mt-px size-3.5 shrink-0" />
+                  <span>
+                    {copy.replace("{hours}", String(hours)).replace("{minutes}", String(minutes))}
+                    {booking.slaNudgeSent && <span className="ms-1 font-semibold">· {t("booking.slaNudgeTag")}</span>}
+                  </span>
+                </p>
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(pct)}
+                  aria-label={t("booking.slaDialogTitle")}
+                  className="mt-2 h-1 w-full overflow-hidden rounded-full bg-ink-900/10 dark:bg-ink-100/10"
+                >
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-700 ease-out",
+                      barColor,
+                      urgent && "animate-pulse-soft"
+                    )}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
             );
           })()}
 

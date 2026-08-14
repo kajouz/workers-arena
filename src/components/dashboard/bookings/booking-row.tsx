@@ -9,6 +9,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { formatDate, cn } from "@/lib/utils";
 import { formatSlotRange } from "@/lib/data/booking-ui";
 import { requestSlaExpiryMs } from "@/lib/data/types";
+import { useCountdownTick } from "@/hooks/use-countdown-tick";
 import { RespondDialog } from "./respond-dialog";
 import { BookingActions } from "./booking-actions";
 import type { Booking, Worker } from "@/lib/data/types";
@@ -21,6 +22,10 @@ import type { Booking, Worker } from "@/lib/data/types";
  */
 export function BookingRow({ booking, worker }: { booking: Booking; worker: Worker }) {
   const { locale, t } = useLocale();
+  // Visibility-aware tick (same clock as the dialogs): while the booking is
+  // REQUESTED the note counts down against the real SLA deadline, pausing in
+  // hidden tabs and resyncing on visibilitychange so it never drifts.
+  const now = useCountdownTick(booking.status === "requested");
   const phoneHref = `tel:${booking.customerPhone.replace(/[\s\-()]/g, "")}`;
 
   return (
@@ -68,7 +73,7 @@ export function BookingRow({ booking, worker }: { booking: Booking; worker: Work
               nudge push already went out (Booking.lastSlaNudgeAt). */}
           {booking.status === "requested" &&
             (() => {
-              const hoursLeft = Math.ceil((requestSlaExpiryMs(booking) - Date.now()) / 3_600_000);
+              const hoursLeft = Math.ceil((requestSlaExpiryMs(booking) - now) / 3_600_000);
               const copy = booking.slaNudgeSent
                 ? hoursLeft >= 1
                   ? t("booking.slaWorkerNudged")
