@@ -136,6 +136,12 @@ describe("BookingDialog step flow", () => {
     expect(
       screen.getByText(/Auto-cancels in \d+h \d+m if the worker doesn't respond/)
     ).toBeInTheDocument();
+
+    // …and the urgency bar mirrors the worker dialog's: at step entry the
+    // window is untouched (captured == now), so it's 100% full and green.
+    const bar = screen.getByRole("progressbar", { name: "Request auto-expiry" });
+    expect(bar).toHaveAttribute("aria-valuenow", "100");
+    expect(bar.firstElementChild).toHaveClass("bg-emerald-500");
   });
 
   it("the SLA countdown ticks down against its captured expiry", () => {
@@ -174,6 +180,33 @@ describe("BookingDialog step flow", () => {
     expect(afterTotal).toBeGreaterThanOrEqual(0);
   });
 
+  it("pulses the urgency bar red once the deadline is past 20%", () => {
+    renderDialog();
+    openDialog();
+
+    fireEvent.click(screen.getByRole("button", { name: /AC Repair/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "09:00 – 10:00" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    const fill = () => screen.getByRole("progressbar").firstElementChild as HTMLElement;
+
+    // Full window at entry — green, no pulse.
+    expect(fill()).toHaveClass("bg-emerald-500");
+    expect(fill()).not.toHaveClass("animate-pulse-soft");
+
+    // Advance past the 48h cap — the expiry is min(slotStart, capture+48h), so
+    // it can never exceed capture+48h; 50h always exhausts it (the fixture slot
+    // is real-date "tomorrow", which drifts, so only the cap is trustworthy).
+    // The bar hits 0% → red and pulses softly.
+    act(() => {
+      vi.advanceTimersByTime(50 * 3_600_000);
+    });
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
+    expect(fill()).toHaveClass("bg-red-500");
+    expect(fill()).toHaveClass("animate-pulse-soft");
+  });
+
   it("does not show the cancellation policy before the details step", () => {
     renderDialog();
     openDialog();
@@ -184,6 +217,7 @@ describe("BookingDialog step flow", () => {
     expect(screen.queryByText(/more than 24 hours/)).not.toBeInTheDocument();
     expect(screen.queryByText("Request auto-expiry")).not.toBeInTheDocument();
     expect(screen.queryByText(/Auto-cancels in/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("shows the fee-waiver note on the details step for an Enterprise worker", () => {

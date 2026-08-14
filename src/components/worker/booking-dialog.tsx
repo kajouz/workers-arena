@@ -70,6 +70,11 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
   // entered: recomputing it from a moving `now` would pin `min(slot, now+48h) −
   // now` at exactly 48h for any slot past the window, a static clock.
   const [slaExpiryAt, setSlaExpiryAt] = useState<number | null>(null);
+  // §2.2 — when the estimate's window started (details-step entry ≈ submission).
+  // The urgency bar's denominator: slaExpiryAt − slaCapturedAt, so it starts
+  // full (green) at entry and drains as time passes — the same "starts full at
+  // window start" model as the worker's RespondDialog bar.
+  const [slaCapturedAt, setSlaCapturedAt] = useState<number | null>(null);
 
   const selectedSlot = slots.find((s) => s.id === slotId);
 
@@ -82,6 +87,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
     const slot = slots.find((s) => s.id === slotId);
     if (!slot) return;
     setSlaExpiryAt(dialogSlaExpiryMs(Date.parse(slot.startAt), Date.now()));
+    setSlaCapturedAt(Date.now());
   }, [step, slotId, slots]);
 
   const now = useCountdownTick(step === "details" && selectedSlot !== undefined);
@@ -103,6 +109,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
     setConflict(false);
     setDone(false);
     setSlaExpiryAt(null);
+    setSlaCapturedAt(null);
     setOpen(true);
   };
 
@@ -346,16 +353,47 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                     const totalMin = Math.max(0, Math.ceil((slaExpiryAt - now) / 60_000));
                     const hours = Math.floor(totalMin / 60);
                     const minutes = totalMin % 60;
+                    // Urgency bar — fraction of THIS request's window remaining
+                    // (expiry − capture, at most the 48h policy). Starts full
+                    // green at step entry and drains as time passes; a slot
+                    // closer than 48h just has a shorter window, so the bar
+                    // still starts full — same model as the worker dialog.
+                    const windowMs = (slaExpiryAt - (slaCapturedAt ?? slaExpiryAt)) || 1;
+                    const pct = Math.max(0, Math.min(100, ((slaExpiryAt - now) / windowMs) * 100));
+                    const barColor = pct > 50 ? "bg-emerald-500" : pct > 20 ? "bg-amber-500" : "bg-red-500";
+                    // Below 20% the bar pulses softly (animate-pulse-soft,
+                    // opacity 1→0.55) so the red urgency state draws the eye
+                    // without a modal — mirrors the worker dialog.
+                    const urgent = pct <= 20;
                     return (
-                      <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
-                        <Hourglass className="mt-0.5 size-4 shrink-0 text-amber-500" />
-                        <div>
-                          <p className="text-xs font-black text-ink-900 dark:text-ink-50">{t("booking.slaDialogTitle")}</p>
-                          <p className="mt-0.5 text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
-                            {hours >= 1
-                              ? t("booking.slaDialogCountdown").replace("{hours}", String(hours)).replace("{minutes}", String(minutes))
-                              : t("booking.slaDialogSoon").replace("{minutes}", String(minutes))}
-                          </p>
+                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                        <div className="flex items-start gap-2.5">
+                          <Hourglass className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                          <div>
+                            <p className="text-xs font-black text-ink-900 dark:text-ink-50">{t("booking.slaDialogTitle")}</p>
+                            <p className="mt-0.5 text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
+                              {hours >= 1
+                                ? t("booking.slaDialogCountdown").replace("{hours}", String(hours)).replace("{minutes}", String(minutes))
+                                : t("booking.slaDialogSoon").replace("{minutes}", String(minutes))}
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          role="progressbar"
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={Math.round(pct)}
+                          aria-label={t("booking.slaDialogTitle")}
+                          className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-ink-900/10 dark:bg-ink-100/10"
+                        >
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-[width] duration-700 ease-out",
+                              barColor,
+                              urgent && "animate-pulse-soft"
+                            )}
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                       </div>
                     );
