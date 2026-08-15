@@ -3,11 +3,12 @@
  * ────────────────────────────────────────────────────────────────────────────
  * VALIDATE DIAGRAMS — render every mermaid block in docs/ with mermaid-cli
  * ────────────────────────────────────────────────────────────────────────────
- * Usage:  npm run validate:diagrams            (all markdown under docs/, recursive)
+ * Usage:  npm run validate:diagrams            (all markdown under docs/ + the root README)
  *         node scripts/validate-diagrams.mjs <file-or-dir>...   (custom set; dirs are walked)
  *         node scripts/validate-diagrams.mjs --emit            (also write SVGs into docs/diagrams/)
  *
- * Extracts every ```mermaid code block from the target markdown files and
+ * Extracts every ```mermaid code block from the target markdown files (the
+ * default scan covers docs/ recursively plus the repo-root README.md) and
  * renders each one to a throwaway SVG with @mermaid-js/mermaid-cli (mmdc).
  * Exit code is non-zero if any render fails — a diagram that parses in one
  * renderer but breaks another (or a syntax regression from a docs edit) is
@@ -33,6 +34,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS_DIR = path.join(ROOT, "docs");
 const DIAGRAMS_DIR = path.join(DOCS_DIR, "diagrams");
+const ROOT_README = path.join(ROOT, "README.md");
 const MMDC = path.join(ROOT, "node_modules", ".bin", "mmdc");
 
 /** Deterministic SVG names for the diagrams docs/README.md embeds, keyed by
@@ -128,7 +130,9 @@ function main() {
   const fileArgs = args.filter((a) => a !== "--emit");
   let targets = fileArgs;
   if (targets.length === 0) {
-    targets = markdownFilesUnder(DOCS_DIR);
+    // docs/ recursive + the root README (mirrors check:docs-links so both
+    // doc-integrity checks scan the same surface).
+    targets = [...markdownFilesUnder(DOCS_DIR), ROOT_README];
   } else {
     // A directory arg is walked recursively; a file arg is taken as-is.
     const expanded = [];
