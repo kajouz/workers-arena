@@ -6,7 +6,20 @@
  * Reuses the exact same source of truth as demo mode
  * (src/lib/data/*), so demo and production stay consistent.
  */
-import { BookingStatus, PrismaClient, RecurringFrequency, RecurringStatus, Role, SlotStatus, SubscriptionPlan, WorkerStatus } from "@prisma/client";
+import {
+  AdStatus,
+  AdType,
+  BookingStatus,
+  InvoiceStatus,
+  PaymentStatus,
+  PrismaClient,
+  RecurringFrequency,
+  RecurringStatus,
+  Role,
+  SlotStatus,
+  SubscriptionPlan,
+  WorkerStatus,
+} from "@prisma/client";
 import { CATEGORIES } from "../src/lib/data/categories";
 import { CITIES } from "../src/lib/data/cities";
 import { WORKERS } from "../src/lib/data/workers";
@@ -115,7 +128,7 @@ async function main() {
   // path resolves the Company by userId (Company.userId is unique). Idempotent.
   const companyUserId = users.get("ads@buildco.sa");
   if (companyUserId) {
-    await prisma.company.upsert({
+    const company = await prisma.company.upsert({
       where: { userId: companyUserId },
       update: { nameEn: "BuildCo Ltd", nameAr: "شركة بيلدكو" },
       create: {
@@ -126,6 +139,194 @@ async function main() {
       },
     });
     console.log("  ✓ company row (BuildCo Ltd)");
+
+    // ── Ads & invoices (W2 boundary — real rotation + company invoices) ─────
+    // ACTIVE campaigns with primary creatives + their Invoice rows for the
+    // seeded company, so real mode serves ads on the homepage rotation
+    // (/api/ads → prismaGetActiveAdsFor) and the /company invoices card shows
+    // real rows (prismaGetInvoices) out of the box — the same c1..c5 story as
+    // the demo store. Idempotent: upserted by the fixed seed-* ids, and a
+    // re-run replaces each purchase + invoice so the set never accumulates.
+    const adsSeed = [
+      {
+        id: "seed-c1",
+        nameEn: "Villa construction — Riyadh",
+        nameAr: "بناء فيلا — الرياض",
+        placement: "Homepage · Banner",
+        adType: AdType.BANNER,
+        budget: 500000, // minor units ($5000) — the domain divides by 100
+        spent: 312000,
+        status: AdStatus.ACTIVE,
+        startsAt: new Date("2026-03-02T00:00:00.000Z"),
+        invoiceNumber: "INV-1045",
+        invoiceStatus: InvoiceStatus.PAID,
+        paidAt: new Date("2026-07-02T00:00:00.000Z"),
+      },
+      {
+        id: "seed-c2",
+        nameEn: "AC maintenance — Jeddah & Riyadh",
+        nameAr: "صيانة مكيفات — جدة والرياض",
+        placement: "Sponsored search",
+        adType: AdType.SPONSORED_SEARCH,
+        budget: 400000,
+        spent: 401000,
+        status: AdStatus.ACTIVE,
+        startsAt: new Date("2026-04-11T00:00:00.000Z"),
+        invoiceNumber: "INV-1046",
+        invoiceStatus: InvoiceStatus.PAID,
+        paidAt: new Date("2026-07-12T00:00:00.000Z"),
+      },
+      {
+        id: "seed-c3",
+        nameEn: "Deep cleaning — Dubai Marina",
+        nameAr: "تنظيف عميق — مرسى دبي",
+        placement: "Category · Cleaning",
+        adType: AdType.SPONSORED_CATEGORY,
+        budget: 250000,
+        spent: 189000,
+        status: AdStatus.ACTIVE,
+        startsAt: new Date("2026-05-06T00:00:00.000Z"),
+        invoiceNumber: "INV-1047",
+        invoiceStatus: InvoiceStatus.SENT, // unpaid — reads back as "pending"
+        paidAt: null,
+      },
+      {
+        id: "seed-c4",
+        nameEn: "Interior design showcase",
+        nameAr: "عرض تصميم داخلي",
+        placement: "Featured cards",
+        adType: AdType.FEATURED_CARD,
+        budget: 300000,
+        spent: 300000,
+        status: AdStatus.PAUSED,
+        startsAt: new Date("2026-01-20T00:00:00.000Z"),
+        invoiceNumber: null,
+        invoiceStatus: null,
+        paidAt: null,
+      },
+      {
+        id: "seed-c5",
+        nameEn: "Pest control promo",
+        nameAr: "عرض مكافحة الحشرات",
+        placement: "Popup · Homepage",
+        adType: AdType.POPUP,
+        budget: 180000,
+        spent: 180000,
+        status: AdStatus.ENDED,
+        startsAt: new Date("2025-12-01T00:00:00.000Z"),
+        invoiceNumber: null,
+        invoiceStatus: null,
+        paidAt: null,
+      },
+    ];
+    for (const a of adsSeed) {
+      const endsAt = new Date(a.startsAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+      await prisma.adCampaign.upsert({
+        where: { id: a.id },
+        update: {
+          nameEn: a.nameEn,
+          nameAr: a.nameAr,
+          budget: a.budget,
+          spent: a.spent,
+          status: a.status,
+          startsAt: a.startsAt,
+          endsAt,
+        },
+        create: {
+          id: a.id,
+          companyId: company.id,
+          nameEn: a.nameEn,
+          nameAr: a.nameAr,
+          budget: a.budget,
+          spent: a.spent,
+          currency: "USD",
+          startsAt: a.startsAt,
+          endsAt,
+          status: a.status,
+        },
+      });
+      // The primary creative — placement + adType live here (toDomainCampaign
+      // reads ads[0]); status follows the campaign so rotation matches.
+      await prisma.advertisement.upsert({
+        where: { id: `${a.id}-ad` },
+        update: {
+          titleEn: a.nameEn,
+          titleAr: a.nameAr,
+          type: a.adType,
+          placement: a.placement,
+          status: a.status,
+          startsAt: a.startsAt,
+          endsAt,
+        },
+        create: {
+          id: `${a.id}-ad`,
+          campaignId: a.id,
+          companyId: company.id,
+          type: a.adType,
+          titleEn: a.nameEn,
+          titleAr: a.nameAr,
+          targetUrl: "https://example.com",
+          placement: a.placement,
+          price: a.budget,
+          currency: "USD",
+          impressions: 0,
+          clicks: 0,
+          startsAt: a.startsAt,
+          endsAt,
+          status: a.status,
+        },
+      });
+
+      if (a.invoiceNumber && a.invoiceStatus) {
+        // The purchase's Payment row + Invoice (advertisementId → campaign, so
+        // prismaGetInvoices resolves scope/description via the campaign).
+        const payment = await prisma.payment.upsert({
+          where: { id: `${a.id}-pay` },
+          update: {
+            amount: a.budget,
+            status: a.invoiceStatus === InvoiceStatus.PAID ? PaymentStatus.PAID : PaymentStatus.PENDING,
+            paidAt: a.paidAt,
+          },
+          create: {
+            id: `${a.id}-pay`,
+            companyId: company.id,
+            advertisementId: a.id,
+            amount: a.budget,
+            currency: "USD",
+            method: "STRIPE",
+            status: a.invoiceStatus === InvoiceStatus.PAID ? PaymentStatus.PAID : PaymentStatus.PENDING,
+            providerRef: `sim_pay_seed_${a.id}`,
+            paidAt: a.paidAt,
+          },
+        });
+        await prisma.invoice.upsert({
+          where: { number: a.invoiceNumber },
+          update: {
+            userId: companyUserId,
+            paymentId: payment.id,
+            amount: a.budget,
+            status: a.invoiceStatus,
+            paidAt: a.paidAt,
+            // createdAt pinned to the campaign start so the "newest first"
+            // invoice order is deterministic across seed runs.
+            createdAt: a.startsAt,
+            items: [{ description: `${a.nameEn} — ${a.placement}`, qty: 1, unitPrice: a.budget }],
+          },
+          create: {
+            number: a.invoiceNumber,
+            userId: companyUserId,
+            paymentId: payment.id,
+            amount: a.budget,
+            currency: "USD",
+            status: a.invoiceStatus,
+            paidAt: a.paidAt,
+            createdAt: a.startsAt,
+            items: [{ description: `${a.nameEn} — ${a.placement}`, qty: 1, unitPrice: a.budget }],
+          },
+        });
+      }
+    }
+    console.log("  ✓ 5 ad campaigns + 3 company invoices (real rotation + /company list)");
   }
 
   for (const w of WORKERS) {

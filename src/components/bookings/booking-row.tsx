@@ -3,35 +3,39 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarClock, CheckCircle2, ChevronDown, CreditCard, ExternalLink, FileText, Hourglass, ShieldCheck } from "lucide-react";
+import { CalendarClock, CheckCircle2, CreditCard, ExternalLink, FileText, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { BookingStatusBadge } from "./booking-status-badge";
 import { useLocale } from "@/components/providers/locale-provider";
 import { toast } from "@/components/ui/toast";
-import { cn, formatDate, timeAgo } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { Price } from "@/components/shared/price";
 import { confirmCompletionAction, payBookingAction } from "@/app/actions/bookings";
 import { RescheduleDialog } from "./reschedule-dialog";
-import { BOOKING_CANCEL_REFUND_WINDOW_MS, requestSlaExpiryMs } from "@/lib/data/types";
+import { BookingTimeline } from "./booking-timeline";
+import { BookingChat } from "./booking-chat";
+import { BookingPrintButton } from "./booking-print-button";
+import { BookingEmailButton } from "./booking-email-button";
+import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
+import { BookingSlaCountdown } from "./booking-sla-countdown";
 import type { CustomerBookingRow } from "@/app/bookings/page";
 
 /**
  * One customer booking (docs/booking-customer-ui.md §5.5): worker avatar +
  * name, booking number, localized time, status badge, quote (÷100 from minor
- * units), and an expandable audit trail of the last events.
+ * units), and the shared dispute timeline (BookingTimeline) — the read-only
+ * "what happened and when" trail mirroring the admin dispute view.
  */
-export function BookingRow({ row }: { row: CustomerBookingRow }) {
+export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed: number }) {
   const { locale, t } = useLocale();
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
   const [paying, setPaying] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [, startTransition] = useTransition();
   const { booking, worker } = row;
   const name = locale === "ar" ? worker?.nameAr : worker?.nameEn;
-  const recent = booking.events.slice(-3);
   const needsPayment = booking.status === "pendingPayment" && booking.deposit !== undefined;
 
   const startCheckout = () => {
@@ -69,6 +73,12 @@ export function BookingRow({ row }: { row: CustomerBookingRow }) {
               <BookingStatusBadge status={booking.status} className="ms-auto" />
             </div>
 
+            {/* §2.4 printable audit trail — the PDF/print view + on-demand email. */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <BookingPrintButton booking={booking} workerName={name} />
+              <BookingEmailButton booking={booking} workerName={name} workerEmail={worker?.email} />
+            </div>
+
             <p className="mt-1.5 text-sm font-semibold text-ink-700 dark:text-ink-200">{booking.jobTitle}</p>
             {booking.serviceItem && (
               <p className="mt-0.5 text-xs text-ink-400">
@@ -77,10 +87,12 @@ export function BookingRow({ row }: { row: CustomerBookingRow }) {
             )}
 
             <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-500 dark:text-ink-400">
-              <span className="flex items-center gap-1.5">
-                <CalendarClock className="size-3.5" />
-                {formatDate(booking.startAt, locale)}
-              </span>
+              {booking.startAt && (
+                <span className="flex items-center gap-1.5">
+                  <CalendarClock className="size-3.5" />
+                  {formatDate(booking.startAt, locale)}
+                </span>
+              )}
               {booking.quote !== undefined && (
                 <span className="flex items-center gap-1.5">
                   <Price amount={booking.quote / 100} currency={booking.currency} locale={locale} className="font-bold text-brand-600 dark:text-brand-400" />
@@ -178,24 +190,11 @@ export function BookingRow({ row }: { row: CustomerBookingRow }) {
               </div>
             )}
 
-            {/* §2.2 request SLA — an unanswered REQUESTED booking auto-cancels
-                (slot freed) after BOOKING_SLA_EXPIRE_HOURS. The {hours} is
-                derived from the shared requestSlaExpiryMs so the countdown can
-                never drift from the cron's window. */}
-            {booking.status === "requested" &&
-              (() => {
-                const hoursLeft = Math.ceil((requestSlaExpiryMs(booking) - Date.now()) / 3_600_000);
-                return (
-                  <p className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
-                    <Hourglass className="mt-px size-3.5 shrink-0" />
-                    <span>
-                      {hoursLeft >= 1
-                        ? t("booking.slaCustomerNote").replace("{hours}", String(hoursLeft))
-                        : t("booking.slaCustomerSoon")}
-                    </span>
-                  </p>
-                );
-              })()}
+            {/* §2.2 request SLA — the LIVE ticking countdown + urgency bar (the
+                SAME component the admin dispute view and the worker dashboard
+                render, so all three sides see the deadline without leaving
+                the page — hydration-safe via the shared nowSeed). */}
+            <BookingSlaCountdown booking={booking} nowSeed={nowSeed} variant="customer" compact />
 
             {/* M4 cancellation/refund policy — shown wherever a deposit is at
                 stake so the refund rules are visible next to the money
@@ -230,31 +229,20 @@ export function BookingRow({ row }: { row: CustomerBookingRow }) {
           </div>
         </div>
 
-        {/* audit trail */}
-        {recent.length > 0 && (
-          <div className="mt-3 border-t border-ink-100 pt-3 dark:border-ink-800">
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="flex items-center gap-1 text-xs font-bold text-ink-400 transition-colors hover:text-ink-600 dark:hover:text-ink-200"
-            >
-              <ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
-              {t("notifications.viewAll")}
-            </button>
-            {expanded && (
-              <ul className="mt-2 space-y-1.5">
-                {recent.map((e, i) => (
-                  <li key={i} className="flex items-center justify-between gap-3 text-xs">
-                    <span className="flex items-center gap-2 text-ink-600 dark:text-ink-300">
-                      <span className={cn("size-1.5 rounded-full", i === recent.length - 1 ? "bg-brand-500" : "bg-ink-300 dark:bg-ink-600")} />
-                      {t(`booking.status.${e.status}`)}
-                    </span>
-                    <span className="text-[11px] text-ink-400">{timeAgo(e.time, locale)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+        {/* §2.4 dispute timeline — the shared "what happened and when" trail
+            (same component the worker dashboard rows render, mirroring the
+            admin dispute view). */}
+        <BookingTimeline booking={booking} workerName={name} />
+
+        {/* §2.3 customer ⇄ worker chat — the shared negotiation thread keyed on
+            the booking, with the worker's WhatsApp deep-link fallback. */}
+        <BookingChat
+          booking={booking}
+          messages={row.messages}
+          viewerRole="customer"
+          workerName={name}
+          workerWhatsapp={worker?.whatsapp}
+        />
       </CardContent>
     </Card>
   );

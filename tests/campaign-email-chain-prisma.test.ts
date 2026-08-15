@@ -39,8 +39,12 @@ import {
   prismaConfirmCampaignPayment,
   prismaCreateCampaign,
   prismaCreateCampaignCheckout,
+  prismaGetActiveAdsFor,
   prismaGetCampaignPayment,
   prismaGetCampaigns,
+  prismaGetInvoices,
+  prismaRecordClick,
+  prismaRecordImpression,
   prismaRefundCampaignPayment,
 } from "../src/lib/data/prisma-repo";
 import { getAdminActivityFeed } from "../src/lib/data/activity";
@@ -152,6 +156,9 @@ async function seedPaidCampaign(): Promise<{ userId: string; companyId: string; 
       currency: "USD",
       impressions: 10,
       clicks: 1,
+      // A paid, live campaign's creative is ACTIVE (the confirm path flips
+      // both together) — rotation only serves ACTIVE creatives.
+      status: "ACTIVE",
       startsAt: campaign.startsAt,
       endsAt: campaign.endsAt,
     },
@@ -373,5 +380,63 @@ describeLive("prisma campaign refund chain (live DB → prisma adapter → dispa
     expect(await prismaRefundCampaignPayment(cid, { by: "Platform Admin", reason: "again" })).toBeNull();
     expect(refundSpy).not.toHaveBeenCalled();
     expect(dispatched.find((p) => p.type === "campaignRefunded")).toBeUndefined();
+  });
+
+  it("rotation serves the ACTIVE campaign (untargeted always matches), tracks impressions/clicks, and stops once refunded", async () => {
+    const { campaignId: cid } = await seedPaidCampaign();
+
+    // The ACTIVE banner (placement "homepage") rotates — a plain homepage
+    // request AND a targeted request both serve it (untargeted ads always
+    // match, the demo's targetCategories gate), while other placements don't.
+    expect((await prismaGetActiveAdsFor("homepage")).some((c) => c.id === cid)).toBe(true);
+    expect(
+      (await prismaGetActiveAdsFor("homepage", { category: "plumbing" })).some((c) => c.id === cid)
+    ).toBe(true);
+    expect((await prismaGetActiveAdsFor("featured")).some((c) => c.id === cid)).toBe(false);
+
+    // Tracking — an impression bumps the served creative + the campaign spend
+    // (demo parity: +1 minor per impression, +100 per click, same CTR formula).
+    const afterImpression = await prismaRecordImpression(cid);
+    expect(afterImpression?.impressions).toBe(11); // seeded 10 + 1
+    expect(afterImpression?.spent).toBe(0.01); // 1 minor → 0.01 major
+    const afterClick = await prismaRecordClick(cid);
+    expect(afterClick?.clicks).toBe(2); // seeded 1 + 1
+    expect(afterClick?.spent).toBe(1.01); // (1 + 100) minor → 1.01 major
+    expect(afterClick?.ctr).toBe(18.18); // 2/11 → 18.18%
+    const ad = await getPrisma().advertisement.findFirst({ where: { campaignId: cid } });
+    expect(ad?.impressions).toBe(11);
+    expect(ad?.clicks).toBe(2);
+    expect(ad?.ctr).toBe(18.18);
+
+    // Refund → the campaign stops serving (rotation only matches ACTIVE).
+    await prismaRefundCampaignPayment(cid, { by: "Platform Admin", reason: "test" });
+    expect((await prismaGetActiveAdsFor("homepage")).some((c) => c.id === cid)).toBe(false);
+  });
+
+  it("prismaGetInvoices renders the seeded company's real Invoice rows (scope + status + major amounts, newest first)", async () => {
+    // The seed creates BuildCo Ltd + its INV-1045/46/47 advertising invoices
+    // (prisma/seed.ts — the W2 boundary) — real rows the /company page now
+    // renders in real mode. Requires a current seed (npm run db:seed).
+    const invoices = await prismaGetInvoices();
+    const seeded = invoices.filter((i) => i.number.startsWith("INV-"));
+    expect(seeded.length).toBeGreaterThanOrEqual(3);
+
+    const inv1045 = seeded.find((i) => i.number === "INV-1045");
+    expect(inv1045).toMatchObject({
+      scope: "advertising",
+      status: "paid",
+      amount: 5000, // 500000 minor → 5000 major
+      currency: "USD",
+      campaignId: "seed-c1",
+    });
+    expect(inv1045?.descriptionEn).toContain("Villa construction");
+    expect(inv1045?.descriptionAr).toContain("بناء فيلا");
+
+    const inv1047 = seeded.find((i) => i.number === "INV-1047");
+    expect(inv1047?.status).toBe("pending");
+    expect(inv1047?.amount).toBe(2500);
+
+    // Newest first (createdAt pinned to each campaign's start in the seed).
+    expect(seeded.map((i) => i.number)).toEqual(["INV-1047", "INV-1046", "INV-1045"]);
   });
 });

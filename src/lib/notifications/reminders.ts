@@ -156,7 +156,8 @@ async function bookingsDueForReminder(now: Date, windowEnd: Date): Promise<Booki
   }
   return demoGetAllBookings().filter((b) => {
     if (b.status !== "confirmed") return false;
-    const start = new Date(b.startAt).getTime();
+    // A confirmed booking always has a slot; NaN (impossible) fails both bounds.
+    const start = new Date(b.startAt ?? "").getTime();
     return start > now.getTime() && start <= windowEnd.getTime();
   });
 }

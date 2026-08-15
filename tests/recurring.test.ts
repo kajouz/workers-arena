@@ -121,7 +121,7 @@ describe("demo recurring adapter (M1)", () => {
       expect(occ.status).toBe("confirmed");
       expect(occ.quote).toBe(10000);
       expect(occ.platformFee).toBe(700);
-      const expected = generateRecurringOccurrences(first.startAt, "weekly", RECURRING_OCCURRENCE_COUNT);
+      const expected = generateRecurringOccurrences(first.startAt!, "weekly", RECURRING_OCCURRENCE_COUNT);
       expect(occ.startAt).toBe(expected[i]);
     });
   });

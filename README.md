@@ -82,7 +82,15 @@ CI is codified in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — on 
 
 | Doc | Covers |
 |---|---|
+| [docs/README.md](docs/README.md) | **Docs index** — cross-reference table linking every doc; start here |
+| [docs/INTERACTION-WORKFLOWS.md](docs/INTERACTION-WORKFLOWS.md) | **Interaction workflows & revenue map** — every directed user⇄worker / admin⇄user / admin⇄worker / admin⇄company flow (with Mermaid diagrams) + the revenue each party generates |
 | [docs/PRODUCT.md](docs/PRODUCT.md) | **Living product plan** — full feature inventory, improvement roadmap, and iOS/Android app plan |
+| [docs/ENHANCEMENT-PLAN.md](docs/ENHANCEMENT-PLAN.md) | **Enhancement plan** — prioritized features + workflow items with ship statuses |
+| [docs/BUSINESS-MODEL.md](docs/BUSINESS-MODEL.md) | **Business model & revenue growth plan** — subscriptions, advertising, take rate, unit economics |
+| [docs/selection-workflow.md](docs/selection-workflow.md) | **Worker ↔ customer selection workflow** — discovery → booking → accept/decline → execution, with the trust guarantees |
+| [docs/multi-candidate-quotes.md](docs/multi-candidate-quotes.md) | **Multi-candidate quotes** — request quotes from up to 3 workers, then pick the winner |
+| [docs/booking-take-rate.md](docs/booking-take-rate.md) | **Booking take rate (M5)** — the 7% platform fee: rate/floor/cap, stamp-at-accept, exemption, settlement |
+| [docs/payouts.md](docs/payouts.md) | **Worker payouts** — ledger, earnings at completion, withdraw → admin review queue |
 | [docs/mobile-architecture.md](docs/mobile-architecture.md) | **Mobile (M2/M3)** — Capacitor project layout, FCM/APNs push providers, deep-link routes, store-launch checklist |
 | [docs/booking-scheduling.md](docs/booking-scheduling.md) | **Booking & scheduling (P1)** — Prisma model + migration proposal, repo seam, worker-dashboard UI plan, milestones |
 | [docs/booking-customer-ui.md](docs/booking-customer-ui.md) | **Booking customer UI (P1)** — request dialog (service → slot → details), `/bookings` tracking page, full i18n keys |

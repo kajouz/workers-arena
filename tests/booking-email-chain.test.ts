@@ -437,8 +437,8 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     expect(email.subject).toContain(nextVisit.number);
     expect(email.html).toContain("Next visit scheduled");
     expect(email.html).toContain(nextVisit.number);
-    expect(email.html).toContain(formatDate(nextVisit.startAt, "en"));
-    expect(email.text).toContain(formatDate(nextVisit.startAt, "en"));
+    expect(email.html).toContain(formatDate(nextVisit.startAt!, "en"));
+    expect(email.text).toContain(formatDate(nextVisit.startAt!, "en"));
     expect(email.html).toContain(`/admin/bookings/${nextVisit.number}`);
   });
 });

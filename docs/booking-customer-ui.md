@@ -1,5 +1,7 @@
 # WorkersArena — Customer Booking UI (component plan)
 
+[← Back to docs index](README.md)
+
 > Design for the **customer-facing half of booking M1** — the request dialog on `/workers/[slug]` (service picker → slot picker → details) and the `/bookings` tracking page. Companion to [booking-scheduling.md](booking-scheduling.md) §6 (worker-dashboard side). All components build on the shipped M1 core: demo adapter (`src/lib/data/bookings.ts`), seam (`repo.ts`), server actions (`src/app/actions/bookings.ts`), and notification types.
 >
 > **Status:** ✅ **Implemented** — BookingDialog (service → slot → details), SlotPicker, ServicePicker, shared BookingStatusBadge, `/bookings` page with guest phone lookup, and the full `booking.*` + `notifications.types` i18n keys are shipped. Worker-dashboard panel (docs/booking-scheduling.md §6) still pending — it reuses `BookingStatusBadge` + `booking.*`.

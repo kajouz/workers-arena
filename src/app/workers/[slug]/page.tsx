@@ -92,7 +92,13 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
           <MapEmbed worker={worker} />
         </div>
         <div>
-          <ContactCard worker={worker} slots={slots} />
+          {/* Multi-candidate quotes — the pickable pool is the profile worker
+              + related (same trade), deduped by id. */}
+          <ContactCard
+            worker={worker}
+            slots={slots}
+            candidates={[worker, ...related.filter((r) => r.id !== worker.id)]}
+          />
         </div>
       </div>
 

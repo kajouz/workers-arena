@@ -15,7 +15,7 @@ import { bucketBookings, formatSlotRange } from "@/lib/data/booking-ui";
 import { RECURRING_OCCURRENCE_COUNT } from "@/lib/data/recurring";
 import { respondRecurringBookingAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
-import type { Booking, RecurringBooking, Worker } from "@/lib/data/types";
+import type { Booking, BookingMessage, RecurringBooking, Worker } from "@/lib/data/types";
 
 const FREQ_LABEL_KEY: Record<RecurringBooking["frequency"], string> = {
   weekly: "booking.repeatWeekly",
@@ -87,7 +87,7 @@ function RecurringContractRow({ contract }: { contract: RecurringBooking }) {
     }
   };
 
-  const dateLabel = first
+  const dateLabel = first?.startAt
     ? new Date(first.startAt).toLocaleDateString(locale === "ar" ? "ar-SA" : "en-US", {
         weekday: "short",
         day: "numeric",
@@ -142,7 +142,21 @@ function RecurringContractRow({ contract }: { contract: RecurringBooking }) {
   );
 }
 
-export function BookingsPanel({ bookings, worker, recurrings }: { bookings: Booking[]; worker: Worker; recurrings: RecurringBooking[] }) {
+export function BookingsPanel({
+  bookings,
+  messagesByBooking,
+  worker,
+  recurrings,
+  nowSeed,
+}: {
+  bookings: Booking[];
+  /** §2.3 chat — each booking's negotiation thread, keyed by booking id. */
+  messagesByBooking: Record<string, BookingMessage[]>;
+  worker: Worker;
+  recurrings: RecurringBooking[];
+  /** Date.now() at server render time — the rows' hydration-safe now seed. */
+  nowSeed: number;
+}) {
   const { t } = useLocale();
   const { requests, upcoming, past } = bucketBookings(bookings);
 
@@ -201,7 +215,9 @@ export function BookingsPanel({ bookings, worker, recurrings }: { bookings: Book
                 cta={{ href: `/workers/${worker.slug}`, label: t("dashboard.viewLive") }}
               />
             ) : (
-              requests.map((b) => <BookingRow key={b.id} booking={b} worker={worker} />)
+              requests.map((b) => (
+                <BookingRow key={b.id} booking={b} messages={messagesByBooking[b.id] ?? []} worker={worker} nowSeed={nowSeed} />
+              ))
             )}
           </TabsContent>
 
@@ -213,7 +229,9 @@ export function BookingsPanel({ bookings, worker, recurrings }: { bookings: Book
                 body={t("booking.upcomingEmptyBody")}
               />
             ) : (
-              upcoming.map((b) => <BookingRow key={b.id} booking={b} worker={worker} />)
+              upcoming.map((b) => (
+                <BookingRow key={b.id} booking={b} messages={messagesByBooking[b.id] ?? []} worker={worker} nowSeed={nowSeed} />
+              ))
             )}
           </TabsContent>
 
@@ -221,7 +239,9 @@ export function BookingsPanel({ bookings, worker, recurrings }: { bookings: Book
             {past.length === 0 ? (
               <EmptyState icon={<CalendarClock className="size-5" />} title={t("booking.pastEmpty")} body={t("booking.pastEmptyBody")} />
             ) : (
-              past.map((b) => <BookingRow key={b.id} booking={b} worker={worker} />)
+              past.map((b) => (
+                <BookingRow key={b.id} booking={b} messages={messagesByBooking[b.id] ?? []} worker={worker} nowSeed={nowSeed} />
+              ))
             )}
           </TabsContent>
 

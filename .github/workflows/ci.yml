@@ -23,8 +23,14 @@ jobs:
   # ① Fast gate — no browser, no database. The prisma chain describes
   # (booking-email-chain-prisma / campaign-email-chain-prisma) self-skip
   # without DATABASE_URL, so this job covers the fixture + component suites.
+  # Docs integrity rides the same gate: check:docs-links (every markdown link
+  # + img src resolves) and validate:diagrams (every mermaid block renders) —
+  # both seconds-fast, and Chrome ships preinstalled on ubuntu-latest at
+  # /usr/bin/google-chrome, which validate-diagrams.mjs's resolveChromeExecutable
+  # already finds (same path the E2E uses). A broken diagram or doc link fails
+  # the build before the suite even runs.
   typecheck-unit:
-    name: Typecheck + unit suite
+    name: Typecheck + unit suite + docs checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -36,6 +42,10 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: Docs — every markdown link + img resolves
+        run: npm run check:docs-links
+      - name: Docs — every mermaid diagram renders
+        run: npm run validate:diagrams
       - name: Unit suite (E2E file + prisma chain tests excluded/skip)
         run: npx vitest run --exclude tests/e2e-smoke.test.ts
 

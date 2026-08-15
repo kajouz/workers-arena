@@ -10,6 +10,8 @@
 ## Run the dev server (demo preview, port 3001)
 
 - From the project root: `npx next dev -p 3001` (i.e. `npm run dev`). `DEMO_MODE=true` is read from `.env`.
+- **Detached start (tool shells reap children):** the demo server is started the same way as real mode — `node .freebuff/daemonize.mjs /bin/sh -c "cd <repo> && exec <abs node> node_modules/next/dist/bin/next dev -p 3001 > <abs log> 2>&1"` — the double-fork survives the shell. Do NOT use a `launchctl submit` fallback from a tool shell: launchd jobs run outside the app's TCC context and macOS **System Policy denies writes inside ~/Documents** (kernel log: `Sandbox: bash deny(1) file-write-data …/Documents/…`), so any redirect into the repo fails with exit 1; `/tmp` works but the server also needs to write `.next`/`.data` in the repo, which the daemonize launcher (child of the app) can do.
+- **If the page 500s with `Failed to write app endpoint /page … spawning node pooled process … No such file or directory`:** a killed server left a corrupt `.next` — `rm -rf .next` and restart (the run doc's real-mode restart note above; the server recreates it on boot).
 - Wait for `✓ Ready` and HTTP 200 on `http://localhost:3001/` before registering the preview.
 - The app is bilingual — the header menu switches EN↔AR (cookie `wa_locale`, SSR `dir`/`lang`), and the theme toggle persists via the `wa_theme` cookie.
 - Demo accounts are set via the `wa_session` cookie (JSON): admin (Platform Admin), worker (Khaled Al-Harbi), company (BuildCo Ltd).

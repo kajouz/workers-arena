@@ -6,6 +6,20 @@ import type { Booking, BookingEmailContext, BookingSlot } from "./types";
  */
 
 /** YYYY-MM-DD key of a slot's local start date. */
+/**
+ * WhatsApp deep-link fallback for the booking chat (docs/ENHANCEMENT-PLAN.md
+ * §2.3): `https://wa.me/<digits>?text=<encoded>` so a party can continue the
+ * negotiation off-platform without losing the booking context. Digits are
+ * stripped to international form (no +, spaces, dashes — the wa.me format),
+ * and the prefilled text is URL-encoded. The text is the localized handoff
+ * line the component builds (booking number + job title included), so the
+ * other party knows exactly which booking the message is about.
+ */
+export function buildWhatsappChatLink(digits: string, text: string): string {
+  const clean = digits.replace(/[^\d]/g, "");
+  return `https://wa.me/${clean}?text=${encodeURIComponent(text)}`;
+}
+
 export function slotDayKey(startAt: string): string {
   const d = new Date(startAt);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -37,8 +51,11 @@ function hourMinute(iso: string, locale: "en" | "ar"): string {
   }).format(new Date(iso));
 }
 
-/** "09:00 – 10:00" time-range label for a slot chip. */
-export function formatSlotRange(slot: Pick<BookingSlot, "startAt" | "endAt">, locale: "en" | "ar"): string {
+/** "09:00 – 10:00" time-range label for a slot chip. Slot-less bookings
+ * (multi-candidate quote bids — startAt/endAt undefined) return an empty
+ * string so callers can hide the range instead of rendering "Invalid Date". */
+export function formatSlotRange(slot: { startAt?: string; endAt?: string }, locale: "en" | "ar"): string {
+  if (!slot.startAt || !slot.endAt) return "";
   return `${hourMinute(slot.startAt, locale)} – ${hourMinute(slot.endAt, locale)}`;
 }
 
@@ -51,13 +68,15 @@ export function formatSlotRange(slot: Pick<BookingSlot, "startAt" | "endAt">, lo
 export function bookingEmailContext(
   booking: Pick<
     Booking,
-    "number" | "startAt" | "endAt" | "quote" | "deposit" | "currency" | "jobTitle" | "platformFee"
+    "number" | "startAt" | "endAt" | "quote" | "deposit" | "currency" | "jobTitle" | "platformFee" | "events"
   >
 ): BookingEmailContext {
   return {
     number: booking.number,
-    startAt: booking.startAt,
-    endAt: booking.endAt,
+    // Slot-less quote bids fall back to the creation (first-event) time — the
+    // email's "Date & time" row never renders an Invalid Date.
+    startAt: booking.startAt ?? booking.events[0]?.time ?? "",
+    endAt: booking.endAt ?? booking.events[0]?.time ?? "",
     quote: booking.quote,
     deposit: booking.deposit,
     currency: booking.currency,
@@ -210,14 +229,18 @@ export function bucketBookings(bookings: Booking[]): {
   const upcoming: Booking[] = [];
   const past: Booking[] = [];
   for (const b of bookings) {
-    if (b.status === "requested") requests.push(b);
+    // Multi-candidate quotes: QUOTING/QUOTED bids land in Requests — the
+    // worker must act (submit a quote, or wait for the customer's pick).
+    if (b.status === "requested" || b.status === "quoting" || b.status === "quoted") requests.push(b);
     else if (b.status === "pendingPayment" || b.status === "confirmed" || b.status === "inProgress") upcoming.push(b);
     // §2.3 — a staged completion (awaiting the customer's confirm) is a past
     // slot; it lands in the Past tab with an "Awaiting confirmation" badge.
     else past.push(b); // completionPending, completed, cancelled, declined, noShow
   }
-  // Newest first within each tab, regardless of input order.
-  const byNewest = (a: Booking, b: Booking) => b.startAt.localeCompare(a.startAt);
+  // Newest first within each tab, regardless of input order. Slot-less quote
+  // bids sort by their creation (first-event) time instead.
+  const key = (b: Booking) => b.startAt ?? b.events[0]?.time ?? "";
+  const byNewest = (a: Booking, b: Booking) => key(b).localeCompare(key(a));
   return {
     requests: requests.sort(byNewest),
     upcoming: upcoming.sort(byNewest),

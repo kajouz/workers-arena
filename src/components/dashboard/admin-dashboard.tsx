@@ -36,6 +36,7 @@ import { getMonthLabel } from "@/lib/data/analytics";
 import { ActivityTypeChips, type ActivityTypeFilterValue } from "./activity-type-chips";
 import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { RefundDialog } from "./refund-dialog";
+import { BookingTrailsExportButton } from "./booking-trails-export-button";
 import type { BookingStatus } from "@/lib/data/types";
 import { formatCompact, formatDate, formatNumber, formatPrice } from "@/lib/utils";
 import { decideVerificationAction } from "@/app/actions/business";
@@ -116,6 +117,8 @@ const FUNNEL_STATUS_ORDER = [
 
 const FUNNEL_STATUS_COLOR: Record<BookingStatus, string> = {
   requested: "#f59e0b",
+  quoting: "#06b6d4", // multi-candidate quote invites — counted, not converted
+  quoted: "#0891b2", // multi-candidate quote bids — counted, not converted
   pendingPayment: "#8b5cf6",
   confirmed: "#10b981",
   inProgress: "#0ea5e9",
@@ -125,6 +128,8 @@ const FUNNEL_STATUS_COLOR: Record<BookingStatus, string> = {
   declined: "#f43f5e",
   noShow: "#dc2626",
   rescheduled: "#38bdf8", // unused in the card (audit-only) — kept for the Record type
+  message: "#0ea5e9", // unused in the card (audit-only) — kept for the Record type
+  refunded: "#f59e0b", // unused in the card (audit-only) — kept for the Record type
 };
 
 /**
@@ -649,6 +654,8 @@ export function AdminDashboard({
               <CalendarDays className="size-4 shrink-0 text-brand-500" />
               <CardTitle className="min-w-0 text-base">{t("admin.bookingFunnelTitle")}</CardTitle>
               <Badge variant="outline" className="ms-auto shrink-0 text-[10px]">{t("admin.bookingFunnelWindow")}</Badge>
+              {/* §2.4 — CSV/PDF export of every booking's event trail. */}
+              <BookingTrailsExportButton />
             </CardHeader>
             <CardContent className="space-y-4">
               {(() => {

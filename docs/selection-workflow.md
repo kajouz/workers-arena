@@ -1,5 +1,7 @@
 # Worker ↔ Customer Selection Workflow
 
+[← Back to docs index](README.md)
+
 **Status:** ✅ Live. The workflow below is implemented end-to-end in BOTH adapters — the demo in-memory store (`src/lib/data/bookings.ts`, no database needed) and the production Prisma layer (`src/lib/data/prisma-repo.ts`, `DEMO_MODE=false`) — through the shared repository seam (`src/lib/data/repo.ts`). The UI never changes between modes; the two adapters enforce identical service rules (see [booking-scheduling.md](booking-scheduling.md) §4 for the canonical five rules). This document is the companion to the booking doc: it tells the **selection story** — how a customer and a worker choose each other, step by step, and where each step lives in code.
 
 ---

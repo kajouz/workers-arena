@@ -45,7 +45,7 @@ export function slaExpireDue(createdAtMs: number, nowMs: number): boolean {
  */
 export function requestSlaExpiryMs(booking: Pick<Booking, "events" | "startAt">): number {
   const created = Date.parse(booking.events[0]?.time ?? "");
-  const createdMs = Number.isNaN(created) ? Date.parse(booking.startAt) : created;
+  const createdMs = Number.isNaN(created) ? Date.parse(booking.startAt ?? "") : created;
   return createdMs + BOOKING_SLA_EXPIRE_HOURS * 60 * 60 * 1000;
 }
 
@@ -74,7 +74,10 @@ export function bookingCancelRefundDue(
   by: BookingCancelInput["by"]
 ): boolean {
   if (by !== "worker") return true;
-  return new Date(booking.startAt).getTime() - cancelledAt.getTime() > BOOKING_CANCEL_REFUND_WINDOW_MS;
+  // Slot-less quote bids never hold a deposit refund decision — only the
+  // winner (slot-bound) can be cancelled; the empty string keeps Date.parse
+  // NaN-safe for the impossible call.
+  return new Date(booking.startAt ?? "").getTime() - cancelledAt.getTime() > BOOKING_CANCEL_REFUND_WINDOW_MS;
 }
 
 /**
@@ -84,6 +87,83 @@ export function bookingCancelRefundDue(
  */
 export function formatInvoiceNumber(year: number, seq: number): string {
   return `WA-${year}-${String(seq).padStart(5, "0")}`;
+}
+
+/**
+ * Multi-candidate quotes (docs/multi-candidate-quotes.md) — how many workers a
+ * customer may invite to quote one job. The single source of truth both
+ * adapters and the UI enforce.
+ */
+export const MAX_QUOTE_WORKERS = 3;
+
+/**
+ * Multi-candidate quotes — how long a quote request stays open before the SLA
+ * cron auto-expires it (expiresAt = creation + QUOTE_SLA_MS; open bids are
+ * DECLINED by the system). Shared by the demo + prisma adapters and the cron.
+ */
+export const QUOTE_SLA_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Quote-request numbering — `QR-YYYY-NNNNN` (docs/multi-candidate-quotes.md):
+ * the year, then a zero-padded 5-digit sequence that restarts per year
+ * (mirrors formatInvoiceNumber). Shared by the demo + prisma adapters so quote
+ * numbers can never drift apart.
+ */
+export function formatQuoteNumber(year: number, seq: number): string {
+  return `QR-${year}-${String(seq).padStart(5, "0")}`;
+}
+
+/** Lifecycle of a multi-candidate quote request (mirrors prisma `QuoteStatus`). */
+export type QuoteStatus = "open" | "quoting" | "selected" | "expired" | "cancelled";
+
+/**
+ * A customer's job post that up to MAX_QUOTE_WORKERS workers bid on
+ * (docs/multi-candidate-quotes.md). The invited workers ARE its `bookings` —
+ * one Booking per worker, status quoting/quoted, slot-less until the winner
+ * is picked. Mirrors the prisma `QuoteRequest` model.
+ */
+export interface QuoteRequest {
+  id: string;
+  number: string; // QR-YYYY-NNNNN
+  /** The signed-in customer's user id — null for guest (phone-keyed) jobs. */
+  customerId?: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  jobTitle: string;
+  note?: string;
+  serviceItem?: ServiceItem;
+  categorySlug: string;
+  citySlug: string;
+  status: QuoteStatus;
+  /** QUOTE_SLA_MS after creation — the SLA cron clears it. */
+  expiresAt?: string; // ISO
+  createdAt: string; // ISO
+  /** The invited workers' bookings (1..MAX_QUOTE_WORKERS) — the bids. */
+  bookings: Booking[];
+}
+
+/** Customer-side input for creating a multi-candidate quote request. */
+export interface QuoteRequestInput {
+  /** The signed-in customer's user id — omit for guest (phone-keyed) jobs. */
+  customerId?: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  jobTitle: string;
+  note?: string;
+  serviceItem?: ServiceItem;
+  categorySlug: string;
+  citySlug: string;
+}
+
+/** Worker-side bid on a quote invite (docs/multi-candidate-quotes.md rule 3 —
+ * bids are NOT commitments: no slot is claimed, no slot status flips). */
+export interface QuoteBidInput {
+  /** Price for the job — minor units. */
+  quote: number;
+  /** Optional required upfront payment — minor units. */
+  deposit?: number;
 }
 
 /**
@@ -195,6 +275,8 @@ export type VerificationStatus = "verified" | "pending" | "rejected";
  */
 export type BookingStatus =
   | "requested"
+  | "quoting" // multi-candidate quotes — invited to quote, bid not submitted
+  | "quoted" // multi-candidate quotes — the worker's bid is in, awaiting the pick
   | "pendingPayment"
   | "confirmed"
   | "inProgress"
@@ -203,7 +285,9 @@ export type BookingStatus =
   | "cancelled"
   | "declined"
   | "noShow"
-  | "rescheduled"; // audit-event only — the booking moved to a new slot (M4)
+  | "rescheduled" // audit-event only — the booking moved to a new slot (M4)
+  | "message" // audit-event only — a chat message was sent on the booking's thread (§2.3)
+  | "refunded"; // audit-event only — an admin refunded the paid deposit (the booking itself is unchanged)
 
 /** Concrete slot state (mirrors the prisma `SlotStatus` enum, lowercased). */
 export type SlotStatus = "available" | "reserved" | "booked" | "blocked";
@@ -217,6 +301,36 @@ export interface BookingEvent {
   actorId?: string;
   reason?: string;
   time: string; // ISO
+}
+
+/**
+ * One message in the customer ⇄ worker negotiation thread keyed on the booking
+ * (docs/ENHANCEMENT-PLAN.md §2.3). Actor-stamped like an audit entry, so the
+ * negotiation lives inside the booking's record — the same thread all three
+ * surfaces (customer row, worker row, admin dispute view) render.
+ */
+export interface BookingMessage {
+  id: string;
+  bookingId: string;
+  /** "customer" | "worker" | "admin" — who wrote it. */
+  senderRole: string;
+  /** Optional real user id of the sender (admin decisions stamp the FK). */
+  senderId?: string;
+  text: string;
+  /** Optional in-thread quote — minor units (a price shared during negotiation). */
+  quote?: number;
+  /** Read receipt — when the OTHER party saw this message (null until then). */
+  readAt?: string; // ISO
+  time: string; // ISO
+}
+
+/** Worker-side input for appending a message to a booking thread. */
+export interface BookingMessageInput {
+  senderRole: "customer" | "worker" | "admin";
+  senderId?: string;
+  text: string;
+  /** Minor units — the price the worker shares in-thread (quote sharing). */
+  quote?: number;
 }
 
 /** A concrete, calendared time range (UTC) for a worker (mirrors BookingSlot). */
@@ -244,11 +358,19 @@ export interface Booking {
   jobTitle: string;
   note?: string;
   serviceItem?: ServiceItem;
-  startAt: string; // ISO
-  endAt: string; // ISO
+  /**
+   * ISO start/end of the slot. UNDEFINED for slot-less multi-candidate quote
+   * bids (status quoting/quoted — docs/multi-candidate-quotes.md): the winner
+   * gets a slot when the customer picks, everyone else stays slot-less.
+   */
+  startAt?: string; // ISO
+  endAt?: string; // ISO
   status: BookingStatus;
   quote?: number; // minor units
   deposit?: number; // minor units
+  /** Multi-candidate quotes — the QuoteRequest this booking bids on (null for
+   * single-candidate bookings). */
+  quoteRequestId?: string;
   /**
    * M5 take rate (docs/booking-take-rate.md) — the platform-fee snapshot at
    * accept-with-quote (minor units). Set whenever a quoted accept lands;
@@ -261,6 +383,9 @@ export interface Booking {
   currency: CurrencyCode;
   /** Set once a deposit checkout exists (M3) — see BookingPayment. */
   paymentId?: string;
+  /** M3 deposit payment state — mirrors the Payment row (demo store + prisma).
+   * Lets the admin dispute view gate the Refund-deposit action. */
+  paymentStatus?: BookingPayment["status"];
   /** Receipt created at payment-confirm for signed-in customers (M3). */
   invoice?: BookingInvoice;
   /** M1 recurring bookings (§7 #1) — set when this booking is an occurrence of a contract. */
@@ -422,8 +547,10 @@ export function completionGraceElapsed(stagedAtMs: number, nowMs: number): boole
 
 /** Who cancels a booking and why (M4 — stored in cancelledBy / cancelReason). */
 export interface BookingCancelInput {
-  by: "customer" | "worker" | "system";
+  by: "customer" | "worker" | "system" | "admin";
   reason?: string;
+  /** §2.4 — the acting admin's name (logged when `by === "admin"`). */
+  adminName?: string;
 }
 
 /**
@@ -479,6 +606,8 @@ export interface BookingFunnel {
 export function emptyBookingFunnelCounts(): Record<BookingStatus, number> {
   return {
     requested: 0,
+    quoting: 0,
+    quoted: 0,
     pendingPayment: 0,
     confirmed: 0,
     inProgress: 0,
@@ -488,6 +617,8 @@ export function emptyBookingFunnelCounts(): Record<BookingStatus, number> {
     declined: 0,
     noShow: 0,
     rescheduled: 0,
+    message: 0,
+    refunded: 0,
   };
 }
 

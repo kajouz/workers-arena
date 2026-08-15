@@ -143,6 +143,8 @@ enum TicketStatus {
 
 enum BookingStatus {
   REQUESTED
+  QUOTING   // multi-candidate quotes (docs/multi-candidate-quotes.md): invited to quote, bid not submitted
+  QUOTED    // multi-candidate quotes: the worker's bid is in, awaiting the customer's pick
   PENDING_PAYMENT
   CONFIRMED
   IN_PROGRESS
@@ -152,6 +154,20 @@ enum BookingStatus {
   DECLINED
   NO_SHOW
   RESCHEDULED // audit-event only: the booking moved to a new slot (M4)
+  MESSAGE // audit-event only: a chat message was sent on the booking's thread (§2.3)
+  REFUNDED // audit-event only: an admin refunded the paid deposit (deposit stays, booking unchanged)
+}
+
+/// Lifecycle of a multi-candidate quote request (docs/multi-candidate-quotes.md):
+/// a customer's job post that up to MAX_QUOTE_WORKERS workers bid on. The invited
+/// workers ARE its linked Bookings (one Booking per worker, QUOTING/QUOTED,
+/// slot-less until the winner is picked).
+enum QuoteStatus {
+  OPEN      // created, invites sent, waiting for quotes
+  QUOTING   // >=1 quote submitted, awaiting the customer's pick
+  SELECTED  // a winner was chosen — the job moved into a slot-bound Booking
+  EXPIRED   // the SLA window passed with no quotes worth picking
+  CANCELLED // the customer withdrew the job
 }
 
 enum SlotStatus {
@@ -222,6 +238,7 @@ model User {
   activityLogs  ActivityLog[]
   bookings      Booking[] // customer-side bookings
   recurringBookings RecurringBooking[]
+  quoteRequests QuoteRequest[] // multi-candidate quote jobs (customer side)
 
   @@index([role])
   @@index([email])
@@ -416,6 +433,7 @@ model ServiceItem {
 
   bookings Booking[]
   recurringBookings RecurringBooking[]
+  quoteRequests QuoteRequest[] // multi-candidate quote jobs (customer side)
 
   @@index([workerId])
 }
@@ -914,7 +932,9 @@ model BookingSlot {
 
 /// A booking request + its lifecycle. Numbered for humans ("BK-1049"),
 /// money in minor units (schema convention), optional tie to a Lead and a
-/// Payment (deposit/quote), and a full event trail for disputes.
+/// Payment (deposit/quote), and a full event trail for disputes. The
+/// customer ⇄ worker negotiation lives in BookingMessage rows keyed on the
+/// booking (docs/ENHANCEMENT-PLAN.md §2.3) — one shared thread per booking.
 model Booking {
   id            String        @id @default(cuid())
   number        String        @unique
@@ -934,8 +954,11 @@ model Booking {
   jobTitle      String // free-text description (user-generated, not bilingual)
   note          String? @db.Text
 
-  startAt       DateTime
-  endAt         DateTime
+  // Nullable for multi-candidate quote bids (docs/multi-candidate-quotes.md):
+  // a QUOTING/QUOTED booking is slot-less until the customer picks a winner,
+  // at which point the winner's slot range is stamped on (status REQUESTED).
+  startAt       DateTime?
+  endAt         DateTime?
   status        BookingStatus @default(REQUESTED)
 
   quote         Int? // minor units — worker's price for this job
@@ -977,7 +1000,13 @@ model Booking {
   recurringBookingId String?
   recurringBooking   RecurringBooking? @relation(fields: [recurringBookingId], references: [id], onDelete: SetNull)
 
+  // Multi-candidate quotes (docs/multi-candidate-quotes.md) — the job container
+  // this booking bids on (null for single-candidate bookings).
+  quoteRequestId String?
+  quoteRequest   QuoteRequest? @relation(fields: [quoteRequestId], references: [id], onDelete: SetNull)
+
   events BookingEvent[]
+  messages      BookingMessage[]
   ledger        WorkerLedgerEntry[]
 
   @@index([workerId, status, startAt])
@@ -987,6 +1016,36 @@ model Booking {
   // skipDuplicates / P2002), so overlapping runs can never double-materialize.
   @@unique([recurringBookingId, startAt])
   @@index([recurringBookingId])
+}
+
+/// A customer's job post that up to MAX_QUOTE_WORKERS workers bid on
+/// (docs/multi-candidate-quotes.md). The invited workers ARE its linked
+/// Bookings — one Booking per worker in the QUOTING/QUOTED states, slot-less
+/// until the winner is picked (then the winner becomes a normal slot-bound
+/// REQUESTED booking and the losers are DECLINED by the system).
+model QuoteRequest {
+  id            String       @id @default(cuid())
+  number        String       @unique // QR-YYYY-NNNNN (own sequence — formatQuoteNumber)
+  customerId    String? // null for guests, phone-keyed like Booking
+  customer      User?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName  String
+  customerPhone String
+  customerEmail String?
+  jobTitle      String
+  note          String?      @db.Text
+  serviceItemId String?
+  serviceItem   ServiceItem? @relation(fields: [serviceItemId], references: [id], onDelete: SetNull)
+  categorySlug  String // platform-match hint (city comes from the customer city)
+  citySlug      String
+  status        QuoteStatus  @default(OPEN)
+  expiresAt     DateTime? // QUOTE_SLA_MS after creation — the SLA cron clears it
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  bookings Booking[] // the invited workers' Bookings (via Booking.quoteRequestId)
+
+  @@index([customerId, status])
+  @@index([status, createdAt])
 }
 
 /// A maintenance contract (ENHANCEMENT-PLAN §7 #1): one customer request, a
@@ -1031,6 +1090,25 @@ model BookingEvent {
   actorId   String?
   reason    String?
   createdAt DateTime @default(now())
+
+  @@index([bookingId, createdAt])
+}
+
+/// Customer ⇄ worker chat thread keyed on Booking.id (docs/ENHANCEMENT-PLAN.md
+/// §2.3) — one message per row, actor-stamped like audit entries so the
+/// negotiation stays inside the booking's record (quote sharing: a message can
+/// carry a price in minor units; the UI renders it as an in-thread quote chip).
+model BookingMessage {
+  id         String   @id @default(cuid())
+  bookingId  String
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  senderRole String // "customer" | "worker" | "admin"
+  senderId   String?
+  text       String   @db.Text
+  quote      Int? // minor units — a price shared in-thread
+  /// Read receipt — when the OTHER party (customer/worker) saw the thread.
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
 
   @@index([bookingId, createdAt])
 }

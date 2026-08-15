@@ -1,6 +1,8 @@
 # Multi-Candidate Quotes — "Request quotes from up to 3 workers"
 
-> **Design proposal** (docs/ENHANCEMENT-PLAN.md §2.2 — the structural fix to the selection workflow). Today a customer commits to ONE worker and restarts from scratch on a decline. This sketch lets a customer invite up to **3 workers to quote the same job**, then pick a winner — **reusing the existing `Booking` model as the per-worker quote-and-commitment record**. Everything already built (slot CAS, events, notifications, the M3/M4 rails) does the heavy lifting; the new layer only runs the auction. Decisions here are proposals to confirm before coding — same status as [booking-take-rate.md](booking-take-rate.md) before it landed.
+[← Back to docs index](README.md)
+
+> **Status: ✅ shipped** (docs/ENHANCEMENT-PLAN.md §2.2 — the structural fix to the selection workflow). The customer invites up to **3 workers to quote the same job**, then picks a winner — **reusing the existing `Booking` model as the per-worker quote-and-commitment record**. Everything already built (slot CAS, events, notifications, the M3/M4 rails) does the heavy lifting; the new layer only runs the auction. This file remains the design record + open decisions (the implementation landed as: migration `20260814080745_multi_candidate_quotes`, demo + prisma adapters in `src/lib/data/bookings.ts` / `prisma-repo.ts`, seams in `repo.ts`, actions in `src/app/actions/bookings.ts`, the quote-SLA expiry hooked into `/api/cron/requests`, UI in `src/components/worker/quote-request-dialog.tsx` + `src/components/bookings/quote-request-card.tsx` + the worker dashboard bid row, i18n `booking.quotes*` EN/AR, unit tests in `tests/bookings.test.ts` + mapper tests in `tests/prisma-repo.test.ts`, and a `db:smoke` W2 section).
 
 ---
 

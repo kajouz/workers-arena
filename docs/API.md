@@ -1,5 +1,7 @@
 # API Design
 
+[← Back to docs index](README.md)
+
 ## REST endpoints (App Router route handlers)
 
 All responses are JSON. Demo mode returns embedded data; production maps to Prisma with the same shapes.

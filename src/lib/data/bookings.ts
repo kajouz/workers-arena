@@ -6,15 +6,20 @@ import {
   type WorkerNotificationKind,
 } from "./booking-notifications";
 import { pushNotification } from "./notifications";
+import { quoteNotification } from "./quote-notifications";
 import { computePlatformFee, isPlanFeeExempt, PLATFORM_FEE_RATE_BPS } from "./booking-ui";
+import { resetChatPresence } from "./chat-presence";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import {
   BOOKING_RESCHEDULABLE_FROM,
   BOOKING_TERMINAL_STATUSES,
   BOOKING_TRANSITION_FROM,
+  MAX_QUOTE_WORKERS,
+  QUOTE_SLA_MS,
   bookingCancelRefundDue,
   completionGraceElapsed,
   formatInvoiceNumber,
+  formatQuoteNumber,
   slaExpireDue,
   slaNudgeDue,
   tallyBookingFunnel,
@@ -23,6 +28,11 @@ import {
   type BookingFunnel,
   type LedgerEntry,
   type PlatformFeeStats,
+  type BookingMessage,
+  type BookingMessageInput,
+  type QuoteBidInput,
+  type QuoteRequest,
+  type QuoteRequestInput,
   type RequestSlaRun,
   type WorkerBalance,
   type BookingCancelInput,
@@ -88,6 +98,15 @@ type DemoStore = {
   recurrings: RecurringBooking[];
   /** Next recurring-contract number — the seeded RC-1000 is the last used. */
   recurringSeq: number;
+  /** Multi-candidate quote requests (docs/multi-candidate-quotes.md). */
+  quoteRequests: QuoteRequest[];
+  /** Demo quote numbering — `QR-YYYY-NNNNN`, sequence restarting per year. */
+  quoteYear: number;
+  quoteSeq: number;
+  /** Booking chat (§2.3) — one thread per booking, keyed by booking id. */
+  messages: Map<string, BookingMessage[]>;
+  /** Next message id — `msg-<n>`, seeded empty. */
+  msgSeq: number;
 };
 
 const GLOBAL_KEY = "__workersArenaDemoBookingStore";
@@ -120,6 +139,11 @@ const STORE: DemoStore =
     ledgerSeq: 0,
     recurrings: [],
     recurringSeq: 1001,
+    quoteRequests: [],
+    quoteYear: 0,
+    quoteSeq: 1001,
+    messages: new Map(),
+    msgSeq: 0,
   } as DemoStore);
 
 function nextDemoInvoiceNumber(): string {
@@ -130,6 +154,17 @@ function nextDemoInvoiceNumber(): string {
   }
   STORE.invoiceSeq += 1;
   return formatInvoiceNumber(year, STORE.invoiceSeq);
+}
+
+/** Next demo quote-request number — `QR-YYYY-NNNNN`, restarting per year. */
+function nextDemoQuoteNumber(): string {
+  const year = new Date().getFullYear();
+  if (year !== STORE.quoteYear) {
+    STORE.quoteYear = year;
+    STORE.quoteSeq = 0;
+  }
+  STORE.quoteSeq += 1;
+  return formatQuoteNumber(year, STORE.quoteSeq);
 }
 
 /** Id of the demo worker used by the seed (Khaled, plumbing). */
@@ -158,6 +193,12 @@ function seed(): void {
   STORE.ledgerSeq = 0;
   STORE.recurrings.length = 0;
   STORE.recurringSeq = 1001;
+  STORE.quoteRequests.length = 0;
+  STORE.quoteYear = 0;
+  STORE.quoteSeq = 1001;
+  // §2.3 chat — the booking negotiation threads reset with the store.
+  STORE.messages.clear();
+  STORE.msgSeq = 0;
 
   const worker = workerById(demoWorkerId);
   // Every slot is a 1-hour range: start at the top of the hour, end +60 min.
@@ -192,7 +233,10 @@ function seed(): void {
   const event: BookingEvent = {
     status: "requested",
     actorType: "customer",
-    time: s10.start,
+    // Creation = submission time (like createBookingRequest), NOT the slot
+    // start — otherwise requestSlaExpiryMs (creation + 48h) would show a
+    // ~71h SLA for the seeded request instead of the real 48h policy.
+    time: new Date().toISOString(),
   };
   STORE.bookings.push({
     id: "bk-1001",
@@ -281,6 +325,7 @@ if (FIRST_INSTANCE) {
 /** Reset the demo store to its seeded state (used by tests). */
 export function resetBookingsStore(): void {
   seed();
+  resetChatPresence();
 }
 
 /** Preferred notification locale from a worker's first listed language. */
@@ -362,20 +407,26 @@ export function demoGetWorkerSlots(workerId: string, range: { from?: string; to?
  * surface the SLA state without mutating the store.
  */
 function withSlaSignal(b: Booking): Booking {
-  return b.slaNudgeSent === true || slaNudgedKeys.has(b.id) ? { ...b, slaNudgeSent: true } : b;
+  // §2.4 — attach the deposit payment state on UI-facing reads (the admin
+  // dispute view gates the Refund-deposit action on it). The demo store keeps
+  // payments keyed by booking id; the prisma adapter maps it in toDomainBooking.
+  const paymentStatus = STORE.payments.get(b.id)?.status;
+  const sla = b.slaNudgeSent === true || slaNudgedKeys.has(b.id);
+  return { ...b, ...(sla ? { slaNudgeSent: true } : {}), ...(paymentStatus ? { paymentStatus } : {}) };
 }
 
 /** A worker's bookings, newest first, with optional status filter + limit. */
 export function demoGetWorkerBookings(workerId: string, opts: { status?: BookingStatus; limit?: number } = {}): Booking[] {
-  const list = STORE.bookings.filter(
-    (b) => b.workerId === workerId && (!opts.status || b.status === opts.status)
-  ).sort((a, b) => b.startAt.localeCompare(a.startAt));
+  const byNewest = (a: Booking, b: Booking) => (b.startAt ?? b.events[0]?.time ?? "").localeCompare(a.startAt ?? a.events[0]?.time ?? "");
+  const list = STORE.bookings
+    .filter((b) => b.workerId === workerId && (!opts.status || b.status === opts.status))
+    .sort(byNewest);
   return (opts.limit ? list.slice(0, opts.limit) : list).map(withSlaSignal);
 }
 
 /** Every booking in the demo store, oldest first (cron reminder scan). */
 export function demoGetAllBookings(): Booking[] {
-  return [...STORE.bookings].sort((a, b) => a.startAt.localeCompare(b.startAt));
+  return [...STORE.bookings].sort((a, b) => (a.startAt ?? a.events[0]?.time ?? "").localeCompare(b.startAt ?? b.events[0]?.time ?? ""));
 }
 
 /**
@@ -531,14 +582,129 @@ export function demoGetBookingByNumber(number: string): Booking | null {
   return b ? withSlaSignal(b) : null;
 }
 
+/** A single booking by its internal id — the §2.3 chat gate's lookup. */
+export function demoGetBookingById(id: string): Booking | null {
+  const b = STORE.bookings.find((x) => x.id === id) ?? null;
+  return b ? withSlaSignal(b) : null;
+}
+
 /** A customer's bookings, matched by email or normalized phone. */
+/**
+ * The negotiation thread for one booking (§2.3) — oldest first, the order the
+ * UI renders. Mirrors the prisma adapter's `orderBy createdAt asc`.
+ */
+export function demoGetBookingMessages(bookingId: string): BookingMessage[] {
+  return [...(STORE.messages.get(bookingId) ?? [])].sort((a, b) => a.time.localeCompare(b.time));
+}
+
+/**
+ * Read receipt — stamp readAt on every message the OTHER party sent (their
+ * messages are "seen" when the counterpart opens the thread). Idempotent:
+ * already-stamped messages stay untouched, and the reader's own messages are
+ * never stamped (you can't see your own message back). Returns the number of
+ * messages newly marked.
+ */
+export function demoMarkChatRead(bookingId: string, readerRole: "customer" | "worker"): number {
+  const now = new Date().toISOString();
+  let marked = 0;
+  for (const m of STORE.messages.get(bookingId) ?? []) {
+    if (m.senderRole !== readerRole && !m.readAt) {
+      m.readAt = now;
+      marked += 1;
+    }
+  }
+  return marked;
+}
+
+/**
+ * Append a message to a booking's thread. Returns null when the booking is
+ * unknown (callers surface "not-found"). The sender is actor-stamped like an
+ * audit entry (role + optional real user id), so the negotiation stays inside
+ * the booking's record on both adapters.
+ */
+export async function demoSendBookingMessage(
+  bookingId: string,
+  input: BookingMessageInput
+): Promise<BookingMessage | null> {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  if (!booking) return null;
+  const now = new Date().toISOString();
+  STORE.msgSeq += 1;
+  const message: BookingMessage = {
+    id: `msg-${STORE.msgSeq}`,
+    bookingId,
+    senderRole: input.senderRole,
+    ...(input.senderId ? { senderId: input.senderId } : {}),
+    text: input.text,
+    ...(input.quote !== undefined ? { quote: input.quote } : {}),
+    time: now,
+  };
+  const thread = STORE.messages.get(bookingId) ?? [];
+  thread.push(message);
+  STORE.messages.set(bookingId, thread);
+  // §2.3 — every message lands in the audit trail too (status "message", the
+  // sender stamped as the actor, the body as the reason), so negotiations are
+  // visible in the dispute timeline like every other action.
+  booking.events.push({
+    status: "message",
+    actorType: input.senderRole,
+    ...(input.senderId ? { actorId: input.senderId } : {}),
+    reason: input.text,
+    time: now,
+  });
+  return message;
+}
+
+/**
+ * Customer side: accept the worker's quoted price straight from the chat
+ * thread — the REQUESTED booking converts to CONFIRMED with the message's
+ * quote (minor units), the slot is booked, the M5 take-rate fee is stamped
+ * from the worker's current plan, and the confirmation lands in the audit
+ * trail as a customer action (so the negotiation -> agreement is visible in
+ * the dispute timeline). Returns null when the booking is not in a
+ * negotiable state or the message isn't a worker quote (callers surface
+ * "not-found").
+ */
+export async function demoAcceptChatQuote(
+  bookingId: string,
+  messageId: string
+): Promise<Booking | null> {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  if (!booking || booking.status !== "requested") return null;
+  const message = (STORE.messages.get(bookingId) ?? []).find((m) => m.id === messageId);
+  if (!message || message.senderRole !== "worker" || message.quote === undefined) return null;
+
+  // Same conversion as the worker's respond path — the quoted amount becomes
+  // the booking's agreed price, the slot is claimed, and the fee is a
+  // snapshot of the CURRENT plan (Enterprise waives it).
+  booking.status = "confirmed";
+  booking.quote = message.quote;
+  booking.platformFee = computePlatformFee(message.quote, {
+    exempt: isPlanFeeExempt(workerById(booking.workerId)?.subscription.plan),
+  });
+  booking.platformFeeRateBps = PLATFORM_FEE_RATE_BPS;
+  const slot = STORE.slots.find((s) => s.bookingId === bookingId);
+  if (slot) slot.status = "booked";
+  booking.events.push({
+    status: "confirmed",
+    actorType: "customer",
+    reason: "Accepted the worker's chat quote",
+    time: new Date().toISOString(),
+  });
+  await notifyWorker(booking, "worker-quote-accepted");
+  return booking;
+}
+
 export function demoGetCustomerBookings(identifier: { email?: string; phone?: string } = {}): Booking[] {
   const phone = identifier.phone?.replace(/[\s\-()]/g, "");
-  return STORE.bookings.filter((b) => {
-    if (identifier.email && b.customerEmail?.toLowerCase() === identifier.email.toLowerCase()) return true;
-    if (phone && b.customerPhone.replace(/[\s\-()]/g, "") === phone) return true;
-    return false;
-  }).sort((a, b) => b.startAt.localeCompare(a.startAt)).map(withSlaSignal);
+  return STORE.bookings
+    .filter((b) => {
+      if (identifier.email && b.customerEmail?.toLowerCase() === identifier.email.toLowerCase()) return true;
+      if (phone && b.customerPhone.replace(/[\s\-()]/g, "") === phone) return true;
+      return false;
+    })
+    .sort((a, b) => (b.startAt ?? b.events[0]?.time ?? "").localeCompare(a.startAt ?? a.events[0]?.time ?? ""))
+    .map(withSlaSignal);
 }
 
 /* ─────────────────────────────── Availability (M2) ─────────────────────────────── */
@@ -780,6 +946,13 @@ export async function demoCancelBooking(
 
   if (input.by === "customer") {
     await notifyWorker(booking, "worker-cancelled");
+  } else if (input.by === "admin") {
+    // §2.4 — an admin cancellation is a platform action: BOTH parties are
+    // told (the customer that their booking was cancelled, the worker that
+    // the slot is freed), unlike a party-initiated cancel which tells only
+    // the other side.
+    await notifyCustomer(booking, "customer-cancelled");
+    await notifyWorker(booking, "worker-cancelled");
   } else {
     await notifyCustomer(booking, "customer-cancelled");
   }
@@ -791,6 +964,43 @@ export async function demoCancelBooking(
       refund: { amount: payment.amount, reason: input.reason },
     });
   }
+  return booking;
+}
+
+/**
+ * §2.4 admin dispute view — refund the booking's PAID deposit WITHOUT
+ * cancelling the booking (a money-only correction: the job and slot stay as
+ * they are). The deposit policy's window logic does NOT apply — the admin's
+ * refund is a platform decision, not a party cancellation, so a paid deposit
+ * is always refundable. Requires the deposit payment to be PAID (a PENDING
+ * checkout or an already-refunded payment returns null — idempotent). The
+ * REFUNDED audit event lands on the trail with the admin actor + reason, and
+ * the customer gets the M4 refund email (amount + reason). Returns null for
+ * unknown bookings or when there is no refundable paid deposit.
+ */
+export async function demoRefundBookingDeposit(
+  bookingId: string,
+  input: { reason?: string }
+): Promise<Booking | null> {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  if (!booking) return null;
+  const payment = STORE.payments.get(bookingId);
+  // Only a PAID deposit is refundable — PENDING (unpaid checkout) and
+  // already-REFUNDED are no-ops (idempotent; a double-click can't re-refund).
+  if (payment?.status !== "paid") return null;
+
+  await getPaymentProvider().refund(payment.providerRef ?? payment.id, payment.amount);
+  payment.status = "refunded";
+  payment.refundedAt = new Date().toISOString();
+  booking.events.push({
+    status: "refunded",
+    actorType: "admin",
+    reason: input.reason,
+    time: new Date().toISOString(),
+  });
+  await notifyCustomer(booking, "customer-refund", {
+    refund: { amount: payment.amount, reason: input.reason },
+  });
   return booking;
 }
 
@@ -1114,6 +1324,244 @@ export async function demoRespondToBooking(
   return booking;
 }
 
+/* ─────────────────── Multi-candidate quotes (docs/multi-candidate-quotes.md) ─────────────────── */
+
+/**
+ * A customer's quote jobs, matched by the signed-in customerId, email or
+ * normalized phone (mirrors demoGetCustomerBookings + demoGetQuoteRequest's
+ * ownership check — the /bookings page keyed the same way). The customerId
+ * branch matters because the email is OPTIONAL on the quote form: a signed-in
+ * customer who skips it must still see their own jobs.
+ */
+export function demoGetCustomerQuoteRequests(
+  identifier: { email?: string; phone?: string; customerId?: string } = {}
+): QuoteRequest[] {
+  const phone = identifier.phone?.replace(/[\s\-()]/g, "");
+  return STORE.quoteRequests
+    .filter((q) => {
+      if (identifier.customerId && q.customerId === identifier.customerId) return true;
+      if (identifier.email && q.customerEmail?.toLowerCase() === identifier.email.toLowerCase()) return true;
+      if (phone && q.customerPhone.replace(/[\s\-()]/g, "") === phone) return true;
+      return false;
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * A quote job by id or number. With `identifier`, ownership is enforced
+ * (signed-in customerId or normalized phone) — the customer-only reads never
+ * leak another customer's job.
+ */
+export function demoGetQuoteRequest(
+  idOrNumber: string,
+  identifier?: { customerId?: string; phone?: string }
+): QuoteRequest | null {
+  const q = STORE.quoteRequests.find((x) => x.id === idOrNumber || x.number === idOrNumber) ?? null;
+  if (!q || !identifier) return q;
+  const phone = identifier.phone?.replace(/[\s\-()]/g, "");
+  const owned =
+    (identifier.customerId && q.customerId === identifier.customerId) ||
+    (phone && q.customerPhone.replace(/[\s\-()]/g, "") === phone);
+  return owned ? q : null;
+}
+
+/**
+ * Customer side: post a job and invite up to MAX_QUOTE_WORKERS workers to
+ * quote it (rule 1 — duplicates and over-limit rejected). Creates ONE
+ * QuoteRequest (OPEN, expiresAt = now + QUOTE_SLA_MS) plus ONE slot-less
+ * Booking per invited worker (status QUOTING, no startAt/endAt — rule 2: no
+ * slot is locked during the auction). Each worker is notified they're invited.
+ */
+export async function demoCreateQuoteRequest(
+  input: QuoteRequestInput,
+  workerIds: string[]
+): Promise<QuoteRequest | { error: "invalid" | "too-many" | "duplicate" | "unknown-worker" }> {
+  if (workerIds.length < 1 || workerIds.length > MAX_QUOTE_WORKERS) return { error: "too-many" };
+  if (new Set(workerIds).size !== workerIds.length) return { error: "duplicate" };
+  const workers = workerIds.map((id) => workerById(id));
+  if (workers.some((w) => !w)) return { error: "unknown-worker" };
+
+  const now = new Date();
+  const request: QuoteRequest = {
+    id: `qr-${STORE.quoteSeq}`,
+    number: nextDemoQuoteNumber(),
+    customerId: input.customerId,
+    customerName: input.customerName,
+    customerPhone: input.customerPhone,
+    customerEmail: input.customerEmail,
+    jobTitle: input.jobTitle,
+    note: input.note,
+    serviceItem: input.serviceItem,
+    categorySlug: input.categorySlug,
+    citySlug: input.citySlug,
+    status: "open",
+    expiresAt: new Date(now.getTime() + QUOTE_SLA_MS).toISOString(),
+    createdAt: now.toISOString(),
+    bookings: [],
+  };
+  const bookings: Booking[] = [];
+  for (const worker of workers) {
+    STORE.counter += 1;
+    const booking: Booking = {
+      id: `bk-${STORE.counter}`,
+      number: `BK-${STORE.counter}`,
+      workerId: worker!.id,
+      customerId: input.customerId,
+      customerName: input.customerName,
+      customerPhone: input.customerPhone,
+      customerEmail: input.customerEmail,
+      jobTitle: input.jobTitle,
+      note: input.note,
+      serviceItem: input.serviceItem,
+      status: "quoting",
+      currency: worker!.currency,
+      quoteRequestId: request.id,
+      events: [{ status: "quoting", actorType: "customer", time: now.toISOString() }],
+    };
+    bookings.push(booking);
+    STORE.bookings.push(booking);
+  }
+  request.bookings = bookings;
+  STORE.quoteRequests.push(request);
+
+  // Invite each worker (the same pushNotification seam as booking requests).
+  for (const worker of workers) {
+    const booking = bookings.find((b) => b.workerId === worker!.id)!;
+    await pushNotification(
+      quoteNotification(booking, "quote-invite"),
+      worker ? { name: worker.nameEn, email: worker.email, phone: worker.phone, locale: workerLocale(worker.id) } : undefined
+    );
+  }
+  return request;
+}
+
+/**
+ * Worker side: submit a bid on a quote invite (rule 3 — bids are NOT
+ * commitments: no slot is claimed, no slot status flips, the worker's
+ * calendar stays free). QUOTING → QUOTED with the quote/deposit stored; the
+ * job container flips OPEN → QUOTING once the first bid lands. Returns null
+ * for unknown or already-bid bookings.
+ */
+export async function demoSubmitQuote(bookingId: string, input: QuoteBidInput): Promise<Booking | null> {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  if (!booking || booking.status !== "quoting") return null;
+  booking.status = "quoted";
+  booking.quote = input.quote;
+  if (input.deposit != null) booking.deposit = input.deposit;
+  booking.events.push({ status: "quoted", actorType: "worker", time: new Date().toISOString() });
+
+  const request = booking.quoteRequestId
+    ? STORE.quoteRequests.find((q) => q.id === booking.quoteRequestId)
+    : undefined;
+  if (request && request.status === "open") request.status = "quoting";
+  return booking;
+}
+
+/**
+ * Customer side: pick the winner + a slot from the winner's availability.
+ * Rule 4 — exactly one winner: the chosen slot is claimed with the SAME
+ * atomic AVAILABLE → RESERVED re-check + overlap guard as createBookingRequest
+ * (a concurrent single-candidate claim loses → slot-taken), the winner's
+ * booking becomes a normal slot-bound REQUESTED booking, the losers are
+ * DECLINED by the system (slot-less — nothing to free), and the job flips to
+ * SELECTED once. The winner then flows through the existing respondToBooking
+ * pipeline unchanged. Returns the winner booking, or an error.
+ */
+export async function demoSelectQuote(
+  quoteRequestId: string,
+  winnerBookingId: string,
+  slotId: string
+): Promise<Booking | { error: "slot-taken" | "invalid" | "not-quoted" | "closed" }> {
+  const request = STORE.quoteRequests.find((q) => q.id === quoteRequestId);
+  if (!request) return { error: "invalid" };
+  if (request.status !== "open" && request.status !== "quoting") return { error: "closed" };
+  const winner = request.bookings.find((b) => b.id === winnerBookingId);
+  if (!winner) return { error: "invalid" };
+  if (winner.status !== "quoted") return { error: "not-quoted" };
+
+  // Rule 4 — the slot claim (mirrors demoCreateBookingRequest exactly: the
+  // slot must still be AVAILABLE and must not overlap a claimed/blocked one).
+  const slot = STORE.slots.find((s) => s.id === slotId && s.workerId === winner.workerId);
+  if (!slot || slot.status !== "available") return { error: "slot-taken" };
+  const start = new Date(slot.startAt).getTime();
+  const end = new Date(slot.endAt).getTime();
+  const clash = STORE.slots.some((s) => {
+    if (s.workerId !== winner.workerId || s.id === slot.id) return false;
+    if (s.status !== "reserved" && s.status !== "booked" && s.status !== "blocked") return false;
+    return start < new Date(s.endAt).getTime() && end > new Date(s.startAt).getTime();
+  });
+  if (clash) return { error: "slot-taken" };
+
+  slot.status = "reserved";
+  slot.bookingId = winner.id;
+  winner.startAt = slot.startAt;
+  winner.endAt = slot.endAt;
+  winner.status = "requested";
+  winner.events.push({ status: "requested", actorType: "customer", time: new Date().toISOString() });
+
+  // Losers — DECLINED by the system (slot-less rows, nothing to free; they
+  // become the audit trail + quote-benchmark data).
+  const nowIso = new Date().toISOString();
+  for (const b of request.bookings) {
+    if (b.id === winner.id) continue;
+    if (b.status === "quoting" || b.status === "quoted") {
+      b.status = "declined";
+      b.events.push({
+        status: "declined",
+        actorType: "system",
+        reason: "The customer chose another quote",
+        time: nowIso,
+      });
+    }
+  }
+  request.status = "selected";
+
+  // Winner → shortlisted (confirm the time via the normal pipeline); losers
+  // → the customer chose another quote.
+  for (const b of request.bookings) {
+    const worker = workerById(b.workerId);
+    if (!worker) continue;
+    await pushNotification(
+      quoteNotification(b, b.id === winner.id ? "quote-winner" : "quote-loser"),
+      { name: worker.nameEn, email: worker.email, phone: worker.phone, locale: workerLocale(worker.id) }
+    );
+  }
+  return winner;
+}
+
+/**
+ * The SLA cron (docs/multi-candidate-quotes.md §5 — QUOTE_SLA_MS): OPEN/QUOTING
+ * jobs past expiresAt flip to EXPIRED and their open bids (QUOTING/QUOTED) are
+ * DECLINED by the system (slot-less — nothing to free; the worker gets a
+ * "window closed" notification). Idempotent — a re-run finds nothing due.
+ * Returns the number of jobs expired.
+ */
+export async function demoExpireQuoteRequests(now = new Date()): Promise<number> {
+  const due = STORE.quoteRequests.filter(
+    (q) =>
+      (q.status === "open" || q.status === "quoting") &&
+      q.expiresAt !== undefined &&
+      new Date(q.expiresAt).getTime() <= now.getTime()
+  );
+  const nowIso = now.toISOString();
+  for (const q of due) {
+    q.status = "expired";
+    for (const b of q.bookings) {
+      if (b.status !== "quoting" && b.status !== "quoted") continue;
+      b.status = "declined";
+      b.events.push({ status: "declined", actorType: "system", reason: "Quote window closed", time: nowIso });
+      const worker = workerById(b.workerId);
+      if (worker) {
+        await pushNotification(
+          quoteNotification(b, "quote-expired"),
+          { name: worker.nameEn, email: worker.email, phone: worker.phone, locale: workerLocale(worker.id) }
+        );
+      }
+    }
+  }
+  return due.length;
+}
+
 /**
  * M1 recurring bookings (ENHANCEMENT-PLAN §7 #1) — worker's active contracts.
  */
@@ -1148,8 +1596,10 @@ export async function demoCreateRecurringRequest(
     jobTitle: input.jobTitle,
     note: input.note,
     frequency: input.frequency,
-    anchorStart: booking.startAt,
-    anchorEnd: booking.endAt,
+    // The first occurrence claimed a slot, so startAt/endAt are always set
+    // here — the non-null assertion mirrors the one-shot claim above.
+    anchorStart: booking.startAt!,
+    anchorEnd: booking.endAt!,
     status: "active",
     occurrences: [booking],
     createdAt: new Date().toISOString(),

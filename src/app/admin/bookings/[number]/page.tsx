@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CalendarClock, Repeat, ScrollText, ShieldAlert } from "lucide-react";
+import { ArrowLeft, CalendarClock, MessageCircle, Repeat, ScrollText, ShieldAlert } from "lucide-react";
 import { getSession } from "@/lib/auth-demo";
 import { getI18n } from "@/lib/i18n/server";
-import { getBookingByNumber, getRecurringById, getWorkerById } from "@/lib/data/repo";
+import { getBookingByNumber, getBookingMessages, getRecurringById, getWorkerById } from "@/lib/data/repo";
 import { formatSlotRange } from "@/lib/data/booking-ui";
 import { customerEmailKind, bookingNotification } from "@/lib/data/booking-notifications";
 import { renderBookingEmail } from "@/lib/notifications/templates";
@@ -11,7 +11,11 @@ import type { ChannelPayload } from "@/lib/notifications/types";
 import type { Notification } from "@/lib/data/types";
 import { timeAgo } from "@/lib/utils";
 import { BookingStatusBadge } from "@/components/bookings/booking-status-badge";
-import { BookingSlaCountdown } from "@/components/admin/booking-sla-countdown";
+import { BookingPrintButton } from "@/components/bookings/booking-print-button";
+import { BookingEmailButton } from "@/components/bookings/booking-email-button";
+import { BookingChat } from "@/components/bookings/booking-chat";
+import { BookingSlaCountdown } from "@/components/bookings/booking-sla-countdown";
+import { AdminBookingActions } from "@/components/admin/admin-booking-actions";
 import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +63,10 @@ export default async function AdminBookingDisputePage({
   if (!booking) notFound();
 
   const worker = await getWorkerById(booking.workerId);
+  // §2.3 chat — the booking's negotiation thread (read-only here: the admin
+  // sees the same messages the customer + worker rows render, so the dispute
+  // view carries the whole conversation).
+  const messages = await getBookingMessages(booking.id);
 
   // Recurring context (W2) — when this booking is an occurrence of a
   // maintenance contract (recurringId set), surface the contract behind it:
@@ -67,7 +75,7 @@ export default async function AdminBookingDisputePage({
   // deep-links to its own dispute page.
   const recurring = booking.recurringId ? await getRecurringById(booking.recurringId) : null;
   const nextVisit = recurring?.occurrences.find(
-    (o) => !RECURRING_TERMINAL_STATUSES.includes(o.status) && new Date(o.endAt).getTime() >= Date.now()
+    (o) => !RECURRING_TERMINAL_STATUSES.includes(o.status) && o.endAt != null && new Date(o.endAt).getTime() >= Date.now()
   );
 
   // "Preview email" — render the exact confirmation email the customer
@@ -112,21 +120,40 @@ export default async function AdminBookingDisputePage({
           </h1>
           <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">{t("booking.disputeSubtitle")}</p>
         </div>
-        {preview && (
-          <EmailPreviewDialog
-            type={preview.type}
-            subject={preview.subject}
-            html={preview.html}
-            recipient={{ name: booking.customerName, email: booking.customerEmail }}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* §2.4 — the admin's platform actions: cancel the booking (frees the
+              slot + notifies both parties + refunds a paid deposit) or refund
+              the paid deposit without cancelling. Rendered server-side with
+              the booking's payment state so the buttons only appear when the
+              action is possible. */}
+          <AdminBookingActions booking={booking} />
+          <BookingPrintButton
+            booking={booking}
+            workerName={locale === "ar" ? worker?.nameAr : worker?.nameEn}
           />
-        )}
+          <BookingEmailButton
+            booking={booking}
+            workerName={locale === "ar" ? worker?.nameAr : worker?.nameEn}
+            workerEmail={worker?.email}
+          />
+          {preview && (
+            <EmailPreviewDialog
+              type={preview.type}
+              subject={preview.subject}
+              html={preview.html}
+              recipient={{ name: booking.customerName, email: booking.customerEmail }}
+            />
+          )}
+        </div>
       </div>
 
       {/* §2.2 request SLA — the admin reads the SAME live ticking clock (with
           urgency bar + red-state pulse) the worker and customer see, driven by
           the shared requestSlaExpiryMs (the window the cron enforces) and the
-          nudge state from Booking.slaNudgeSent (demo + prisma both stamp it). */}
-      <BookingSlaCountdown booking={booking} />
+          nudge state from Booking.slaNudgeSent (demo + prisma both stamp it).
+          nowSeed = Date.now() at server render time so the client's first
+          render matches the SSR markup exactly (no hydration mismatch). */}
+      <BookingSlaCountdown booking={booking} nowSeed={Date.now()} />
 
       {recurring && (
         <Card className="mt-8 border-brand-500/30 bg-brand-500/[0.03]">
@@ -146,7 +173,7 @@ export default async function AdminBookingDisputePage({
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">
                 {t("booking.recurringNextVisit")}
               </p>
-              {nextVisit ? (
+              {nextVisit && nextVisit.startAt ? (
                 <p className="font-medium text-ink-800 dark:text-ink-100" dir="ltr">
                   {new Date(nextVisit.startAt).toLocaleDateString(locale === "ar" ? "ar-SA" : "en-US", {
                     weekday: "short",
@@ -218,9 +245,15 @@ export default async function AdminBookingDisputePage({
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{t("booking.disputeSlot")}</p>
               <p className="flex items-center gap-1.5 font-medium text-ink-800 dark:text-ink-100">
                 <CalendarClock className="size-3.5 text-ink-400" />
-                <span dir="ltr">{formatSlotRange(booking, locale)}</span>
+                {booking.startAt ? (
+                  <span dir="ltr">{formatSlotRange(booking, locale)}</span>
+                ) : (
+                  <span className="text-xs text-ink-400">{t("booking.quotesNoSlot")}</span>
+                )}
               </p>
-              <p className="text-xs text-ink-400">{new Date(booking.startAt).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { dateStyle: "full" })}</p>
+              {booking.startAt && (
+                <p className="text-xs text-ink-400">{new Date(booking.startAt).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { dateStyle: "full" })}</p>
+              )}
             </div>
             {booking.note && (
               <div>
@@ -299,6 +332,27 @@ export default async function AdminBookingDisputePage({
                 <li className="px-6 py-10 text-center text-sm text-ink-400">{t("booking.disputeNoEvents")}</li>
               )}
             </ol>
+          </CardContent>
+        </Card>
+
+        {/* §2.3 chat — the customer ⇄ worker negotiation thread (read-only:
+            the admin sees the SAME messages the customer + worker rows render,
+            so the dispute view carries the whole conversation). */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex-row items-center gap-2">
+            <MessageCircle className="size-4 shrink-0 text-brand-500" />
+            <CardTitle className="min-w-0 text-base">{t("booking.chatTitle")}</CardTitle>
+            <Badge variant="outline" className="ms-auto shrink-0 text-[10px]">{messages.length}</Badge>
+          </CardHeader>
+          <CardContent className="px-6 py-5">
+            <BookingChat
+              booking={booking}
+              messages={messages}
+              viewerRole="admin"
+              workerName={locale === "ar" ? worker?.nameAr : worker?.nameEn}
+              workerWhatsapp={worker?.whatsapp}
+              bare
+            />
           </CardContent>
         </Card>
       </div>

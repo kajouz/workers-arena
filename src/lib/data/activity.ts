@@ -233,6 +233,9 @@ export const ACTION_CODES = {
   BOOKING_CANCELLED: "BOOKING_CANCELLED",
   BOOKING_RESCHEDULED: "BOOKING_RESCHEDULED",
   BOOKING_NO_SHOW: "BOOKING_NO_SHOW",
+  // Admin refunded a booking's paid deposit from the dispute view (§2.4) —
+  // the feed mirrors the trail's REFUNDED audit event.
+  BOOKING_REFUNDED: "BOOKING_REFUNDED",
   // Ad-campaign refund (admin action) — the payment trail on /admin so the
   // feed tells the same story as the campaign-payments card.
   CAMPAIGN_REFUNDED: "CAMPAIGN_REFUNDED",

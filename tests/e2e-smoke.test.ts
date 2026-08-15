@@ -13,12 +13,21 @@ import { installSignalGuard } from "./helpers/signal-guard.mjs";
  * ────────────────────────────────────────────────────────────────────────────
  * Boots its own `next dev` server (demo mode, isolated .next via NEXT_DIST_DIR
  * so it can't clash with a concurrently running preview), then drives the real
- * system Chrome through the four protected dashboards PLUS the four
- * highest-traffic public routes (home + push onboarding, search, worker
- * profile, login) in both English and Arabic. It FAILS on any React hydration
- * error / validateDOMNesting warning / page error captured from the browser
- * console — the automated guard for the "In HTML, <X> cannot be a descendant
- * of <Y>" class of bugs.
+ * system Chrome through the protected pages — the four dashboards PLUS the
+ * booking dispute deep link (admin/bookings/BK-1001, whose live SLA countdown
+ * used to hydration-mismatch on every load) and the five highest-traffic
+ * public routes (home + push onboarding, search, customer /bookings, worker
+ * profile, login) — in both English and Arabic. It FAILS on any React
+ * hydration error / validateDOMNesting warning / page error captured from the
+ * browser console — the automated guard for the "In HTML, <X> cannot be a
+ * descendant of <Y>" class of bugs.
+ *
+ * Beyond the console guard, the compact request-SLA countdown (the shared
+ * BookingSlaCountdown + SlaUrgencyBar, §2.2) is CONTENT-checked on /bookings
+ * (customer rows) and /dashboard (worker cards): the localized "Request
+ * auto-expiry" progressbar must render with a numeric aria-valuenow and the
+ * ticking countdown copy — so a silent regression that stops the countdown
+ * from rendering fails the matrix even with a clean console.
  *
  * The SAME matrix also runs against a production build: `next build` into an
  * isolated NEXT_DIST_DIR, then `next start` on a free port — catching the
@@ -90,22 +99,41 @@ const SESSIONS: Record<string, { id: string; name: string; email: string; role: 
   admin: { id: "u-admin", name: "Platform Admin", email: "admin@workersarena.com", role: "admin", hue: 280 },
   worker: { id: "u-worker", name: "Khaled Al-Harbi", email: "khaled@plumbfix.sa", role: "worker", hue: 25 },
   company: { id: "u-company", name: "BuildCo Ltd", email: "ads@buildco.sa", role: "company", hue: 150 },
+  // The customer whose demo bookings the /bookings page renders (BK-1001).
+  customer: { id: "u-customer", name: "Sara Customer", email: "sara@example.com", role: "customer", hue: 200 },
 };
 
 type RouteSpec = {
   path: string;
-  role?: "admin" | "worker" | "company";
+  role?: "admin" | "worker" | "company" | "customer";
   /** Assert the homepage push-onboarding banner renders on this route. */
   pushPrompt?: boolean;
   /** [en, ar] substring that must appear in the rendered page — anchors a
    * route so a silent notFound()/redirect can't pass the generic checks. */
   expectText?: readonly [string, string];
+  /** Content-level guard for the compact request-SLA countdown (§2.2): a
+   * progressbar labeled with the localized "Request auto-expiry" (the
+   * shared BookingSlaCountdown) must render with a numeric aria-valuenow,
+   * plus the ticking countdown copy — zero console errors alone can't catch
+   * the countdown silently vanishing. */
+  expectSlaBar?: boolean;
 };
 
-/** Auth-protected dashboards — each needs a demo session cookie. */
+/** Auth-protected pages — each needs a demo session cookie. Includes the
+ * booking dispute deep link (admin/bookings/BK-1001), the only route whose
+ * live SLA countdown (BookingSlaCountdown via useSsrSafeNow) used to
+ * hydration-mismatch on every load — the exact bug this matrix guards. */
 const ROUTES: RouteSpec[] = [
   { path: "admin", role: "admin" },
-  { path: "dashboard", role: "worker" },
+  {
+    path: "admin/bookings/BK-1001",
+    role: "admin",
+    // Anchored so a silent notFound() can't pass the generic checks.
+    expectText: ["Full audit trail", "سجل تدقيق كامل"],
+  },
+  // The worker dashboard renders the compact SLA countdown on its requested
+  // booking cards — content-asserted via expectSlaBar (not just clean console).
+  { path: "dashboard", role: "worker", expectSlaBar: true },
   { path: "company", role: "company" },
   { path: "notifications", role: "admin" },
 ];
@@ -114,11 +142,23 @@ const ROUTES: RouteSpec[] = [
  * High-traffic public routes — the most complex components in the app (hero +
  * push onboarding, search filters, full worker profile, auth form). Visitors
  * by default; the homepage opts into a session so the onboarding prompt (which
- * requires a signed-in user) actually renders and gets asserted.
+ * requires a signed-in user) actually renders and gets asserted. /bookings
+ * carries the customer session so the booking rows — with their useSsrSafeNow
+ * live SLA countdowns — actually render instead of the guest lookup form
+ * (and the countdown bar gets the expectSlaBar content check).
  */
 const PUBLIC_ROUTES: RouteSpec[] = [
   { path: "", role: "worker", pushPrompt: true }, // home + push onboarding prompt
   { path: "search" },
+  {
+    path: "bookings",
+    role: "customer",
+    // Anchored so a silent redirect to the guest lookup can't pass.
+    expectText: ["My bookings", "حجوزاتي"],
+    // The customer rows render the compact SLA countdown on requested
+    // bookings (BK-1001) — content-asserted, not just zero console errors.
+    expectSlaBar: true,
+  },
   // demo seed worker (src/lib/data/workers.ts) — anchored so a silent 404
   // can't pass the generic assertions.
   { path: "workers/khaled-al-harbi-plumbing", expectText: ["Khaled Al-Harbi", "خالد الحربي"] },
@@ -1001,6 +1041,34 @@ describeE2E("E2E hydration smoke", () => {
           expect(state.text, `content anchor on /${spec.path} (${locale})`).toContain(anchor);
         }
 
+        if (spec.expectSlaBar) {
+          // The countdown's progressbar is SSR-rendered (the rows render from
+          // the server's nowSeed), so it's in the DOM right after load — find
+          // it by its localized "Request auto-expiry" aria-label, assert a
+          // numeric aria-valuenow (the bar drained/filled), and require the
+          // ticking countdown copy on the page.
+          const slaTitle = locale === "ar" ? "انتهاء صلاحية الطلب تلقائياً" : "Request auto-expiry";
+          const slaCopySrc = locale === "ar" ? "س \\d+ د" : "Auto-cancels in \\d+h \\d+m";
+          const sla = await page.evaluate(
+            (title, copySrc) => {
+              const bars = [...document.querySelectorAll<HTMLElement>('[role="progressbar"]')];
+              const bar = bars.find((b) => (b.getAttribute("aria-label") ?? "").includes(title));
+              const raw = bar ? bar.getAttribute("aria-valuenow") : null;
+              const num = raw === null ? null : Number(raw);
+              return {
+                bar: Boolean(bar),
+                now: num !== null && Number.isFinite(num) ? num : null,
+                copy: new RegExp(copySrc).test(document.body.innerText),
+              };
+            },
+            slaTitle,
+            slaCopySrc
+          );
+          expect(sla.bar, `compact SLA countdown bar on /${spec.path} (${locale})`).toBe(true);
+          expect(sla.now, `SLA bar aria-valuenow on /${spec.path} (${locale})`).not.toBeNull();
+          expect(sla.copy, `SLA countdown copy on /${spec.path} (${locale})`).toBe(true);
+        }
+
         if (spec.pushPrompt && opts.pushConfigured) {
           // The banner mounts only after client effects (SW registration +
           // VAPID fetch + framer-motion entry). Poll up to ~10s so a slow CI
@@ -1079,7 +1147,7 @@ describeE2E("E2E hydration smoke", () => {
   }
 
   it(
-    "visits /admin /dashboard /company /notifications in EN + AR with zero hydration errors",
+    "visits /admin /admin/bookings/BK-1001 /dashboard /company /notifications in EN + AR with zero hydration errors (compact SLA countdown bar content-checked on /dashboard)",
     async () => {
       await runMatrix(ROUTES, { pushConfigured });
     },
@@ -1087,7 +1155,7 @@ describeE2E("E2E hydration smoke", () => {
   );
 
   it(
-    "visits / /search /workers/:slug /auth/login in EN + AR with zero hydration errors (push prompt asserted when configured)",
+    "visits / /search /bookings /workers/:slug /auth/login in EN + AR with zero hydration errors (push prompt + /bookings SLA countdown bar content-checked)",
     async () => {
       await runMatrix(PUBLIC_ROUTES, { pushConfigured });
     },

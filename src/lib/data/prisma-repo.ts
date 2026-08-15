@@ -23,12 +23,13 @@
  * AdCampaign + primary Advertisement + PENDING Payment → checkout → ACTIVE +
  * PAID + PAID Invoice + "Campaign is live" notification) and the admin refund
  * (prismaRefundCampaignPayment, whose credit-note flip voids that Invoice)
- * all run against AdCampaign + Payment.advertisementId rows. Ad rotation
- * (getActiveAdsFor) and the /company invoices list (getInvoices) stay
- * demo-only until their wave lands. Remaining demo-only (later waves):
- * reviews, leads, subscriptions, activity feed, cities, suggestions,
- * analytics — in real mode they no-op with a server-side warning (see
- * repo.ts).
+ * all run against AdCampaign + Payment.advertisementId rows. The W2 boundary
+ * is closed: ad rotation (prismaGetActiveAdsFor / prismaRecordImpression /
+ * prismaRecordClick) serves REAL Advertisement rows and the /company invoices
+ * list (prismaGetInvoices) reads the company's real Invoice rows. Remaining
+ * demo-only (later waves): reviews, leads, subscriptions, activity feed,
+ * cities, suggestions, analytics — in real mode they no-op with a
+ * server-side warning (see repo.ts).
  *
  * Known parity gaps vs the demo search engine (see docs/ARCHITECTURE.md §10):
  *   • Text matching is Postgres ILIKE substring — no Arabic normalization or
@@ -48,12 +49,13 @@ import { PLATFORM_FEE_RATE_BPS, computePlatformFee, isPlanFeeExempt, responseRat
 import type { Prisma, $Enums } from "@prisma/client";
 import { FEE_EXEMPT_PLANS } from "./booking-ui";
 import { categoryBySlug as demoCategoryBySlug } from "./categories";
-import { cityBySlug } from "./cities";
+import { CITIES, cityBySlug } from "./cities";
 import { addMonths, planPrice, PLANS, subscriptionStatus } from "./subscriptions";
 import { pushNotification } from "./notifications";
 import { bookingNotification } from "./booking-notifications";
 import { RECURRING_OCCURRENCE_COUNT, generateRecurringOccurrences, occurrencesInWindow } from "./recurring";
 import { campaignRefundNotification } from "./campaign-notifications";
+import { quoteNotification } from "./quote-notifications";
 import type { CampaignCreateInput } from "./campaigns";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { getPaymentProvider } from "@/lib/payments/registry";
@@ -75,14 +77,24 @@ import {
   BOOKING_SLA_NUDGE_HOURS,
   BOOKING_TERMINAL_STATUSES,
   BOOKING_TRANSITION_FROM,
+  MAX_QUOTE_WORKERS,
+  QUOTE_SLA_MS,
   bookingCancelRefundDue,
   formatInvoiceNumber,
+  formatQuoteNumber,
   emptyBookingFunnelCounts,
   bookingConversionRate,
   tallyPlatformFeeStats,
+  type QuoteBidInput,
+  type QuoteRequest,
+  type QuoteRequestInput,
+  type QuoteStatus,
   type RequestSlaRun,
   type Booking,
   type BookingCancelInput,
+  type BookingMessage,
+  type BookingMessageInput,
+  type BookingPayment,
   type BookingFunnel,
   type LedgerEntry,
   type PlatformFeeStats,
@@ -102,6 +114,8 @@ import {
   type CampaignPayment,
   type Category,
   type Certification,
+  type City,
+  type Invoice,
   type Review,
   type SearchFilters,
   type SearchResult,
@@ -281,6 +295,23 @@ export function toDomainCategory(
   };
 }
 
+/** Map a Prisma City row (with its areas) to the domain City type. */
+export function toDomainCity(
+  row: Prisma.CityGetPayload<{ include: { areas: true } }>
+): City {
+  return {
+    slug: row.slug,
+    nameEn: row.nameEn,
+    nameAr: row.nameAr,
+    countryEn: row.countryEn,
+    countryAr: row.countryAr,
+    currency: (row.currency || "SAR") as CurrencyCode,
+    lat: row.lat,
+    lng: row.lng,
+    areas: row.areas.map((a) => ({ slug: a.slug, nameEn: a.nameEn, nameAr: a.nameAr })),
+  };
+}
+
 /* ─────────────────────────────── Queries ─────────────────────────────── */
 
 /** Workers visible to the public catalog (not soft-deleted, not blocked). */
@@ -349,6 +380,30 @@ export async function prismaGetCategories(): Promise<Category[]> {
     },
   });
   return rows.map(toDomainCategory);
+}
+
+/**
+ * Cities (with their areas) for the /search filter — the W2 cities boundary
+ * (docs/ENHANCEMENT-PLAN.md §3.2). The seed upserts the same CITIES constant
+ * the demo adapter returns; here the rows come back from Postgres. Postgres
+ * gives no guaranteed order, so re-sort by the demo catalog's canonical
+ * display order (riyadh, dubai, …) so the /search dropdown can't drift
+ * between modes. isActive mirrors the demo's always-live city list.
+ */
+export async function prismaGetCities(): Promise<City[]> {
+  const prisma = getPrisma();
+  const rows = await prisma.city.findMany({
+    where: { isActive: true },
+    include: { areas: true },
+  });
+  const demoOrder = new Map(CITIES.map((c, i) => [c.slug, i]));
+  return rows
+    .map(toDomainCity)
+    .sort(
+      (a, b) =>
+        (demoOrder.get(a.slug) ?? Number.MAX_SAFE_INTEGER) -
+        (demoOrder.get(b.slug) ?? Number.MAX_SAFE_INTEGER)
+    );
 }
 
 export async function prismaGetWorkerBySlug(slug: string): Promise<Worker | null> {
@@ -595,6 +650,8 @@ export async function prismaGetFeaturedWorkers(limit = 4): Promise<Worker[]> {
 
 const BOOKING_STATUS_DB_TO_APP: Record<string, BookingStatus> = {
   REQUESTED: "requested",
+  QUOTING: "quoting", // multi-candidate quotes — invited, bid not submitted
+  QUOTED: "quoted", // multi-candidate quotes — bid in, awaiting the pick
   PENDING_PAYMENT: "pendingPayment",
   CONFIRMED: "confirmed",
   IN_PROGRESS: "inProgress",
@@ -604,10 +661,14 @@ const BOOKING_STATUS_DB_TO_APP: Record<string, BookingStatus> = {
   DECLINED: "declined",
   NO_SHOW: "noShow",
   RESCHEDULED: "rescheduled",
+  MESSAGE: "message", // audit-event only — a chat message was sent (§2.3)
+  REFUNDED: "refunded", // audit-event only — admin refunded the paid deposit (§2.4)
 };
 
 const BOOKING_STATUS_APP_TO_DB: Record<BookingStatus, $Enums.BookingStatus> = {
   requested: "REQUESTED",
+  quoting: "QUOTING", // multi-candidate quotes
+  quoted: "QUOTED", // multi-candidate quotes
   pendingPayment: "PENDING_PAYMENT",
   confirmed: "CONFIRMED",
   inProgress: "IN_PROGRESS",
@@ -617,6 +678,24 @@ const BOOKING_STATUS_APP_TO_DB: Record<BookingStatus, $Enums.BookingStatus> = {
   declined: "DECLINED",
   noShow: "NO_SHOW",
   rescheduled: "RESCHEDULED",
+  message: "MESSAGE", // audit-event only — a chat message was sent (§2.3)
+  refunded: "REFUNDED", // audit-event only — admin refunded the paid deposit (§2.4)
+};
+
+const QUOTE_STATUS_DB_TO_APP: Record<string, QuoteStatus> = {
+  OPEN: "open",
+  QUOTING: "quoting",
+  SELECTED: "selected",
+  EXPIRED: "expired",
+  CANCELLED: "cancelled",
+};
+
+const QUOTE_STATUS_APP_TO_DB: Record<QuoteStatus, $Enums.QuoteStatus> = {
+  open: "OPEN",
+  quoting: "QUOTING",
+  selected: "SELECTED",
+  expired: "EXPIRED",
+  cancelled: "CANCELLED",
 };
 
 /** Phone separators stripped on BOTH sides of a customer lookup — must match
@@ -680,8 +759,9 @@ export interface PrismaBookingRow {
   customerEmail: string | null;
   jobTitle: string;
   note: string | null;
-  startAt: Date;
-  endAt: Date;
+  /** Null for slot-less multi-candidate quote bids (QUOTING/QUOTED). */
+  startAt: Date | null;
+  endAt: Date | null;
   status: string;
   quote: number | null;
   deposit: number | null;
@@ -691,6 +771,8 @@ export interface PrismaBookingRow {
   paymentId: string | null;
   /** Set when this booking is an occurrence of a recurring contract (W2). */
   recurringBookingId: string | null;
+  /** Multi-candidate quotes — the QuoteRequest this bid belongs to. */
+  quoteRequestId?: string | null;
   /** §2.2 request SLA — the nudge stamp (null/absent = never nudged). */
   lastSlaNudgeAt?: Date | null;
   serviceItem?: {
@@ -707,6 +789,11 @@ export interface PrismaBookingRow {
   }[];
   /** The booking's deposit Payment row, when one exists (M3) — its receipt. */
   payment?: {
+    id: string;
+    amount: number;
+    status: string;
+    providerRef?: string | null;
+    refundedAt?: Date | null;
     invoice?: {
       number: string;
       amount: number;
@@ -728,6 +815,62 @@ export function rowToSlot(row: PrismaBookingSlotRow): BookingSlot {
     status: SLOT_STATUS_DB_TO_APP[row.status] ?? "available",
     note: row.note ?? undefined,
     bookingId: row.bookingId ?? undefined,
+  };
+}
+
+/**
+ * Shape of a QuoteRequest row (+ its invited-worker Bookings, oldest first) —
+ * structural, so mapper tests need no live DB. The bookings carry the same
+ * optional relations toDomainBooking reads (events / serviceItem).
+ */
+export interface PrismaQuoteRequestRow {
+  id: string;
+  number: string;
+  customerId: string | null;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string | null;
+  jobTitle: string;
+  note: string | null;
+  categorySlug: string;
+  citySlug: string;
+  status: string;
+  expiresAt: Date | null;
+  createdAt: Date;
+  serviceItem?: {
+    nameEn: string;
+    nameAr: string;
+    price: number;
+    unit: string;
+  } | null;
+  bookings?: PrismaBookingRow[];
+}
+
+/** Map a QuoteRequest row (+ its bookings) to the domain type. */
+export function toDomainQuoteRequest(row: PrismaQuoteRequestRow): QuoteRequest {
+  return {
+    id: row.id,
+    number: row.number,
+    customerId: row.customerId ?? undefined,
+    customerName: row.customerName,
+    customerPhone: row.customerPhone,
+    customerEmail: row.customerEmail ?? undefined,
+    jobTitle: row.jobTitle,
+    note: row.note ?? undefined,
+    serviceItem: row.serviceItem
+      ? {
+          nameEn: row.serviceItem.nameEn,
+          nameAr: row.serviceItem.nameAr,
+          price: row.serviceItem.price,
+          unit: row.serviceItem.unit === "hour" ? "hour" : "job",
+        }
+      : undefined,
+    categorySlug: row.categorySlug,
+    citySlug: row.citySlug,
+    status: QUOTE_STATUS_DB_TO_APP[row.status] ?? "open",
+    expiresAt: row.expiresAt?.toISOString(),
+    createdAt: row.createdAt.toISOString(),
+    bookings: (row.bookings ?? []).map(toDomainBooking),
   };
 }
 
@@ -767,10 +910,14 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
           date: (row.payment.invoice.paidAt ?? row.payment.invoice.createdAt).toISOString(),
         }
       : undefined,
-    startAt: row.startAt.toISOString(),
-    endAt: row.endAt.toISOString(),
+    // §2.4 — the deposit payment state (gates the admin Refund-deposit action).
+    paymentStatus: row.payment?.status ? (row.payment.status.toLowerCase() as BookingPayment["status"]) : undefined,
+    // Slot-less quote bids map to undefined — the UI hides the time row.
+    startAt: row.startAt?.toISOString(),
+    endAt: row.endAt?.toISOString(),
     status: BOOKING_STATUS_DB_TO_APP[row.status] ?? "requested",
     recurringId: row.recurringBookingId ?? undefined,
+    quoteRequestId: row.quoteRequestId ?? undefined,
     // §2.2 — the request-SLA nudge stamp (true once the cron has nudged the
     // worker about this unanswered request).
     slaNudgeSent: row.lastSlaNudgeAt != null ? true : undefined,
@@ -790,6 +937,33 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
       reason: e.reason ?? undefined,
       time: e.createdAt.toISOString(),
     })),
+  };
+}
+
+/** Shape of a BookingMessage row — structural, so mapper tests need no live
+ * DB. Sent by the customer, the worker, or (in real mode) a platform admin. */
+export interface PrismaBookingMessageRow {
+  id: string;
+  bookingId: string;
+  senderRole: string;
+  senderId: string | null;
+  text: string;
+  quote: number | null;
+  readAt: Date | null;
+  createdAt: Date;
+}
+
+/** Map a BookingMessage row to the domain type (§2.3 chat thread). */
+export function toDomainBookingMessage(row: PrismaBookingMessageRow): BookingMessage {
+  return {
+    id: row.id,
+    bookingId: row.bookingId,
+    senderRole: row.senderRole,
+    ...(row.senderId ? { senderId: row.senderId } : {}),
+    text: row.text,
+    ...(row.quote !== null ? { quote: row.quote } : {}),
+    ...(row.readAt ? { readAt: row.readAt.toISOString() } : {}),
+    time: row.createdAt.toISOString(),
   };
 }
 
@@ -916,6 +1090,188 @@ export async function prismaGetBookingByNumber(number: string): Promise<Booking 
   return row ? toDomainBooking(row) : null;
 }
 
+/** A single booking by its internal id — the §2.3 chat gate's lookup (same
+ * include set as the number lookup, so the gate sees the real trail). */
+export async function prismaGetBookingById(id: string): Promise<Booking | null> {
+  const prisma = getPrisma();
+  const row = await prisma.booking.findUnique({
+    where: { id },
+    include: {
+      events: { orderBy: { createdAt: "asc" as const } },
+      serviceItem: true,
+      payment: { include: { invoice: true } },
+    },
+  });
+  return row ? toDomainBooking(row) : null;
+}
+
+/**
+ * The negotiation thread for one booking (§2.3) — oldest first, the order the
+ * UI renders (mirrors demoGetBookingMessages / the chat component's display).
+ */
+export async function prismaGetBookingMessages(bookingId: string): Promise<BookingMessage[]> {
+  const prisma = getPrisma();
+  const rows = await prisma.bookingMessage.findMany({
+    where: { bookingId },
+    orderBy: { createdAt: "asc" as const },
+  });
+  return rows.map(toDomainBookingMessage);
+}
+
+/**
+ * Append a message to a booking's thread (§2.3). Returns null when the booking
+ * is unknown (callers surface "not-found"). The sender is actor-stamped like
+ * an audit entry (role + optional real user id), so the negotiation stays
+ * inside the booking's record on both adapters. Quote is minor units — the
+ * price the worker shares in-thread (the same ×100 convention as Booking.quote).
+ */
+export async function prismaSendBookingMessage(
+  bookingId: string,
+  input: BookingMessageInput
+): Promise<BookingMessage | null> {
+  const prisma = getPrisma();
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId }, select: { id: true } });
+  if (!booking) return null;
+  // §2.3 — the message and its MESSAGE audit event land atomically, so the
+  // dispute timeline can never miss a negotiation step (message body = reason,
+  // sender stamped as the actor).
+  const [row] = await prisma.$transaction([
+    prisma.bookingMessage.create({
+      data: {
+        bookingId,
+        senderRole: input.senderRole,
+        ...(input.senderId ? { senderId: input.senderId } : {}),
+        text: input.text,
+        ...(input.quote !== undefined ? { quote: input.quote } : {}),
+      },
+    }),
+    prisma.bookingEvent.create({
+      data: {
+        bookingId,
+        status: "MESSAGE",
+        actorType: input.senderRole,
+        ...(input.senderId ? { actorId: input.senderId } : {}),
+        reason: input.text,
+      },
+    }),
+  ]);
+  return toDomainBookingMessage(row);
+}
+
+/**
+ * Read receipt — stamp readAt on every message the OTHER party sent (their
+ * messages are "seen" when the counterpart opens the thread). Idempotent
+ * (updateMany on readAt IS NULL) and the reader's own messages are never
+ * stamped. Returns the number of messages newly marked.
+ */
+export async function prismaMarkChatRead(
+  bookingId: string,
+  readerRole: "customer" | "worker"
+): Promise<number> {
+  const prisma = getPrisma();
+  const res = await prisma.bookingMessage.updateMany({
+    where: { bookingId, senderRole: { not: readerRole }, readAt: null },
+    data: { readAt: new Date() },
+  });
+  return res.count;
+}
+
+/**
+ * Lean read-receipt lookup for the presence poll — only the stamped ids + the
+ * readAt timestamp, so a client polling every few seconds doesn't drag the
+ * whole thread over the wire.
+ */
+export async function prismaGetBookingMessageReadAt(
+  bookingId: string
+): Promise<{ id: string; readAt: Date }[]> {
+  const prisma = getPrisma();
+  const rows = await prisma.bookingMessage.findMany({
+    where: { bookingId, readAt: { not: null } },
+    select: { id: true, readAt: true },
+  });
+  return rows.filter((r): r is { id: string; readAt: Date } => r.readAt !== null);
+}
+
+/**
+ * Customer side: accept the worker's quoted price straight from the chat
+ * thread — the REQUESTED booking converts to CONFIRMED with the message's
+ * quote (minor units), the slot is booked, the M5 take-rate fee is stamped
+ * from the worker's current plan, and the confirmation lands in the audit
+ * trail as a customer action. The message + state re-check happen INSIDE the
+ * transaction (the quoted row is fetched under the same tx, so a concurrent
+ * respond cannot race the accept). Returns null when the booking is not in a
+ * negotiable state or the message isn't a worker quote (callers surface
+ * "not-found").
+ */
+export async function prismaAcceptChatQuote(
+  bookingId: string,
+  messageId: string
+): Promise<Booking | null> {
+  const prisma = getPrisma();
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const row = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: { slot: true, worker: { include: { subscription: true } } },
+      });
+      if (!row || row.status !== "REQUESTED") return null;
+      const message = await tx.bookingMessage.findUnique({
+        where: { id: messageId, bookingId, senderRole: "worker" },
+      });
+      if (!message || message.quote === null) return null;
+
+      // M5 take rate — the fee is a snapshot of the validated quote (minor
+      // units) from the worker's CURRENT plan, same compute as respond.
+      const exempt = isPlanFeeExempt(row.worker.subscription?.plan);
+      const platformFee = computePlatformFee(message.quote, { exempt });
+      const updated = await tx.booking.updateMany({
+        where: { id: bookingId, status: "REQUESTED" },
+        data: {
+          status: "CONFIRMED",
+          quote: message.quote,
+          platformFee,
+          platformFeeRateBps: PLATFORM_FEE_RATE_BPS,
+        },
+      });
+      if (updated.count === 0) return null;
+      if (row.slot) await tx.bookingSlot.update({ where: { id: row.slot.id }, data: { status: "BOOKED" } });
+      await tx.bookingEvent.create({
+        data: {
+          bookingId,
+          status: "CONFIRMED",
+          actorType: "customer",
+          reason: "Accepted the worker's chat quote",
+        },
+      });
+      return tx.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          events: { orderBy: { createdAt: "asc" as const } },
+          serviceItem: true,
+          worker: true,
+        },
+      });
+    });
+
+    if (!result) return null;
+    await pushNotification(
+      bookingNotification(toDomainBooking(result), "worker-quote-accepted"),
+      result.worker
+        ? {
+            name: result.worker.nameEn,
+            ...(result.worker.email ? { email: result.worker.email } : {}),
+            phone: result.worker.phone,
+            locale: "en",
+          }
+        : undefined
+    );
+    return toDomainBooking(result);
+  } catch (err) {
+    console.error("[prisma-repo] acceptChatQuote failed:", err);
+    return null;
+  }
+}
+
 /**
  * A customer's bookings, matched by email or normalized phone — mirrors
  * demoGetCustomerBookings (the /bookings page keyed the same way: session
@@ -969,6 +1325,25 @@ export async function prismaGetCustomerBookings(
  * emptyBookingFunnelCounts so every status key is present and the conversion
  * math stays identical to the demo adapter's tallyBookingFunnel.
  */
+/**
+ * §2.4 admin export — every booking's full event trail (the CSV/PDF trails
+ * export on /admin), same include set as the per-booking read (events,
+ * service item, M3 receipt) so the combined document matches the dispute
+ * view. Production TODO: paginate for very large stores.
+ */
+export async function prismaGetAllBookings(): Promise<Booking[]> {
+  const prisma = getPrisma();
+  const rows = await prisma.booking.findMany({
+    orderBy: { startAt: "asc" },
+    include: {
+      events: { orderBy: { createdAt: "asc" as const } },
+      serviceItem: true,
+      payment: { include: { invoice: true } },
+    },
+  });
+  return rows.map(toDomainBooking);
+}
+
 export async function prismaGetBookingFunnel(days = 30): Promise<BookingFunnel> {
   const prisma = getPrisma();
   const cutoffMs = Date.now() - days * 24 * 60 * 60 * 1000;
@@ -1480,6 +1855,374 @@ export async function prismaRespondToBooking(
     console.error("[prisma-repo] respondToBooking failed:", err);
     return null;
   }
+}
+
+/* ─────────────── Multi-candidate quotes (docs/multi-candidate-quotes.md) ─────────────── */
+
+const QUOTE_INCLUDE = {
+  serviceItem: true,
+  bookings: {
+    include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
+  },
+} as const;
+
+/**
+ * A customer's quote jobs, matched by the signed-in customerId, email or
+ * normalized phone — mirrors prismaGetCustomerBookings (same raw-query id
+ * pick + include) AND prismaGetQuoteRequest's ownership check: the email is
+ * optional on the quote form, so a signed-in customer who skips it must still
+ * see their own jobs. Newest first.
+ */
+export async function prismaGetCustomerQuoteRequests(
+  identifier: { email?: string; phone?: string; customerId?: string } = {}
+): Promise<QuoteRequest[]> {
+  const prisma = getPrisma();
+  const email = identifier.email?.trim().toLowerCase();
+  const phone = identifier.phone?.replace(/[\s\-()]/g, "");
+  const customerId = identifier.customerId;
+
+  let ids: string[] = [];
+  if (email || phone || customerId) {
+    const rows = await prisma.$queryRaw<{ id: string }[]>`
+      SELECT q."id"
+      FROM "QuoteRequest" q
+      WHERE (${customerId ?? null}::text IS NOT NULL AND q."customerId" = ${customerId ?? null})
+         OR (${email ?? null}::text IS NOT NULL AND LOWER(q."customerEmail") = ${email ?? null})
+         OR (${phone ?? null}::text IS NOT NULL
+             AND REGEXP_REPLACE(q."customerPhone", ${PHONE_SEP_PATTERN}, '', 'g') = ${phone ?? null})
+    `;
+    ids = rows.map((r) => r.id);
+  }
+  if (ids.length === 0) return [];
+
+  const rows = await prisma.quoteRequest.findMany({
+    where: { id: { in: ids } },
+    orderBy: { createdAt: "desc" },
+    include: QUOTE_INCLUDE,
+  });
+  return rows.map(toDomainQuoteRequest);
+}
+
+/**
+ * A quote job by id or number — with ownership enforced when an identifier is
+ * given (signed-in customerId or normalized phone), so customer-only reads
+ * never leak another customer's job.
+ */
+export async function prismaGetQuoteRequest(
+  idOrNumber: string,
+  identifier?: { customerId?: string; phone?: string }
+): Promise<QuoteRequest | null> {
+  const prisma = getPrisma();
+  const row = await prisma.quoteRequest.findFirst({
+    where: { OR: [{ id: idOrNumber }, { number: idOrNumber }] },
+    include: QUOTE_INCLUDE,
+  });
+  if (!row) return null;
+  if (identifier) {
+    const phone = identifier.phone?.replace(/[\s\-()]/g, "");
+    const owned =
+      (identifier.customerId && row.customerId === identifier.customerId) ||
+      (phone && row.customerPhone.replace(/[\s\-()]/g, "") === phone);
+    if (!owned) return null;
+  }
+  return toDomainQuoteRequest(row);
+}
+
+/**
+ * Customer side: post a job and invite up to MAX_QUOTE_WORKERS workers to
+ * quote it (rule 1 — duplicates and over-limit rejected). One QuoteRequest
+ * (OPEN, expiresAt = now + QUOTE_SLA_MS) + one slot-less Booking per invited
+ * worker (QUOTING — rule 2: no slot is locked during the auction), all inside
+ * one $transaction; the number collision retries on P2002 (whole tx rolls
+ * back). Workers are notified AFTER the tx (the inbox write must not share
+ * its locks).
+ */
+export async function prismaCreateQuoteRequest(
+  input: QuoteRequestInput,
+  workerIds: string[]
+): Promise<QuoteRequest | { error: "invalid" | "too-many" | "duplicate" | "unknown-worker" }> {
+  if (workerIds.length < 1 || workerIds.length > MAX_QUOTE_WORKERS) return { error: "too-many" };
+  if (new Set(workerIds).size !== workerIds.length) return { error: "duplicate" };
+  const prisma = getPrisma();
+  const isNumberCollision = (err: unknown) => (err as { code?: string })?.code === "P2002";
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const workers = await tx.worker.findMany({
+          where: { id: { in: workerIds } },
+          select: {
+            id: true,
+            nameEn: true,
+            email: true,
+            phone: true,
+            languages: true,
+            city: { select: { currency: true } },
+          },
+        });
+        if (workers.length !== workerIds.length) return { ok: false as const, error: "unknown-worker" as const };
+
+        const serviceItem = input.serviceItem
+          ? await tx.serviceItem.findFirst({ where: { nameEn: input.serviceItem.nameEn }, select: { id: true } })
+          : null;
+        // QR number derives from the row count (like the BK sequence — quote
+        // jobs are never hard-deleted, so count stays stable).
+        const qrCount = await tx.quoteRequest.count();
+        const request = await tx.quoteRequest.create({
+          data: {
+            number: formatQuoteNumber(new Date().getFullYear(), qrCount + 1),
+            customerId: input.customerId ?? null,
+            customerName: input.customerName,
+            customerPhone: input.customerPhone,
+            customerEmail: input.customerEmail,
+            jobTitle: input.jobTitle,
+            note: input.note,
+            serviceItemId: serviceItem?.id ?? null,
+            categorySlug: input.categorySlug,
+            citySlug: input.citySlug,
+            status: "OPEN",
+            expiresAt: new Date(Date.now() + QUOTE_SLA_MS),
+          },
+        });
+
+        // Per-booking BK numbers: base = bookings already in the table, then
+        // +1 per booking created in THIS request (uniqueness within the tx).
+        const bkBase = await tx.booking.count();
+        let n = 0;
+        for (const worker of workers) {
+          const booking = await tx.booking.create({
+            data: {
+              number: `BK-${1001 + bkBase + n}`,
+              workerId: worker.id,
+              customerId: input.customerId ?? null,
+              customerName: input.customerName,
+              customerPhone: input.customerPhone,
+              customerEmail: input.customerEmail,
+              jobTitle: input.jobTitle,
+              note: input.note,
+              serviceItemId: serviceItem?.id ?? null,
+              status: "QUOTING",
+              currency: worker.city?.currency ?? "USD",
+              quoteRequestId: request.id,
+            },
+          });
+          n += 1;
+          // Rule 5 — audit event per invite (same tx as the create).
+          await tx.bookingEvent.create({
+            data: { bookingId: booking.id, status: "QUOTING", actorType: "customer" },
+          });
+        }
+
+        const full = await tx.quoteRequest.findUnique({
+          where: { id: request.id },
+          include: QUOTE_INCLUDE,
+        });
+        return { ok: true as const, request: full!, workers };
+      });
+
+      if (!result.ok) return { error: result.error };
+      for (const worker of result.workers) {
+        const booking = result.request.bookings.find((b) => b.workerId === worker.id);
+        if (!booking) continue;
+        await pushNotification(
+          quoteNotification(toDomainBooking(booking), "quote-invite"),
+          {
+            name: worker.nameEn,
+            email: worker.email ?? undefined,
+            phone: worker.phone,
+            locale: (worker.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en",
+          }
+        );
+      }
+      return toDomainQuoteRequest(result.request);
+    } catch (err) {
+      if (attempt < 2 && isNumberCollision(err)) continue;
+      console.error("[prisma-repo] createQuoteRequest failed:", err);
+      return { error: "invalid" };
+    }
+  }
+  return { error: "invalid" };
+}
+
+/**
+ * Worker side: submit a bid on a quote invite (rule 3 — bids are NOT
+ * commitments: no slot is claimed, no slot status flips). QUOTING → QUOTED
+ * via a CAS on the source status (two submits can't both win); the job
+ * container flips OPEN → QUOTING once the first bid lands. Returns null for
+ * unknown or already-bid bookings.
+ */
+export async function prismaSubmitQuote(bookingId: string, input: QuoteBidInput): Promise<Booking | null> {
+  const prisma = getPrisma();
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const row = await tx.booking.findUnique({ where: { id: bookingId }, include: { quoteRequest: true } });
+      if (!row || row.status !== "QUOTING") return null;
+      const updated = await tx.booking.updateMany({
+        where: { id: bookingId, status: "QUOTING" },
+        data: { status: "QUOTED", quote: input.quote, deposit: input.deposit ?? null },
+      });
+      if (updated.count === 0) return null;
+      await tx.bookingEvent.create({ data: { bookingId, status: "QUOTED", actorType: "worker" } });
+      if (row.quoteRequest && row.quoteRequest.status === "OPEN") {
+        await tx.quoteRequest.update({ where: { id: row.quoteRequest.id }, data: { status: "QUOTING" } });
+      }
+      return tx.booking.findUnique({
+        where: { id: bookingId },
+        include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
+      });
+    });
+    return result ? toDomainBooking(result) : null;
+  } catch (err) {
+    console.error("[prisma-repo] submitQuote failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Customer side: pick the winner + a slot from the winner's availability.
+ * Rule 4 — exactly one winner: the chosen slot is claimed inside the SAME
+ * $transaction with the SAME atomic AVAILABLE → RESERVED updateMany CAS + the
+ * overlap guard FIRST (mirrors createBookingRequestTx — a rejection must not
+ * orphan a RESERVED slot). The winner becomes a normal slot-bound REQUESTED
+ * booking, the losers are DECLINED by the system (slot-less — nothing to
+ * free), and the job flips to SELECTED once. The winner then flows through
+ * the existing respondToBooking pipeline unchanged. Notifications fire after
+ * the tx.
+ */
+export async function prismaSelectQuote(
+  quoteRequestId: string,
+  winnerBookingId: string,
+  slotId: string
+): Promise<Booking | { error: "slot-taken" | "invalid" | "not-quoted" | "closed" }> {
+  const prisma = getPrisma();
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const request = await tx.quoteRequest.findUnique({
+        where: { id: quoteRequestId },
+        include: { bookings: true },
+      });
+      if (!request) return { ok: false as const, error: "invalid" as const };
+      if (request.status !== "OPEN" && request.status !== "QUOTING") return { ok: false as const, error: "closed" as const };
+      const winner = request.bookings.find((b) => b.id === winnerBookingId);
+      if (!winner) return { ok: false as const, error: "invalid" as const };
+      if (winner.status !== "QUOTED") return { ok: false as const, error: "not-quoted" as const };
+
+      // Rule 4 — the slot claim (mirrors createBookingRequestTx exactly).
+      const slot = await tx.bookingSlot.findUnique({ where: { id: slotId } });
+      if (!slot || slot.workerId !== winner.workerId) return { ok: false as const, error: "slot-taken" as const };
+      const clash = await tx.bookingSlot.findFirst({
+        where: {
+          workerId: winner.workerId,
+          id: { not: slot.id },
+          status: { in: ["RESERVED", "BOOKED", "BLOCKED"] },
+          startAt: { lt: slot.endAt },
+          endAt: { gt: slot.startAt },
+        },
+        select: { id: true },
+      });
+      if (clash) return { ok: false as const, error: "slot-taken" as const };
+      const claimed = await tx.bookingSlot.updateMany({
+        where: { id: slot.id, workerId: winner.workerId, status: "AVAILABLE" },
+        data: { status: "RESERVED", bookingId: winner.id },
+      });
+      if (claimed.count === 0) return { ok: false as const, error: "slot-taken" as const };
+
+      // Winner — slot-less QUOTED → slot-bound REQUESTED.
+      await tx.booking.update({
+        where: { id: winner.id },
+        data: { status: "REQUESTED", startAt: slot.startAt, endAt: slot.endAt },
+      });
+      await tx.bookingEvent.create({ data: { bookingId: winner.id, status: "REQUESTED", actorType: "customer" } });
+
+      // Losers — system DECLINED (slot-less rows, nothing to free).
+      for (const b of request.bookings) {
+        if (b.id === winner.id || (b.status !== "QUOTING" && b.status !== "QUOTED")) continue;
+        await tx.booking.updateMany({ where: { id: b.id, status: b.status }, data: { status: "DECLINED" } });
+        await tx.bookingEvent.create({
+          data: { bookingId: b.id, status: "DECLINED", actorType: "system", reason: "The customer chose another quote" },
+        });
+      }
+      await tx.quoteRequest.update({ where: { id: quoteRequestId }, data: { status: "SELECTED" } });
+
+      const full = await tx.booking.findUnique({
+        where: { id: winner.id },
+        include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
+      });
+      return {
+        ok: true as const,
+        booking: full!,
+        losers: request.bookings.filter((b) => b.id !== winner.id && (b.status === "QUOTING" || b.status === "QUOTED")),
+      };
+    });
+    if (!result.ok) return { error: result.error };
+
+    // Notify after the tx — winner shortlisted, losers → another quote chosen.
+    const winner = result.booking;
+    for (const b of [winner, ...result.losers]) {
+      const worker = await prisma.worker.findUnique({
+        where: { id: b.workerId },
+        select: { nameEn: true, email: true, phone: true, languages: true },
+      });
+      if (!worker) continue;
+      await pushNotification(
+        quoteNotification(toDomainBooking(b), b.id === winner.id ? "quote-winner" : "quote-loser"),
+        {
+          name: worker.nameEn,
+          email: worker.email ?? undefined,
+          phone: worker.phone,
+          locale: (worker.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en",
+        }
+      );
+    }
+    return toDomainBooking(winner);
+  } catch (err) {
+    console.error("[prisma-repo] selectQuote failed:", err);
+    return { error: "invalid" };
+  }
+}
+
+/**
+ * The SLA cron (docs/multi-candidate-quotes.md §5 — QUOTE_SLA_MS): OPEN/QUOTING
+ * jobs past expiresAt flip to EXPIRED and their open bids (QUOTING/QUOTED) are
+ * DECLINED by the system (slot-less — nothing to free; the worker gets a
+ * "window closed" notification). Idempotent — a re-run finds nothing due.
+ * Returns the number of jobs expired.
+ */
+export async function prismaExpireQuoteRequests(now = new Date()): Promise<number> {
+  const prisma = getPrisma();
+  const due = await prisma.quoteRequest.findMany({
+    where: { status: { in: ["OPEN", "QUOTING"] }, expiresAt: { lte: now } },
+    include: { bookings: { where: { status: { in: ["QUOTING", "QUOTED"] } } } },
+  });
+  for (const q of due) {
+    await prisma.$transaction(async (tx) => {
+      await tx.quoteRequest.updateMany({ where: { id: q.id, status: q.status }, data: { status: "EXPIRED" } });
+      for (const b of q.bookings) {
+        await tx.booking.updateMany({ where: { id: b.id, status: b.status }, data: { status: "DECLINED" } });
+        await tx.bookingEvent.create({
+          data: { bookingId: b.id, status: "DECLINED", actorType: "system", reason: "Quote window closed" },
+        });
+      }
+    });
+    // Notify after each tx.
+    for (const b of q.bookings) {
+      const worker = await prisma.worker.findUnique({
+        where: { id: b.workerId },
+        select: { nameEn: true, email: true, phone: true, languages: true },
+      });
+      if (!worker) continue;
+      await pushNotification(
+        quoteNotification(toDomainBooking(b), "quote-expired"),
+        {
+          name: worker.nameEn,
+          email: worker.email ?? undefined,
+          phone: worker.phone,
+          locale: (worker.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en",
+        }
+      );
+    }
+  }
+  return due.length;
 }
 
 /**
@@ -2033,7 +2776,7 @@ export async function prismaCancelBooking(
     let refunded = false;
     if (
       result.payment?.status === "PAID" &&
-      bookingCancelRefundDue({ startAt: result.startAt.toISOString() }, new Date(), input.by)
+      bookingCancelRefundDue({ startAt: result.startAt?.toISOString() ?? "" }, new Date(), input.by)
     ) {
       try {
         const refundRef = await getPaymentProvider().refund(
@@ -2051,6 +2794,24 @@ export async function prismaCancelBooking(
     }
 
     if (input.by === "customer") {
+      const workerLocale =
+        (result.worker?.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en";
+      await pushNotification(
+        bookingNotification(toDomainBooking(result), "worker-cancelled"),
+        result.worker?.email
+          ? { name: result.worker.nameEn, email: result.worker.email, phone: result.worker.phone, locale: workerLocale }
+          : undefined
+      );
+    } else if (input.by === "admin") {
+      // §2.4 — an admin cancellation is a platform action: BOTH parties are
+      // told (customer: booking cancelled; worker: slot freed), unlike a
+      // party-initiated cancel which notifies only the other side.
+      await pushNotification(
+        bookingNotification(toDomainBooking(result), "customer-cancelled"),
+        result.customerEmail
+          ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+          : undefined
+      );
       const workerLocale =
         (result.worker?.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en";
       await pushNotification(
@@ -2083,6 +2844,79 @@ export async function prismaCancelBooking(
     return toDomainBooking(result);
   } catch (err) {
     console.error("[prisma-repo] cancelBooking failed:", err);
+    return null;
+  }
+}
+
+/**
+ * §2.4 admin dispute view — refund the booking's PAID deposit WITHOUT
+ * cancelling the booking (a money-only correction: the job and slot stay as
+ * they are). Unlike a party cancellation, the deposit policy's window logic
+ * does NOT apply — an admin refund is a platform decision, so a paid deposit
+ * is always refundable. The payment must be PAID (a PENDING checkout or an
+ * already-REFUNDED payment returns null — idempotent; a double-click can't
+ * re-refund). The provider refund + the payment flip to REFUNDED happen after
+ * a short read tx; the REFUNDED audit event rides the same tx as the state
+ * check, and the customer gets the M4 refund email. Returns null for unknown
+ * bookings or when there is no refundable paid deposit.
+ */
+export async function prismaRefundBookingDeposit(
+  bookingId: string,
+  input: { reason?: string }
+): Promise<Booking | null> {
+  const prisma = getPrisma();
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const row = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          payment: true,
+          worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+        },
+      });
+      if (!row) return null;
+      // Only a PAID deposit is refundable — PENDING (unpaid checkout) and
+      // already-REFUNDED are no-ops. The REFUNDED event lands in the SAME tx
+      // as the state re-check, so a concurrent refund can't double-fire.
+      if (row.payment?.status !== "PAID") return null;
+      await tx.bookingEvent.create({
+        data: { bookingId, status: "REFUNDED", actorType: "admin", reason: input.reason ?? null },
+      });
+      return tx.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          events: { orderBy: { createdAt: "asc" as const } },
+          serviceItem: true,
+          payment: { include: { invoice: true } },
+          worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+        },
+      });
+    });
+    if (!result) return null;
+
+    // The actual money move + the payment flip run AFTER the read tx (same
+    // pattern as prismaCancelBooking's refund): the provider call is async
+    // and must not hold the tx's locks.
+    const refundRef = await getPaymentProvider().refund(
+      result.payment?.providerRef ?? result.payment?.id ?? bookingId,
+      result.payment?.amount ?? 0
+    );
+    await prisma.payment.updateMany({
+      where: { id: result.payment!.id, status: "PAID" },
+      data: { status: "REFUNDED", refundRef, refundedAt: new Date() },
+    });
+
+    await pushNotification(
+      bookingNotification(toDomainBooking(result), "customer-refund", {
+        refund: { amount: result.payment!.amount, reason: input.reason },
+      }),
+      result.customerEmail
+        ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+        : undefined
+    );
+    return toDomainBooking(result);
+  } catch (err) {
+    console.error("[prisma-repo] refundBookingDeposit failed:", err);
     return null;
   }
 }
@@ -2466,6 +3300,13 @@ export async function prismaRefundCampaignPayment(
       if (!payment || payment.status !== "PAID") return null;
       if (campaign.status === "ACTIVE") {
         await tx.adCampaign.update({ where: { id: campaignId }, data: { status: "ENDED" } });
+        // The creatives stop serving with the campaign (rotation matches
+        // ACTIVE ads; the campaign gate already excludes ENDED, but the rows
+        // should stay honest — no ACTIVE ad of an ended campaign).
+        await tx.advertisement.updateMany({
+          where: { campaignId, status: "ACTIVE" },
+          data: { status: "ENDED" },
+        });
       }
       // Credit note — the purchase's Invoice row flips to VOID (InvoiceStatus
       // has no REFUNDED; VOID is the terminal marker), mirroring the demo's
@@ -2781,6 +3622,14 @@ export async function prismaConfirmCampaignPayment(
           where: { id: payment.id, status: "PENDING" },
           data: { status: "PAID", paidAt: new Date(), providerRef },
         });
+        // The campaign's creatives go live with it — rotation only serves
+        // ACTIVE ads, so a confirmed purchase must have ACTIVE creatives or
+        // it would never serve (the demo adapter has no ad rows to flip; the
+        // W2 boundary makes this the real-mode equivalent of "starts serving").
+        await tx.advertisement.updateMany({
+          where: { campaignId, status: "PENDING" },
+          data: { status: "ACTIVE" },
+        });
 
         // The purchase's PAID invoice — what the credit-note flip voids on
         // refund. Same WA-YYYY-NNNNN per-year sequence as booking receipts
@@ -2837,6 +3686,271 @@ export async function prismaConfirmCampaignPayment(
   return null;
 }
 
+/* ──────────────────── W2 boundary close — rotation + invoices ──────────────────
+ * Ad rotation and the company invoices list in real mode (the W2 revenue-rail
+ * boundary, docs/ENHANCEMENT-PLAN.md §3.2). Mirrors the demo adapter in
+ * src/lib/data/campaigns.ts exactly:
+ *   • prismaGetActiveAdsFor serves ACTIVE campaigns whose ACTIVE primary
+ *     creative matches the placement request (the demo's "a|b" token split,
+ *     case-folded substring), narrowed to the requested category/city ONLY
+ *     for TARGETED ads (untargeted buys always serve — the demo's
+ *     targetCategories gate, so a rotation request never hides an untargeted
+ *     purchase). The campaign — not the ad — is the domain unit, exactly like
+ *     the demo, so the returned id round-trips into recordImpression/Click.
+ *   • prismaRecordImpression / prismaRecordClick bump the served creative's
+ *     counters (same CTR formula as the demo) and the campaign's spent
+ *     (impression +1 minor / click +100 minor, capped at budget — the demo's
+ *     $0.01 / $1.00 major increments) inside one tx.
+ *   • prismaGetInvoices lists the seeded company's Invoice rows (the purchase
+ *     path mints WA-YYYY-NNNNN receipts; the refund's VOID flip reads back as
+ *     the credit note), newest first, mapped to the domain Invoice (minor →
+ *     major, PAID/VOID → paid/refunded, EN + AR descriptions from the items
+ *     + the campaign's Arabic name). Production TODO: scope by the acting
+ *     company's user id once real auth lands — the demo seam is single-company,
+ *     so the seeded company (ads@buildco.sa) is the anchor.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const INVOICE_STATUS_DB_TO_APP: Record<string, Invoice["status"]> = {
+  PAID: "paid",
+  VOID: "refunded", // the credit note — a refunded purchase reads back here
+  DRAFT: "pending",
+  SENT: "pending",
+  OVERDUE: "pending",
+};
+
+/** Shape of an Invoice row (+ its purchase's campaign, when advertising) —
+ * structural, so mapper tests need no live DB. */
+export interface PrismaInvoiceRow {
+  id: string;
+  number: string;
+  amount: number;
+  currency: string;
+  status: string;
+  paidAt: Date | null;
+  createdAt: Date;
+  items?: { description: string }[] | null;
+  payment?: { advertisementId: string | null } | null;
+  campaign?: { nameAr: string; placement: string } | null;
+}
+
+/** Map an Invoice row (+ its campaign) to the domain Invoice type. */
+export function toDomainInvoice(row: PrismaInvoiceRow): Invoice {
+  const fallback = row.items?.[0]?.description ?? row.number;
+  return {
+    id: row.id,
+    number: row.number,
+    // Advertising purchases carry payment.advertisementId (→ the campaign);
+    // everything else (subscription renewals, customer receipts) reads as
+    // subscription — the demo's two scopes, and /company filters advertising.
+    scope: row.payment?.advertisementId ? "advertising" : "subscription",
+    // The purchase path writes ONE language-neutral item description
+    // (`${nameEn} — ${placement}`); the Arabic line resolves from the
+    // campaign's nameAr when known, else falls back to the same string.
+    descriptionEn: fallback,
+    descriptionAr: row.campaign ? `${row.campaign.nameAr} — ${row.campaign.placement}` : fallback,
+    // DB minor → domain major (×100) — the same convention as toDomainWorker.
+    amount: row.amount / 100,
+    currency: (row.currency || "USD") as CurrencyCode,
+    date: (row.paidAt ?? row.createdAt).toISOString(),
+    status: INVOICE_STATUS_DB_TO_APP[row.status] ?? "pending",
+    // Populated so shared consumers can resolve the purchase without a second
+    // lookup — the demo store keys invoices by campaignId; prisma keeps the
+    // real link in Payment.advertisementId (read through here).
+    campaignId: row.payment?.advertisementId ?? undefined,
+  };
+}
+
+/**
+ * The company's invoices (advertising + subscription), newest first — mirrors
+ * demoGetInvoices (the /company invoices card + the worker dashboard read
+ * this seam). Real mode anchors on the seeded company (ads@buildco.sa — the
+ * same fallback prismaCreateCampaign resolves), so self-serve ad purchases
+ * show up end-to-end: the WA-YYYY-NNNNN receipt the webhook mints reads back
+ * as a paid advertising invoice, and a refund's VOID flip as the credit note.
+ * One extra query batches the campaigns behind advertising invoices for the
+ * Arabic description line.
+ */
+export async function prismaGetInvoices(): Promise<Invoice[]> {
+  const prisma = getPrisma();
+  const companyUser = await prisma.user.findUnique({
+    where: { email: "ads@buildco.sa" },
+    select: { id: true },
+  });
+  if (!companyUser) return [];
+  const rows = await prisma.invoice.findMany({
+    where: { userId: companyUser.id },
+    orderBy: { createdAt: "desc" },
+    include: { payment: { select: { advertisementId: true } } },
+  });
+  const campaignIds = rows
+    .map((r) => r.payment?.advertisementId)
+    .filter((id): id is string => Boolean(id));
+  const campaigns = campaignIds.length
+    ? await prisma.adCampaign.findMany({
+        where: { id: { in: campaignIds } },
+        select: {
+          id: true,
+          nameAr: true,
+          ads: {
+            where: { status: "ACTIVE" },
+            orderBy: { createdAt: "asc" as const },
+            take: 1,
+            select: { placement: true },
+          },
+        },
+      })
+    : [];
+  const campaignByAd = new Map(campaigns.map((c) => [c.id, c]));
+  return rows.map((r) =>
+    toDomainInvoice({
+      id: r.id,
+      number: r.number,
+      amount: r.amount,
+      currency: r.currency,
+      status: r.status,
+      paidAt: r.paidAt,
+      createdAt: r.createdAt,
+      items: (r.items as { description: string }[] | null) ?? undefined,
+      payment: r.payment ? { advertisementId: r.payment.advertisementId } : null,
+      campaign: (() => {
+        const c = r.payment?.advertisementId ? campaignByAd.get(r.payment.advertisementId) : undefined;
+        return c ? { nameAr: c.nameAr, placement: c.ads[0]?.placement ?? "" } : null;
+      })(),
+    })
+  );
+}
+
+/** Case-folded placement match — the demo's one-way substring (the campaign's
+ * placement contains the requested token) plus the reverse, so BOTH the exact
+ * lowercase placements the purchase path writes ("homepage") AND human
+ * display strings ("Homepage · Banner") match a "homepage" request. */
+export function matchesAdPlacement(adPlacement: string, tokens: string[]): boolean {
+  const p = adPlacement.trim().toLowerCase();
+  if (!p) return false;
+  return tokens.some((token) => p.includes(token) || token.includes(p));
+}
+
+/** Targeted-ad gate — mirrors demoGetActiveAdsFor's `targetCategories?.length`
+ * rule: an UNTARGETED ad (no category/city) always serves; a targeted ad only
+ * serves a request naming its category/city. */
+export function matchesAdTargeting(
+  ad: { categorySlug?: string | null; citySlug?: string | null },
+  opts: { category?: string; city?: string }
+): boolean {
+  if (opts.category && ad.categorySlug && ad.categorySlug !== opts.category) return false;
+  if (opts.city && ad.citySlug && ad.citySlug !== opts.city) return false;
+  return true;
+}
+
+/**
+ * Ad rotation, real mode: ACTIVE campaigns whose ACTIVE primary creative's
+ * placement matches the request, newest-first — mirrors demoGetActiveAdsFor
+ * (which only serves ACTIVE campaigns). Category/city narrow the set only
+ * for TARGETED ads. The campaign (not the ad) is the domain unit the API
+ * rotates, exactly like the demo, so the returned Campaign's id round-trips
+ * into prismaRecordImpression / prismaRecordClick.
+ */
+export async function prismaGetActiveAdsFor(
+  placement: string,
+  opts: { category?: string; city?: string } = {}
+): Promise<Campaign[]> {
+  const prisma = getPrisma();
+  const tokens = placement
+    .split("|")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  const rows = await prisma.adCampaign.findMany({
+    where: { status: "ACTIVE" },
+    include: {
+      // Only ACTIVE creatives rotate; toDomainCampaign reads ads[0], so a
+      // campaign whose primary creative is PENDING/PAUSED maps its first
+      // ACTIVE ad's placement/type — one with none drops out below.
+      ads: {
+        where: { status: "ACTIVE" },
+        orderBy: { createdAt: "asc" as const },
+        include: {
+          category: { select: { slug: true } },
+          city: { select: { slug: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows
+    .filter((c) =>
+      c.ads.some(
+        (ad) =>
+          matchesAdPlacement(ad.placement, tokens) &&
+          matchesAdTargeting(
+            { categorySlug: ad.category?.slug ?? null, citySlug: ad.city?.slug ?? null },
+            opts
+          )
+      )
+    )
+    .map(toDomainCampaign);
+}
+
+/**
+ * Bump a served ad's counters + the campaign's spent inside one tx — the real
+ * mode of recordImpression / recordClick (the /api/ads rotation seam).
+ * Mirrors the demo: an impression adds $0.01 of spend, a click $1.00 (1 / 100
+ * minor), capped at budget, with the same CTR formula (rounded to 2dp). The
+ * primary ACTIVE creative is the served one (getActiveAdsFor matched it); a
+ * read-modify-write inside the tx keeps impressions/ctr/spent consistent.
+ * Returns the updated campaign, or null when the campaign (or its creative)
+ * is gone.
+ */
+async function prismaTrackAd(
+  campaignId: string,
+  kind: "impression" | "click"
+): Promise<Campaign | null> {
+  const prisma = getPrisma();
+  try {
+    await prisma.$transaction(async (tx) => {
+      const ad = await tx.advertisement.findFirst({
+        where: { campaignId, status: "ACTIVE" },
+        orderBy: { createdAt: "asc" },
+        include: { campaign: true },
+      });
+      if (!ad?.campaign) return;
+      // A click does NOT add an impression — the /api/ads impression and
+      // click routes are independent, and the demo's recordClick only bumps
+      // clicks (parity: impressions stay put, ctr = clicks/impressions).
+      const impressions = ad.impressions + (kind === "click" ? 0 : 1);
+      const clicks = ad.clicks + (kind === "click" ? 1 : 0);
+      await tx.advertisement.update({
+        where: { id: ad.id },
+        data: {
+          impressions,
+          clicks,
+          ctr: impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
+        },
+      });
+      const spend = kind === "click" ? 100 : 1; // demo: click $1.00, impression $0.01 (minor)
+      const spent = Math.min(ad.campaign.budget, ad.campaign.spent + spend);
+      await tx.adCampaign.update({ where: { id: campaignId }, data: { spent } });
+    });
+    const row = await prisma.adCampaign.findUnique({
+      where: { id: campaignId },
+      include: { ads: { orderBy: { createdAt: "asc" as const } } },
+    });
+    return row ? toDomainCampaign(row) : null;
+  } catch (err) {
+    console.error(`[prisma-repo] trackAd (${kind}) failed:`, err);
+    return null;
+  }
+}
+
+/** Track a served impression (ad rotation). Returns the updated campaign. */
+export function prismaRecordImpression(campaignId: string): Promise<Campaign | null> {
+  return prismaTrackAd(campaignId, "impression");
+}
+
+/** Track a click. Returns the updated campaign. */
+export function prismaRecordClick(campaignId: string): Promise<Campaign | null> {
+  return prismaTrackAd(campaignId, "click");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // W2 RECURRING BOOKINGS — maintenance contracts (docs/ENHANCEMENT-PLAN.md §7 #1)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2886,8 +4000,8 @@ export async function prismaCreateRecurringRequest(
             jobTitle: input.jobTitle,
             note: input.note,
             frequency: input.frequency.toUpperCase() as $Enums.RecurringFrequency,
-            anchorStart: res.booking.startAt,
-            anchorEnd: res.booking.endAt,
+            anchorStart: res.booking.startAt!, // the first occurrence claimed a slot
+            anchorEnd: res.booking.endAt!,
             status: "ACTIVE",
           },
         });
@@ -3138,7 +4252,9 @@ export async function prismaGenerateRecurringOccurrences(
     if (!first) continue;
     if (first.status !== "CONFIRMED" && first.status !== "PENDING_PAYMENT") continue; // not accepted yet
     const frequency = RECURRING_FREQUENCY_DB_TO_APP[contract.frequency] ?? "weekly";
-    const existing = new Set(contract.occurrences.map((o) => o.startAt.getTime()));
+    // Occurrences are always slot-bound (a contract's requests claim a slot),
+    // but the column is nullable — guard so a null can never crash the cron.
+    const existing = new Set(contract.occurrences.map((o) => o.startAt?.getTime() ?? 0));
     const due = occurrencesInWindow(contract.anchorStart.toISOString(), frequency, now, to)
       .map((iso) => new Date(iso))
       .filter((d) => !existing.has(d.getTime()));

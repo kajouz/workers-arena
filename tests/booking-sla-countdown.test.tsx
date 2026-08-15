@@ -5,17 +5,27 @@
  * urgency bar and the red-state pulse render for a REQUESTED booking, and
  * nothing renders for a non-requested one — the same clock the worker and
  * customer dialogs show, in one locale (the i18n parity test covers EN/AR).
+ *
+ * Hydration: the component derives its values from Date.now(), which can never
+ * be equal on the server and the client's first render. The server page passes
+ * nowSeed (its Date.now() at render time) and the component renders from it
+ * until mount (via the shared useSsrSafeNow hook), so the SSR markup and the
+ * client's first render are identical — proven by the deterministic-SSR and
+ * clean-hydration tests at the bottom.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { act, render, screen, cleanup } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { BookingSlaCountdown } from "@/components/admin/booking-sla-countdown";
+import { renderToString } from "react-dom/server";
+import { hydrateRoot, type Root } from "react-dom/client";
+import { BookingSlaCountdown, type SlaCountdownVariant } from "@/components/bookings/booking-sla-countdown";
 import { LocaleProvider } from "@/components/providers/locale-provider";
 import type { Booking } from "@/lib/data/types";
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 // Deterministic clock per test — the countdown derives from Date.now() against
@@ -36,10 +46,10 @@ const booking = {
   slaNudgeSent: false,
 } as unknown as Booking;
 
-function renderTicker(b: Booking) {
+function renderTicker(b: Booking, opts: { variant?: SlaCountdownVariant; compact?: boolean; locale?: "en" | "ar" } = {}) {
   return render(
-    <LocaleProvider locale="en" dir="ltr">
-      <BookingSlaCountdown booking={b} />
+    <LocaleProvider locale={opts.locale ?? "en"} dir={opts.locale === "ar" ? "rtl" : "ltr"}>
+      <BookingSlaCountdown booking={b} nowSeed={Date.now()} variant={opts.variant} compact={opts.compact} />
     </LocaleProvider>
   );
 }
@@ -111,5 +121,98 @@ describe("BookingSlaCountdown", () => {
     renderTicker({ ...booking, status: "confirmed" } as unknown as Booking);
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.queryByText(/Auto-cancels in/)).not.toBeInTheDocument();
+  });
+
+  it("renders the customer voice with ticking minutes (compact)", () => {
+    renderTicker(booking, { variant: "customer", compact: true });
+    expect(
+      screen.getByText(/Auto-cancels in 47h 0m if the worker doesn't respond/)
+    ).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Request auto-expiry" })).toBeInTheDocument();
+  });
+
+  it("renders the worker voice, with the nudge variant once the cron nudged", () => {
+    renderTicker(booking, { variant: "worker", compact: true });
+    expect(screen.getByText(/Auto-cancels in 47h 0m without a response/)).toBeInTheDocument();
+
+    cleanup();
+    renderTicker({ ...booking, slaNudgeSent: true } as unknown as Booking, { variant: "worker", compact: true });
+    expect(screen.getByText(/Nudge sent · auto-cancels in 47h 0m/)).toBeInTheDocument();
+  });
+
+  it("localizes the customer countdown in Arabic", () => {
+    renderTicker(booking, { variant: "customer", compact: true, locale: "ar" });
+    expect(screen.getByText(/يُلغى تلقائياً خلال 47 س 0 د إذا لم يستجب العامل/)).toBeInTheDocument();
+  });
+
+  it("compact mode strips the banner chrome (rows); the admin default keeps it", () => {
+    renderTicker(booking, { variant: "worker", compact: true });
+    const compactRoot = screen.getByRole("progressbar").parentElement!;
+    expect(compactRoot).toHaveClass("mt-2.5", "w-full");
+    expect(compactRoot).not.toHaveClass("rounded-xl", "border");
+
+    cleanup();
+    renderTicker(booking); // admin default — the full banner
+    const bannerRoot = screen.getByRole("progressbar").parentElement!;
+    expect(bannerRoot).toHaveClass("rounded-xl", "border");
+    expect(bannerRoot).not.toHaveClass("mt-2.5");
+  });
+
+  it("renders identical server markup for a given seed regardless of the clock", () => {
+    const seed = Date.parse("2026-08-10T09:00:00.000Z");
+    const renderSsr = () =>
+      renderToString(
+        <LocaleProvider locale="en" dir="ltr">
+          <BookingSlaCountdown booking={booking} nowSeed={seed} />
+        </LocaleProvider>
+      );
+
+    const atSeed = renderSsr();
+    // The clock moving must NOT change the markup — the seed alone drives the
+    // pre-mount output (without the seed this string changes every millisecond,
+    // which is exactly the server/client drift that breaks hydration).
+    vi.setSystemTime(new Date(seed + 3_600_000));
+    expect(renderSsr()).toBe(atSeed);
+
+    // Sanity: the countdown derives from the seed — creation 08:00 + 48h means
+    // 47h left at the 09:00 seed.
+    expect(atSeed).toContain("47h");
+  });
+
+  it("hydrates cleanly when the clock advanced between the server render and the client", () => {
+    const seed = Date.parse("2026-08-10T09:00:00.000Z");
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const element = (
+      <LocaleProvider locale="en" dir="ltr">
+        <BookingSlaCountdown booking={booking} nowSeed={seed} />
+      </LocaleProvider>
+    );
+
+    // "Server": render the markup at the seed moment.
+    vi.setSystemTime(new Date(seed));
+    const html = renderToString(element);
+
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    // "Client": hydration happens a moment later, so the live clock has moved —
+    // but the first client render still uses the seed, so it matches the server
+    // markup exactly and no hydration mismatch is reported.
+    vi.setSystemTime(new Date(seed + 60_000));
+    let root: Root;
+    act(() => {
+      root = hydrateRoot(container, element);
+    });
+
+    expect(errSpy).not.toHaveBeenCalled();
+
+    // The live clock takes over after mount: one minute later → 46h 59m.
+    expect(container.textContent).toContain("Auto-cancels in 46h 59m");
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
   });
 });

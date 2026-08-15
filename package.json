@@ -13,8 +13,11 @@
     "test:e2e": "vitest run tests/e2e-smoke.test.ts",
     "test:e2e:quick": "E2E_SKIP_PROD=1 vitest run tests/e2e-smoke.test.ts",
     "test:e2e:autoclean": "E2E_AUTOCLEAN=1 vitest run tests/e2e-smoke.test.ts",
-    "test:all": "npm run typecheck && npm test",
+    "test:all": "npm run typecheck && npm run check:docs-links && npm run diagrams:render && npm test",
     "check:nesting": "node scripts/check-nesting.mjs",
+    "validate:diagrams": "node scripts/validate-diagrams.mjs",
+    "diagrams:render": "node scripts/validate-diagrams.mjs --emit",
+    "check:docs-links": "node scripts/check-docs-links.mjs",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -50,6 +53,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@mermaid-js/mermaid-cli": "^11.16.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",

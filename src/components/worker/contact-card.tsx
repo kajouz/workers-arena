@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Phone, MessageCircle, Mail, Globe, Send, ShieldAlert, BadgeCheck, CalendarClock, ShieldCheck } from "lucide-react";
+import { Phone, MessageCircle, Mail, Globe, Send, ShieldAlert, BadgeCheck, CalendarClock, ShieldCheck, Users } from "lucide-react";
 import type { BookingSlot, Worker } from "@/lib/data/types";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,18 @@ import { toast } from "@/components/ui/toast";
 import { Price } from "@/components/shared/price";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
 import { BookingDialog } from "./booking-dialog";
+import { QuoteRequestDialog } from "./quote-request-dialog";
 
-export function ContactCard({ worker, slots }: { worker: Worker; slots: BookingSlot[] }) {
+export function ContactCard({
+  worker,
+  slots,
+  candidates,
+}: {
+  worker: Worker;
+  slots: BookingSlot[];
+  /** The pickable worker pool for multi-candidate quotes (profile + related). */
+  candidates?: Worker[];
+}) {
   const { locale, t } = useLocale();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -56,6 +66,22 @@ export function ContactCard({ worker, slots }: { worker: Worker; slots: BookingS
             {t("booking.dialogTitle")}
           </Button>
         </BookingDialog>
+
+        {/* Multi-candidate quotes (docs/multi-candidate-quotes.md) — the
+            structural fix to the selection workflow: instead of committing to
+            ONE worker, invite up to 3 to bid on the same job and pick a winner.
+            Candidates = this worker + related (same trade). */}
+        {candidates && candidates.length > 0 && (
+          <QuoteRequestDialog candidates={candidates}>
+            <Button className="w-full" variant="outline" disabled={!worker.available}>
+              <Users className="size-4" />
+              {t("booking.quotesCta")}
+            </Button>
+          </QuoteRequestDialog>
+        )}
+        {candidates && candidates.length > 0 && (
+          <p className="-mt-2 text-center text-[11px] text-ink-400">{t("booking.quotesCtaHint")}</p>
+        )}
 
         {/* M5 — fee-waiver awareness at the point of checkout (docs/booking-take-rate.md).
             Customers who found the worker via the fee-waived search filter see the perk

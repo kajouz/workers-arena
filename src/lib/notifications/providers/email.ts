@@ -52,6 +52,12 @@ function logEmail(payload: ChannelPayload, rendered: RenderedEmail, provider: st
     console.log(`   ── plain text ──────────────────────────────\n${rendered.text}`);
     console.log(`   ── html ────────────────────────────────────\n${rendered.html}`);
   }
+  if (payload.attachments?.length) {
+    const list = payload.attachments
+      .map((a) => `      • ${a.filename} (${a.contentType}, ${a.content.length} bytes)`)
+      .join("\n");
+    console.log(`   ── attachments ─────────────────────────────\n${list}`);
+  }
   return { channel: "email", ok: true, provider };
 }
 
@@ -93,6 +99,15 @@ class SmtpEmailChannel implements NotificationChannel {
         subject,
         html,
         text,
+        ...(payload.attachments?.length
+          ? {
+              attachments: payload.attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                contentType: a.contentType,
+              })),
+            }
+          : {}),
       });
       return { channel: "email", ok: true, provider: "smtp" };
     } catch (err) {
@@ -126,6 +141,16 @@ class ResendEmailChannel implements NotificationChannel {
         subject,
         html,
         text,
+        // Resend's REST SDK accepts Buffer content — pass through verbatim.
+        ...(payload.attachments?.length
+          ? {
+              attachments: payload.attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                contentType: a.contentType,
+              })),
+            }
+          : {}),
       });
       return { channel: "email", ok: true, provider: "resend" };
     } catch (err) {

@@ -39,7 +39,8 @@ export type WorkerNotificationKind =
   | "worker-cancelled"
   | "worker-rescheduled"
   | "worker-request-nudge"
-  | "worker-completion-confirmed";
+  | "worker-completion-confirmed"
+  | "worker-quote-accepted";
 
 /** Customer-facing events (deep-link /bookings) — the kinds a preview can show. */
 export type CustomerNotificationKind =
@@ -63,7 +64,9 @@ export function bookingNotification(
   opts?: BookingNotificationOptions
 ): BookingNotificationPayload {
   const ctx = opts?.refund ? { ...bookingEmailContext(booking), refund: opts.refund } : bookingEmailContext(booking);
-  const time = new Date(booking.startAt).toLocaleString();
+  // Slot-less quote bids never flow through this builder (quote-notifications
+  // handles them), but keep the timestamp null-safe anyway.
+  const time = booking.startAt ? new Date(booking.startAt).toLocaleString() : "";
   switch (kind) {
     case "worker-request":
       return {
@@ -122,6 +125,16 @@ export function bookingNotification(
         titleAr: "تم إلغاء الحجز",
         bodyEn: `${booking.customerName} cancelled ${booking.number}. The slot is free again.`,
         bodyAr: `ألغى ${booking.customerName} الحجز ${booking.number}. الموعد أصبح متاحاً.`,
+        href: "/dashboard",
+        booking: ctx,
+      };
+    case "worker-quote-accepted":
+      return {
+        type: "bookingConfirmed",
+        titleEn: "Quote accepted",
+        titleAr: "تم قبول العرض",
+        bodyEn: `${booking.customerName} accepted your chat quote for ${booking.number} — the booking is confirmed.`,
+        bodyAr: `قبل ${booking.customerName} عرضك في المحادثة للحجز ${booking.number} — تم تأكيد الحجز.`,
         href: "/dashboard",
         booking: ctx,
       };

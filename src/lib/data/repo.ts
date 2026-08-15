@@ -13,18 +13,31 @@ import {
 } from "./notifications";
 import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCode } from "./activity";
 import {
+  getChatTyping as getChatTypingFlag,
+  setChatTyping as setChatTypingFlag,
+  type ChatTypingState,
+} from "./chat-presence";
+import {
   demoCancelBooking,
+  demoRefundBookingDeposit,
   demoCancelRecurringContract,
   demoConfirmBookingCompletion,
   demoCreateBookingRequest,
+  demoCreateQuoteRequest,
   demoCreateRecurringRequest,
+  demoExpireQuoteRequests,
   demoGenerateSlots,
   demoConfirmBookingPayment,
   demoCreateBookingCheckout,
+  demoGetAllBookings,
+  demoGetBookingById,
   demoGetBookingByNumber,
+  demoGetBookingMessages,
   demoGetBookingFunnel,
   demoGetPlatformFeeStats,
   demoGetCustomerBookings,
+  demoGetCustomerQuoteRequests,
+  demoGetQuoteRequest,
   demoGetWorkerBookings,
   demoGetWorkerSlots,
   demoGetWorkerBalance,
@@ -38,7 +51,12 @@ import {
   demoRescheduleBooking,
   demoRespondToBooking,
   demoRespondToRecurring,
+  demoSelectQuote,
+  demoSendBookingMessage,
+  demoAcceptChatQuote,
+  demoMarkChatRead,
   demoSetSlotBlocked,
+  demoSubmitQuote,
   demoTransitionBooking,
 } from "./bookings";
 import {
@@ -61,8 +79,13 @@ import type {
   BillingPeriod,
   Booking,
   BookingCancelInput,
+  BookingMessage,
+  BookingMessageInput,
   BookingRequestInput,
   BookingFunnel,
+  QuoteBidInput,
+  QuoteRequest,
+  QuoteRequestInput,
   RecurringBooking,
   RecurringRequestInput,
   RecurringRespondInput,
@@ -76,6 +99,7 @@ import type {
   BookingTransitionTarget,
   Campaign,
   CampaignPayment,
+  City,
   Invoice,
   Notification,
   Review,
@@ -179,7 +203,8 @@ export async function getCategories(): Promise<Category[]> {
   return categoriesWithCounts();
 }
 
-export async function getCities() {
+export async function getCities(): Promise<City[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetCities();
   return CITIES;
 }
 
@@ -399,22 +424,42 @@ export async function refundCampaignPayment(
   return demoRefundCampaignPayment(campaignId, { by, reason });
 }
 
-/** Ad rotation: active campaigns matching a placement, newest-first. */
+/**
+ * Ad rotation: active campaigns matching a placement, newest-first. Dual
+ * adapter — real mode serves ACTIVE campaigns whose ACTIVE creatives match
+ * (prismaGetActiveAdsFor reads real Advertisement rows; the demo store serves
+ * its seeded campaigns). PENDING campaigns never serve until the payment
+ * webhook confirms.
+ */
 export async function getActiveAdsFor(placement: string, opts: { category?: string; city?: string } = {}): Promise<Campaign[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetActiveAdsFor(placement, opts);
   return demoGetActiveAdsFor(placement, opts);
 }
 
-/** Track a served impression (ad rotation). Returns the updated campaign. */
+/** Track a served impression (ad rotation). Returns the updated campaign. Dual
+ * adapter — real mode bumps the served Advertisement's counters + the
+ * campaign's spent (prismaRecordImpression). */
 export async function recordImpression(campaignId: string): Promise<Campaign | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaRecordImpression(campaignId);
   return demoRecordImpression(campaignId);
 }
 
-/** Track a click. Returns the updated campaign. */
+/** Track a click. Returns the updated campaign. Dual adapter — real mode
+ * bumps the served Advertisement's counters + the campaign's spent
+ * (prismaRecordClick). */
 export async function recordClick(campaignId: string): Promise<Campaign | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaRecordClick(campaignId);
   return demoRecordClick(campaignId);
 }
 
+/**
+ * All invoices (advertising + subscription renewals), newest first — demo
+ * store or, in real mode, the seeded company's Prisma Invoice rows
+ * (prismaGetInvoices — the self-serve purchase receipts + their credit-note
+ * VOIDs read back here). The /company page filters to advertising.
+ */
 export async function getInvoices(): Promise<Invoice[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetInvoices();
   return demoGetInvoices();
 }
 
@@ -656,6 +701,125 @@ export async function getBookingByNumber(number: string): Promise<Booking | null
 }
 
 /**
+ * A single booking by its internal id — the §2.3 chat permission gate's
+ * lookup (the thread's send action re-checks ownership before writing).
+ */
+export async function getBookingById(id: string): Promise<Booking | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetBookingById(id);
+  return demoGetBookingById(id);
+}
+
+/**
+ * §2.3 chat — the customer ⇄ worker negotiation thread keyed on Booking.id.
+ * Oldest first, the order the shared BookingChat component renders on all
+ * three surfaces (customer row, worker row, admin dispute view).
+ */
+export async function getBookingMessages(bookingId: string): Promise<BookingMessage[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetBookingMessages(bookingId);
+  return demoGetBookingMessages(bookingId);
+}
+
+/**
+ * §2.3 chat — append a message to a booking's thread. The sender is
+ * actor-stamped like an audit entry (role + optional real user id), so the
+ * negotiation stays inside the booking's record on both adapters. Returns
+ * null when the booking is unknown. Quote is minor units — a price shared
+ * in-thread (quote sharing). Callers gate permissions; the message is NOT
+ * written when the booking is unknown.
+ */
+export async function sendBookingMessage(
+  bookingId: string,
+  input: BookingMessageInput
+): Promise<BookingMessage | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaSendBookingMessage(bookingId, input);
+  return demoSendBookingMessage(bookingId, input);
+}
+
+/**
+ * §2.3 chat — the customer accepts the worker's quoted price in-thread: the
+ * REQUESTED booking converts to CONFIRMED with the message's quote, the slot
+ * is booked, the take-rate fee is stamped, and a customer audit event lands
+ * in the trail. Returns null when the booking isn't negotiable or the message
+ * isn't a worker quote (callers surface "not-found"). Callers gate
+ * permissions — only the booking's customer should invoke this.
+ */
+export async function acceptChatQuote(bookingId: string, messageId: string): Promise<Booking | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaAcceptChatQuote(bookingId, messageId);
+  return demoAcceptChatQuote(bookingId, messageId);
+}
+
+/**
+ * §2.3 presence snapshot for the chat poll — who is typing (TTL-guarded) plus
+ * the readAt per message id, so the sender sees "Seen" on their own bubbles
+ * without a page refresh. Extends the ephemeral typing state with the adapter
+ * read-receipt map.
+ */
+export interface ChatPresenceSnapshot extends ChatTypingState {
+  /** readAt (ISO) keyed by message id — null stamps are simply absent. */
+  readAt: Record<string, string>;
+}
+
+/**
+ * §2.3 read receipts — stamp readAt on every message the OTHER party sent
+ * (their messages are "seen" when the counterpart opens the thread).
+ * Idempotent; returns the number of messages newly marked.
+ */
+export async function markChatRead(
+  bookingId: string,
+  readerRole: "customer" | "worker"
+): Promise<number> {
+  if (realDataEnabled) return (await prismaRepo()).prismaMarkChatRead(bookingId, readerRole);
+  return demoMarkChatRead(bookingId, readerRole);
+}
+
+/**
+ * §2.3 typing indicator — the ephemeral presence flag (who is composing).
+ * Shared on both backends: typing state is process-local and never persisted,
+ * so there is no demo/prisma split — the same module serves both.
+ */
+export function setChatTyping(
+  bookingId: string,
+  role: "customer" | "worker",
+  active: boolean
+): void {
+  setChatTypingFlag(bookingId, role, active);
+}
+
+/**
+ * §2.3 presence snapshot for the chat poll — who is typing (TTL-guarded) plus
+ * the readAt per message id, so the sender sees "Seen" on their own bubbles
+ * without a page refresh. The readAt map comes from the active adapter; the
+ * typing flag from the shared ephemeral module.
+ */
+export async function getChatPresence(bookingId: string): Promise<ChatPresenceSnapshot> {
+  const typing = getChatTypingFlag(bookingId);
+  const readAt: Record<string, string> = {};
+  if (realDataEnabled) {
+    const prisma = await prismaRepo();
+    for (const r of await prisma.prismaGetBookingMessageReadAt(bookingId)) {
+      readAt[r.id] = r.readAt.toISOString();
+    }
+  } else {
+    for (const m of demoGetBookingMessages(bookingId)) {
+      if (m.readAt) readAt[m.id] = m.readAt;
+    }
+  }
+  return { typingRole: typing.typingRole, typingAt: typing.typingAt, readAt };
+}
+
+/**
+ * §2.4 admin export — EVERY booking's full event trail (the CSV/PDF trails
+ * export on /admin). Demo reads the whole in-memory store; prisma reads all
+ * Booking rows with the same include set as the per-booking read (events,
+ * service item, M3 receipt) so the combined document matches the dispute
+ * view. Production TODO: paginate for very large stores.
+ */
+export async function getAllBookings(): Promise<Booking[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetAllBookings();
+  return demoGetAllBookings();
+}
+
+/**
  * M4 admin funnel — booking counts by status + REQUESTED→CONFIRMED conversion
  * over the last `days` (mirrors getVerificationFunnel). Demo adapter tallies
  * the in-memory store; prisma groupBy's Booking.createdAt. NaN-safe day clamp
@@ -745,6 +909,7 @@ type BookingLifecycleCode = Extract<
   | "BOOKING_CANCELLED"
   | "BOOKING_RESCHEDULED"
   | "BOOKING_NO_SHOW"
+  | "BOOKING_REFUNDED"
 >;
 
 async function logBookingLifecycle(
@@ -806,6 +971,69 @@ export async function respondToBooking(
     );
   }
   return result;
+}
+
+/* ─────────── Multi-candidate quotes (docs/multi-candidate-quotes.md) ─────────── */
+
+/**
+ * Customer side: post a job and invite up to MAX_QUOTE_WORKERS workers to
+ * quote it. Rule 1 (duplicates + over-limit rejected) is enforced by both
+ * adapters; each invite becomes a slot-less QUOTING Booking under the job.
+ */
+export async function createQuoteRequest(
+  input: QuoteRequestInput,
+  workerIds: string[]
+): Promise<QuoteRequest | { error: "invalid" | "too-many" | "duplicate" | "unknown-worker" }> {
+  return realDataEnabled
+    ? (await prismaRepo()).prismaCreateQuoteRequest(input, workerIds)
+    : demoCreateQuoteRequest(input, workerIds);
+}
+
+/** A quote job by id or number — ownership enforced when an identifier is given. */
+export async function getQuoteRequest(
+  idOrNumber: string,
+  identifier?: { customerId?: string; phone?: string }
+): Promise<QuoteRequest | null> {
+  return realDataEnabled
+    ? (await prismaRepo()).prismaGetQuoteRequest(idOrNumber, identifier)
+    : demoGetQuoteRequest(idOrNumber, identifier);
+}
+
+/** A customer's quote jobs, matched by signed-in customerId, email or
+ * normalized phone (the /bookings page — the customerId branch covers a
+ * signed-in customer who skips the optional email). */
+export async function getCustomerQuoteRequests(
+  identifier: { email?: string; phone?: string; customerId?: string } = {}
+): Promise<QuoteRequest[]> {
+  return realDataEnabled
+    ? (await prismaRepo()).prismaGetCustomerQuoteRequests(identifier)
+    : demoGetCustomerQuoteRequests(identifier);
+}
+
+/** Worker side: submit a bid on a quote invite (no slot claim — rule 3). */
+export async function submitQuote(bookingId: string, input: QuoteBidInput): Promise<Booking | null> {
+  return realDataEnabled
+    ? (await prismaRepo()).prismaSubmitQuote(bookingId, input)
+    : demoSubmitQuote(bookingId, input);
+}
+
+/** Customer side: pick the winner + a slot — the winner claims it via the
+ * existing atomic CAS, the losers are DECLINED, the job flips to SELECTED. */
+export async function selectQuote(
+  quoteRequestId: string,
+  winnerBookingId: string,
+  slotId: string
+): Promise<Booking | { error: "slot-taken" | "invalid" | "not-quoted" | "closed" }> {
+  return realDataEnabled
+    ? (await prismaRepo()).prismaSelectQuote(quoteRequestId, winnerBookingId, slotId)
+    : demoSelectQuote(quoteRequestId, winnerBookingId, slotId);
+}
+
+/** The SLA cron — expire OPEN/QUOTING jobs past QUOTE_SLA_MS, decline open bids. */
+export async function expireQuoteRequests(now = new Date()): Promise<number> {
+  return realDataEnabled
+    ? (await prismaRepo()).prismaExpireQuoteRequests(now)
+    : demoExpireQuoteRequests(now);
 }
 
 /**
@@ -962,16 +1190,45 @@ export async function cancelBooking(
     ? await (await prismaRepo()).prismaCancelBooking(bookingId, input)
     : await demoCancelBooking(bookingId, input);
   if (result) {
-    // The actor is whoever cancelled — customer (their id when signed in) or
-    // the worker. Logged so the feed mirrors the funnel's cancelled bucket.
+    // The actor is whoever cancelled — customer (their id when signed in),
+    // the worker, or an admin from the dispute view. Logged so the feed
+    // mirrors the funnel's cancelled bucket.
     const worker = input.by === "customer" ? null : await getWorkerById(result.workerId);
-    const name = input.by === "customer" ? result.customerName : (worker?.nameEn ?? "Worker");
+    const name =
+      input.by === "customer" ? result.customerName : input.by === "admin" ? (input.adminName ?? "Platform Admin") : (worker?.nameEn ?? "Worker");
     const reason = input.reason ? ` — ${input.reason}` : "";
     await logBookingLifecycle(
       ACTION_CODES.BOOKING_CANCELLED,
       result,
       { en: `${name} cancelled ${result.number}${reason}`, ar: `${name} ألغى الحجز ${result.number}${reason}` },
       name
+    );
+  }
+  return result;
+}
+
+/**
+ * §2.4 admin dispute view — refund the booking's PAID deposit WITHOUT
+ * cancelling it (money-only correction; the job and slot stay as they are).
+ * Both adapters require a PAID deposit (PENDING / already-refunded → null,
+ * idempotent), append a REFUNDED audit event, and notify the customer with
+ * the M4 refund email. Logged to the activity feed with the acting admin.
+ */
+export async function refundBookingDeposit(
+  bookingId: string,
+  input: { reason?: string; adminName?: string }
+): Promise<Booking | null> {
+  const result = realDataEnabled
+    ? await (await prismaRepo()).prismaRefundBookingDeposit(bookingId, input)
+    : await demoRefundBookingDeposit(bookingId, input);
+  if (result) {
+    const admin = input.adminName ?? "Platform Admin";
+    const reason = input.reason ? ` — ${input.reason}` : "";
+    await logBookingLifecycle(
+      ACTION_CODES.BOOKING_REFUNDED,
+      result,
+      { en: `${admin} refunded the deposit on ${result.number}${reason}`, ar: `${admin} استرد دفعة الحجز ${result.number}${reason}` },
+      admin
     );
   }
   return result;

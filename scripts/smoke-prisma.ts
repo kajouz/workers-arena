@@ -36,7 +36,13 @@
  * → prismaRefundCampaignPayment (campaign ENDED + payment REFUNDED + the
  * credit-note VOID on the minted invoice + campaignRefunded notification),
  * with the refund email rendered from the SAME shared builder the /admin
- * preview uses. A cleanup restores the seeded rows so
+ * preview uses. The W2 boundary is exercised live too: the PENDING campaign
+ * never serves (prismaGetActiveAdsFor only matches ACTIVE), the confirmed
+ * campaign rotates on its placement (untargeted ads also serve targeted
+ * requests), prismaRecordImpression / prismaRecordClick bump the served
+ * creative's counters + the campaign's spent, and prismaGetInvoices renders
+ * the purchase's WA- receipt on the /company list — flipping to "refunded"
+ * once the credit note voids it. A cleanup restores the seeded rows so
  * the smoke is idempotent. Exits non-zero on any failure.
  */
 // This smoke IS the production data layer — force the prisma notification path
@@ -65,26 +71,44 @@ import {
   prismaGetWorkerBalance,
   prismaRequestPayout,
   prismaDecidePayout,
+  prismaGetActiveAdsFor,
   prismaGetCampaigns,
+  prismaGetInvoices,
+  prismaRecordClick,
+  prismaRecordImpression,
   prismaRescheduleBooking,
+  prismaAcceptChatQuote,
+  prismaGetBookingMessages,
+  prismaGetBookingMessageReadAt,
+  prismaMarkChatRead,
   prismaGetCategories,
+  prismaGetCities,
   prismaGetCustomerBookings,
   prismaGetFeaturedWorkers,
   prismaGetRelated,
   prismaGetWorkerBookings,
+  prismaGetAllBookings,
   prismaGetWorkerBySlug,
   prismaGetWorkerSlots,
   prismaCancelRecurringContract,
   prismaConfirmBookingCompletion,
+  prismaCreateQuoteRequest,
   prismaCreateRecurringRequest,
+  prismaExpireQuoteRequests,
   prismaGenerateRecurringOccurrences,
+  prismaGetCustomerQuoteRequests,
   prismaGetCustomerRecurrings,
+  prismaGetQuoteRequest,
   prismaGetWorkerRecurrings,
   prismaRespondToRecurring,
+  prismaRefundBookingDeposit,
   prismaRefundCampaignPayment,
+  prismaSendBookingMessage,
   prismaRespondToBooking,
   prismaSearchWorkers,
+  prismaSelectQuote,
   prismaSetSlotBlocked,
+  prismaSubmitQuote,
   prismaTransitionBooking,
 } from "../src/lib/data/prisma-repo";
 import { BOOKING_COMPLETION_CONFIRM_GRACE_HOURS, BOOKING_SLA_EXPIRE_HOURS, BOOKING_SLA_NUDGE_HOURS } from "../src/lib/data/types";
@@ -130,6 +154,18 @@ async function main() {
   assert(cats.length > 0, "categories returned");
   assert(cats[0]?.workerCount >= 0, "category workerCount present");
 
+  // W2 cities boundary — the /search filter reads REAL City rows (the seed
+  // upserts the demo CITIES constant): areas included, currency cast to a
+  // domain CurrencyCode, and the demo's canonical display order preserved.
+  const cities = await prismaGetCities();
+  console.log("cities:", cities.length, "| first:", cities[0]?.slug, cities[0]?.currency, "| areas:", cities[0]?.areas.length);
+  assert(cities.length > 0, "cities returned");
+  assert(cities.every((c) => c.areas.length > 0), "every city carries its areas");
+  assert(cities[0]?.slug === "riyadh", "cities keep the demo canonical display order");
+  assert(typeof cities[0]?.currency === "string" && cities[0]!.currency.length === 3, "city currency cast to CurrencyCode");
+  const riyadh = cities.find((c) => c.slug === "riyadh");
+  assert(riyadh?.areas.some((a) => a.slug === "al-olaya"), "riyadh areas mapped");
+
   const khaled = await prismaGetWorkerBySlug("khaled-al-harbi-plumbing");
   console.log(
     "khaled:", khaled?.nameEn, "| verification:", khaled?.verification,
@@ -168,7 +204,9 @@ async function main() {
   // which would break the "an AVAILABLE slot exists" assert below. Restore the
   // slot FIRST (while the booking still exists to match bookingId), then drop
   // the booking + its events. Only our smoke bookings are touched.
-  const smokeBookings = await prisma.booking.findMany({ where: { customerEmail: "smoke@workersarena.test" } });
+  const smokeBookings = await prisma.booking.findMany({
+    where: { customerEmail: { in: ["smoke@workersarena.test", "accept@workersarena.test"] } },
+  });
   for (const b of smokeBookings) {
     await prisma.bookingSlot.updateMany({ where: { bookingId: b.id }, data: { status: "AVAILABLE", bookingId: null } });
     await prisma.bookingEvent.deleteMany({ where: { bookingId: b.id } });
@@ -222,6 +260,16 @@ async function main() {
   }
   if (recLeftovers.length > 0) console.log("self-heal: removed", recLeftovers.length, "leftover smoke recurring contract(s)");
 
+  // W2 quotes self-heal — a crashed run's jobs (quotes@…): drop their bid
+  // bookings (events cascade) and the job rows; the dedicated slots are
+  // picked up by the note sweep below (smoke-quote).
+  const qLeftovers = await prisma.quoteRequest.findMany({ where: { customerEmail: "quotes@workersarena.test" } });
+  for (const q of qLeftovers) {
+    await prisma.booking.deleteMany({ where: { quoteRequestId: q.id } });
+    await prisma.quoteRequest.delete({ where: { id: q.id } });
+  }
+  if (qLeftovers.length > 0) console.log("self-heal: removed", qLeftovers.length, "leftover smoke quote job(s)");
+
   // Dedicated-slot sweep — every smoke section marks its dedicated slots with
   // a note (smoke-m3 / smoke-reschedule / smoke-reminder / smoke-ops) so a
   // crashed run's slots are always findable even when unlinked (a crash
@@ -239,6 +287,7 @@ async function main() {
           "depositu@workersarena.test",
           "activity@workersarena.test",
           "payout@workersarena.test",
+          "admindispute@workersarena.test",
         ],
       },
     },
@@ -263,7 +312,7 @@ async function main() {
   }
   await prisma.bookingSlot.deleteMany({
     where: {
-      note: { in: ["smoke-m3", "smoke-reschedule", "smoke-reminder", "smoke-ops", "smoke-activity", "smoke-recurring-anchor", "smoke-recurring-7d", "smoke-recurring-14d", "smoke-recurring-decline", "smoke-sla"] },
+      note: { in: ["smoke-m3", "smoke-reschedule", "smoke-reminder", "smoke-ops", "smoke-activity", "smoke-admin", "smoke-recurring-anchor", "smoke-recurring-7d", "smoke-recurring-14d", "smoke-recurring-decline", "smoke-sla", "smoke-quote"] },
     },
   });
   if (m3rsLeftovers.length > 0) console.log("self-heal: cleared", m3rsLeftovers.length, "leftover deposit/reschedule booking(s)");
@@ -291,6 +340,17 @@ async function main() {
   const bookingsBefore = await prismaGetWorkerBookings(khaled!.id);
   console.log("khaled bookings:", bookingsBefore.length, bookingsBefore.map((b) => `${b.number}:${b.status}`));
   assert(bookingsBefore.some((b) => b.number === "BK-1001"), "seeded booking BK-1001 present");
+
+  // §2.4 — the admin trails-export read (CSV/PDF export seam): every booking's
+  // full event trail in ONE call, the same include set as the per-booking
+  // dispute view. The seeded BK-1001 must come back WITH its event trail, so
+  // the combined export document matches the per-booking print view in real
+  // mode too.
+  const allTrails = await prismaGetAllBookings();
+  const seededTrail = allTrails.find((b) => b.number === "BK-1001");
+  assert(seededTrail !== undefined, "prismaGetAllBookings includes the seeded BK-1001");
+  assert((seededTrail.events?.length ?? 0) >= 1, "prismaGetAllBookings loads the event trail");
+  console.log("§2.4 all-bookings trails:", allTrails.length, "bookings | BK-1001 events:", seededTrail.events.length);
 
   // W1 trust signals (docs/ENHANCEMENT-PLAN.md §2.1) — the read adapters stamp
   // responseRate + availableThisWeek. The seeded AVAILABLE slot (tomorrow) is
@@ -454,6 +514,119 @@ async function main() {
   assert(created.number === "BK-1003", "booking number continues from the seed (BK-1001 + recurring BK-1002)");
   assert(created.status === "requested", "new booking is REQUESTED");
   assert(created.events[0]?.status === "requested", "REQUESTED audit event appended");
+
+  // §2.3 chat — the customer ⇄ worker negotiation thread keyed on Booking.id:
+  // both sides append, the thread reads back oldest-first with the sender
+  // actor-stamped, and an in-thread quote (minor units) round-trips. The
+  // worker sends with their real user id (khaled's), the customer without.
+  const chatEmpty = await prismaGetBookingMessages(created.id);
+  assert(chatEmpty.length === 0, "a fresh booking starts with an empty thread");
+  const chatCustomer = await prismaSendBookingMessage(created.id, {
+    senderRole: "customer",
+    text: "Can you come Thursday instead?",
+  });
+  assert(chatCustomer !== null && chatCustomer.senderRole === "customer", "customer message appended");
+  const chatWorker = await prismaSendBookingMessage(created.id, {
+    senderRole: "worker",
+    senderId: khaled!.id,
+    text: "Thursday works — 10am, price 120",
+    quote: 12_000,
+  });
+  assert(chatWorker !== null, "worker message appended");
+  assert(chatWorker!.quote === 12_000 && chatWorker!.senderId === khaled!.id, "in-thread quote + sender id stamped");
+  const thread = await prismaGetBookingMessages(created.id);
+  assert(thread.length === 2, "thread reads back both messages");
+  assert(thread[0]!.senderRole === "customer" && thread[1]!.senderRole === "worker", "thread is oldest-first");
+  assert(thread[0]!.time <= thread[1]!.time, "thread is chronologically ordered");
+  const unknown = await prismaSendBookingMessage("no-such-booking", { senderRole: "customer", text: "hi" });
+  assert(unknown === null, "unknown booking rejects the message (null)");
+  // Every send must ALSO land in the audit trail (status MESSAGE, sender = actor,
+  // body = reason), so negotiations show up in the dispute timeline.
+  const chatEvents = await prisma.bookingEvent.findMany({
+    where: { bookingId: created.id, status: "MESSAGE" },
+    orderBy: { createdAt: "asc" },
+  });
+  assert(chatEvents.length === 2, "each chat message appends a MESSAGE audit event");
+  assert(
+    chatEvents[0]!.actorType === "customer" && chatEvents[0]!.reason === "Can you come Thursday instead?",
+    "customer message audit event: sender = actor, body = reason"
+  );
+  assert(
+    chatEvents[1]!.actorType === "worker" &&
+      chatEvents[1]!.actorId === khaled!.id &&
+      chatEvents[1]!.reason === "Thursday works — 10am, price 120",
+    "worker message audit event: real user id stamped + body as reason"
+  );
+
+  // §2.3 presence — read receipts + typing indicators: the customer opening
+  // the thread stamps ONLY the worker's message readAt (idempotent; their own
+  // message stays unread), and the presence snapshot merges the ephemeral
+  // typing flag with the readAt map so the sender sees "Seen" without a
+  // page refresh.
+  const readCount = await prismaMarkChatRead(created.id, "customer");
+  assert(readCount === 1, "opening the thread stamps the counterpart's message read (1 worker message)");
+  const readAgain = await prismaMarkChatRead(created.id, "customer");
+  assert(readAgain === 0, "re-read is idempotent — already-stamped messages stay untouched");
+  const readMap = await prismaGetBookingMessageReadAt(created.id);
+  assert(readMap.length === 1 && readMap[0]!.id === chatWorker!.id, "readAt map holds exactly the worker message");
+  // Typing is ephemeral + shared on both backends (chat-presence module); the
+  // seam merge (typing + readAt) is covered by the demo unit tests — this
+  // smoke asserts the real DB stamping + the shared flag behavior. Loaded
+  // dynamically so this file's DEMO_MODE=false assignment (line 53) precedes
+  // repo.ts's module-level isDemoMode evaluation (the M4 section does the
+  // same for createBookingRequest).
+  const { setChatTyping, getChatPresence } = await import("../src/lib/data/repo");
+  setChatTyping(created.id, "worker", true);
+  const presence = await getChatPresence(created.id);
+  assert(presence.typingRole === "worker", "presence snapshot reports who is typing");
+  setChatTyping(created.id, "worker", false);
+  const cleared = await getChatPresence(created.id);
+  assert(cleared.typingRole === null, "clearing the typing flag stops the indicator");
+  console.log("§2.3 presence: read receipts stamped idempotently on the prisma rows + typing flag set/cleared via the shared module");
+
+  // §2.3 — the customer accepts the worker's quoted price IN-THREAD: a
+  // dedicated booking (a fresh AVAILABLE slot) so the accept doesn't disturb
+  // `created`'s later lifecycle. The REQUESTED booking converts to CONFIRMED
+  // with the message's quote, the slot is booked, the take-rate fee is
+  // stamped, and a customer audit event lands in the trail.
+  const free2 = (await prismaGetWorkerSlots(khaled!.id)).find((s) => s.status === "available");
+  assert(free2, "another AVAILABLE slot exists for the accept-quote check");
+  const acceptCreated = await prismaCreateBookingRequest({
+    workerId: khaled!.id,
+    slotId: free2!.id,
+    customerName: "Accept Tester",
+    customerPhone: "+966 50 777 5555",
+    customerEmail: "accept@workersarena.test",
+    jobTitle: "Smoke accept-chat-quote booking",
+  });
+  if ("error" in acceptCreated) throw new Error(`SMOKE ASSERT FAILED: createBookingRequest → ${acceptCreated.error}`);
+  const acceptMsg = await prismaSendBookingMessage(acceptCreated.id, {
+    senderRole: "worker",
+    senderId: khaled!.id,
+    text: "I can do it for 120",
+    quote: 12_000,
+  });
+  assert(acceptMsg !== null, "worker quote message appended for the accept");
+  const chatAccepted = await prismaAcceptChatQuote(acceptCreated.id, acceptMsg!.id);
+  assert(chatAccepted !== null, "customer accepts the worker's chat quote");
+  assert(chatAccepted!.status === "confirmed", "accept converts the booking to CONFIRMED");
+  assert(chatAccepted!.quote === 12_000, "the message quote becomes the agreed amount");
+  const chatAcceptedFee = chatAccepted!.platformFee;
+  assert(typeof chatAcceptedFee === "number" && chatAcceptedFee > 0, "take-rate fee stamped from the accepted quote");
+  assert(
+    chatAccepted!.events.at(-1)?.status === "confirmed" && chatAccepted!.events.at(-1)?.actorType === "customer",
+    "the customer accept lands in the audit trail (actor = customer)"
+  );
+  assert(
+    (await prismaGetWorkerSlots(khaled!.id)).find((s) => s.id === free2!.id)?.status === "booked",
+    "the slot claimed by the accepted quote is BOOKED"
+  );
+  assert(
+    (await prismaAcceptChatQuote(acceptCreated.id, acceptMsg!.id)) === null,
+    "a re-accept is a no-op once the booking is confirmed"
+  );
+  console.log("§2.3 chat: customer ⇄ worker thread on the created booking — both messages read back oldest-first, quote + sender stamped, each send appends a MESSAGE audit event");
+  console.log("§2.3 chat: customer accepts the worker's in-thread quote on a dedicated booking — CONFIRMED with the message amount, slot booked, fee stamped, customer audit event appended");
 
   // Rule 1 — a second request on the same slot must lose the atomic claim.
   const again = await prismaCreateBookingRequest({
@@ -1182,6 +1355,135 @@ async function main() {
   );
   console.log("M3 invoice: signed-in confirm mints WA-YYYY-NNNNN (amount minor, PAID, linked to the user); guest gets none");
 
+  // ── §2.4 — admin dispute-view money actions (live DB) ────────────────────
+  // Two platform actions from the admin dispute page, both on PAID bookings:
+  //   • refundBookingDeposit — money-only correction: the booking stays
+  //     CONFIRMED and the slot stays BOOKED, the payment flips to REFUNDED,
+  //     a REFUNDED audit event (actorType admin) lands in the trail, and the
+  //     customer gets the BOOKING_REFUND email.
+  //   • cancelBooking by admin — the platform cancel: status → CANCELLED,
+  //     the slot freed, the deposit refunded (admin always refunds, no window),
+  //     and BOTH parties notified (customer-cancelled + worker-cancelled).
+  const admSlotStart = new Date(Date.now() + 38 * 60 * 60 * 1000); // clear of cc (+37h BOOKED, drift-safe) + m3c (31h)
+  const admSlot = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: admSlotStart,
+      endAt: new Date(admSlotStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-admin",
+    },
+  });
+  const admCreated = await prismaCreateBookingRequest({
+    workerId: khaled!.id,
+    slotId: admSlot.id,
+    customerName: "Admin Dispute Tester",
+    customerPhone: "+966 50 888 0000",
+    customerEmail: "admindispute@workersarena.test",
+    jobTitle: "Smoke admin refund",
+  });
+  if ("error" in admCreated) throw new Error(`SMOKE ASSERT FAILED: admin create → ${admCreated.error}`);
+  await prismaRespondToBooking(admCreated.id, { accept: true, quote: 16000, deposit: 4000 });
+  const admCheckout = await prismaCreateBookingCheckout(admCreated.id);
+  assert(admCheckout !== null, "admin-refund checkout minted");
+  const admRow = await prisma.booking.findUnique({ where: { id: admCreated.id }, include: { payment: true } });
+  await prismaConfirmBookingPayment(admCreated.id, admRow!.payment!.providerRef!);
+
+  // Money-only correction — the refund must NOT touch the booking or the slot.
+  const admRefunded = await prismaRefundBookingDeposit(admCreated.id, {
+    reason: "Dispute resolved in customer's favour",
+  });
+  assert(admRefunded?.status === "confirmed", "refundBookingDeposit leaves the booking CONFIRMED (money-only)");
+  const admRefundedRow = await prisma.booking.findUnique({
+    where: { id: admCreated.id },
+    include: { payment: true, events: { orderBy: { createdAt: "asc" as const } } },
+  });
+  assert(
+    admRefundedRow?.payment?.status === "REFUNDED" && admRefundedRow!.payment!.refundedAt !== null,
+    "refundBookingDeposit flips the payment to REFUNDED"
+  );
+  assert(
+    admRefundedRow?.events.some((e) => e.status === "REFUNDED" && e.actorType === "admin"),
+    "refundBookingDeposit appends a REFUNDED audit event with the admin actor"
+  );
+  const admSlotAfterRefund = await prisma.bookingSlot.findUnique({ where: { id: admSlot.id } });
+  assert(admSlotAfterRefund?.status === "BOOKED", "refund keeps the slot BOOKED (job still on)");
+  const admRefundNotifs = await prisma.notification.findMany({ where: { type: "BOOKING_REFUND" } });
+  assert(
+    admRefundNotifs.some((r) => (r.bodyEn ?? "").includes(admCreated.number)),
+    "refundBookingDeposit emails the customer a BOOKING_REFUND for the booking"
+  );
+  // The second refund is a no-op — the payment is already REFUNDED.
+  assert(
+    (await prismaRefundBookingDeposit(admCreated.id, { reason: "again" })) === null,
+    "second refund is a no-op (idempotent — cannot double-refund)"
+  );
+
+  // Admin cancel of a DIFFERENT paid booking — refund + notify both parties.
+  const adm2SlotStart = new Date(Date.now() + 39 * 60 * 60 * 1000);
+  const adm2Slot = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: adm2SlotStart,
+      endAt: new Date(adm2SlotStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-admin",
+    },
+  });
+  const adm2Created = await prismaCreateBookingRequest({
+    workerId: khaled!.id,
+    slotId: adm2Slot.id,
+    customerName: "Admin Cancel Tester",
+    customerPhone: "+966 50 888 1111",
+    customerEmail: "admindispute@workersarena.test",
+    jobTitle: "Smoke admin cancel",
+  });
+  if ("error" in adm2Created) throw new Error(`SMOKE ASSERT FAILED: admin-cancel create → ${adm2Created.error}`);
+  await prismaRespondToBooking(adm2Created.id, { accept: true, quote: 14000, deposit: 3000 });
+  const adm2Checkout = await prismaCreateBookingCheckout(adm2Created.id);
+  assert(adm2Checkout !== null, "admin-cancel checkout minted");
+  const adm2Row = await prisma.booking.findUnique({ where: { id: adm2Created.id }, include: { payment: true } });
+  await prismaConfirmBookingPayment(adm2Created.id, adm2Row!.payment!.providerRef!);
+
+  const adm2Cancelled = await prismaCancelBooking(adm2Created.id, {
+    by: "admin",
+    reason: "Duplicate booking — platform decision",
+  });
+  assert(adm2Cancelled?.status === "cancelled", "admin cancel → CANCELLED");
+  const adm2RowAfter = await prisma.booking.findUnique({
+    where: { id: adm2Created.id },
+    include: { payment: true, events: { orderBy: { createdAt: "asc" as const } } },
+  });
+  assert(adm2RowAfter?.payment?.status === "REFUNDED", "admin cancel refunds the deposit (no window — platform decision)");
+  assert(
+    adm2RowAfter?.events.some((e) => e.status === "CANCELLED" && e.actorType === "admin"),
+    "admin cancel stamps the CANCELLED audit event with the admin actor"
+  );
+  const adm2SlotFreed = await prisma.bookingSlot.findUnique({ where: { id: adm2Slot.id } });
+  assert(adm2SlotFreed?.status === "AVAILABLE" && adm2SlotFreed.bookingId === null, "admin cancel frees the slot (rule 3)");
+  // BOTH parties are told — unlike a party-initiated cancel, which notifies only
+  // the other side. The customer gets the cancelled email, the worker the
+  // slot-freed one (both carry the booking number).
+  const adm2Notifs = await prisma.notification.findMany({
+    where: { type: { in: ["BOOKING_CANCELLED", "BOOKING_REFUND"] } },
+  });
+  const adm2ForNumber = adm2Notifs.filter((r) => (r.bodyEn ?? "").includes(adm2Created.number));
+  // Both parties get a booking-cancelled push (customer: href /bookings, worker:
+  // href /dashboard — the worker's carries the slot-freed context in the body).
+  assert(adm2ForNumber.length >= 2, "admin cancel notifies both parties (customer + worker) about the booking");
+  // The href round-trips through the data JSON column (the app type is stored
+  // there too — see the notifications prisma adapter's lossless round-trip).
+  const hrefOf = (r: (typeof adm2Notifs)[number]) => (r.data as { href?: string } | null)?.href ?? "";
+  assert(
+    adm2ForNumber.some((r) => hrefOf(r) === "/bookings") && adm2ForNumber.some((r) => hrefOf(r) === "/dashboard"),
+    "customer is told on /bookings and the worker on /dashboard"
+  );
+  assert(
+    adm2ForNumber.some((r) => (r.bodyEn ?? "").toLowerCase().includes("slot is free")),
+    "the worker's notification carries the slot-freed context"
+  );
+  console.log("§2.4 admin: refund = money-only (booking+slot untouched, REFUNDED event, email, idempotent); cancel = refund + freed slot + both parties notified");
+
   // ── M4 activity feed — booking lifecycle events land in ActivityLog ───────
   // The seam-level logger (repo.ts logBookingLifecycle) writes the REQUESTED /
   // CONFIRMED / CANCELLED codes with the booking number (the dispute-view deep
@@ -1316,7 +1618,30 @@ async function main() {
       note: "smoke-reschedule",
     },
   });
-  const rsTargetStart = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  // The overlap guard rejects a target that collides with any
+  // RESERVED/BOOKED/BLOCKED slot of the worker — the seed's fixed demo hours
+  // (tomorrow 09:00/10:00/14:00 local, +3d 16:00, +5d 11:00) PLUS this run's
+  // own bookings (the lifecycle booking claimed the first AVAILABLE seed slot,
+  // the smoke-ops/m3/activity slots, and the rsSlot created above ends at
+  // now+9h). A fixed now+9h target is therefore time-of-day dependent — scan
+  // forward to the first free 1-hour window using the SAME predicate as the
+  // guard, so the smoke passes at any hour.
+  let rsTargetStart = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  for (;;) {
+    const rsTargetEnd = new Date(rsTargetStart.getTime() + 60 * 60 * 1000);
+    const rsClash = await prisma.bookingSlot.count({
+      where: {
+        workerId: khaled!.id,
+        status: { in: ["RESERVED", "BOOKED", "BLOCKED"] },
+        OR: [
+          { startAt: { lt: rsTargetEnd }, endAt: { gt: rsTargetStart } },
+          { startAt: { lte: rsTargetStart }, endAt: { gte: rsTargetEnd } },
+        ],
+      },
+    });
+    if (rsClash === 0) break;
+    rsTargetStart = rsTargetEnd;
+  }
   const rsTarget = await prisma.bookingSlot.create({
     data: {
       workerId: khaled!.id,
@@ -1342,7 +1667,7 @@ async function main() {
 
   const rsMoved = await prismaRescheduleBooking(rsCreated.id, rsTarget.id, { by: "worker" });
   assert(rsMoved?.status === "confirmed", "reschedule keeps the booking CONFIRMED");
-  assert(new Date(rsMoved!.startAt).getTime() === rsTargetStart.getTime(), "booking startAt follows the new slot");
+  assert(new Date(rsMoved!.startAt!).getTime() === rsTargetStart.getTime(), "booking startAt follows the new slot");
   assert(rsMoved!.events.at(-1)?.status === "rescheduled", "RESCHEDULED audit event appended");
   assert(rsMoved!.events.at(-1)?.actorType === "worker", "reschedule event actor = worker");
   const rsOldAfter = await prisma.bookingSlot.findUnique({ where: { id: rsSlot.id } });
@@ -1467,6 +1792,11 @@ async function main() {
   );
   const camCheckoutAgain = await prismaCreateCampaignCheckout(camId);
   assert(camCheckoutAgain?.url === camCreated!.checkoutUrl, "checkout re-mint is idempotent (Pay-now reuses the URL)");
+  // W2 boundary — the payment gate holds: a PENDING campaign never serves.
+  assert(
+    !(await prismaGetActiveAdsFor("homepage")).some((c) => c.id === camId),
+    "PENDING campaign never serves rotation (getActiveAdsFor only matches ACTIVE)"
+  );
 
   const camConfirmed = await prismaConfirmCampaignPayment(camId, "sim_pay-smoke-campaign");
   assert(camConfirmed?.status === "active", "webhook confirm → ACTIVE");
@@ -1484,6 +1814,48 @@ async function main() {
     "company notified 'Campaign is live'"
   );
 
+  // W2 boundary — the ACTIVE campaign now rotates on its placement, both for
+  // a plain request and a targeted one (the ad is untargeted → always serves,
+  // the demo's targetCategories gate), and tracking bumps the served
+  // creative + the campaign spend (demo parity: +1 minor impression, +100
+  // minor click, same CTR formula).
+  assert(
+    (await prismaGetActiveAdsFor("homepage")).some((c) => c.id === camId),
+    "ACTIVE campaign serves rotation on its placement after confirm"
+  );
+  assert(
+    (await prismaGetActiveAdsFor("homepage", { category: "plumbing" })).some((c) => c.id === camId),
+    "untargeted ad also serves a targeted rotation request"
+  );
+  assert(
+    !(await prismaGetActiveAdsFor("featured")).some((c) => c.id === camId),
+    "a different placement never serves the banner"
+  );
+  const camImpressed = await prismaRecordImpression(camId);
+  assert(
+    camImpressed?.impressions === 1 && camImpressed!.spent === 0.01,
+    "impression bumps the creative + campaign spend (1 minor)"
+  );
+  const camClicked = await prismaRecordClick(camId);
+  assert(
+    camClicked?.clicks === 1 && camClicked!.ctr === 100 && camClicked!.spent === 1.01,
+    "click bumps clicks + CTR (1/1 → 100%) + spend (100 minor)"
+  );
+
+  // W2 boundary — the /company invoices list reads the REAL Invoice rows:
+  // the purchase's WA-YYYY-NNNNN receipt renders paid + advertising, in major
+  // units (25000 minor → $250), scoped to the seeded company.
+  const companyInvoices = await prismaGetInvoices();
+  const smokeInv = companyInvoices.find((i) => i.campaignId === camId);
+  assert(smokeInv !== undefined, "prismaGetInvoices shows the purchase's receipt on the company list");
+  assert(
+    smokeInv!.number === camInvoice!.number &&
+      smokeInv!.scope === "advertising" &&
+      smokeInv!.status === "paid" &&
+      smokeInv!.amount === 250,
+    "receipt maps paid + advertising + major amount on the company list"
+  );
+
   const camRefunded = await prismaRefundCampaignPayment(camId, {
     by: "Platform Admin",
     reason: "Smoke duplicate purchase",
@@ -1494,6 +1866,16 @@ async function main() {
   assert(camAfter?.status === "ended", "refund ends the campaign (stops serving)");
   const camInvAfter = await prisma.invoice.findUnique({ where: { id: camInvoice!.id } });
   assert(camInvAfter?.status === "VOID", "credit note — the minted invoice VOIDs on refund");
+  // W2 boundary — the ended campaign drops off rotation and the credit note
+  // reads back on the company invoices list (VOID → refunded).
+  assert(
+    !(await prismaGetActiveAdsFor("homepage")).some((c) => c.id === camId),
+    "refunded (ended) campaign stops serving rotation"
+  );
+  assert(
+    (await prismaGetInvoices()).find((i) => i.campaignId === camId)?.status === "refunded",
+    "the credit note reads back on the company invoices list (VOID → refunded)"
+  );
   const camRefundNotifs = await prisma.notification.findMany({ where: { type: "CAMPAIGN_REFUNDED" } });
   assert(
     camRefundNotifs.some((r) => (r.bodyEn ?? "").includes("SMOKE CAMPAIGN")),
@@ -1522,7 +1904,7 @@ async function main() {
   );
   assert(camEmail.html.includes("Smoke duplicate purchase"), "refund email card shows the reason row");
   console.log(
-    "W2 campaigns: create → checkout (idempotent) → confirm (ACTIVE + PAID + WA- Invoice + live notif) → refund (ENDED + REFUNDED + VOID + feed + refund email)"
+    "W2 campaigns: create → checkout (idempotent) → confirm (ACTIVE + PAID + WA- Invoice + live notif) → rotation + tracking + invoices list → refund (ENDED + REFUNDED + VOID + feed + refund email)"
   );
 
   // Campaign cleanup — the purchase rows (invoice first: deleting the payment
@@ -1823,6 +2205,142 @@ async function main() {
     "W2 request SLA: nudge → auto-expire → slot freed → customer + worker notified → feed entry → idempotent re-run"
   );
 
+  // ── W2 — Multi-candidate quotes (docs/multi-candidate-quotes.md, live DB) ─
+  // The whole auction circle against the real schema: create (1 QuoteRequest
+  // OPEN + one slot-less QUOTING Booking per invited worker) → bid (QUOTED) →
+  // pick (the winner claims a REAL slot via the same CAS, losers DECLINED by
+  // the system, job SELECTED) → the winner flows through the EXISTING respond
+  // pipeline (CONFIRMED + slot BOOKED). Plus the SLA expiry path (backdated
+  // expiresAt → EXPIRED, open bids DECLINED, idempotent re-run).
+  const quoteOther = await prisma.worker.findFirst({ where: { id: { not: khaled!.id } } });
+  assert(quoteOther !== null, "a second worker exists for the quote auction");
+  // The quote form's email is OPTIONAL — stamp the signed-in customer's id so
+  // the customerId lookup branch is exercised live (mirrors the demo adapter's
+  // ownership check in demoGetCustomerQuoteRequests).
+  const quoteUser = await prisma.user.findUnique({ where: { email: "sara@example.com" } });
+  assert(quoteUser !== null, "seeded Sara user exists for the customerId quote lookup");
+  const quoteCreated = await prismaCreateQuoteRequest(
+    {
+      customerId: quoteUser.id,
+      customerName: "Quotes Tester",
+      customerPhone: "+966 50 777 2222",
+      customerEmail: "quotes@workersarena.test",
+      jobTitle: "Fix a leaking pipe under the kitchen sink",
+      categorySlug: khaled!.categorySlug,
+      citySlug: khaled!.citySlug,
+    },
+    [khaled!.id, quoteOther!.id]
+  );
+  assert(!("error" in quoteCreated), "quote request created");
+  assert(quoteCreated.bookings.length === 2, "one slot-less booking per invited worker");
+  assert(quoteCreated.number.startsWith("QR-"), "quote number QR-YYYY-NNNNN");
+  assert(
+    quoteCreated.bookings.every((b) => b.status === "quoting" && b.startAt === undefined && b.endAt === undefined),
+    "bids are slot-less QUOTING (rule 2 — no slot locked during the auction)"
+  );
+  const qBidKhaled = quoteCreated.bookings.find((b) => b.workerId === khaled!.id)!;
+  const qBidOther = quoteCreated.bookings.find((b) => b.workerId === quoteOther!.id)!;
+
+  const qCustomer = await prismaGetCustomerQuoteRequests({ email: "quotes@workersarena.test" });
+  assert(qCustomer.length >= 1 && qCustomer.some((q) => q.id === quoteCreated.id), "customer lookup lists the job");
+
+  // Prove the customerId branch genuinely: strip the email (the form's
+  // optional field a signed-in customer may skip) — the job must still be
+  // found by the session id, and a stranger's email must NOT leak it.
+  await prisma.quoteRequest.update({ where: { id: quoteCreated.id }, data: { customerEmail: null } });
+  const qByCustomerId = await prismaGetCustomerQuoteRequests({ customerId: quoteUser.id });
+  assert(qByCustomerId.some((q) => q.id === quoteCreated.id), "customerId lookup lists the email-less job");
+  const qStranger = await prismaGetCustomerQuoteRequests({ email: "nobody@workersarena.test" });
+  assert(!qStranger.some((q) => q.id === quoteCreated.id), "a stranger's email does not leak the job");
+
+  const qSub = await prismaSubmitQuote(qBidKhaled.id, { quote: 25000, deposit: 5000 });
+  assert(qSub?.status === "quoted" && qSub.quote === 25000 && qSub.deposit === 5000, "bid submitted → QUOTED with quote/deposit");
+  assert(qSub!.startAt === undefined, "bid claims no slot (rule 3 — bids are not commitments)");
+  const qAfterBid = await prismaGetQuoteRequest(quoteCreated.number);
+  assert(qAfterBid?.status === "quoting", "job flips OPEN → QUOTING after the first bid");
+
+  // A free AVAILABLE slot for the winner's pick (marked smoke-quote for the
+  // note sweep), then the pick: winner claims it via the atomic CAS.
+  const qSlotStart = await (async (): Promise<Date> => {
+    const SIBLING_HOURS = new Set([2, 3, 7, 10, 16]);
+    for (let h = 4; h < 24; h++) {
+      if (SIBLING_HOURS.has(h) || SIBLING_HOURS.has(h - 1)) continue;
+      const start = new Date(Date.now() + h * 60 * 60 * 1000);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const clash = await prisma.bookingSlot.count({
+        where: {
+          workerId: khaled!.id,
+          status: { in: ["RESERVED", "BOOKED", "BLOCKED"] },
+          startAt: { lt: end },
+          endAt: { gt: start },
+        },
+      });
+      if (clash === 0) return start;
+    }
+    throw new Error("SMOKE ASSERT FAILED: no free quote-winner slot window within 24h");
+  })();
+  const qSlot = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: qSlotStart,
+      endAt: new Date(qSlotStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-quote",
+    },
+  });
+
+  const qWinner = await prismaSelectQuote(quoteCreated.id, qBidKhaled.id, qSlot.id);
+  assert(!("error" in qWinner), "selectQuote picks a winner");
+  assert(qWinner.status === "requested" && qWinner.startAt === qSlot.startAt.toISOString(), "winner becomes slot-bound REQUESTED");
+  const qSlotAfter = await prisma.bookingSlot.findUnique({ where: { id: qSlot.id } });
+  assert(qSlotAfter?.status === "RESERVED" && qSlotAfter.bookingId === qWinner.id, "winner's slot RESERVED + linked (rule 4)");
+  const qLoser = await prisma.booking.findUnique({
+    where: { id: qBidOther.id },
+    include: { events: { orderBy: { createdAt: "asc" as const } } },
+  });
+  assert(
+    qLoser?.status === "DECLINED" && qLoser.events.at(-1)?.status === "DECLINED" && qLoser.events.at(-1)?.actorType === "system",
+    "loser system-DECLINED with an audit event (slot-less — nothing to free)"
+  );
+  const qSelected = await prismaGetQuoteRequest(quoteCreated.number);
+  assert(qSelected?.status === "selected", "job flips to SELECTED once");
+
+  // The winner flows through the EXISTING pipeline — respond → CONFIRMED + BOOKED.
+  const qConfirm = await prismaRespondToBooking(qWinner.id, { accept: true, quote: 25000 });
+  assert(qConfirm?.status === "confirmed", "winner confirmed via the existing respondToBooking");
+  const qSlotBooked = await prisma.bookingSlot.findUnique({ where: { id: qSlot.id } });
+  assert(qSlotBooked?.status === "BOOKED", "winner's slot BOOKED by the normal accept");
+
+  // Re-picking the closed job is refused (rule 4 — exactly one winner).
+  const qClosed = await prismaSelectQuote(quoteCreated.id, qBidKhaled.id, qSlot.id);
+  assert("error" in qClosed && qClosed.error === "closed", "re-select on a SELECTED job → closed");
+
+  // SLA expiry path — a second job backdated past QUOTE_SLA_MS: EXPIRED + open
+  // bids DECLINED by the cron, idempotent re-run.
+  const qExpired = await prismaCreateQuoteRequest(
+    {
+      customerName: "Quotes Tester",
+      customerPhone: "+966 50 777 2222",
+      customerEmail: "quotes@workersarena.test",
+      jobTitle: "Drain unblock",
+      categorySlug: khaled!.categorySlug,
+      citySlug: khaled!.citySlug,
+    },
+    [khaled!.id]
+  );
+  assert(!("error" in qExpired), "second quote request created");
+  await prisma.quoteRequest.update({ where: { id: qExpired.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+  const qExpiredCount = await prismaExpireQuoteRequests();
+  assert(qExpiredCount >= 1, "SLA cron expires the backdated job");
+  const qExpiredAfter = await prismaGetQuoteRequest(qExpired.number);
+  assert(qExpiredAfter?.status === "expired", "job → EXPIRED");
+  assert(qExpiredAfter!.bookings.every((b) => b.status === "declined"), "open bids DECLINED (slot-less — nothing to free)");
+  const qExpiredAgain = await prismaExpireQuoteRequests();
+  assert(qExpiredAgain === 0, "SLA cron idempotent (nothing due on re-run)");
+  console.log(
+    "W2 quotes: create → bid → pick (CAS slot claim, loser DECLINED) → respond → CONFIRMED · SLA expiry → EXPIRED + bids DECLINED, idempotent"
+  );
+
   // Cleanup — restore the seeded rows so the smoke stays idempotent.
   // W2 recurring — the smoke contracts' occurrences (Bookings, events
   // cascade), the contract rows, then the dedicated slots (the freed slots
@@ -1858,6 +2376,15 @@ async function main() {
   await prisma.bookingEvent.deleteMany({ where: { bookingId: ccCreated.id } });
   await prisma.booking.delete({ where: { id: ccCreated.id } });
   await prisma.bookingSlot.delete({ where: { id: ccSlot.id } });
+  // W2 quotes — the auction bookings (events cascade) + the job rows + the
+  // winner's dedicated slot; notification rows ride the sweep below.
+  await prisma.bookingEvent.deleteMany({ where: { bookingId: { in: quoteCreated.bookings.map((b) => b.id) } } });
+  await prisma.booking.deleteMany({ where: { quoteRequestId: quoteCreated.id } });
+  await prisma.quoteRequest.delete({ where: { id: quoteCreated.id } });
+  await prisma.bookingEvent.deleteMany({ where: { bookingId: { in: qExpired.bookings.map((b) => b.id) } } });
+  await prisma.booking.deleteMany({ where: { quoteRequestId: qExpired.id } });
+  await prisma.quoteRequest.delete({ where: { id: qExpired.id } });
+  await prisma.bookingSlot.delete({ where: { id: qSlot.id } });
   // M3 — the deposit bookings' Payment rows (booking delete SetNulls the links).
   await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: m3Created.id } } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: m3Created.id } });
@@ -1894,12 +2421,27 @@ async function main() {
         { meta: { path: ["bookingNo"], equals: m3Created.number } },
         { meta: { path: ["bookingNo"], equals: m3bCreated.number } },
         { meta: { path: ["bookingNo"], equals: m3cCreated.number } },
+        { meta: { path: ["bookingNo"], equals: admCreated.number } },
+        { meta: { path: ["bookingNo"], equals: adm2Created.number } },
       ],
     },
   });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: actCreated.id } });
   await prisma.booking.delete({ where: { id: actCreated.id } });
   await prisma.bookingSlot.delete({ where: { id: actSlot.id } });
+  // §2.3 chat accept — the dedicated booking + its slot. The slot is a SEEDED
+  // AVAILABLE one (like `free`): restore it to AVAILABLE instead of deleting,
+  // so the smoke stays repeatable run after run.
+  await prisma.bookingEvent.deleteMany({ where: { bookingId: acceptCreated.id } });
+  await prisma.booking.delete({ where: { id: acceptCreated.id } });
+  await prisma.bookingSlot.update({ where: { id: free2!.id }, data: { status: "AVAILABLE", bookingId: null } });
+  // §2.4 admin bookings + their dedicated slots.
+  await prisma.bookingEvent.deleteMany({ where: { bookingId: admCreated.id } });
+  await prisma.booking.delete({ where: { id: admCreated.id } }).catch(() => {});
+  await prisma.bookingSlot.delete({ where: { id: admSlot.id } }).catch(() => {});
+  await prisma.bookingEvent.deleteMany({ where: { bookingId: adm2Created.id } });
+  await prisma.booking.delete({ where: { id: adm2Created.id } }).catch(() => {});
+  await prisma.bookingSlot.delete({ where: { id: adm2Slot.id } }).catch(() => {});
   // Feed reschedule + no-show bookings + their dedicated slots.
   await prisma.bookingEvent.deleteMany({ where: { bookingId: rs2Created.id } });
   await prisma.booking.delete({ where: { id: rs2Created.id } });

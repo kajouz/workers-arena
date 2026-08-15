@@ -20,26 +20,34 @@ import {
   confirmBookingPayment,
   createBookingCheckout,
   createBookingRequest,
+  createQuoteRequest,
   decidePayout,
+  expireQuoteRequests,
   getBookingByNumber,
   getBookingFunnel,
   getPlatformFeeStats,
   getWorkerBalance,
-  requestPayout,
   getCustomerBookings,
+  getCustomerQuoteRequests,
   getNotificationsList,
+  getQuoteRequest,
   getWorkerBookings,
   getWorkerSlots,
+  requestPayout,
   rescheduleBooking,
   respondToBooking,
+  refundBookingDeposit,
+  selectQuote,
   setSlotBlocked,
+  submitQuote,
   transitionBooking,
 } from "../src/lib/data/repo";
 import { demoAddSlot, demoGenerateSlots, resetBookingsStore } from "../src/lib/data/bookings";
 import { getAdminActivityFeed, resetAdminActivityFeed } from "../src/lib/data/activity";
 import { computePlatformFee, computeResponseRate, isPlanFeeExempt, nextDayKeys } from "../src/lib/data/booking-ui";
 import { workerBySlug } from "../src/lib/data/workers";
-import type { Booking } from "../src/lib/data/types";
+import { MAX_QUOTE_WORKERS, QUOTE_SLA_MS } from "../src/lib/data/types";
+import type { Booking, QuoteRequest } from "../src/lib/data/types";
 
 const DEMO_WORKER = "khaled-al-harbi-plumbing";
 
@@ -927,6 +935,94 @@ describe("cancelBooking — M4 cancellation", () => {
   });
 });
 
+describe("admin cancel + refund — §2.4 dispute view (demo adapter)", () => {
+  /** Accept BK-1001 (seeded REQUESTED) with a deposit + pay it — the state an
+   * admin refund or cancel acts on. */
+  async function acceptAndPay() {
+    await respondToBooking("bk-1001", { accept: true, quote: 15000, deposit: 3000 });
+    const checkout = await createBookingCheckout("bk-1001");
+    expect(checkout).not.toBeNull();
+    await confirmBookingPayment("bk-1001", "sim_pay-admin");
+  }
+
+  it("admin cancel frees the slot, stamps the admin actor, refunds the paid deposit and notifies BOTH parties", async () => {
+    await acceptAndPay();
+
+    const result = await cancelBooking("bk-1001", { by: "admin", reason: "Duplicate booking", adminName: "Platform Admin" });
+    const booking = bookingOf(result ?? { error: "not-found" });
+    expect(booking.status).toBe("cancelled");
+    expect(booking.events.at(-1)).toMatchObject({ status: "cancelled", actorType: "admin", reason: "Duplicate booking" });
+
+    // Rule 3 — the slot is freed back to AVAILABLE.
+    const slot = (await getWorkerSlots(khaled().id)).find((s) => s.id === "slot-khaled-10")!;
+    expect(slot.status).toBe("available");
+
+    // A platform cancel ALWAYS refunds a paid deposit (the window policy is
+    // worker-only) — the customer gets the refund email.
+    const inbox = await getNotificationsList();
+    expect(inbox.some((n) => n.type === "bookingRefund")).toBe(true);
+    // BOTH the customer (/bookings) and the worker (/dashboard) are told.
+    expect(inbox.some((n) => n.type === "bookingCancelled" && n.href === "/bookings")).toBe(true);
+    expect(inbox.some((n) => n.type === "bookingCancelled" && n.href === "/dashboard")).toBe(true);
+  });
+
+  it("admin cancel of a quote-only (no deposit) booking still tells both parties", async () => {
+    await respondToBooking("bk-1001", { accept: true, quote: 15000 }); // no deposit
+    // The demo inbox is shared globalThis state, so refund-notification checks
+    // must be delta-based: earlier tests in this file legitimately push one.
+    const refundsBefore = (await getNotificationsList()).filter((n) => n.type === "bookingRefund").length;
+    await cancelBooking("bk-1001", { by: "admin", reason: "Duplicate" });
+    const inbox = await getNotificationsList();
+    expect(inbox.some((n) => n.type === "bookingCancelled" && n.href === "/bookings")).toBe(true);
+    expect(inbox.some((n) => n.type === "bookingCancelled" && n.href === "/dashboard")).toBe(true);
+    // Nothing to refund — no NEW refund notification appears.
+    expect(inbox.filter((n) => n.type === "bookingRefund").length).toBe(refundsBefore);
+  });
+
+  it("refundBookingDeposit refunds a PAID deposit without cancelling, appends a REFUNDED event and emails the refund", async () => {
+    await acceptAndPay();
+
+    const result = await refundBookingDeposit("bk-1001", { reason: "Dispute resolved in customer's favour", adminName: "Platform Admin" });
+    const booking = bookingOf(result ?? { error: "not-found" });
+    // The booking itself is unchanged — money-only correction (post-payment it sits at CONFIRMED).
+    expect(booking.status).toBe("confirmed");
+    expect(booking.events.at(-1)).toMatchObject({ status: "refunded", actorType: "admin", reason: "Dispute resolved in customer's favour" });
+
+    const inbox = await getNotificationsList();
+    expect(inbox.some((n) => n.type === "bookingRefund")).toBe(true);
+    // No cancellation notification — the job is still on. Delta-based because
+    // the shared demo inbox already carries cancellations from earlier tests.
+    const cancelledBefore = inbox.filter((n) => n.type === "bookingCancelled").length;
+    const inboxAfter = await getNotificationsList();
+    expect(inboxAfter.filter((n) => n.type === "bookingCancelled").length).toBe(cancelledBefore);
+  });
+
+  it("refundBookingDeposit is a no-op without a PAID deposit (idempotent)", async () => {
+    // No payment at all — nothing to refund.
+    expect(await refundBookingDeposit("bk-1001", { reason: "x" })).toBeNull();
+
+    // A PENDING checkout (unpaid) is not refundable.
+    await respondToBooking("bk-1001", { accept: true, quote: 15000, deposit: 3000 });
+    await createBookingCheckout("bk-1001");
+    expect(await refundBookingDeposit("bk-1001", { reason: "x" })).toBeNull();
+
+    // Pay it, refund once, then the second refund is a no-op.
+    await confirmBookingPayment("bk-1001", "sim_pay-admin-2");
+    expect(await refundBookingDeposit("bk-1001", { reason: "first" })).not.toBeNull();
+    expect(await refundBookingDeposit("bk-1001", { reason: "second" })).toBeNull();
+
+    expect(await refundBookingDeposit("no-such-booking", { reason: "x" })).toBeNull();
+  });
+
+  it("logs BOOKING_CANCELLED (admin actor) and BOOKING_REFUNDED to the activity feed", async () => {
+    await acceptAndPay();
+    await cancelBooking("bk-1001", { by: "admin", reason: "Duplicate", adminName: "Amina Admin" });
+    const feed = await getAdminActivityFeed();
+    expect(feed.some((e) => e.code === "BOOKING_CANCELLED" && e.actor === "Amina Admin")).toBe(true);
+    expect(feed.some((e) => e.code === "BOOKING_CANCELLED" && e.actor === "Platform Admin")).toBe(false);
+  });
+});
+
 describe("M4 server actions — transition & cancel zod layer", () => {
   /** Accept-form FormData (the exact shape the RespondDialog submits). */
   function acceptFd() {
@@ -1236,5 +1332,215 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     } finally {
       w.subscription.plan = original;
     }
+  });
+});
+
+/* ─────────────── Multi-candidate quotes (docs/multi-candidate-quotes.md) ─────────────── */
+
+function quoteOf(r: QuoteRequest | { error: string }): QuoteRequest {
+  if ("error" in r) throw new Error(`expected quote request, got error ${r.error}`);
+  return r;
+}
+
+function quoteInput(overrides: Record<string, unknown> = {}) {
+  return {
+    customerName: "Noor E.",
+    customerPhone: "+966 55 123 4871",
+    customerEmail: "noor@example.com",
+    jobTitle: "Fix a leaking pipe under the kitchen sink",
+    categorySlug: "plumbing",
+    citySlug: "riyadh",
+    ...overrides,
+  };
+}
+
+describe("multi-candidate quotes (demo adapter + seams)", () => {
+  const ali = () => workerBySlug("ali-hassan-carpentry")!;
+  const omar = () => workerBySlug("omar-al-mutairi-ac-technician")!;
+
+  it("create: one QuoteRequest (OPEN, QR-YYYY-NNNNN, expiresAt) + one slot-less QUOTING booking per worker; over-limit/duplicate/unknown rejected", async () => {
+    const created = quoteOf(await createQuoteRequest(quoteInput(), [khaled().id, ali().id]));
+    expect(created.bookings).toHaveLength(2);
+    expect(created.status).toBe("open");
+    expect(created.number).toMatch(/^QR-\d{4}-\d{5}$/);
+    expect(created.expiresAt).toBeTruthy();
+    expect(Date.parse(created.expiresAt!) - Date.parse(created.createdAt)).toBe(QUOTE_SLA_MS);
+    for (const b of created.bookings) {
+      expect(b.status).toBe("quoting");
+      expect(b.startAt).toBeUndefined(); // rule 2 — no slot is locked during the auction
+      expect(b.endAt).toBeUndefined();
+      expect(b.quoteRequestId).toBe(created.id);
+      expect(b.customerName).toBe("Noor E.");
+      expect(b.events[0]).toMatchObject({ status: "quoting", actorType: "customer" });
+    }
+    // The invited bookings surface on the workers' dashboards (Requests tab).
+    const khaledBookings = await getWorkerBookings(khaled().id);
+    expect(khaledBookings.some((b) => b.status === "quoting" && b.quoteRequestId === created.id)).toBe(true);
+    // The customer's page lists the job.
+    const mine = await getCustomerQuoteRequests({ email: "noor@example.com" });
+    expect(mine.some((q) => q.id === created.id)).toBe(true);
+
+    const tooMany = await createQuoteRequest(quoteInput(), [khaled().id, ali().id, omar().id, workerBySlug("ahmed-el-sayed-masonry")!.id]);
+    expect(tooMany).toEqual({ error: "too-many" });
+    const dup = await createQuoteRequest(quoteInput(), [khaled().id, khaled().id]);
+    expect(dup).toEqual({ error: "duplicate" });
+    const ghost = await createQuoteRequest(quoteInput(), ["no-such-worker"]);
+    expect(ghost).toEqual({ error: "unknown-worker" });
+  });
+
+  it("a signed-in customer who skips the optional email still sees their own quote jobs (customerId lookup)", async () => {
+    // The email is OPTIONAL on the quote form — the session id is the only
+    // identity stamped when a signed-in customer leaves it blank.
+    const created = quoteOf(
+      await createQuoteRequest(quoteInput({ customerId: "u-customer", customerEmail: undefined }), [khaled().id])
+    );
+    expect(created.customerId).toBe("u-customer");
+    expect(created.customerEmail).toBeUndefined();
+
+    // The email-less job is invisible to the email lookup (and the store has
+    // no sara@example.com jobs)…
+    expect(await getCustomerQuoteRequests({ email: "sara@example.com" })).toEqual([]);
+
+    // …but the signed-in customer's session id finds it — the /bookings page
+    // passes { email, customerId }, and the customerId branch is what matches.
+    const mine = await getCustomerQuoteRequests({ customerId: "u-customer" });
+    expect(mine.some((q) => q.id === created.id)).toBe(true);
+    expect(mine[0]!.customerName).toBe("Noor E.");
+
+    // The single-job read enforces the same ownership by customerId.
+    expect((await getQuoteRequest(created.number, { customerId: "u-customer" }))?.id).toBe(created.id);
+    expect(await getQuoteRequest(created.number, { customerId: "someone-else" })).toBeNull();
+  });
+
+  it("submitQuote: QUOTING → QUOTED with the bid; no slot claim; the job flips OPEN → QUOTING; a re-bid is refused", async () => {
+    const created = quoteOf(await createQuoteRequest(quoteInput(), [khaled().id, ali().id]));
+    const bid = created.bookings[0]!;
+
+    const submitted = await submitQuote(bid.id, { quote: 25000, deposit: 5000 });
+    expect(submitted?.status).toBe("quoted");
+    expect(submitted?.quote).toBe(25000);
+    expect(submitted?.deposit).toBe(5000);
+    expect(submitted?.startAt).toBeUndefined(); // rule 3 — bids are not commitments
+
+    // The job container moved OPEN → QUOTING once the first bid landed.
+    const after = await getCustomerQuoteRequests({ email: "noor@example.com" });
+    expect(after.find((q) => q.id === created.id)?.status).toBe("quoting");
+
+    // A second submit on the same booking is refused (CAS on QUOTING).
+    expect(await submitQuote(bid.id, { quote: 1 })).toBeNull();
+    // An unknown booking is refused.
+    expect(await submitQuote("bk-nope", { quote: 1 })).toBeNull();
+  });
+
+  it("selectQuote: winner claims the slot (RESERVED + times stamped), losers are system-DECLINED, job → SELECTED once; re-select is closed", async () => {
+    const created = quoteOf(await createQuoteRequest(quoteInput(), [khaled().id, ali().id]));
+    const [khaledBid, aliBid] = created.bookings;
+    await submitQuote(khaledBid!.id, { quote: 30000 });
+    await submitQuote(aliBid!.id, { quote: 20000 });
+
+    const slot = demoAddSlot(khaled().id, new Date(2027, 0, 7, 9).toISOString(), new Date(2027, 0, 7, 10).toISOString());
+    const winner = await selectQuote(created.id, khaledBid!.id, slot.id);
+    if ("error" in winner) throw new Error(`expected winner, got ${winner.error}`);
+
+    expect(winner.id).toBe(khaledBid!.id);
+    expect(winner.status).toBe("requested");
+    expect(winner.startAt).toBe(slot.startAt); // the winner is now slot-bound
+    expect(winner.events.at(-1)).toMatchObject({ status: "requested", actorType: "customer" });
+
+    // The slot is RESERVED + linked; the losers are DECLINED (slot-less).
+    const slots = await getWorkerSlots(khaled().id);
+    expect(slots.find((s) => s.id === slot.id)?.status).toBe("reserved");
+    const mine = await getCustomerQuoteRequests({ email: "noor@example.com" });
+    const job = mine.find((q) => q.id === created.id)!;
+    expect(job.status).toBe("selected");
+    expect(job.bookings.find((b) => b.id === aliBid!.id)?.status).toBe("declined");
+    expect(job.bookings.find((b) => b.id === aliBid!.id)?.events.at(-1)).toMatchObject({
+      status: "declined",
+      actorType: "system",
+    });
+
+    // Re-selecting the closed job is refused; a fresh slot is NOT claimed.
+    const again = await selectQuote(created.id, khaledBid!.id, slot.id);
+    expect(again).toEqual({ error: "closed" });
+  });
+
+  it("selectQuote guards: not-quoted winner and slot-taken", async () => {
+    const created = quoteOf(await createQuoteRequest(quoteInput(), [khaled().id, ali().id]));
+    const [khaledBid, aliBid] = created.bookings;
+    await submitQuote(aliBid!.id, { quote: 20000 });
+    const slot = demoAddSlot(khaled().id, new Date(2027, 0, 7, 9).toISOString(), new Date(2027, 0, 7, 10).toISOString());
+
+    // The winner hasn't bid yet → not-quoted.
+    expect(await selectQuote(created.id, khaledBid!.id, slot.id)).toEqual({ error: "not-quoted" });
+
+    // Now bid and claim the slot with a plain booking — the pick must lose it.
+    await submitQuote(khaledBid!.id, { quote: 30000 });
+    const slotTaken = await createBookingRequest({
+      workerId: khaled().id,
+      slotId: slot.id,
+      customerName: "Sara Customer",
+      customerPhone: "+966 50 000 0000",
+      jobTitle: "Leaking sink",
+    });
+    expect("error" in slotTaken).toBe(false);
+    expect(await selectQuote(created.id, khaledBid!.id, slot.id)).toEqual({ error: "slot-taken" });
+  });
+
+  it("expireQuoteRequests: past-expiry jobs flip EXPIRED and their open bids are DECLINED; idempotent re-run", async () => {
+    const created = quoteOf(await createQuoteRequest(quoteInput(), [khaled().id, ali().id]));
+    await submitQuote(created.bookings[0]!.id, { quote: 25000 });
+    // Backdate the expiresAt (the demo store holds the request by reference).
+    created.expiresAt = new Date(Date.now() - 1000).toISOString();
+
+    const expired = await expireQuoteRequests();
+    expect(expired).toBe(1);
+    const job = (await getCustomerQuoteRequests({ email: "noor@example.com" })).find((q) => q.id === created.id)!;
+    expect(job.status).toBe("expired");
+    for (const b of job.bookings) expect(b.status).toBe("declined");
+    expect(job.bookings[0]?.events.at(-1)).toMatchObject({ status: "declined", actorType: "system", reason: "Quote window closed" });
+
+    // Idempotent — a re-run finds nothing due.
+    expect(await expireQuoteRequests()).toBe(0);
+  });
+
+  it("server actions: createQuoteRequestAction + submitQuoteAction + selectQuoteAction round-trip (major → minor money)", async () => {
+    const { createQuoteRequestAction, submitQuoteAction, selectQuoteAction } = await import("../src/app/actions/bookings");
+    const fd = new FormData();
+    fd.set("customerName", "Noor E.");
+    fd.set("customerPhone", "+966 55 123 4871");
+    fd.set("customerEmail", "noor@example.com");
+    fd.set("jobTitle", "Fix a leaking pipe under the kitchen sink");
+    const res = await createQuoteRequestAction([khaled().slug, ali().slug], fd);
+    expect(res.ok).toBe(true);
+    // More than MAX_QUOTE_WORKERS slugs → too-many at the action layer.
+    const slugs = [khaled().slug, ali().slug, omar().slug, workerBySlug("ahmed-el-sayed-masonry")!.slug];
+    expect((await createQuoteRequestAction(slugs, fd)).error).toBe("too-many");
+
+    const job = (await getCustomerQuoteRequests({ email: "noor@example.com" }))[0]!;
+    const bid = job.bookings[0]!;
+    const bidFd = new FormData();
+    bidFd.set("quote", "250"); // major units
+    bidFd.set("deposit", "50");
+    expect((await submitQuoteAction(bid.id, bidFd)).ok).toBe(true);
+    const quoted = job.bookings[0]!;
+    expect(quoted.quote).toBe(25000); // ×100 minor units
+    expect(quoted.deposit).toBe(5000);
+
+    const slot = demoAddSlot(khaled().id, new Date(2027, 0, 7, 9).toISOString(), new Date(2027, 0, 7, 10).toISOString());
+    const pickFd = new FormData();
+    pickFd.set("winnerBookingId", bid.id);
+    pickFd.set("slotId", slot.id);
+    const picked = await selectQuoteAction(job.id, pickFd);
+    expect(picked.ok).toBe(true);
+  });
+
+  it("quote bookings count in the admin funnel without converting (requested-only conversion is untouched)", async () => {
+    // The funnel's status tally includes quoting/quoted keys (zeroed + counted).
+    const created = quoteOf(await createQuoteRequest(quoteInput(), [khaled().id]));
+    await submitQuote(created.bookings[0]!.id, { quote: 25000 });
+    const funnel = await getBookingFunnel(30);
+    expect(funnel.counts.quoting).toBe(0); // the quote booking is created now (in-window) — but it sits in quoting…
+    expect(funnel.counts.quoted).toBeGreaterThanOrEqual(1);
+    expect(Object.keys(funnel.counts)).toHaveLength(14); // every BookingStatus key incl. quoting/quoted + the audit-only message/refunded keys
   });
 });

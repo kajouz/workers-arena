@@ -1,5 +1,7 @@
 # Worker Payouts — Design & Implementation
 
+[← Back to docs index](README.md)
+
 > **Status: ✅ implemented.** `WorkerLedgerEntry` (+ migration), earnings credited **inside the completion transition tx** (both adapters), `getWorkerBalance` / `requestPayout` / `decidePayout` / `getWorkerPayouts` / `getPendingPayouts` seams (demo + prisma), the worker dashboard **Payouts** card (available/pending balance, withdraw dialog, history), the /admin pending-payouts queue (approve/reject), tests + `db:smoke`. This page documents the design; the implementation follows it as written.
 
 ---

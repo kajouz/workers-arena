@@ -2,15 +2,24 @@ import { describe, expect, it } from "vitest";
 import type { Prisma } from "@prisma/client";
 import {
   filtersToWhere,
+  matchesAdPlacement,
+  matchesAdTargeting,
   PROFILE_INCLUDE,
   rowToSlot,
   sqlOrderBy,
   toDomainBooking,
+  toDomainBookingMessage,
   toDomainCategory,
+  toDomainCity,
+  toDomainInvoice,
+  toDomainQuoteRequest,
   toDomainRecurring,
   toDomainWorker,
   type PrismaBookingRow,
   type PrismaBookingSlotRow,
+  type PrismaBookingMessageRow,
+  type PrismaInvoiceRow,
+  type PrismaQuoteRequestRow,
   type PrismaRecurringRow,
 } from "../src/lib/data/prisma-repo";
 import {
@@ -18,6 +27,7 @@ import {
   bookingCancelRefundDue,
   emptyBookingFunnelCounts,
   formatInvoiceNumber,
+  formatQuoteNumber,
   tallyBookingFunnel,
   type BookingStatus,
 } from "../src/lib/data/types";
@@ -30,6 +40,7 @@ import {
  */
 type WorkerRow = Prisma.WorkerGetPayload<{ include: typeof PROFILE_INCLUDE }>;
 type CategoryRow = Prisma.CategoryGetPayload<{ include: { _count: { select: { workers: true } } } }>;
+type CityRow = Prisma.CityGetPayload<{ include: { areas: true } }>;
 
 const DAY = 24 * 60 * 60 * 1000;
 const inDays = (n: number) => new Date(Date.now() + n * DAY);
@@ -204,6 +215,26 @@ function makeCategoryRow(overrides: Partial<CategoryRow> = {}): CategoryRow {
     createdAt: new Date(),
     updatedAt: new Date(),
     _count: { workers: 12 },
+  };
+  return { ...base, ...overrides };
+}
+
+function makeCityRow(overrides: Partial<CityRow> = {}): CityRow {
+  const base: CityRow = {
+    id: "city1",
+    slug: "riyadh",
+    nameEn: "Riyadh",
+    nameAr: "الرياض",
+    countryEn: "Saudi Arabia",
+    countryAr: "السعودية",
+    currency: "SAR",
+    lat: 24.7136,
+    lng: 46.6753,
+    isActive: true,
+    areas: [
+      { id: "area1", slug: "al-olaya", nameEn: "Al Olaya", nameAr: "العليا", cityId: "city1" },
+      { id: "area2", slug: "al-malqa", nameEn: "Al Malqa", nameAr: "الملقا", cityId: "city1" },
+    ],
   };
   return { ...base, ...overrides };
 }
@@ -393,6 +424,31 @@ describe("toDomainCategory (Prisma row → domain)", () => {
   });
 });
 
+describe("toDomainCity (Prisma row → domain)", () => {
+  it("maps a seeded city with its areas", () => {
+    const c = toDomainCity(makeCityRow());
+    expect(c.slug).toBe("riyadh");
+    expect(c.nameEn).toBe("Riyadh");
+    expect(c.nameAr).toBe("الرياض");
+    expect(c.countryEn).toBe("Saudi Arabia");
+    expect(c.currency).toBe("SAR");
+    expect(c.lat).toBe(24.7136);
+    expect(c.lng).toBe(46.6753);
+    expect(c.areas).toEqual([
+      { slug: "al-olaya", nameEn: "Al Olaya", nameAr: "العليا" },
+      { slug: "al-malqa", nameEn: "Al Malqa", nameAr: "الملقا" },
+    ]);
+  });
+
+  it("casts the currency to a domain CurrencyCode and defaults missing values", () => {
+    const c = toDomainCity(makeCityRow({ currency: "AED", nameEn: "Dubai", slug: "dubai" }));
+    expect(c.currency).toBe("AED");
+    const noCurr = toDomainCity(makeCityRow({ currency: "" }));
+    expect(noCurr.currency).toBe("SAR");
+    expect(noCurr.areas.length).toBe(2);
+  });
+});
+
 describe("booking mappers (W2 — Prisma row → domain)", () => {
   const iso = "2026-08-10T09:00:00.000Z";
 
@@ -511,6 +567,9 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
       makeBookingRow({
         customerId: "u-customer",
         payment: {
+          id: "pay-1",
+          amount: 5000,
+          status: "PAID",
           invoice: {
             number: "WA-2026-00001",
             amount: 5000,
@@ -530,14 +589,18 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
       status: "paid",
       date: "2026-08-10T09:30:00.000Z",
     });
+    expect(b.paymentStatus).toBe("paid"); // §2.4 — gates the admin Refund-deposit action
   });
 
   it("leaves customerId + invoice undefined for guests or unpaid payments", () => {
     const guest = toDomainBooking(makeBookingRow({ customerId: null }));
     expect(guest.customerId).toBeUndefined();
     expect(guest.invoice).toBeUndefined();
-    const noInvoice = toDomainBooking(makeBookingRow({ customerId: "u-customer", payment: { invoice: null } }));
+    const noInvoice = toDomainBooking(
+      makeBookingRow({ customerId: "u-customer", payment: { id: "pay-2", amount: 0, status: "PENDING", invoice: null } })
+    );
     expect(noInvoice.invoice).toBeUndefined();
+    expect(noInvoice.paymentStatus).toBe("pending");
   });
 });
 
@@ -546,6 +609,124 @@ describe("formatInvoiceNumber (M3 invoice numbering)", () => {
     expect(formatInvoiceNumber(2026, 1)).toBe("WA-2026-00001");
     expect(formatInvoiceNumber(2026, 999)).toBe("WA-2026-00999");
     expect(formatInvoiceNumber(2027, 1)).toBe("WA-2027-00001");
+  });
+});
+
+describe("formatQuoteNumber (multi-candidate quote numbering)", () => {
+  it("formats QR-YYYY-NNNNN with a zero-padded 5-digit sequence", () => {
+    expect(formatQuoteNumber(2026, 1)).toBe("QR-2026-00001");
+    expect(formatQuoteNumber(2026, 999)).toBe("QR-2026-00999");
+    expect(formatQuoteNumber(2027, 1)).toBe("QR-2027-00001");
+  });
+});
+
+describe("toDomainQuoteRequest (multi-candidate quote mapper)", () => {
+  const CREATED = new Date("2026-08-14T06:00:00.000Z");
+
+  function makeQuoteRow(overrides: Partial<PrismaQuoteRequestRow> = {}): PrismaQuoteRequestRow {
+    return {
+      id: "qr-1",
+      number: "QR-2026-00001",
+      customerId: "u1",
+      customerName: "Noor E.",
+      customerPhone: "+966 55 000 0000",
+      customerEmail: "noor@example.com",
+      jobTitle: "Fix a leaking pipe under the kitchen sink",
+      note: null,
+      categorySlug: "plumbing",
+      citySlug: "riyadh",
+      status: "OPEN",
+      expiresAt: new Date(CREATED.getTime() + 48 * 60 * 60 * 1000),
+      createdAt: CREATED,
+      bookings: [],
+      ...overrides,
+    };
+  }
+
+  function makeBidRow(overrides: Partial<PrismaBookingRow> = {}): PrismaBookingRow {
+    return {
+      id: "bk-q1",
+      number: "BK-1002",
+      workerId: "w1",
+      customerId: "u1",
+      customerName: "Noor E.",
+      customerPhone: "+966 55 000 0000",
+      customerEmail: "noor@example.com",
+      jobTitle: "Fix a leaking pipe under the kitchen sink",
+      note: null,
+      startAt: null, // slot-less bid
+      endAt: null,
+      status: "QUOTED",
+      quote: 25000,
+      deposit: null,
+      platformFee: null,
+      platformFeeRateBps: null,
+      currency: "SAR",
+      paymentId: null,
+      recurringBookingId: null,
+      quoteRequestId: "qr-1",
+      ...overrides,
+    };
+  }
+
+  it("maps the job: status/expiry/created, optionals, and its bookings through toDomainBooking", () => {
+    const r = toDomainQuoteRequest(
+      makeQuoteRow({
+        serviceItem: { nameEn: "Leak repair", nameAr: "إصلاح تسرب", price: 150, unit: "job" },
+        bookings: [makeBidRow({ status: "QUOTING" }), makeBidRow({ id: "bk-q2", number: "BK-1003", workerId: "w2", quoteRequestId: "qr-1" })],
+      })
+    );
+    expect(r.id).toBe("qr-1");
+    expect(r.number).toBe("QR-2026-00001");
+    expect(r.status).toBe("open");
+    expect(r.customerId).toBe("u1");
+    expect(r.serviceItem?.nameEn).toBe("Leak repair");
+    expect(r.expiresAt).toBe("2026-08-16T06:00:00.000Z");
+    expect(r.bookings.length).toBe(2);
+    // Bids map through toDomainBooking: status lowercased, slot-less times →
+    // undefined, quoteRequestId stamped.
+    expect(r.bookings[0]!.status).toBe("quoting");
+    expect(r.bookings[0]!.startAt).toBeUndefined();
+    expect(r.bookings[0]!.endAt).toBeUndefined();
+    expect(r.bookings[0]!.quoteRequestId).toBe("qr-1");
+    expect(r.bookings[1]!.status).toBe("quoted");
+  });
+
+  it("maps every QuoteStatus enum", () => {
+    for (const [db, app] of [
+      ["OPEN", "open"],
+      ["QUOTING", "quoting"],
+      ["SELECTED", "selected"],
+      ["EXPIRED", "expired"],
+      ["CANCELLED", "cancelled"],
+    ] as const) {
+      expect(toDomainQuoteRequest(makeQuoteRow({ status: db })).status).toBe(app);
+    }
+  });
+
+  it("maps every BookingStatus enum incl. the two new quote statuses", () => {
+    for (const [db, app] of [
+      ["QUOTING", "quoting"],
+      ["QUOTED", "quoted"],
+    ] as const) {
+      const r = toDomainBooking(makeBidRow({ status: db }));
+      expect(r.status).toBe(app);
+    }
+  });
+
+  it("maps the audit-only MESSAGE status (§2.3 chat audit events)", () => {
+    const r = toDomainBooking(makeBidRow({ status: "MESSAGE" }));
+    expect(r.status).toBe("message");
+    expect(r.events).toEqual([]);
+  });
+
+  it("maps a slot-bound winner back to real times", () => {
+    const startAt = new Date("2026-08-16T07:00:00.000Z");
+    const r = toDomainBooking(
+      makeBidRow({ status: "REQUESTED", startAt, endAt: new Date("2026-08-16T08:00:00.000Z") })
+    );
+    expect(r.status).toBe("requested");
+    expect(r.startAt).toBe(startAt.toISOString());
   });
 });
 
@@ -628,6 +809,99 @@ describe("bookingCancelRefundDue (M4 cancellation policy — prisma cancel branc
 
   it("always refunds a system cancel", () => {
     expect(bookingCancelRefundDue({ startAt: START }, at(0), "system")).toBe(true);
+  });
+});
+
+describe("toDomainInvoice (W2 boundary — company invoices mapper)", () => {
+  const DATE = new Date("2026-07-12T10:00:00.000Z");
+
+  function makeInvoiceRow(overrides: Partial<PrismaInvoiceRow> = {}): PrismaInvoiceRow {
+    return {
+      id: "inv-1",
+      number: "INV-1046",
+      amount: 400000, // minor units — mapper divides back to 4000
+      currency: "USD",
+      status: "PAID",
+      paidAt: DATE,
+      createdAt: new Date("2026-07-01T00:00:00.000Z"),
+      items: [{ description: "AC maintenance — Jeddah & Riyadh — Sponsored search" }],
+      payment: { advertisementId: "seed-c2" },
+      campaign: { nameAr: "صيانة مكيفات — جدة والرياض", placement: "Sponsored search" },
+      ...overrides,
+    };
+  }
+
+  it("maps an advertising purchase: minor → major, paid, EN + AR descriptions, campaign link", () => {
+    const inv = toDomainInvoice(makeInvoiceRow());
+    expect(inv.id).toBe("inv-1");
+    expect(inv.number).toBe("INV-1046");
+    expect(inv.scope).toBe("advertising");
+    expect(inv.amount).toBe(4000); // 400000 minor → 4000 major
+    expect(inv.currency).toBe("USD");
+    expect(inv.status).toBe("paid");
+    expect(inv.date).toBe(DATE.toISOString()); // paidAt wins over createdAt
+    expect(inv.descriptionEn).toBe("AC maintenance — Jeddah & Riyadh — Sponsored search");
+    expect(inv.descriptionAr).toBe("صيانة مكيفات — جدة والرياض — Sponsored search");
+    expect(inv.campaignId).toBe("seed-c2");
+  });
+
+  it("maps every InvoiceStatus", () => {
+    for (const [db, app] of [
+      ["PAID", "paid"],
+      ["VOID", "refunded"], // the credit note — a refunded purchase reads back here
+      ["DRAFT", "pending"],
+      ["SENT", "pending"],
+      ["OVERDUE", "pending"],
+    ] as const) {
+      expect(toDomainInvoice(makeInvoiceRow({ status: db })).status).toBe(app);
+    }
+  });
+
+  it("falls back for non-advertising rows: subscription scope, no campaign link, item/date fallbacks", () => {
+    const inv = toDomainInvoice(
+      makeInvoiceRow({
+        payment: { advertisementId: null },
+        campaign: null,
+        items: null,
+        paidAt: null, // createdAt becomes the date
+      })
+    );
+    expect(inv.scope).toBe("subscription");
+    expect(inv.campaignId).toBeUndefined();
+    expect(inv.descriptionEn).toBe("INV-1046"); // items missing → number
+    expect(inv.descriptionAr).toBe("INV-1046"); // no campaign → same fallback
+    expect(inv.date).toBe("2026-07-01T00:00:00.000Z"); // createdAt
+  });
+});
+
+describe("ad rotation matching (W2 boundary — pure helpers)", () => {
+  it("matches placement both ways: exact lowercase, display strings, and a|b tokens", () => {
+    // The purchase path writes "homepage"; a homepage request matches exactly.
+    expect(matchesAdPlacement("homepage", ["homepage"])).toBe(true);
+    // Human display strings stored by the form match too (case-folded substring).
+    expect(matchesAdPlacement("Homepage · Banner", ["homepage"])).toBe(true);
+    expect(matchesAdPlacement("Popup · Homepage", ["homepage"])).toBe(true);
+    // The reverse direction — a token the placement contains also matches.
+    expect(matchesAdPlacement("homepage", ["homepage | category"])).toBe(true);
+    // No overlap → no match; empty placement never serves.
+    expect(matchesAdPlacement("Sponsored search", ["homepage"])).toBe(false);
+    expect(matchesAdPlacement("  ", ["homepage"])).toBe(false);
+    expect(matchesAdPlacement("homepage", [])).toBe(false);
+  });
+
+  it("applies the targeting gate like the demo: untargeted always serves, targeted narrows", () => {
+    const untargeted = { categorySlug: null, citySlug: null };
+    expect(matchesAdTargeting(untargeted, { category: "plumbing" })).toBe(true);
+    expect(matchesAdTargeting(untargeted, { category: "plumbing", city: "riyadh" })).toBe(true);
+    expect(matchesAdTargeting(untargeted, {})).toBe(true);
+
+    const targeted = { categorySlug: "cleaning", citySlug: "dubai" };
+    expect(matchesAdTargeting(targeted, { category: "cleaning", city: "dubai" })).toBe(true);
+    expect(matchesAdTargeting(targeted, { category: "plumbing" })).toBe(false);
+    expect(matchesAdTargeting(targeted, { city: "jeddah" })).toBe(false);
+    // No filters at all — every ad serves (the API always passes placement,
+    // but category/city are optional).
+    expect(matchesAdTargeting(targeted, {})).toBe(true);
   });
 });
 
@@ -726,5 +1000,48 @@ describe("toDomainRecurring (W2 recurring mapper)", () => {
     expect(r.occurrences.map((o) => o.number)).toEqual(["BK-1002", "BK-1003"]);
     expect(r.occurrences[0]!.status).toBe("requested");
     expect(r.occurrences[1]!.status).toBe("confirmed");
+  });
+});
+
+describe("toDomainBookingMessage (§2.3 chat thread mapper)", () => {
+  function makeMessageRow(overrides: Partial<PrismaBookingMessageRow> = {}): PrismaBookingMessageRow {
+    return {
+      id: "msg-1",
+      bookingId: "bk-1001",
+      senderRole: "worker",
+      senderId: "u-khaled",
+      text: "I can do it for 120",
+      quote: 12_000,
+      readAt: null,
+      createdAt: new Date("2026-08-14T09:00:00.000Z"),
+      ...overrides,
+    };
+  }
+
+  it("maps a message with a quote to the domain type (minor units kept)", () => {
+    const m = toDomainBookingMessage(makeMessageRow());
+    expect(m).toMatchObject({
+      id: "msg-1",
+      bookingId: "bk-1001",
+      senderRole: "worker",
+      senderId: "u-khaled",
+      text: "I can do it for 120",
+      quote: 12_000,
+    });
+    expect(m.time).toBe("2026-08-14T09:00:00.000Z");
+  });
+
+  it("omits optional fields when absent (no sender id / no quote / no readAt)", () => {
+    const m = toDomainBookingMessage(makeMessageRow({ senderId: null, quote: null, readAt: null }));
+    expect(m.senderId).toBeUndefined();
+    expect(m.quote).toBeUndefined();
+    expect(m.readAt).toBeUndefined();
+    expect(m.senderRole).toBe("worker");
+  });
+
+  it("maps the read receipt (readAt) onto the domain message", () => {
+    const at = new Date("2026-08-14T10:00:00.000Z");
+    const m = toDomainBookingMessage(makeMessageRow({ readAt: at }));
+    expect(m.readAt).toBe(at.toISOString());
   });
 });

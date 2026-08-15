@@ -1,5 +1,7 @@
 # WorkersArena — Business Model & Revenue Growth Plan
 
+[← Back to docs index](README.md)
+
 > Status: living document. Update whenever pricing, revenue streams, or the payments roadmap change (a companion to `docs/PRODUCT.md` §3 and `docs/PAYMENTS.md`).
 
 ---

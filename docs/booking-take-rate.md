@@ -1,5 +1,7 @@
 # Booking Take Rate — Implementation Sketch
 
+[← Back to docs index](README.md)
+
 > **Status: ✅ implemented.** Migration `20260812075914_booking_platform_fee` (+ `Booking.platformFee` / `platformFeeRateBps`), `computePlatformFee` / `isPlanFeeExempt` in `booking-ui.ts`, the fee stamped at accept-with-quote in both adapters (demo + prisma in-tx), the RespondDialog "you receive X · platform fee Y" preview (waived line for Enterprise), the customer booking-row transparency line, i18n keys, and tests (unit calc, adapter stamps incl. the exempt path, prisma mapper, `db:smoke` assertion). This page documents the original proposal — the implementation follows it as written.
 
 > Original design proposal for the headline revenue lever in `docs/BUSINESS-MODEL.md` §5.2:

@@ -65,6 +65,20 @@ export interface ChannelPayload {
    * amount, reason) — mirroring the bookingRefund email variant.
    */
   campaignRefund?: CampaignRefundContext;
+  /**
+   * Optional email attachments (e.g. the on-demand booking-audit PDF from
+   * emailBookingAuditAction). Threaded to the real providers (nodemailer /
+   * Resend); the console provider logs the filenames so dev stays observable.
+   */
+  attachments?: EmailAttachment[];
+}
+
+/** A binary email attachment (Buffer content — utf8 bytes for the JSON-ish
+ * console log, raw bytes for the SMTP/Resend transports). */
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType: string;
 }
 
 /** Outcome of a single channel send. `ok: false` never throws upstream. */

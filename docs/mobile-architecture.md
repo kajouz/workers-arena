@@ -1,5 +1,7 @@
 # WorkersArena — Mobile Architecture (iOS & Android)
 
+[← Back to docs index](README.md)
+
 > Companion to `docs/PRODUCT.md` §5 (mobile plan). This doc is the engineering playbook for the **Capacitor path** (M2): one codebase (the existing Next.js app), native shells for iOS + Android, native push via FCM/APNs, deep-link routing, and the store-launch checklist. Update it alongside `docs/PRODUCT.md` as M1–M4 land.
 
 **Strategy recap** (from PRODUCT.md §5.1): M1 harden the PWA (offline shell) → **M2 wrap with Capacitor for App Store / Play Store presence** → M3 launch → M4 evaluate a React Native (Expo) re-implementation. This doc covers M2/M3 in engineering detail.

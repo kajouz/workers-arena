@@ -6,11 +6,13 @@ import {
   getWorkers,
   getInvoices,
   getWorkerBookings,
+  getBookingMessages,
   getWorkerRecurrings,
   getWorkerSlots,
   getWorkerBalance,
   getWorkerPayouts,
 } from "@/lib/data/repo";
+import type { BookingMessage } from "@/lib/data/types";
 import { WorkerDashboard } from "@/components/dashboard/worker-dashboard";
 
 export const metadata = { title: "Dashboard" };
@@ -33,6 +35,10 @@ export default async function DashboardPage() {
   // belong to the company dashboard).
   const subInvoices = invoices.filter((i) => i.scope === "subscription");
   const bookings = await getWorkerBookings(demoWorker.id);
+  // §2.3 chat — each booking's negotiation thread, resolved server-side so the
+  // rows render the SAME messages the customer + admin surfaces read.
+  const messagesByBooking: Record<string, BookingMessage[]> = {};
+  for (const b of bookings) messagesByBooking[b.id] = await getBookingMessages(b.id);
   // M1 recurring contracts (§7 #1) — accept/decline once, cadence auto-books.
   const recurrings = await getWorkerRecurrings(demoWorker.id);
   // Next-7-days slot window for the availability editor (M2). The slot read
@@ -48,6 +54,11 @@ export default async function DashboardPage() {
     getWorkerBalance(demoWorker.id),
     getWorkerPayouts(demoWorker.id),
   ]);
+  // Hydration safety (useSsrSafeNow): the booking rows' SLA countdown derives
+  // from Date.now(), so the server passes its own render-time clock down as
+  // nowSeed — the client renders from it until mount, making the SSR markup
+  // and the first client render identical.
+  const nowSeed = Date.now();
 
   return (
     <WorkerDashboard
@@ -56,10 +67,12 @@ export default async function DashboardPage() {
       worker={demoWorker}
       invoices={subInvoices}
       bookings={bookings}
+      messagesByBooking={messagesByBooking}
       recurrings={recurrings}
       slots={slots}
       balance={balance}
       payouts={payouts}
+      nowSeed={nowSeed}
     />
   );
 }

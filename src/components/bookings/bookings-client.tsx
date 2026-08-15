@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarX2, Loader2, Repeat, Search } from "lucide-react";
+import { CalendarX2, Loader2, Repeat, Search, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,8 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { formatSlotRange } from "@/lib/data/booking-ui";
 import { cancelRecurringContractAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
-import type { CustomerBookingRow, CustomerRecurringRow } from "@/app/bookings/page";
+import { QuoteRequestCard } from "./quote-request-card";
+import type { CustomerBookingRow, CustomerQuoteRow, CustomerRecurringRow } from "@/app/bookings/page";
 import type { BookingStatus, RecurringBooking } from "@/lib/data/types";
 
 const UPCOMING: BookingStatus[] = ["requested", "pendingPayment", "confirmed", "inProgress"];
@@ -38,6 +39,8 @@ function RecurringContractCard({ row }: { row: CustomerRecurringRow }) {
   const contract = row.recurring;
 
   const upcoming = contract.occurrences.filter((o) => UPCOMING.includes(o.status)).slice(0, 3);
+  // Occurrences are always slot-bound (the cadence materializes real slots),
+  // so startAt is guaranteed — the non-null assertion mirrors that invariant.
   const nextDate = (iso: string) =>
     new Date(iso).toLocaleDateString(locale === "ar" ? "ar-SA" : "en-US", { weekday: "short", day: "numeric", month: "short" });
 
@@ -87,7 +90,7 @@ function RecurringContractCard({ row }: { row: CustomerRecurringRow }) {
             {upcoming.map((occ) => (
               <li key={occ.id} className="flex items-center gap-2 text-xs font-bold text-ink-600 dark:text-ink-300">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                {nextDate(occ.startAt)} · {formatSlotRange({ startAt: occ.startAt, endAt: occ.endAt }, locale)}
+                {nextDate(occ.startAt!)} · {formatSlotRange({ startAt: occ.startAt, endAt: occ.endAt }, locale)}
               </li>
             ))}
           </ul>
@@ -127,13 +130,18 @@ function RecurringContractCard({ row }: { row: CustomerRecurringRow }) {
 export function BookingsClient({
   rows,
   recurringRows,
+  quoteRows,
   signedIn,
   lookedUp,
+  nowSeed,
 }: {
   rows: CustomerBookingRow[];
   recurringRows: CustomerRecurringRow[];
+  quoteRows: CustomerQuoteRow[];
   signedIn: boolean;
   lookedUp: boolean;
+  /** Date.now() at server render time — the rows' hydration-safe now seed. */
+  nowSeed: number;
 }) {
   const { t } = useLocale();
 
@@ -184,6 +192,14 @@ export function BookingsClient({
               </span>
             </TabsTrigger>
           )}
+          {quoteRows.length > 0 && (
+            <TabsTrigger value="quotes">
+              {t("booking.quotesTab")}
+              <span className="ms-1.5 rounded-full bg-cyan-500/15 px-1.5 text-xs font-black text-cyan-600 dark:text-cyan-400">
+                {quoteRows.length}
+              </span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {noResults && (
@@ -203,13 +219,13 @@ export function BookingsClient({
 
         <TabsContent value="upcoming" className="mt-4 space-y-3">
           {upcoming.map((r) => (
-            <BookingRow key={r.booking.id} row={r} />
+            <BookingRow key={r.booking.id} row={r} nowSeed={nowSeed} />
           ))}
         </TabsContent>
 
         <TabsContent value="past" className="mt-4 space-y-3">
           {past.map((r) => (
-            <BookingRow key={r.booking.id} row={r} />
+            <BookingRow key={r.booking.id} row={r} nowSeed={nowSeed} />
           ))}
         </TabsContent>
 
@@ -217,6 +233,20 @@ export function BookingsClient({
           {recurringRows.map((r) => (
             <RecurringContractCard key={r.recurring.id} row={r} />
           ))}
+        </TabsContent>
+
+        <TabsContent value="quotes" className="mt-4 space-y-3">
+          {quoteRows.length === 0 ? (
+            <Card className="mt-6">
+              <CardContent className="flex flex-col items-center gap-2 py-16 text-center">
+                <Users className="size-10 text-ink-300 dark:text-ink-600" />
+                <p className="font-bold text-ink-900 dark:text-ink-50">{t("booking.quotesEmpty")}</p>
+                <p className="text-sm text-ink-400">{t("booking.quotesEmptyBody")}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            quoteRows.map((r) => <QuoteRequestCard key={r.quoteRequest.id} quoteRequest={r.quoteRequest} workers={r.workers} nowSeed={nowSeed} />)
+          )}
         </TabsContent>
       </Tabs>
     </div>
