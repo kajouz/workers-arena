@@ -3,10 +3,11 @@
  * ────────────────────────────────────────────────────────────────────────────
  * CHECK DOCS LINKS — verify every markdown link + image in docs/ resolves
  * ────────────────────────────────────────────────────────────────────────────
- * Usage:  npm run check:docs-links             (all markdown under docs/, recursive)
+ * Usage:  npm run check:docs-links             (all markdown under docs/ + the root README)
  *         node scripts/check-docs-links.mjs <file-or-dir>...   (custom set; dirs are walked)
  *
- * For every .md file under the target it extracts:
+ * For every .md file under the target (plus the repo-root README.md, whose
+ * docs/ links are the navigation entry point) it extracts:
  *   • markdown links          [text](target)
  *   • markdown images         ![alt](target)
  *   • HTML <img src="...">    (the pre-rendered SVG embeds in docs/README.md)
@@ -30,6 +31,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DOCS_DIR = path.join(ROOT, "docs");
+const ROOT_README = path.join(ROOT, "README.md");
 
 /** Recursively collect every .md file under a directory (top-level + nested). */
 function markdownFilesUnder(dir) {
@@ -107,7 +109,8 @@ function main() {
   const args = process.argv.slice(2);
   let targets = args;
   if (targets.length === 0) {
-    targets = markdownFilesUnder(DOCS_DIR);
+    // docs/ recursive + the root README (its docs/ links close the loop).
+    targets = [...markdownFilesUnder(DOCS_DIR), ROOT_README];
   } else {
     const expanded = [];
     for (const t of args) {
