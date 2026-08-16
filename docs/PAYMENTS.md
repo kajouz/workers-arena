@@ -2,7 +2,7 @@
 
 [← Back to docs index](README.md)
 
-WorkersArena supports **six payment methods** through a modular gateway abstraction, so adding a provider is a single-file change.
+WorkersArena supports **eight payment methods** through a modular gateway abstraction, so adding a provider is a single-file change.
 
 ## Supported methods
 
@@ -14,6 +14,10 @@ WorkersArena supports **six payment methods** through a modular gateway abstract
 | Cards / Apple Pay | Tap Payments | MENA focus |
 | Bank transfer | Manual | Enterprise & invoices |
 | Cash collection | Manual | Cash-on-service (COD) |
+| **OMT** (agent / OMT Intra / OMT Pay) | Manual | **Lebanon launch** — offline cash + local transfers |
+| **Whish Money** (app + dual-currency Visa) | Manual | **Lebanon launch** — offline cash + wallet transfers |
+
+**Lebanon is a first-class service country** (Beirut in the CITIES catalog, LBP added to the currency table) and the OMT / Whish methods are **manual** — no gateway keys, no webhook: the customer pays an OMT agent / Whish app with the generated reference, then an **admin confirms receipt** from the `/admin` pending-payments card (the manual twin of a provider webhook). Every revenue flow accepts them: booking deposits, campaign purchases, subscription renewals, and the paid upgrades below.
 
 ## Design
 
@@ -49,8 +53,20 @@ interface PaymentProvider {
 ## Currency & amounts
 
 - All amounts are **integer minor units** (e.g., 11900 = $119.00).
-- Prices shown per city currency (`SAR/AED/EGP/JOD/MAD`) on worker profiles; subscriptions bill in USD.
+- Prices shown per city currency (`SAR/AED/EGP/JOD/MAD/LBP`) on worker profiles; subscriptions bill in USD.
 - MyFatoorah/Tap require Arabic `displayName` + local currency params — handled inside their provider modules.
+
+## Lebanon launch — OMT & Whish (manual, no Stripe)
+
+`docs/BUSINESS-MODEL.md` §5.1's "revenue first, no Stripe" levers are implemented on the OMT/Whish manual rails:
+
+- **Providers** — `src/lib/payments/omt.ts` + `whish.ts` mint a **signed instructions URL** (`/payments/manual?provider=omt&paymentId=…&ref=OMT-…&amount=…&sig=…`). The signature is per-provider (distinct salt + `OMT-`/`WHISH-` reference prefixes); the instructions page verifies it through the provider's own `verifyWebhook` (the same contract the webhook route uses), so the URL is tamper-proof without a webhook endpoint.
+- **Registry** — `getPaymentProvider("OMT"|"WHISH")` returns the manual providers directly; `STRIPE` still resolves to Stripe when keys are set, the simulated provider otherwise (refused in production).
+- **Method threading** — `PaymentMethod` enum (+ migration `20260816090000_lebanon_omt_whish`) and the domain `BookingPayment.method`; `payBookingAction` / `payCampaignAction` / `renewSubscriptionAction` take a method and stamp it on the Payment row at mint time. Checkout minting is **idempotent per method**: a re-click with the same method returns the already-minted URL; a **method switch re-mints** with the new provider (a stale create-time STRIPE pre-mint never leaks a simulate URL to a Whish pay-now click).
+- **Admin confirm** — `getPendingManualPayments` + `confirmManualPaymentAction` power the `/admin` pending-payments card and the dispute view's confirm button; `confirmPurchase` flips the purchased capability (below). A confirm is idempotent; non-admins get `unauthorized`.
+- **Refunds route through the paying provider** — booking cancels, admin deposit refunds, and campaign refunds resolve `getPaymentProvider(payment.method)` instead of defaulting to STRIPE/simulated, so an OMT-paid deposit refunds via the OMT provider's `refund()`.
+- **Paid upgrades** (`src/lib/data/purchases.ts`): verification tiers (Basic $9 / Professional $19), the Featured slot ($49/category/mo) and the Emergency marker ($9/mo) are bought via OMT/Whish (`purchaseUpgradeAction`), and activation is admin-confirmed — worker-side purchase UI on the dashboard, subscriptions renew for 12 months at 10 months' price on the annual plan.
+- **Instructions page** — `/payments/manual` (EN/AR) shows the provider's in-app / agent steps and the reference to pay with, localized per the page locale.
 
 ## Booking deposits (M3)
 

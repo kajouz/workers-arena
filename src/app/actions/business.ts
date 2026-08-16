@@ -5,9 +5,14 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth-demo";
 import {
   changeWorkerPlan,
+  confirmBookingPayment,
+  confirmCampaignPayment,
+  confirmPurchase,
   createCampaign,
   createCampaignCheckout,
+  createPurchaseCheckout,
   decideVerification,
+  getPendingManualPayments,
   refundCampaignPayment,
   markAllNotificationsReadAction,
   markNotificationReadAction,
@@ -60,18 +65,24 @@ export async function createCampaignAction(
 /**
  * Mint the hosted checkout for a PENDING campaign — the "Pay now" button on
  * the company dashboard (idempotent per campaign). Returns the provider
- * redirect URL (Stripe hosted checkout, or the local simulated checkout when
- * no keys are set), or null when the campaign isn't awaiting payment.
+ * redirect URL — Stripe's hosted checkout (or the local simulated checkout
+ * when no keys are set), or the signed OMT/Whish instructions page for the
+ * Lebanon-first manual methods. The chosen method is stamped on the Payment
+ * row at mint time. Returns null when the campaign isn't awaiting payment.
  */
 export async function payCampaignAction(
-  campaignId: string
+  campaignId: string,
+  method: "stripe" | "omt" | "whish" = "stripe"
 ): Promise<{ ok: boolean; url?: string; error?: "invalid" | "not-found" }> {
   if (!campaignId) return { ok: false, error: "invalid" };
+  const parsed = z.enum(["stripe", "omt", "whish"]).safeParse(method);
+  if (!parsed.success) return { ok: false, error: "invalid" };
   const session = await getSession();
   if (!session || (session.role !== "company" && session.role !== "admin")) {
     return { ok: false, error: "invalid" };
   }
-  const checkout = await createCampaignCheckout(campaignId);
+  const provider = parsed.data === "omt" ? "OMT" : parsed.data === "whish" ? "WHISH" : "STRIPE";
+  const checkout = await createCampaignCheckout(campaignId, provider);
   if (!checkout) return { ok: false, error: "not-found" };
   return { ok: true, url: checkout.url };
 }
@@ -126,7 +137,9 @@ export async function changeWorkerPlanAction(
   return { ok: true };
 }
 
-export async function renewSubscriptionAction(formData: FormData): Promise<{ ok?: boolean; error?: string; days?: number }> {
+export async function renewSubscriptionAction(
+  formData: FormData
+): Promise<{ ok?: boolean; error?: string; days?: number; url?: string }> {
   const session = await getSession();
   // Only the demo worker account may renew its own subscription.
   if (!session || session.role !== "worker") return { error: "unauthorized" };
@@ -140,6 +153,27 @@ export async function renewSubscriptionAction(formData: FormData): Promise<{ ok?
   if (!period.success) return { error: "period" };
   const workerSlug = String(formData.get("workerSlug") ?? "khaled-al-harbi-plumbing");
   if (workerSlug !== "khaled-al-harbi-plumbing") return { error: "unauthorized" };
+
+  // §Lebanon — the OMT/Whish MANUAL renewal: the purchase mints the signed
+  // instructions URL, the worker pays offline with the reference, and an
+  // admin confirms receipt (confirmManualPaymentAction → confirmPurchase),
+  // which is when the subscription actually extends. Card/Stripe keeps the
+  // instant simulated path below.
+  const method = z.enum(["stripe", "omt", "whish"]).safeParse(formData.get("method") ?? "stripe");
+  if (!method.success) return { error: "method" };
+  if (method.data === "omt" || method.data === "whish") {
+    const res = await createPurchaseCheckout({
+      workerSlug,
+      scope: "subscription",
+      plan: plan.data,
+      period: period.data,
+      method: method.data === "omt" ? "OMT" : "WHISH",
+    });
+    if (!res) return { error: "checkout" };
+    revalidatePath("/dashboard");
+    return { ok: true, url: res.url };
+  }
+
   const res = await renewWorkerSubscriptionBySlug(workerSlug, plan.data, period.data);
   revalidatePath("/dashboard");
   return { ok: !!res.worker, days: res.days };
@@ -177,4 +211,74 @@ export async function markAllReadAction(): Promise<void> {
   if (!session) return;
   await markAllNotificationsReadAction();
   revalidatePath("/notifications");
+}
+
+/**
+ * §Lebanon — admin confirms receipt of a PENDING manual (OMT/Whish) payment.
+ * The customer paid offline with the reference the /payments/manual page
+ * showed; this runs the SAME confirm path a provider webhook would have run:
+ * booking deposit → confirmBookingPayment, campaign purchase →
+ * confirmCampaignPayment, paid upgrade → confirmPurchase. Admin-only;
+ * idempotent (a second confirm no-ops).
+ */
+export async function confirmManualPaymentAction(
+  paymentId: string
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+  if (!paymentId) return { ok: false, error: "invalid" };
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
+
+  const pending = await getPendingManualPayments();
+  const payment = pending.find((p) => p.id === paymentId);
+  if (!payment) return { ok: false, error: "not-found" };
+
+  let ok = false;
+  if (payment.scope === "booking") {
+    ok = (await confirmBookingPayment(payment.entityId, payment.reference)) !== null;
+  } else if (payment.scope === "campaign") {
+    ok = (await confirmCampaignPayment(payment.entityId, payment.reference)) !== null;
+  } else {
+    ok = await confirmPurchase(payment.entityId, payment.reference);
+  }
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+  revalidatePath("/bookings");
+  return { ok };
+}
+
+/**
+ * §Lebanon — a worker buys a paid upgrade (verification tier / featured slot
+ * / emergency marker) via the OMT/Whish MANUAL methods (docs/BUSINESS-MODEL.md
+ * §5.1, revenue first, no Stripe): the purchase mints the signed instructions
+ * URL and the capability flips once an admin confirms receipt. Worker-only
+ * (the demo worker account is khaled-al-harbi-plumbing — same gate as the
+ * renew action).
+ */
+export async function purchaseUpgradeAction(
+  formData: FormData
+): Promise<{ ok?: boolean; error?: string; url?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "worker") return { error: "unauthorized" };
+  const scope = z
+    .enum(["verification", "featured", "emergency"])
+    .safeParse(formData.get("scope"));
+  if (!scope.success) return { error: "scope" };
+  const method = z.enum(["omt", "whish"]).safeParse(formData.get("method"));
+  if (!method.success) return { error: "method" };
+  const workerSlug = String(formData.get("workerSlug") ?? "khaled-al-harbi-plumbing");
+  if (workerSlug !== "khaled-al-harbi-plumbing") return { error: "unauthorized" };
+  const tier = scope.data === "verification"
+    ? z.enum(["basic", "professional"]).safeParse(formData.get("tier") ?? "basic")
+    : { success: true as const, data: undefined };
+  if (!tier.success) return { error: "tier" };
+
+  const res = await createPurchaseCheckout({
+    workerSlug,
+    scope: scope.data,
+    tier: tier.data,
+    method: method.data === "omt" ? "OMT" : "WHISH",
+  });
+  if (!res) return { error: "checkout" };
+  revalidatePath("/dashboard");
+  return { ok: true, url: res.url };
 }

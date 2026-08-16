@@ -96,20 +96,23 @@ The two "zero" rows are the plan's headline: they are both fully scaffolded in c
 
 ## 5. Revenue improvement roadmap
 
-### 5.1 Quick wins (0–1 month) — no new payment rails required
+### 5.1 Quick wins (0–1 month) — shipped on the Lebanon OMT/Whish manual rails (no Stripe)
 
-- **Annual billing** — add yearly plans at ~2-months-free (e.g., $290/yr Pro vs 12×$59) via the existing renewal action; extend `renewSubscriptionAction` + plans UI. *Impact: +10–15% ARPU, better cash flow, lower churn.*
-- **Paid plan-upgrade prompts at the exact moment of pain** — the "expired → hidden from search" event already exists; add an upgrade modal when a worker hits lead/boost/analytics limits. *Impact: conversion lift on the existing funnel.*
-- **Sell featured-worker slots** — expose `isFeatured` as a purchasable monthly add-on per category/city with a price (e.g., $49/category/mo), reusing the subscription billing path. *Impact: new SKU, zero new infra.*
-- **La carte emergency marker** — sell the Enterprise "emergency" flag as a per-month add-on. *Impact: incremental ARPU from mid-tier workers.*
+> **Status: all four quick wins are implemented** — the Lebanon-first launch collects them through the **OMT / Whish MANUAL methods** (no gateway keys): the purchase mints a signed `/payments/manual` instructions page, the worker pays an OMT agent / Whish app with the reference, and an **admin confirms receipt** from the `/admin` pending-payments card, which activates the capability (docs/PAYMENTS.md → "Lebanon launch").
+
+- ✅ **Annual billing** — yearly plans at 2-months-free (annual = 10 paid months for 12) via `renewSubscriptionAction` (`period` param + plan picker in the renew dialog). *Impact: +10–15% ARPU, better cash flow, lower churn.*
+- ✅ **Paid plan-upgrade prompts** — the worker dashboard's **upgrade dialog** (`src/components/dashboard/upgrade-dialog.tsx`) offers verification tiers, the Featured slot, and the Emergency marker inline, with the OMT/Whish method picker — the funnel exists even before limit-based prompts are wired.
+- ✅ **Sell featured-worker slots** — `isFeatured` is a purchasable monthly add-on ($49/category/mo): `purchaseUpgradeAction` (worker) → pending manual payment → admin `confirmManualPaymentAction` flips the flag. *Impact: new SKU, zero new infra.*
+- ✅ **La carte emergency marker** — the Enterprise "emergency" flag is a purchasable per-month add-on ($9/mo) through the same purchase rail. *Impact: incremental ARPU from mid-tier workers.*
+- ✅ **Paid verification tiers** (moved up from §5.2) — Basic (ID check, $9) / Professional (license + background check, $19), 12-month validity, badge in search: `purchaseUpgradeAction` → admin confirm flips `verified` + the `verification` state on the profile. *Impact: high-margin trust product; raises conversion of premium subs.*
 
 ### 5.2 Medium term (1–3 months) — requires the P0 payments wave
 
-- **Live payments end-to-end (P0, prerequisite)** — Stripe first (subscription auto-renew via Stripe billing, ad campaign prepayment, booking deposits), then MyFatoorah/Tap/STC Pay for the MENA consumer base. *Impact: unlocks every row below.*
+- **Live payments end-to-end (P0, prerequisite)** — Stripe first (subscription auto-renew via Stripe billing, ad campaign prepayment, booking deposits), then MyFatoorah/Tap/STC Pay for the MENA consumer base. *Impact: unlocks every row below.* **Lebanon-first note:** the launch country already collects on the **OMT/Whish manual rails** (deposits, campaign prepayment, renewals, and the §5.1 upgrades — admin-confirmed, no gateway keys); Stripe/MENA gateways remain the scale play for card-paying markets.
 - **Booking take rate (the headline lever)** — add a `platformFee` (percent + minimum, e.g., 5–8% or SAR 10 floor) applied at **accept-with-quote** and collected at confirm; split-amount presentation ("you receive X, platform fee Y") in the customer + worker UIs; fee waived/absorbed on enterprise subscription (a tier perk). Add the field to `Booking` + invoice line item. *Impact: recurring % of GMV — the single largest new stream.*
 - **Deposit as escrow for large jobs** — hold the deposit until job completion (the M4 `transitionBooking(completed)` already exists); release on completion, refund per policy otherwise. Sell "protected payment" as a trust feature; collect the platform fee at release. *Impact: trust-led conversion + take rate on larger jobs.*
-- **Self-serve paid ads** — campaign creation requires prepayment: budget → checkout → webhook activates the campaign (status flips `paused`→`active`); add CPM/CPC tiers and a minimum budget; keep the existing $10 CPM/$1 CPC model as the default tier. *Impact: second B2B revenue stream.*
-- **Paid verification tiers** — Basic (ID check) / Professional (license + background check) with a badge in search; price ~$9–19/check, valid 12 months; admin queue already exists. *Impact: high-margin trust product; raises conversion of premium subs.*
+- **Self-serve paid ads** — campaign creation requires prepayment: budget → checkout → webhook activates the campaign (status flips `paused`→`active`); add CPM/CPC tiers and a minimum budget; keep the existing $10 CPM/$1 CPC model as the default tier. The checkout now accepts OMT/Whish (the company's "Pay now" picker) with admin-confirmed activation as the manual twin of the webhook. *Impact: second B2B revenue stream.*
+- ✅ **Paid verification tiers** — shipped via the §5.1 manual rail (Basic $9 / Professional $19, badge in search) — see PAYMENTS.md.
 
 ### 5.3 Strategic (3–12 months) — growth & differentiation
 
@@ -144,15 +147,16 @@ The two "zero" rows are the plan's headline: they are both fully scaffolded in c
 
 | Capability | Code exists | Live payments | Notes |
 |---|---|---|---|
-| Worker subscription + renewal | ✅ `subscriptions.ts`, `renew-dialog.tsx` | 🔜 P0 | annual plans = config + UI |
+| Worker subscription + renewal | ✅ `subscriptions.ts`, `renew-dialog.tsx` | ✅ OMT/Whish manual | annual = 10 for 12, admin-confirmed |
 | Subscription reminders | ✅ `reminders.ts` + cron | — | |
-| Ads: builder, rotation, tracking | ✅ `campaign-builder.tsx`, `repo.ts` | 🔜 P0 | prepayment = campaign activation gate |
-| Booking deposit/quote payment | ✅ M3 seam + `PAYMENTS.md` | 🔜 P0 | take-rate fee = new field + calculator |
-| Booking refunds (policy) | ✅ M4 `bookingCancelRefundDue` | ✅ (simulated) | |
-| Invoices (sub/ad/booking) | ✅ `Invoice` model | 🔜 P0 | |
-| Featured / emergency sell | ✅ data flags | — | purchasable add-ons = new SKUs |
-| Verification tiers | ✅ admin queue | — | paid ladder = new pricing |
+| Ads: builder, rotation, tracking | ✅ `campaign-builder.tsx`, `repo.ts` | ✅ OMT/Whish manual | prepayment = activation gate |
+| Booking deposit/quote payment | ✅ M3 seam + `PAYMENTS.md` | ✅ OMT/Whish manual | take-rate fee = new field + calculator |
+| Booking refunds (policy) | ✅ M4 `bookingCancelRefundDue` | ✅ (simulated / manual) | refunds route through the paying provider |
+| Invoices (sub/ad/booking) | ✅ `Invoice` model | ✅ (manual rails) | |
+| Featured / emergency sell | ✅ `purchases.ts` + upgrade dialog | ✅ OMT/Whish manual | purchasable add-ons, admin-confirmed |
+| Verification tiers | ✅ `purchases.ts` + admin card | ✅ OMT/Whish manual | paid ladder live |
+| **Lebanon launch (OMT/Whish)** | ✅ providers + `/payments/manual` + admin queue | ✅ | service country (Beirut, LBP) + manual rails |
 | Leads metering | ⚠️ leads exist, no credits | — | credits engine needed |
 | Mobile app monetization | ✅ `mobile-architecture.md` | 🔜 | dispatch + in-app pay |
 
-**Recommended sequencing:** 1) P0 live payments → 2) booking take rate (headline) → 3) self-serve paid ads → 4) annual plans + featured/emergency SKUs (quick wins, can ship in parallel with 1) → 5) verification tiers + leads marketplace → 6) strategic bets (escrow, dispatch, B2B seats).
+**Recommended sequencing (updated for the Lebanon launch):** the revenue quick wins — annual plans, featured/emergency SKUs, paid verification — **shipped first on the OMT/Whish manual rails** (steps 4–5 above, now live without a gateway). Remaining: 1) Stripe/MENA gateways for card markets → 2) booking take-rate collection live → 3) leads marketplace → 4) strategic bets (escrow, dispatch, B2B seats).

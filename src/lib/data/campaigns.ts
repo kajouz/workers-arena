@@ -2,7 +2,7 @@ import { pushNotification } from "./notifications";
 import { campaignRefundNotification } from "./campaign-notifications";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { getPaymentProvider } from "@/lib/payments/registry";
-import type { Campaign, CampaignPayment, Invoice } from "./types";
+import type { Campaign, CampaignPayment, Invoice, PendingManualPayment } from "./types";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -256,16 +256,28 @@ export async function demoCreateCampaign(
  * URL. A provider failure returns null (the caller surfaces "checkout").
  * Returns null for unknown campaigns or ones not awaiting payment.
  */
-export async function demoCreateCampaignCheckout(campaignId: string): Promise<{ url: string } | null> {
+export async function demoCreateCampaignCheckout(
+  campaignId: string,
+  method: "STRIPE" | "OMT" | "WHISH" = "STRIPE"
+): Promise<{ url: string } | null> {
   const campaign = demoGetCampaignById(campaignId);
   const payment = STORE.payments.get(campaignId);
   if (!campaign || campaign.status !== "pending" || !payment) return null;
-  if (payment.providerRef && payment.checkoutUrl) return { url: payment.checkoutUrl };
+  // Idempotent for the SAME method — but a method switch (e.g. the customer
+  // picks Whish after the create-time STRIPE pre-mint) re-mints instead of
+  // returning the stale simulate URL.
+  const requestedMethod = method === "OMT" ? "omt" : method === "WHISH" ? "whish" : "stripe";
+  if (payment.providerRef && payment.checkoutUrl && payment.method === requestedMethod) {
+    return { url: payment.checkoutUrl };
+  }
+  // The customer's chosen method is stamped on the Payment row at mint time
+  // (the /admin pending-payments card + the campaign payment table read it).
+  payment.method = method === "OMT" ? "omt" : method === "WHISH" ? "whish" : "stripe";
 
   const base = typeof window === "undefined" ? "" : window.location.origin;
   let result: { url: string; providerRef: string };
   try {
-    result = await getPaymentProvider().createCheckout({
+    result = await getPaymentProvider(method).createCheckout({
       paymentId: payment.id,
       campaignId: campaign.id,
       amountMinor: payment.amount,
@@ -324,6 +336,36 @@ export async function demoConfirmCampaignPayment(
 }
 
 /**
+ * §Lebanon — every PENDING campaign purchase whose checkout was minted with a
+ * MANUAL method (OMT/Whish): the customer paid offline with the reference,
+ * and the /admin pending-payments card lists these for the admin's confirm.
+ * Demo adapter — mirrors prismaGetPendingManualPayments in real mode.
+ */
+export function demoPendingManualCampaignPayments(): PendingManualPayment[] {
+  const out: PendingManualPayment[] = [];
+  for (const [campaignId, payment] of STORE.payments) {
+    if (payment.status !== "pending") continue;
+    if (payment.method !== "omt" && payment.method !== "whish") continue;
+    if (!payment.providerRef) continue;
+    const campaign = demoGetCampaignById(campaignId);
+    if (!campaign) continue;
+    out.push({
+      id: payment.id,
+      scope: "campaign",
+      entityId: campaignId,
+      labelEn: `${campaign.nameEn} (${campaign.placement})`,
+      labelAr: `${campaign.nameAr} (${campaign.placement})`,
+      amount: payment.amount,
+      currency: payment.currency,
+      method: payment.method,
+      reference: payment.providerRef,
+      createdAt: campaign.created,
+    });
+  }
+  return out.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/**
  * Admin side: refund a campaign purchase (the /admin campaign-payments card).
  * Only a PAID payment is refundable: the provider charge is refunded, the
  * payment flips to REFUNDED, and the campaign stops serving (status → ended —
@@ -343,7 +385,8 @@ export async function demoRefundCampaignPayment(
   const payment = STORE.payments.get(campaignId);
   if (!payment || payment.status !== "paid") return null;
 
-  await getPaymentProvider().refund(payment.providerRef ?? payment.id, payment.amount);
+  await getPaymentProvider(payment.method === "omt" ? "OMT" : payment.method === "whish" ? "WHISH" : "STRIPE")
+    .refund(payment.providerRef ?? payment.id, payment.amount);
   payment.status = "refunded";
   payment.refundedAt = new Date().toISOString();
   // Trim once here (not just in the action) so direct seam callers can't

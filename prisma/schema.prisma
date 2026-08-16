@@ -56,6 +56,8 @@ enum PaymentMethod {
   TAP
   BANK_TRANSFER
   CASH
+  OMT // Lebanon-first manual money-mover (docs/PAYMENTS.md) — agent/OMT Intra
+  WHISH // Lebanon-first digital wallet + dual-currency Visa (manual, admin-confirmed)
 }
 
 enum PaymentStatus {

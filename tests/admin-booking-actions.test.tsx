@@ -13,15 +13,28 @@ import { AdminBookingActions } from "@/components/admin/admin-booking-actions";
 import { LocaleProvider } from "@/components/providers/locale-provider";
 import type { Booking } from "@/lib/data/types";
 
-const { adminCancelBookingActionMock, refundBookingDepositActionMock, useRouterRefreshMock } = vi.hoisted(() => ({
+const {
+  adminCancelBookingActionMock,
+  refundBookingDepositActionMock,
+  confirmManualPaymentActionMock,
+  useRouterRefreshMock,
+} = vi.hoisted(() => ({
   adminCancelBookingActionMock: vi.fn(),
   refundBookingDepositActionMock: vi.fn(),
+  confirmManualPaymentActionMock: vi.fn(),
   useRouterRefreshMock: vi.fn(),
 }));
 
 vi.mock("@/app/actions/bookings", () => ({
   adminCancelBookingAction: adminCancelBookingActionMock,
   refundBookingDepositAction: refundBookingDepositActionMock,
+}));
+// The manual-confirm action is mocked too — the real action's import chain
+// (business → repo → notifications → email provider) drags the uninstalled
+// nodemailer into the transform graph, and this component test only renders
+// the button's confirm flow.
+vi.mock("@/app/actions/business", () => ({
+  confirmManualPaymentAction: confirmManualPaymentActionMock,
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: useRouterRefreshMock }) }));
 vi.mock("@/components/ui/toast", () => ({ toast: vi.fn() }));

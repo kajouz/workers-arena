@@ -6,6 +6,7 @@ import {
   getCampaignPayment,
   getCampaignRecipient,
   getCampaigns,
+  getPendingManualPayments,
   getPlatformFeeStats,
   getPendingPayouts,
   getVerificationLogs,
@@ -138,6 +139,7 @@ export default async function AdminPage({
       verificationQueue={verificationQueue}
       platformFeeStats={platformFeeStats}
       pendingPayouts={pendingPayouts}
+      pendingManualPayments={await getPendingManualPayments()}
       workers={await getAllWorkers()}
       workerManagementInit={workerManagementInit}
     />

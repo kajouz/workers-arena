@@ -22,7 +22,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
-import type { AnalyticsOverview, Campaign, CampaignPayment, LedgerEntry, PlatformFeeStats, Worker } from "@/lib/data/types";
+import type { AnalyticsOverview, Campaign, CampaignPayment, LedgerEntry, PendingManualPayment, PlatformFeeStats, Worker } from "@/lib/data/types";
+import { ManualPaymentsCard } from "@/components/admin/manual-payments-card";
 import { StatCard } from "./stat-card";
 import { WorkerManagementTable } from "./worker-management-table";
 import { AreaChart, BarList, Donut } from "./charts";
@@ -181,6 +182,7 @@ export function AdminDashboard({
   verificationQueue,
   platformFeeStats,
   pendingPayouts,
+  pendingManualPayments,
   workers,
   workerManagementInit,
 }: {
@@ -211,6 +213,9 @@ export function AdminDashboard({
   platformFeeStats: PlatformFeeStats;
   /** Worker withdrawals waiting for review (docs/payouts.md). */
   pendingPayouts: { entry: LedgerEntry; workerName: string }[];
+  /** §Lebanon — PENDING OMT/Whish manual payments awaiting the admin's confirm
+   * (booking deposits, campaign purchases, paid upgrades). */
+  pendingManualPayments: PendingManualPayment[];
 }) {
   const { locale, t } = useLocale();
   const revenueLabels = a.revenueSeries.map((p) => getMonthLabel(p.label, locale));
@@ -788,6 +793,10 @@ export function AdminDashboard({
               )}
             </CardContent>
           </Card>
+
+          {/* §Lebanon — PENDING OMT/Whish manual payments: the admin's confirm
+              is the manual twin of a provider webhook (no webhook exists). */}
+          <ManualPaymentsCard payments={pendingManualPayments} />
 
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardHeader>

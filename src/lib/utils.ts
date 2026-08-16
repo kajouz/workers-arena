@@ -20,7 +20,7 @@ export function formatCompact(n: number): string {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 }
 
-export type CurrencyCode = "SAR" | "AED" | "EGP" | "JOD" | "MAD" | "USD";
+export type CurrencyCode = "SAR" | "AED" | "EGP" | "JOD" | "MAD" | "LBP" | "USD";
 
 const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   SAR: "ر.س",
@@ -28,6 +28,7 @@ const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   EGP: "ج.م",
   JOD: "د.أ",
   MAD: "د.م",
+  LBP: "ل.ل",
   USD: "$",
 };
 

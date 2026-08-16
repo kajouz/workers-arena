@@ -9,6 +9,7 @@ import {
   Receipt,
   BarChart3,
 } from "lucide-react";
+import { useState } from "react";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
 import type { AnalyticsOverview, Campaign, Invoice } from "@/lib/data/types";
@@ -22,6 +23,8 @@ import { GradientAvatar } from "@/components/ui/avatar";
 import { formatCompact, formatDate } from "@/lib/utils";
 import { payCampaignAction } from "@/app/actions/business";
 import { CampaignBuilder } from "./campaign-builder";
+import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const AD_TYPES = [
   { key: "banner", hue: 205 },
@@ -54,6 +57,9 @@ export function CompanyDashboard({
   invoices: Invoice[];
 }) {
   const { locale, t } = useLocale();
+  const [payFor, setPayFor] = useState<string | null>(null);
+  const [payMethod, setPayMethod] = useState<CheckoutMethod>("stripe");
+  const [paying, setPaying] = useState(false);
   const totalImpressions = campaigns.reduce((s, c) => s + c.impressions, 0);
   const totalClicks = campaigns.reduce((s, c) => s + c.clicks, 0);
   const ctr = ((totalClicks / totalImpressions) * 100).toFixed(2);
@@ -62,9 +68,14 @@ export function CompanyDashboard({
   const impressionsSeries = a.viewsSeries.slice(0, 12).map((p) => p.value * 4);
 
   // "Pay now" — re-mint the hosted checkout for a PENDING campaign (idempotent)
-  // and send the company there. The campaign goes live once paid.
-  const payNow = async (campaignId: string) => {
-    const res = await payCampaignAction(campaignId);
+  // and send the company there. The campaign goes live once paid. The method
+  // picker lets a Lebanon company pay via OMT/Whish (manual — the admin
+  // confirms receipt) instead of a card.
+  const payNow = async () => {
+    if (!payFor || paying) return;
+    setPaying(true);
+    const res = await payCampaignAction(payFor, payMethod);
+    setPaying(false);
     if (res.ok && res.url) {
       window.location.href = res.url;
     } else {
@@ -140,7 +151,10 @@ export function CompanyDashboard({
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => payNow(c.id)}
+                              onClick={() => {
+                                setPayMethod("stripe");
+                                setPayFor(c.id);
+                              }}
                               title={t("company.awaitingPayment")}
                             >
                               {t("company.payNow")}
@@ -230,6 +244,24 @@ export function CompanyDashboard({
           </Card>
         </div>
       </div>
+
+      {/* §Lebanon — pick the payment method before paying a PENDING campaign.
+          OMT/Whish are manual: the company lands on the signed instructions
+          page and the admin confirms receipt. */}
+      <Dialog open={payFor !== null} onOpenChange={(open) => !open && !paying && setPayFor(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("payments.purchaseChooseMethod")}</DialogTitle>
+            <DialogDescription>
+              {campaigns.find((c) => c.id === payFor) ? (locale === "ar" ? campaigns.find((c) => c.id === payFor)!.nameAr : campaigns.find((c) => c.id === payFor)!.nameEn) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <PaymentMethodPicker value={payMethod} onChange={setPayMethod} disabled={paying} />
+          <Button onClick={payNow} disabled={paying} size="lg" className="w-full">
+            {paying ? t("common.loading") : t("company.payNow")}
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

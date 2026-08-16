@@ -20,6 +20,7 @@ import { BookingPrintButton } from "./booking-print-button";
 import { BookingEmailButton } from "./booking-email-button";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
 import { BookingSlaCountdown } from "./booking-sla-countdown";
+import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 import type { CustomerBookingRow } from "@/app/bookings/page";
 
 /**
@@ -33,6 +34,7 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
   const router = useRouter();
   const [paying, setPaying] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [payMethod, setPayMethod] = useState<CheckoutMethod>("stripe");
   const [, startTransition] = useTransition();
   const { booking, worker } = row;
   const name = locale === "ar" ? worker?.nameAr : worker?.nameEn;
@@ -42,7 +44,7 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
     if (paying) return;
     setPaying(true);
     startTransition(async () => {
-      const res = await payBookingAction(booking.id);
+      const res = await payBookingAction(booking.id, payMethod);
       if (res.ok && res.url) {
         window.location.href = res.url;
       } else {
@@ -182,6 +184,9 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
                       `${(booking.deposit! / 100).toLocaleString(locale)} ${booking.currency}`
                     )}
                   </p>
+                </div>
+                <div className="w-full sm:w-64">
+                  <PaymentMethodPicker value={payMethod} onChange={setPayMethod} disabled={paying} compact />
                 </div>
                 <Button size="sm" onClick={startCheckout} disabled={paying}>
                   <CreditCard className="size-4" />

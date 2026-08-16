@@ -18,9 +18,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Banknote, Loader2 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { adminCancelBookingAction, refundBookingDepositAction } from "@/app/actions/bookings";
+import { confirmManualPaymentAction } from "@/app/actions/business";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,6 +44,13 @@ export function AdminBookingActions({ booking }: { booking: Booking }) {
   const open = kind !== null;
   const canCancel = !TERMINAL.includes(booking.status);
   const canRefund = booking.paymentStatus === "paid";
+  // §Lebanon — the deposit was paid via OMT/Whish (MANUAL methods): the admin's
+  // confirm receipt is the manual twin of a provider webhook.
+  const canConfirmManual =
+    booking.paymentStatus === "pending" &&
+    (booking.paymentMethod === "omt" || booking.paymentMethod === "whish");
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualBusy, setManualBusy] = useState(false);
 
   const close = () => {
     if (busy) return;
@@ -70,7 +78,21 @@ export function AdminBookingActions({ booking }: { booking: Booking }) {
     router.refresh();
   };
 
-  if (!canCancel && !canRefund) return null;
+  const confirmManual = async () => {
+    if (!booking.paymentId || manualBusy) return;
+    setManualBusy(true);
+    const res = await confirmManualPaymentAction(booking.paymentId);
+    setManualBusy(false);
+    if (res.ok) {
+      toast("success", t("payments.adminPendingDone"));
+      setManualOpen(false);
+    } else {
+      toast("error", t("payments.adminPendingError"));
+    }
+    router.refresh();
+  };
+
+  if (!canCancel && !canRefund && !canConfirmManual) return null;
 
   const titleKey = kind === "cancel" ? "booking.adminCancelTitle" : "booking.adminRefundTitle";
   const summaryKey = kind === "cancel" ? "booking.adminCancelSummary" : "booking.adminRefundSummary";
@@ -105,7 +127,38 @@ export function AdminBookingActions({ booking }: { booking: Booking }) {
             {t("booking.adminRefundDeposit")}
           </Button>
         )}
+        {canConfirmManual && (
+          <Button size="sm" variant="outline" onClick={() => setManualOpen(true)}>
+            <Banknote className="size-3.5" /> {t("payments.adminPendingConfirm")}
+          </Button>
+        )}
       </div>
+
+      {/* §Lebanon — confirm receipt of a manual (OMT/Whish) deposit: the admin's
+          confirm runs the same confirm path the provider webhook would have. */}
+      <Dialog open={manualOpen} onOpenChange={(next) => !next && !manualBusy && setManualOpen(false)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("payments.adminPendingConfirmTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("payments.adminPendingConfirmBody")
+                .replace("{amount}", booking.deposit != null ? formatPrice(booking.deposit / 100, booking.currency, locale) : "")
+                .replace(
+                  "{method}",
+                  t(`payments.method${booking.paymentMethod?.[0].toUpperCase()}${booking.paymentMethod?.slice(1) ?? ""}`)
+                )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setManualOpen(false)} disabled={manualBusy}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={() => void confirmManual()} disabled={manualBusy}>
+              {manualBusy ? <Loader2 className="size-3.5 animate-spin" /> : t("payments.adminPendingConfirmCommit")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={open}

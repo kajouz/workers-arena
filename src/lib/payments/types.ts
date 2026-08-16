@@ -5,7 +5,17 @@
  * change. Every amount is INTEGER MINOR UNITS.
  */
 
-export type PaymentProviderMethod = "STRIPE" | "SIMULATED";
+export type PaymentProviderMethod = "STRIPE" | "SIMULATED" | "OMT" | "WHISH";
+
+/** The Lebanon-first offline money-movers (docs/PAYMENTS.md §OMT & Whish):
+ * manual, agent-based methods with NO webhook — the customer pays over the
+ * counter / via the OMT Intra or Whish app, and an admin confirms receipt
+ * from the /admin pending-payments card. */
+export const MANUAL_PROVIDER_METHODS: ReadonlyArray<PaymentProviderMethod> = ["OMT", "WHISH"] as const;
+
+export function isManualProviderMethod(method: string): method is "OMT" | "WHISH" {
+  return method === "OMT" || method === "WHISH";
+}
 
 /** What a checkout needs to build a hosted payment session. */
 export interface CheckoutRequest {

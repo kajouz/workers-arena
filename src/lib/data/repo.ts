@@ -29,6 +29,7 @@ import {
   demoGenerateSlots,
   demoConfirmBookingPayment,
   demoCreateBookingCheckout,
+  demoPendingManualBookingPayments,
   demoGetAllBookings,
   demoGetBookingById,
   demoGetBookingByNumber,
@@ -72,8 +73,16 @@ import {
   demoRecordClick,
   demoRecordImpression,
   demoRefundCampaignPayment,
+  demoPendingManualCampaignPayments,
   type CampaignCreateInput,
 } from "./campaigns";
+import {
+  demoCreatePurchaseCheckout,
+  demoConfirmPurchase,
+  demoPendingManualPurchases,
+  demoPurchasePayment,
+  type VerificationTier,
+} from "./purchases";
 import type {
   AnalyticsOverview,
   BillingPeriod,
@@ -102,6 +111,8 @@ import type {
   City,
   Invoice,
   Notification,
+  PendingManualPayment,
+  PurchaseScope,
   Review,
   SearchFilters,
   SearchResult,
@@ -365,9 +376,12 @@ export async function createCampaign(input: CampaignCreateInput): Promise<{ camp
  * already-active campaigns. Dual adapter — real mode persists the provider
  * ref on the Payment row (prismaCreateCampaignCheckout).
  */
-export async function createCampaignCheckout(campaignId: string): Promise<{ url: string } | null> {
-  if (realDataEnabled) return (await prismaRepo()).prismaCreateCampaignCheckout(campaignId);
-  return demoCreateCampaignCheckout(campaignId);
+export async function createCampaignCheckout(
+  campaignId: string,
+  method: "STRIPE" | "OMT" | "WHISH" = "STRIPE"
+): Promise<{ url: string } | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaCreateCampaignCheckout(campaignId, method);
+  return demoCreateCampaignCheckout(campaignId, method);
 }
 
 /**
@@ -1293,9 +1307,12 @@ export async function rescheduleBooking(
  * checkout when no keys are set), or null when the booking isn't awaiting
  * payment. Idempotent per booking.
  */
-export async function createBookingCheckout(bookingId: string): Promise<{ url: string } | null> {
-  if (realDataEnabled) return (await prismaRepo()).prismaCreateBookingCheckout(bookingId);
-  return demoCreateBookingCheckout(bookingId);
+export async function createBookingCheckout(
+  bookingId: string,
+  method: "STRIPE" | "OMT" | "WHISH" = "STRIPE"
+): Promise<{ url: string } | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaCreateBookingCheckout(bookingId, method);
+  return demoCreateBookingCheckout(bookingId, method);
 }
 
 /**
@@ -1316,4 +1333,74 @@ export async function confirmBookingPayment(
 ): Promise<Booking | null> {
   if (realDataEnabled) return (await prismaRepo()).prismaConfirmBookingPayment(bookingId, providerRef);
   return demoConfirmBookingPayment(bookingId, providerRef);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * §LEBANON — MANUAL (OMT/WHISH) PAYMENTS + PAID UPGRADES (docs/PAYMENTS.md §manual
+ * methods · docs/BUSINESS-MODEL.md §5.1 revenue first, no Stripe)
+ * ────────────────────────────────────────────────────────────────────────────
+ * OMT/Whish have no webhook: the customer pays offline with the reference the
+ * /payments/manual instructions page shows, and an admin confirms receipt
+ * from the /admin pending-payments card (confirmManualPaymentAction). The
+ * confirm runs the SAME paths a provider webhook would have run.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Every PENDING manual (OMT/Whish) payment with a minted reference — booking
+ * deposits, campaign purchases, and the paid upgrades (subscription renewal /
+ * verification / featured / emergency). The /admin pending-payments card
+ * lists these for the admin's confirm. Demo merges its three stores; prisma
+ * queries the Payment rows.
+ */
+export async function getPendingManualPayments(): Promise<PendingManualPayment[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetPendingManualPayments();
+  return [
+    ...demoPendingManualBookingPayments(),
+    ...demoPendingManualCampaignPayments(),
+    ...demoPendingManualPurchases(),
+  ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/**
+ * §Lebanon — mint a manual (OMT/Whish) checkout for a paid upgrade. The
+ * payment starts PENDING and the capability flips only when an admin confirms
+ * receipt (confirmPurchase). Demo keeps an in-memory store; prisma persists a
+ * Payment row (metadata.scope + option stamps). Returns the signed
+ * instructions URL, or null for an unknown worker / invalid option.
+ */
+export async function createPurchaseCheckout(input: {
+  workerSlug: string;
+  scope: PurchaseScope;
+  plan?: SubscriptionPlan;
+  period?: BillingPeriod;
+  tier?: VerificationTier;
+  method: "OMT" | "WHISH";
+}): Promise<{ url: string } | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaCreatePurchaseCheckout(input);
+  return demoCreatePurchaseCheckout(input);
+}
+
+/**
+ * §Lebanon — admin confirm of a paid upgrade: the customer paid offline with
+ * the reference, the confirm flips the payment PAID and activates the
+ * purchased capability (subscription renewal / verified badge / featured
+ * slot / emergency marker). Idempotent. Demo mutates the in-memory worker;
+ * prisma flips the Payment row (CAS) + the worker's row in real mode.
+ */
+export async function confirmPurchase(paymentId: string, providerRef: string): Promise<boolean> {
+  if (realDataEnabled) return (await prismaRepo()).prismaConfirmPurchase(paymentId, providerRef);
+  return demoConfirmPurchase(paymentId, providerRef);
+}
+
+/**
+ * §Lebanon — the demo purchase store lookup used by the seam's demo branch
+ * when the admin confirm needs to resolve a purchase payment's reference.
+ * (The prisma branch resolves everything from the Payment row itself.)
+ */
+export async function getPurchasePaymentReference(paymentId: string): Promise<string | null> {
+  if (realDataEnabled) {
+    const rows = await getPendingManualPayments();
+    return rows.find((r) => r.id === paymentId)?.reference ?? null;
+  }
+  return demoPurchasePayment(paymentId)?.providerRef ?? null;
 }

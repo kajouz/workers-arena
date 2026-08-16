@@ -12,12 +12,14 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 
 export function RenewDialog({ worker }: { worker: Worker }) {
   const { locale, t } = useLocale();
   const router = useRouter();
   const [plan, setPlan] = useState<SubscriptionPlan>(worker.subscription.plan);
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
+  const [method, setMethod] = useState<CheckoutMethod>("stripe");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -27,9 +29,14 @@ export function RenewDialog({ worker }: { worker: Worker }) {
     f.set("plan", plan);
     f.set("period", period);
     f.set("workerSlug", worker.slug);
+    f.set("method", method);
     const res = await renewSubscriptionAction(f);
     setBusy(false);
-    if (res.ok) {
+    if (res.ok && res.url) {
+      // Manual (OMT/Whish) renewal — land on the signed instructions page; the
+      // subscription extends once an admin confirms receipt.
+      window.location.href = res.url;
+    } else if (res.ok) {
       toast("success", t("subscription.renewed").replace("{days}", String(res.days ?? 30)));
       setOpen(false);
       router.refresh();
@@ -130,6 +137,13 @@ export function RenewDialog({ worker }: { worker: Worker }) {
             {t("dashboard.currentPlan")}: {locale === "ar" ? PLANS[worker.subscription.plan].labelAr : PLANS[worker.subscription.plan].labelEn}
           </Badge>
         )}
+        <div className="space-y-1.5">
+          <p className="text-xs font-bold text-ink-500 dark:text-ink-400">{t("payments.purchaseChooseMethod")}</p>
+          <PaymentMethodPicker value={method} onChange={setMethod} disabled={busy} />
+          {(method === "omt" || method === "whish") && (
+            <p className="text-[11px] leading-relaxed text-ink-400">{t("payments.purchaseNote")}</p>
+          )}
+        </div>
         <Button onClick={submit} disabled={busy} size="lg" className="w-full">
           {busy ? t("common.loading") : t("subscription.renewNow")}
         </Button>

@@ -70,6 +70,23 @@ export const CITIES: City[] = [
     ],
   },
   {
+    slug: "beirut",
+    nameEn: "Beirut",
+    nameAr: "بيروت",
+    countryEn: "Lebanon",
+    countryAr: "لبنان",
+    currency: "LBP",
+    lat: 33.8938,
+    lng: 35.5018,
+    areas: [
+      { slug: "achrafieh", nameEn: "Achrafieh", nameAr: "الأشرفية" },
+      { slug: "hamra", nameEn: "Hamra", nameAr: "الحمرا" },
+      { slug: "gemmayzeh", nameEn: "Gemmayzeh", nameAr: "الجميزة" },
+      { slug: "mar-mikhael", nameEn: "Mar Mikhael", nameAr: "مار مخايل" },
+      { slug: "badaro", nameEn: "Badaro", nameAr: "بدارو" },
+    ],
+  },
+  {
     slug: "casablanca",
     nameEn: "Casablanca",
     nameAr: "الدار البيضاء",

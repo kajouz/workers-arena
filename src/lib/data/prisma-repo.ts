@@ -57,6 +57,7 @@ import { RECURRING_OCCURRENCE_COUNT, generateRecurringOccurrences, occurrencesIn
 import { campaignRefundNotification } from "./campaign-notifications";
 import { quoteNotification } from "./quote-notifications";
 import type { CampaignCreateInput } from "./campaigns";
+import { PURCHASE_PRICES, type VerificationTier } from "./purchases";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { getPaymentProvider } from "@/lib/payments/registry";
 
@@ -125,6 +126,10 @@ import {
   type SubscriptionPlan,
   type Worker,
   type WorkingDay,
+  type BillingPeriod,
+  type PendingManualPayment,
+  type PurchaseScope,
+  toDomainPaymentMethod,
 } from "./types";
 
 /** Must match the demo engine's page size (src/lib/data/search.ts). */
@@ -792,6 +797,7 @@ export interface PrismaBookingRow {
     id: string;
     amount: number;
     status: string;
+    method?: string | null;
     providerRef?: string | null;
     refundedAt?: Date | null;
     invoice?: {
@@ -912,6 +918,9 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
       : undefined,
     // §2.4 — the deposit payment state (gates the admin Refund-deposit action).
     paymentStatus: row.payment?.status ? (row.payment.status.toLowerCase() as BookingPayment["status"]) : undefined,
+    // §Lebanon — the deposit payment method (set once a checkout was minted);
+    // the dispute view gates the manual OMT/Whish Confirm-payment action.
+    paymentMethod: row.payment?.method ? toDomainPaymentMethod(row.payment.method) : undefined,
     // Slot-less quote bids map to undefined — the UI hides the time row.
     startAt: row.startAt?.toISOString(),
     endAt: row.endAt?.toISOString(),
@@ -2234,7 +2243,8 @@ export async function prismaExpireQuoteRequests(now = new Date()): Promise<numbe
  * (no duplicate checkout sessions). Returns the checkout URL or null.
  */
 export async function prismaCreateBookingCheckout(
-  bookingId: string
+  bookingId: string,
+  method: "STRIPE" | "OMT" | "WHISH" = "STRIPE"
 ): Promise<{ url: string } | null> {
   const prisma = getPrisma();
   let providerRef: string | null = null;
@@ -2271,7 +2281,7 @@ export async function prismaCreateBookingCheckout(
     jobTitle = row.jobTitle;
     number = row.number;
 
-    const provider = getPaymentProvider();
+    const provider = getPaymentProvider(method);
     const result = await provider.createCheckout({
       paymentId,
       bookingId,
@@ -2285,10 +2295,13 @@ export async function prismaCreateBookingCheckout(
 
     // Persist the provider ref + checkout url with a CAS (only if still
     // unset) so two concurrent Pay clicks can't both mint sessions — the
-    // loser matches 0 rows, re-reads, and returns the winner's url.
+    // loser matches 0 rows, re-reads, and returns the winner's url. The
+    // chosen method is stamped on the Payment row so the dispute view can
+    // gate the manual OMT/Whish confirm (a re-click keeps the first-chosen
+    // method: the claim only fires while providerRef is still null).
     const claimed = await prisma.payment.updateMany({
       where: { id: paymentId, providerRef: null },
-      data: { providerRef: result.providerRef, metadata: { bookingId, checkoutUrl: result.url } },
+      data: { providerRef: result.providerRef, method, metadata: { bookingId, checkoutUrl: result.url } },
     });
     if (claimed.count === 0) {
       const winner = await prisma.payment.findUnique({ where: { id: paymentId } });
@@ -3507,7 +3520,10 @@ export async function prismaCreateCampaign(
  * and returns the winner's url). Idempotent per campaign. Returns null for
  * unknown campaigns, ones not awaiting payment, or a provider failure.
  */
-export async function prismaCreateCampaignCheckout(campaignId: string): Promise<{ url: string } | null> {
+export async function prismaCreateCampaignCheckout(
+  campaignId: string,
+  method: "STRIPE" | "OMT" | "WHISH" = "STRIPE"
+): Promise<{ url: string } | null> {
   const prisma = getPrisma();
   try {
     const row = await prisma.$transaction(async (tx) => {
@@ -3535,7 +3551,7 @@ export async function prismaCreateCampaignCheckout(campaignId: string): Promise<
     const existingUrl = (row.payment.metadata as { checkoutUrl?: string } | null)?.checkoutUrl ?? null;
     if (row.payment.providerRef && existingUrl) return { url: existingUrl };
 
-    const provider = getPaymentProvider();
+    const provider = getPaymentProvider(method);
     const result = await provider.createCheckout({
       paymentId: row.payment.id,
       campaignId,
@@ -3548,10 +3564,11 @@ export async function prismaCreateCampaignCheckout(campaignId: string): Promise<
     });
 
     // Persist the provider ref + checkout url with a CAS (only if still
-    // unset) so two concurrent Pay clicks can't both mint sessions.
+    // unset) so two concurrent Pay clicks can't both mint sessions. The
+    // chosen method rides the same claim (a re-click keeps the first pick).
     const claimed = await prisma.payment.updateMany({
       where: { id: row.payment.id, providerRef: null },
-      data: { providerRef: result.providerRef, metadata: { campaignId, checkoutUrl: result.url } },
+      data: { providerRef: result.providerRef, method, metadata: { campaignId, checkoutUrl: result.url } },
     });
     if (claimed.count === 0) {
       const winner = await prisma.payment.findUnique({ where: { id: row.payment.id } });
@@ -4557,4 +4574,340 @@ export async function prismaRunRequestSla(now = new Date()): Promise<RequestSlaR
   }
 
   return { nudged, expired, scanned: nudgeRows.length + expireRows.length, expiredNumbers };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * §LEBANON — MANUAL (OMT/WHISH) PAYMENTS + PAID UPGRADES (real mode)
+ * docs/PAYMENTS.md §manual methods · docs/BUSINESS-MODEL.md §5.1
+ * ────────────────────────────────────────────────────────────────────────────
+ * OMT/Whish are MANUAL methods: the customer pays offline with the reference
+ * the instructions page shows, and the ADMIN confirms receipt from the /admin
+ * pending-payments card. The confirm runs the SAME paths a provider webhook
+ * would have (confirmBookingPayment / confirmCampaignPayment) or the purchase
+ * confirm below — flipping the capability the worker bought. Everything rides
+ * Payment rows: method OMT/WHISH + status PENDING + providerRef (the minted
+ * reference) + metadata.scope for the paid-upgrade kinds.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Every PENDING manual (OMT/Whish) payment with a minted reference — the rows
+ * the /admin pending-payments card lists (booking deposits, campaign
+ * purchases, and the paid upgrades: subscription renewal / verification /
+ * featured / emergency). Oldest first.
+ */
+export async function prismaGetPendingManualPayments(): Promise<PendingManualPayment[]> {
+  const prisma = getPrisma();
+  const rows = await prisma.payment.findMany({
+    where: { method: { in: ["OMT", "WHISH"] }, status: "PENDING", providerRef: { not: null } },
+    include: { booking: { include: { serviceItem: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  const out: PendingManualPayment[] = [];
+  for (const row of rows) {
+    const method = row.method === "OMT" ? "omt" : "whish";
+    const meta = (row.metadata ?? {}) as Record<string, unknown>;
+
+    // Booking deposit (M3) — the booking's own row carries the label.
+    if (row.booking) {
+      out.push({
+        id: row.id,
+        scope: "booking",
+        entityId: row.booking.id,
+        labelEn: `${row.booking.number} — ${row.booking.jobTitle}`,
+        labelAr: `${row.booking.number} — ${row.booking.jobTitle}`,
+        amount: row.amount,
+        currency: row.currency,
+        method,
+        reference: row.providerRef!,
+        createdAt: row.createdAt.toISOString(),
+      });
+      continue;
+    }
+
+    // Campaign purchase (self-serve ads) — keyed by advertisementId → campaign
+    // (the same key prismaGetCampaignPayment resolves; metadata.campaignId is
+    // the fallback for rows minted before the key convention settled).
+    const campaignId =
+      typeof meta.campaignId === "string" ? meta.campaignId : row.advertisementId;
+    if (campaignId) {
+      const campaign = await prisma.adCampaign.findUnique({
+        where: { id: campaignId },
+        include: { ads: { take: 1, orderBy: { createdAt: "asc" as const } } },
+      });
+      if (campaign) {
+        out.push({
+          id: row.id,
+          scope: "campaign",
+          entityId: campaign.id,
+          labelEn: `${campaign.nameEn} — ${campaign.ads[0]?.placement ?? "ad purchase"}`,
+          labelAr: `${campaign.nameAr} — ${campaign.ads[0]?.placement ?? "ad purchase"}`,
+          amount: row.amount,
+          currency: row.currency,
+          method,
+          reference: row.providerRef!,
+          createdAt: row.createdAt.toISOString(),
+        });
+        continue;
+      }
+    }
+
+    // Paid upgrade (subscription renewal / verification / featured / emergency)
+    // — the Payment carries the worker link + metadata.scope.
+    if (row.workerId) {
+      const scope = typeof meta.scope === "string" ? meta.scope : "subscription";
+      if (!["subscription", "verification", "featured", "emergency"].includes(scope)) continue;
+      const worker = await prisma.worker.findUnique({
+        where: { id: row.workerId },
+        select: { nameEn: true, nameAr: true },
+      });
+      if (!worker) continue;
+      const label = purchaseLabel(scope as PurchaseScope, worker.nameEn, worker.nameAr, meta);
+      out.push({
+        id: row.id,
+        scope: scope as PurchaseScope,
+        entityId: row.id,
+        labelEn: label.en,
+        labelAr: label.ar,
+        amount: row.amount,
+        currency: row.currency,
+        method,
+        reference: row.providerRef!,
+        createdAt: row.createdAt.toISOString(),
+      });
+    }
+  }
+  return out;
+}
+
+/** Localized label for a paid-upgrade payment (mirrors the demo's
+ * purchaseDescription, prisma-side: the metadata is the only context). */
+function purchaseLabel(
+  scope: PurchaseScope,
+  nameEn: string,
+  nameAr: string,
+  meta: Record<string, unknown>
+): { en: string; ar: string } {
+  switch (scope) {
+    case "subscription":
+      return {
+        en: `${nameEn} — ${String(meta.plan ?? "professional")} subscription renewal (${String(meta.period ?? "monthly")})`,
+        ar: `${nameAr} — تجديد اشتراك ${String(meta.plan ?? "professional")} (${String(meta.period ?? "monthly")})`,
+      };
+    case "verification":
+      return {
+        en: `${nameEn} — ${meta.tier === "professional" ? "Professional" : "Basic"} verification`,
+        ar: `${nameAr} — توثيق ${meta.tier === "professional" ? "احترافي" : "أساسي"}`,
+      };
+    case "featured":
+      return { en: `${nameEn} — Featured slot`, ar: `${nameAr} — بطاقة مميزة` };
+    case "emergency":
+      return { en: `${nameEn} — Emergency marker`, ar: `${nameAr} — علامة طوارئ` };
+  }
+}
+
+/**
+ * Mint a manual (OMT/Whish) checkout for a paid upgrade — the prisma twin of
+ * demoCreatePurchaseCheckout: a PENDING Payment row (userId = the worker's
+ * user, workerId set, metadata.scope + option stamps) + the signed
+ * instructions URL. The capability flips only when the admin confirms
+ * (prismaConfirmPurchase). Returns null on an unknown worker / invalid option
+ * / provider failure (the PENDING row stays for the admin card to see).
+ */
+export async function prismaCreatePurchaseCheckout(input: {
+  workerSlug: string;
+  scope: PurchaseScope;
+  plan?: SubscriptionPlan;
+  period?: BillingPeriod;
+  tier?: VerificationTier;
+  method: "OMT" | "WHISH";
+}): Promise<{ url: string } | null> {
+  const prisma = getPrisma();
+  const amount = purchaseAmountMinor(input.scope, input.plan, input.period, input.tier);
+  if (amount === null) return null;
+  const worker = await prisma.worker.findUnique({
+    where: { slug: input.workerSlug },
+    include: { user: { select: { email: true } } },
+  });
+  if (!worker) return null;
+
+  // No undefined values — Prisma's InputJsonValue rejects them, and the JSON
+  // column should only carry the options the purchase actually has.
+  const meta = {
+    scope: input.scope,
+    workerSlug: input.workerSlug,
+    ...(input.plan ? { plan: input.plan } : {}),
+    ...(input.period ? { period: input.period } : {}),
+    ...(input.tier ? { tier: input.tier } : {}),
+  };
+  try {
+    const payment = await prisma.payment.create({
+      data: {
+        userId: worker.userId,
+        workerId: worker.id,
+        amount,
+        currency: "USD",
+        method: input.method,
+        status: "PENDING",
+        metadata: meta,
+      },
+    });
+    const provider = getPaymentProvider(input.method);
+    const result = await provider.createCheckout({
+      paymentId: payment.id,
+      amountMinor: amount,
+      currency: "USD",
+      customerEmail: worker.user?.email ?? undefined,
+      description: `${worker.nameEn} — ${input.scope} upgrade`,
+      successUrl: `${origin()}/dashboard?purchased=1`,
+      cancelUrl: `${origin()}/dashboard`,
+    });
+    const claimed = await prisma.payment.updateMany({
+      where: { id: payment.id, providerRef: null },
+      data: { providerRef: result.providerRef, metadata: { ...meta, checkoutUrl: result.url } },
+    });
+    if (claimed.count === 0) return null;
+    return { url: result.url };
+  } catch (err) {
+    console.error("[prisma-repo] createPurchaseCheckout failed:", err);
+    return null;
+  }
+}
+
+function purchaseAmountMinor(
+  scope: PurchaseScope,
+  plan?: SubscriptionPlan,
+  period?: BillingPeriod,
+  tier?: VerificationTier
+): number | null {
+  if (scope === "subscription") return plan ? planPrice(plan, period ?? "monthly") * 100 : null;
+  if (scope === "verification") return tier ? PURCHASE_PRICES.verification[tier] : null;
+  if (scope === "featured") return PURCHASE_PRICES.featured;
+  if (scope === "emergency") return PURCHASE_PRICES.emergency;
+  return null;
+}
+
+/**
+ * Admin confirm — the manual twin of a provider webhook for a paid upgrade:
+ * the customer paid offline with the reference, the admin's confirm flips the
+ * payment PAID (CAS, idempotent) and activates the purchased capability on
+ * the worker's row (subscription renewal / verified badge / featured slot /
+ * emergency marker), minting the renewal invoice for subscriptions. Notifies
+ * the worker after the flip. Returns false when the payment is unknown or
+ * the flip lost the CAS and the payment isn't already PAID.
+ */
+export async function prismaConfirmPurchase(paymentId: string, providerRef: string): Promise<boolean> {
+  const prisma = getPrisma();
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { subscription: { include: { worker: { include: { user: true } } } } },
+  });
+  if (!payment) return false;
+  if (payment.status === "PAID") return true; // idempotent
+  if (payment.status !== "PENDING") return false;
+
+  const meta = (payment.metadata ?? {}) as Record<string, unknown>;
+  const scope = (typeof meta.scope === "string" ? meta.scope : "subscription") as PurchaseScope;
+  const plan = meta.plan as SubscriptionPlan | undefined;
+  const period = (meta.period as BillingPeriod | undefined) ?? "monthly";
+
+  const flipped = await prisma.payment.updateMany({
+    where: { id: paymentId, status: "PENDING" },
+    data: { status: "PAID", providerRef, paidAt: new Date() },
+  });
+  if (flipped.count === 0) {
+    const fresh = await prisma.payment.findUnique({ where: { id: paymentId }, select: { status: true } });
+    return fresh?.status === "PAID";
+  }
+
+  if (!payment.workerId) return true;
+  const worker = await prisma.worker.findUnique({
+    where: { id: payment.workerId },
+    include: { subscription: true, user: { select: { email: true, locale: true } } },
+  });
+  const notify = (type: "subscription" | "verification" | "system", titleEn: string, titleAr: string, bodyEn: string, bodyAr: string) =>
+    pushNotification(
+      { type, titleEn, titleAr, bodyEn, bodyAr, href: "/dashboard" },
+      worker?.user?.email
+        ? { name: worker.nameEn, email: worker.user.email, locale: worker.user.locale === "ar" ? "ar" : "en" }
+        : undefined
+    );
+
+  switch (scope) {
+    case "subscription": {
+      if (!worker?.subscription) break;
+      const p: SubscriptionPlan = plan ?? (PLAN_MAP[worker.subscription.plan] ?? "professional");
+      const planDb = p.toUpperCase() as $Enums.SubscriptionPlan;
+      const now = new Date();
+      const base = worker.subscription.expiresAt > now ? worker.subscription.expiresAt : now;
+      const expiresAt = addMonths(base.toISOString(), period === "annual" ? 12 : 1);
+      await prisma.subscription.update({
+        where: { id: worker.subscription.id },
+        data: { plan: planDb, status: "ACTIVE", price: planPrice(p, period) * 100, periodDays: period === "annual" ? 365 : 30, expiresAt: new Date(expiresAt) },
+      });
+      // Mint the renewal invoice (WA-YYYY-NNNNN — the same sequence as booking
+      // receipts: per-year count + formatInvoiceNumber) so the purchase has a
+      // receipt row.
+      if (worker.userId) {
+        const year = new Date().getFullYear();
+        const count = await prisma.invoice.count({
+          where: { number: { startsWith: `WA-${year}-` } },
+        });
+        await prisma.invoice.create({
+          data: {
+            number: formatInvoiceNumber(year, count + 1),
+            userId: worker.userId,
+            paymentId: payment.id,
+            amount: payment.amount,
+            currency: "USD",
+            status: "PAID",
+            paidAt: new Date(),
+          },
+        });
+      }
+      await notify(
+        "subscription",
+        `Subscription renewed — ${p}`,
+        `تم تجديد الاشتراك — ${p}`,
+        `${worker.nameEn}: your ${p} plan is active until ${expiresAt.slice(0, 10)}.`,
+        `${worker.nameAr}: خطتك ${p} نشطة حتى ${expiresAt.slice(0, 10)}.`
+      );
+      break;
+    }
+    case "verification": {
+      if (worker) {
+        await prisma.worker.update({ where: { id: worker.id }, data: { verified: true, verifiedAt: new Date() } });
+      }
+      await notify(
+        "verification",
+        "Profile verified ✓",
+        "تم توثيق الملف ✓",
+        `${worker?.nameEn ?? "Your profile"} now shows the Verified badge.`,
+        `${worker?.nameAr ?? "ملفك"} يعرض الآن شارة التوثيق.`
+      );
+      break;
+    }
+    case "featured": {
+      if (worker) await prisma.worker.update({ where: { id: worker.id }, data: { isFeatured: true } });
+      await notify(
+        "system",
+        "Featured slot active",
+        "البطاقة المميزة نشطة",
+        `${worker?.nameEn ?? "Your profile"} is featured on the homepage for 30 days.`,
+        `${worker?.nameAr ?? "ملفك"} مميز في الصفحة الرئيسية لمدة 30 يومًا.`
+      );
+      break;
+    }
+    case "emergency": {
+      if (worker) await prisma.worker.update({ where: { id: worker.id }, data: { emergency: true } });
+      await notify(
+        "system",
+        "Emergency marker active",
+        "علامة الطوارئ نشطة",
+        `${worker?.nameEn ?? "Your profile"} can now be booked for urgent 24/7 jobs.`,
+        `${worker?.nameAr ?? "ملفك"} متاح الآن لحجوزات الطوارئ على مدار الساعة.`
+      );
+      break;
+    }
+  }
+  return true;
 }

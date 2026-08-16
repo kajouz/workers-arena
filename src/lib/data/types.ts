@@ -1,6 +1,36 @@
 import type { CurrencyCode } from "@/lib/utils";
 
 /**
+ * Payment method domain values (mirror of the provider seam's
+ * PaymentProviderMethod, lowercase). "stripe" / "simulated" are the hosted
+ * checkouts; "omt" / "whish" are the MANUAL Lebanon-first money-movers
+ * (docs/PAYMENTS.md) — no webhook, the customer pays offline and an admin
+ * confirms receipt from the /admin pending-payments card.
+ */
+export type PaymentMethod = "stripe" | "simulated" | "omt" | "whish";
+
+/** Map a provider-method string (e.g. "OMT", "BANK_TRANSFER") to the domain
+ * PaymentMethod — unknown/legacy values default to "stripe". Shared by the
+ * demo + prisma adapters so the mapping can never drift. */
+export function toDomainPaymentMethod(method?: string | null): PaymentMethod | undefined {
+  switch ((method ?? "").toUpperCase()) {
+    case "OMT":
+      return "omt";
+    case "WHISH":
+      return "whish";
+    case "SIMULATED":
+      return "simulated";
+    default:
+      return "stripe";
+  }
+}
+
+/** The paid-upgrade scopes a manual payment can confirm (docs/BUSINESS-MODEL.md
+ * §5.1 — the revenue-first levers that need no Stripe): a worker pays via
+ * OMT/Whish and the admin's confirm flips the purchased capability live. */
+export type PurchaseScope = "subscription" | "verification" | "featured" | "emergency";
+
+/**
  * Booking reminder window (M4): a CONFIRMED booking whose start is within the
  * next 24h is due the "job starts tomorrow" notification. Shared by the demo
  * engine filter and the prisma query so the two adapters can never drift.
@@ -386,6 +416,9 @@ export interface Booking {
   /** M3 deposit payment state — mirrors the Payment row (demo store + prisma).
    * Lets the admin dispute view gate the Refund-deposit action. */
   paymentStatus?: BookingPayment["status"];
+  /** M3 deposit payment method — set once a checkout was minted. The dispute
+   * view gates the manual OMT/Whish Confirm-payment action on this. */
+  paymentMethod?: PaymentMethod;
   /** Receipt created at payment-confirm for signed-in customers (M3). */
   invoice?: BookingInvoice;
   /** M1 recurring bookings (§7 #1) — set when this booking is an occurrence of a contract. */
@@ -495,6 +528,9 @@ export interface BookingPayment {
   amount: number; // minor units
   currency: string;
   status: "pending" | "paid" | "failed" | "refunded" | "cancelled";
+  /** The chosen payment method — set when the checkout is minted ("stripe"
+   * until then). Lets the dispute view gate the admin's manual confirm. */
+  method?: PaymentMethod;
   providerRef?: string;
   /** Demo-store only — the minted checkout URL (prisma keeps it in metadata). */
   checkoutUrl?: string;
@@ -1048,6 +1084,8 @@ export interface CampaignPayment {
   amount: number; // minor units
   currency: string;
   status: "pending" | "paid" | "failed" | "refunded" | "cancelled";
+  /** The chosen payment method — set when the checkout is minted. */
+  method?: PaymentMethod;
   providerRef?: string;
   /** Demo-store only — the minted checkout URL (prisma keeps it in metadata). */
   checkoutUrl?: string;
@@ -1059,6 +1097,34 @@ export interface CampaignPayment {
    * campaign-payments table.
    */
   refundReason?: string;
+}
+
+/**
+ * One PENDING manual (OMT/Whish) payment awaiting admin confirmation — the
+ * unified row the /admin pending-payments card lists and the
+ * confirmManualPaymentAction dispatches on (docs/PAYMENTS.md §manual
+ * methods). A manual method has no webhook: the customer paid offline with
+ * the reference, and the admin's confirm runs the SAME confirm path a
+ * provider webhook would have (booking deposit → confirmBookingPayment,
+ * campaign → confirmCampaignPayment, purchases → their confirm seams).
+ */
+export interface PendingManualPayment {
+  /** The Payment row id. */
+  id: string;
+  /** What the payment completes: booking deposit, campaign purchase, or a
+   * paid upgrade (subscription renewal / verification / featured / emergency). */
+  scope: "booking" | "campaign" | PurchaseScope;
+  /** The entity the confirm acts on — booking id, campaign id, or the payment
+   * id itself for purchases. */
+  entityId: string;
+  labelEn: string;
+  labelAr: string;
+  amount: number; // minor units
+  currency: string;
+  method: "omt" | "whish";
+  /** The customer's OMT/Whish transfer reference (providerRef). */
+  reference: string;
+  createdAt: string;
 }
 
 export interface AnalyticsOverview {

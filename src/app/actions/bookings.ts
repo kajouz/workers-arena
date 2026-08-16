@@ -470,16 +470,26 @@ export async function rescheduleBookingAction(
   return { ok: true };
 }
 
+/** The customer-facing payment methods — lowercase domain values; the seam
+ * expects the provider casing ("STRIPE" | "OMT" | "WHISH"). */
+const paymentMethodSchema = z.enum(["stripe", "omt", "whish"]);
+const toProviderMethod = (m: "stripe" | "omt" | "whish") => (m === "omt" ? "OMT" : m === "whish" ? "WHISH" : "STRIPE");
+
 /**
  * M3 — start the deposit checkout for a PENDING_PAYMENT booking. Returns the
- * provider redirect URL (Stripe hosted checkout, or the local simulated
- * checkout when no keys are set) so the client can redirect the customer.
+ * provider redirect URL — Stripe's hosted checkout (or the local simulated
+ * checkout when no keys are set), or the signed OMT/Whish instructions page
+ * for the Lebanon-first manual methods — so the client can redirect the
+ * customer. The chosen method is stamped on the Payment row at mint time.
  */
 export async function payBookingAction(
-  bookingId: string
+  bookingId: string,
+  method: "stripe" | "omt" | "whish" = "stripe"
 ): Promise<{ ok: boolean; url?: string; error?: "invalid" | "not-found" }> {
   if (!bookingId) return { ok: false, error: "invalid" };
-  const checkout = await createBookingCheckout(bookingId);
+  const parsed = paymentMethodSchema.safeParse(method);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const checkout = await createBookingCheckout(bookingId, toProviderMethod(parsed.data));
   if (!checkout) return { ok: false, error: "not-found" };
   return { ok: true, url: checkout.url };
 }

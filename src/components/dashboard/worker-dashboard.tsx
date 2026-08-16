@@ -36,6 +36,7 @@ import { GradientAvatar } from "@/components/ui/avatar";
 import { formatNumber, formatDate, formatCompact, formatPrice } from "@/lib/utils";
 import { Price } from "@/components/shared/price";
 import { RenewDialog } from "./renew-dialog";
+import { UpgradeDialog } from "./upgrade-dialog";
 import { VerificationBanner } from "./verification-banner";
 
 export function WorkerDashboard({
@@ -209,9 +210,9 @@ export function WorkerDashboard({
                 <Progress value={subStatus === "expired" ? 0 : Math.min(100, Math.round((daysLeft / (sub.period === "annual" ? 365 : 30)) * 100))} />
               </div>
               <RenewDialog worker={worker} />
-              <Button variant="outline" className="w-full">
-                {t("dashboard.upgrade")}
-              </Button>
+              {/* §Lebanon — paid upgrades (verification / featured / emergency)
+                  paid via the manual OMT/Whish methods (BUSINESS-MODEL §5.1). */}
+              <UpgradeDialog worker={worker} />
             </CardContent>
           </Card>
 

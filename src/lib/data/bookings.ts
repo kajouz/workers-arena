@@ -44,6 +44,7 @@ import {
   type BookingStatus,
   type BookingPayment,
   type BookingTransitionTarget,
+  type PendingManualPayment,
   type RecurringBooking,
   type RecurringRequestInput,
   type RecurringRespondInput,
@@ -410,9 +411,16 @@ function withSlaSignal(b: Booking): Booking {
   // §2.4 — attach the deposit payment state on UI-facing reads (the admin
   // dispute view gates the Refund-deposit action on it). The demo store keeps
   // payments keyed by booking id; the prisma adapter maps it in toDomainBooking.
-  const paymentStatus = STORE.payments.get(b.id)?.status;
+  const payment = STORE.payments.get(b.id);
+  const paymentStatus = payment?.status;
+  const paymentMethod = payment?.method;
   const sla = b.slaNudgeSent === true || slaNudgedKeys.has(b.id);
-  return { ...b, ...(sla ? { slaNudgeSent: true } : {}), ...(paymentStatus ? { paymentStatus } : {}) };
+  return {
+    ...b,
+    ...(sla ? { slaNudgeSent: true } : {}),
+    ...(paymentStatus ? { paymentStatus } : {}),
+    ...(paymentMethod ? { paymentMethod } : {}),
+  };
 }
 
 /** A worker's bookings, newest first, with optional status filter + limit. */
@@ -934,7 +942,8 @@ export async function demoCancelBooking(
   let refunded = false;
   if (payment?.status === "paid") {
     if (bookingCancelRefundDue(booking, new Date(), input.by)) {
-      await getPaymentProvider().refund(payment.providerRef ?? payment.id, payment.amount);
+      await getPaymentProvider(payment.method === "omt" ? "OMT" : payment.method === "whish" ? "WHISH" : "STRIPE")
+        .refund(payment.providerRef ?? payment.id, payment.amount);
       payment.status = "refunded";
       payment.refundedAt = new Date().toISOString();
       refunded = true;
@@ -989,7 +998,8 @@ export async function demoRefundBookingDeposit(
   // already-REFUNDED are no-ops (idempotent; a double-click can't re-refund).
   if (payment?.status !== "paid") return null;
 
-  await getPaymentProvider().refund(payment.providerRef ?? payment.id, payment.amount);
+  await getPaymentProvider(payment.method === "omt" ? "OMT" : payment.method === "whish" ? "WHISH" : "STRIPE")
+    .refund(payment.providerRef ?? payment.id, payment.amount);
   payment.status = "refunded";
   payment.refundedAt = new Date().toISOString();
   booking.events.push({
@@ -1128,17 +1138,27 @@ export async function demoRescheduleBooking(
  * customer is redirected to, or null when the booking isn't awaiting payment.
  */
 export async function demoCreateBookingCheckout(
-  bookingId: string
+  bookingId: string,
+  method: "STRIPE" | "OMT" | "WHISH" = "STRIPE"
 ): Promise<{ url: string } | null> {
   const booking = STORE.bookings.find((b) => b.id === bookingId);
   const payment = STORE.payments.get(bookingId);
   if (!booking || booking.status !== "pendingPayment" || !payment) return null;
-  // Idempotent (parity with prismaCreateBookingCheckout): a re-click returns
-  // the already-minted checkout URL.
-  if (payment.providerRef && payment.checkoutUrl) return { url: payment.checkoutUrl };
+  // Idempotent (parity with prismaCreateBookingCheckout): a re-click with the
+  // SAME method returns the already-minted checkout URL. A method switch
+  // (e.g. the customer re-picks OMT after a stale simulate URL was pre-minted)
+  // re-mints with the new provider instead of reusing the wrong one.
+  const requestedMethod = method === "OMT" ? "omt" : method === "WHISH" ? "whish" : "stripe";
+  if (payment.providerRef && payment.checkoutUrl && payment.method === requestedMethod) {
+    return { url: payment.checkoutUrl };
+  }
+  // The customer's chosen method is stamped on the Payment row the moment the
+  // checkout is minted (the admin dispute view gates its manual confirm on
+  // this) — "stripe"/"simulated" before any checkout exists.
+  payment.method = method === "OMT" ? "omt" : method === "WHISH" ? "whish" : "stripe";
 
   const base = typeof window === "undefined" ? "" : window.location.origin;
-  const result = await getPaymentProvider().createCheckout({
+  const result = await getPaymentProvider(method).createCheckout({
     paymentId: payment.id,
     bookingId: booking.id,
     amountMinor: payment.amount,
@@ -1202,6 +1222,36 @@ export async function demoConfirmBookingPayment(
 
   await notifyCustomer(booking, "customer-paid");
   return booking;
+}
+
+/**
+ * §Lebanon — every PENDING deposit whose checkout was minted with a MANUAL
+ * method (OMT/Whish): the customer paid offline with the reference, and the
+ * /admin pending-payments card lists these for the admin's confirm (the
+ * manual twin of a provider webhook). Demo adapter — mirrors
+ * prismaGetPendingManualPayments in real mode.
+ */
+export function demoPendingManualBookingPayments(): PendingManualPayment[] {
+  const out: PendingManualPayment[] = [];
+  for (const booking of STORE.bookings) {
+    const payment = STORE.payments.get(booking.id);
+    if (!payment || payment.status !== "pending") continue;
+    if (payment.method !== "omt" && payment.method !== "whish") continue;
+    if (!payment.providerRef) continue;
+    out.push({
+      id: payment.id,
+      scope: "booking",
+      entityId: booking.id,
+      labelEn: `${booking.number} — ${booking.jobTitle}`,
+      labelAr: `${booking.number} — ${booking.jobTitle}`,
+      amount: payment.amount,
+      currency: booking.currency,
+      method: payment.method,
+      reference: payment.providerRef,
+      createdAt: booking.events[0]?.time ?? new Date().toISOString(),
+    });
+  }
+  return out.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 /**
