@@ -5,6 +5,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      // The email provider lazily imports the optional SDKs (webpackIgnore in
+      // the Next build); they aren't installed in dev, so point Vite at test
+      // stubs — lets any test import providers/email.ts (tests/stubs).
+      nodemailer: path.resolve(__dirname, "tests/stubs/nodemailer.ts"),
+      resend: path.resolve(__dirname, "tests/stubs/resend.ts"),
     },
   },
   test: {
