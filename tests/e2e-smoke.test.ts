@@ -14,7 +14,7 @@ import { installSignalGuard } from "./helpers/signal-guard.mjs";
  * Boots its own `next dev` server (demo mode, isolated .next via NEXT_DIST_DIR
  * so it can't clash with a concurrently running preview), then drives the real
  * system Chrome through the protected pages — the four dashboards PLUS the
- * booking dispute deep link (admin/bookings/BK-1001, whose live SLA countdown
+ * booking dispute deep link (admin/bookings/BK-0990, whose live SLA countdown
  * used to hydration-mismatch on every load) and the five highest-traffic
  * public routes (home + push onboarding, search, customer /bookings, worker
  * profile, login) — in both English and Arabic. It FAILS on any React
@@ -29,12 +29,14 @@ import { installSignalGuard } from "./helpers/signal-guard.mjs";
  * ticking countdown copy — so a silent regression that stops the countdown
  * from rendering fails the matrix even with a clean console. The /admin
  * refund-email preview dialog (the bilingual campaign-payments preview, 6420952)
- * gets the same content-level treatment: the matrix seeds a refunded campaign
- * payment through the demo-only /api/dev/seed-refunded-campaign route (the
- * real create→confirm→refund seams), then opens the dialog on the refunded
- * row in EN + AR and asserts the sandboxed iframe's srcdoc carries the page
- * locale's <html lang dir> + refund card + CTA — so the always-EN preview
- * regression fails the matrix even with a clean console.
+ * gets the same content-level treatment on BOTH /admin surfaces that render
+ * it: the campaign-payments card (seeded via the demo-only
+ * /api/dev/seed-refunded-campaign route — the real create→confirm→refund
+ * seams) and the /admin/bookings/BK-0990 dispute view (the seeded COMPLETED
+ * booking's header button). The matrix opens the dialog on each in EN + AR
+ * and asserts the sandboxed iframe's srcdoc carries the page locale's
+ * <html lang dir> + card + CTA markers — so the always-EN preview regression
+ * fails the matrix even with a clean console.
  *
  * The SAME matrix also runs against a production build: `next build` into an
  * isolated NEXT_DIST_DIR, then `next start` on a free port — catching the
@@ -131,10 +133,14 @@ type RouteSpec = {
    * render the email in the PAGE locale (EN or AR), not always EN — the bug
    * the bilingual wave fixed. */
   expectRefundEmailPreview?: boolean;
+  /** Same dialog-content guard for the /admin/bookings/[number] dispute view's
+   * header preview button (the seeded BK-0990 — a COMPLETED booking whose
+   * customer-facing email rendered) — the booking twin of the campaign card. */
+  expectDisputeEmailPreview?: boolean;
 };
 
 /** Auth-protected pages — each needs a demo session cookie. Includes the
- * booking dispute deep link (admin/bookings/BK-1001), the only route whose
+ * booking dispute deep link (admin/bookings/BK-0990), the only route whose
  * live SLA countdown (BookingSlaCountdown via useSsrSafeNow) used to
  * hydration-mismatch on every load — the exact bug this matrix guards. */
 const ROUTES: RouteSpec[] = [
@@ -143,10 +149,15 @@ const ROUTES: RouteSpec[] = [
   // then asserts the dialog's iframe copy follows the page locale in EN + AR.
   { path: "admin", role: "admin", expectRefundEmailPreview: true },
   {
-    path: "admin/bookings/BK-1001",
+    // BK-0990 is the seeded COMPLETED booking (worker/system events) — the
+    // one demo booking whose dispute view renders the header Preview email
+    // button (customerEmailKind non-null). BK-1001 is REQUESTED (no email was
+    // sent yet, so no preview). Both are anchored by the audit trail header.
+    path: "admin/bookings/BK-0990",
     role: "admin",
     // Anchored so a silent notFound() can't pass the generic checks.
     expectText: ["Full audit trail", "سجل تدقيق كامل"],
+    expectDisputeEmailPreview: true,
   },
   // The worker dashboard renders the compact SLA countdown on its requested
   // booking cards — content-asserted via expectSlaBar (not just clean console).
@@ -1120,8 +1131,31 @@ describeE2E("E2E hydration smoke", () => {
           // Preview button on a REFUNDED purchase — the seed ran before the
           // navigation above; now open the dialog and assert the sandboxed
           // iframe renders the email in the PAGE locale — the exact
-          // bilingual-preview bug 6420952 fixed.
-          await assertRefundEmailPreviewDialog(page, locale);
+          // bilingual-preview bug 6420952 fixed. The campaign-payments table
+          // renders the campaign name per locale (EN keeps the English name;
+          // AR shows the Arabic name), so scope the row match to both.
+          await assertPreviewEmailDialog(page, locale, {
+            surface: "/admin campaign card",
+            previewLabel: locale === "en" ? "Preview email" : "معاينة البريد",
+            htmlLang: locale === "en" ? 'lang="en" dir="ltr"' : 'lang="ar" dir="rtl"',
+            cardMarker: locale === "en" ? "Refund details" : "تفاصيل الاسترداد",
+            ctaMarker: locale === "en" ? "View your campaigns" : "عرض حملاتك",
+            rowName: locale === "en" ? "E2E Refunded Campaign" : "حملة مستردة تجريبية",
+          });
+        }
+
+        if (spec.expectDisputeEmailPreview) {
+          // The dispute view (admin/bookings/BK-0990 — a seeded COMPLETED
+          // booking with worker/system events) renders the same bilingual
+          // EmailPreviewDialog in the page header; assert its iframe carries
+          // the page locale too (booking-completed email copy).
+          await assertPreviewEmailDialog(page, locale, {
+            surface: "/admin/bookings/BK-0990 dispute",
+            previewLabel: locale === "en" ? "Preview email" : "معاينة البريد",
+            htmlLang: locale === "en" ? 'lang="en" dir="ltr"' : 'lang="ar" dir="rtl"',
+            cardMarker: locale === "en" ? "Booking details" : "تفاصيل الحجز",
+            ctaMarker: locale === "en" ? "View your booking" : "عرض حجزك",
+          });
         }
 
         pushNote(`[ok] /${spec.path} (${locale}) ${state.dir} · ${state.text.length} chars`);
@@ -1149,37 +1183,51 @@ describeE2E("E2E hydration smoke", () => {
   }
 
   /**
-   * Open the refund-email preview dialog on the /admin campaign-payments card
-   * and assert its sandboxed iframe renders the email in `locale` (EN shows
-   * the English copy, AR the Arabic copy — never always-EN). The dialog is a
-   * Radix portal; the email HTML is a sandboxed iframe (sandbox="" — no
-   * scripts), so the copy is read via the iframe's srcdoc attribute.
+   * Open a bilingual refund/notification email preview dialog (the shared
+   * EmailPreviewDialog on the /admin campaign-payments card or the
+   * /admin/bookings/[number] dispute view) and assert its sandboxed iframe
+   * renders the email in `locale` (EN shows the English copy, AR the Arabic
+   * copy — never always-EN). The dialog is a Radix portal; the email HTML is
+   * a sandboxed iframe (sandbox="" — no scripts), so the copy is read via
+   * the iframe's srcdoc attribute.
+   *
+   * The emails always embed BOTH languages (primary block + the other
+   * language's secondary block), so the RELIABLE primary-locale marker is the
+   * root <html lang dir> attribute the renderer stamps per locale — the same
+   * attribute the dialog picks the srcdoc from. The card + CTA markers then
+   * confirm the copy actually rendered in that locale.
    */
-  async function assertRefundEmailPreviewDialog(page: Page, locale: "en" | "ar"): Promise<void> {
+  async function assertPreviewEmailDialog(
+    page: Page,
+    locale: "en" | "ar",
+    opts: {
+      /** Label of the preview trigger (localized). */
+      previewLabel: string;
+      /** Root html lang/dir the page-locale email must carry. */
+      htmlLang: string;
+      /** Card heading marker in the page locale (Refund details / Booking details). */
+      cardMarker: string;
+      /** CTA marker in the page locale. */
+      ctaMarker: string;
+      /** Surface description for messages + notes. */
+      surface: string;
+      /** Row-scoped matcher (the campaign-payments table) — the trigger's
+       * textContent includes the Mail icon SVG path data, so match by INCLUDES
+       * + the row's name, never exact. When null, matches any preview button
+       * on the page (the dispute view's header button). */
+      rowName?: string;
+    }
+  ): Promise<void> {
+    const { previewLabel, htmlLang, cardMarker, ctaMarker, surface, rowName } = opts;
     const en = locale === "en";
-    // The campaign-payments table renders the campaign name per locale (EN
-    // keeps the English name; AR shows the Arabic name), so scope the row
-    // match to BOTH — the seeded campaign's name is the same in either.
-    const campaignName = en ? "E2E Refunded Campaign" : "حملة مستردة تجريبية";
-    const previewLabel = en ? "Preview email" : "معاينة البريد";
-    // The email always embeds BOTH languages (primary block + the other
-    // language's secondary block), so the RELIABLE primary-locale marker is
-    // the root <html lang dir> attribute the renderer stamps per locale —
-    // the same attribute the dialog picks the srcdoc from. The refund card +
-    // CTA markers then confirm the copy actually rendered in that locale.
-    const htmlLang = en ? 'lang="en" dir="ltr"' : 'lang="ar" dir="rtl"';
-    const cardMarker = en ? "Refund details" : "تفاصيل الاسترداد";
-    const ctaMarker = en ? "View your campaigns" : "عرض حملاتك";
-
-    // The Preview button renders only on the REFUNDED row — wait for the
-    // seeded campaign to appear (SSR'd after the seed, which ran before the
-    // navigation). NOTE: the trigger's textContent includes the Mail icon SVG's
-    // path data, so match by INCLUDES + the refunded row's campaign name —
-    // never exact.
+    const rowClause = rowName
+      ? ` && (b.closest('tr')?.textContent ?? '').includes('${rowName}')`
+      : "";
+    // Wait for the preview trigger (SSR'd; row-scoped on the payments card).
     await waitFor(
       page,
-      `[...document.querySelectorAll('button')].some(b => (b.textContent ?? '').includes('${previewLabel}') && (b.closest('tr')?.textContent ?? '').includes('${campaignName}'))`,
-      `refunded-row preview button (${locale})`
+      `[...document.querySelectorAll('button')].some(b => (b.textContent ?? '').includes('${previewLabel}')${rowClause})`,
+      `${surface} preview button (${locale})`
     );
     // Settle for hydration before the click (the button exists in SSR HTML;
     // a pre-hydration click would silently no-op).
@@ -1189,32 +1237,32 @@ describeE2E("E2E hydration smoke", () => {
         const btn = [...document.querySelectorAll("button")].find(
           (b) =>
             (b.textContent ?? "").includes(label) &&
-            (b.closest("tr")?.textContent ?? "").includes(name)
+            (name === null || (b.closest("tr")?.textContent ?? "").includes(name))
         );
         if (!(btn instanceof HTMLButtonElement)) throw new Error(`preview button not found: ${label}`);
         btn.click();
       },
       previewLabel,
-      campaignName
+      rowName ?? null
     );
     // The dialog + its iframe mount in a portal after the click.
     await waitFor(
       page,
       "document.querySelector('[role=dialog] iframe') !== null",
-      `email preview dialog iframe (${locale})`
+      `${surface} dialog iframe (${locale})`
     );
 
     const iframe = await page.evaluate(() => {
       const el = document.querySelector('[role="dialog"] iframe');
       return el ? (el as HTMLIFrameElement).srcdoc : null;
     });
-    expect(iframe, `preview iframe srcdoc on /admin (${locale})`).not.toBeNull();
+    expect(iframe, `preview iframe srcdoc on ${surface} (${locale})`).not.toBeNull();
     // The html lang/dir attribute IS the locale the dialog rendered — the
     // always-EN bug renders lang="en" even when the page locale is ar.
-    expect(iframe!, `preview html locale on /admin (${locale})`).toContain(htmlLang);
-    expect(iframe!, `preview copy primary-locale marker on /admin (${locale})`).toContain(cardMarker);
-    expect(iframe!, `preview CTA in the page locale on /admin (${locale})`).toContain(ctaMarker);
-    pushNote(`[preview-dialog] /admin (${locale}) → ${en ? "EN" : "AR"} email copy asserted in the sandboxed iframe`);
+    expect(iframe!, `preview html locale on ${surface} (${locale})`).toContain(htmlLang);
+    expect(iframe!, `preview copy primary-locale marker on ${surface} (${locale})`).toContain(cardMarker);
+    expect(iframe!, `preview CTA in the page locale on ${surface} (${locale})`).toContain(ctaMarker);
+    pushNote(`[preview-dialog] ${surface} (${locale}) → ${en ? "EN" : "AR"} email copy asserted in the sandboxed iframe`);
   }
 
   /**
@@ -1269,7 +1317,7 @@ describeE2E("E2E hydration smoke", () => {
   }
 
   it(
-    "visits /admin /admin/bookings/BK-1001 /dashboard /company /notifications in EN + AR with zero hydration errors (compact SLA countdown bar content-checked on /dashboard; refund-email preview dialog iframe content-checked in the page locale on /admin)",
+    "visits /admin /admin/bookings/BK-0990 /dashboard /company /notifications in EN + AR with zero hydration errors (compact SLA countdown bar content-checked on /dashboard; refund-email preview dialog iframe content-checked in the page locale on /admin and the dispute view)",
     async () => {
       await runMatrix(ROUTES, { pushConfigured });
     },
