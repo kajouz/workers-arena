@@ -27,7 +27,14 @@ import { installSignalGuard } from "./helpers/signal-guard.mjs";
  * (customer rows) and /dashboard (worker cards): the localized "Request
  * auto-expiry" progressbar must render with a numeric aria-valuenow and the
  * ticking countdown copy — so a silent regression that stops the countdown
- * from rendering fails the matrix even with a clean console.
+ * from rendering fails the matrix even with a clean console. The /admin
+ * refund-email preview dialog (the bilingual campaign-payments preview, 6420952)
+ * gets the same content-level treatment: the matrix seeds a refunded campaign
+ * payment through the demo-only /api/dev/seed-refunded-campaign route (the
+ * real create→confirm→refund seams), then opens the dialog on the refunded
+ * row in EN + AR and asserts the sandboxed iframe's srcdoc carries the page
+ * locale's <html lang dir> + refund card + CTA — so the always-EN preview
+ * regression fails the matrix even with a clean console.
  *
  * The SAME matrix also runs against a production build: `next build` into an
  * isolated NEXT_DIST_DIR, then `next start` on a free port — catching the
@@ -117,6 +124,13 @@ type RouteSpec = {
    * plus the ticking countdown copy — zero console errors alone can't catch
    * the countdown silently vanishing. */
   expectSlaBar?: boolean;
+  /** Content-level guard for the /admin refund-email preview dialog (the
+   * bilingual campaign-payments preview, 6420952): the route must be seeded
+   * with a refunded campaign payment first (the demo store seeds none), then
+   * the dialog must open on the refunded row and its sandboxed iframe must
+   * render the email in the PAGE locale (EN or AR), not always EN — the bug
+   * the bilingual wave fixed. */
+  expectRefundEmailPreview?: boolean;
 };
 
 /** Auth-protected pages — each needs a demo session cookie. Includes the
@@ -124,7 +138,10 @@ type RouteSpec = {
  * live SLA countdown (BookingSlaCountdown via useSsrSafeNow) used to
  * hydration-mismatch on every load — the exact bug this matrix guards. */
 const ROUTES: RouteSpec[] = [
-  { path: "admin", role: "admin" },
+  // /admin carries the refund-email preview dialog check: the matrix seeds a
+  // refunded campaign payment (demo-only /api/dev/seed-refunded-campaign)
+  // then asserts the dialog's iframe copy follows the page locale in EN + AR.
+  { path: "admin", role: "admin", expectRefundEmailPreview: true },
   {
     path: "admin/bookings/BK-1001",
     role: "admin",
@@ -991,6 +1008,14 @@ describeE2E("E2E hydration smoke", () => {
           await page.deleteCookie({ name: "wa_session", domain: HOST, path: "/" });
         }
 
+        // The refund-email preview check needs a REFUNDED campaign payment in
+        // the store BEFORE the page loads (the demo store seeds none) — seed
+        // once per server before navigating to /admin, so the SSR render the
+        // browser receives already carries the refunded row + Preview button.
+        if (spec.expectRefundEmailPreview) {
+          await seedRefundedCampaign(opts.baseUrl ?? baseUrl);
+        }
+
         const url = `${opts.baseUrl ?? baseUrl}/${spec.path}`;
         await page.goto(url, { waitUntil: "load", timeout: 120_000 });
         // Give React time to hydrate and (if broken) emit warnings.
@@ -1090,9 +1115,106 @@ describeE2E("E2E hydration smoke", () => {
           ).toBe(true);
         }
 
+        if (spec.expectRefundEmailPreview) {
+          // The /admin campaign-payments card only renders the refund-email
+          // Preview button on a REFUNDED purchase — the seed ran before the
+          // navigation above; now open the dialog and assert the sandboxed
+          // iframe renders the email in the PAGE locale — the exact
+          // bilingual-preview bug 6420952 fixed.
+          await assertRefundEmailPreviewDialog(page, locale);
+        }
+
         pushNote(`[ok] /${spec.path} (${locale}) ${state.dir} · ${state.text.length} chars`);
       }
     }
+  }
+
+  /** Seeded-server cache — the refunded campaign is created once per server
+   * (the demo store is in-memory per process; the prod matrix boots its own
+   * server with a fresh store, so it seeds itself too). */
+  const seededRefundServers = new Set<string>();
+
+  /** POST the demo-only seed route (create → confirm → refund via the real
+   * seams) so the /admin payments card has a refunded row to preview. */
+  async function seedRefundedCampaign(seedBaseUrl: string): Promise<void> {
+    if (seededRefundServers.has(seedBaseUrl)) return;
+    const res = await fetch(`${seedBaseUrl}/api/dev/seed-refunded-campaign`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      throw new Error(`seed-refunded-campaign failed: ${res.status} ${await res.text()}`);
+    }
+    seededRefundServers.add(seedBaseUrl);
+    pushNote(`[seed-refunded] ${seedBaseUrl} → refunded campaign ready`);
+  }
+
+  /**
+   * Open the refund-email preview dialog on the /admin campaign-payments card
+   * and assert its sandboxed iframe renders the email in `locale` (EN shows
+   * the English copy, AR the Arabic copy — never always-EN). The dialog is a
+   * Radix portal; the email HTML is a sandboxed iframe (sandbox="" — no
+   * scripts), so the copy is read via the iframe's srcdoc attribute.
+   */
+  async function assertRefundEmailPreviewDialog(page: Page, locale: "en" | "ar"): Promise<void> {
+    const en = locale === "en";
+    // The campaign-payments table renders the campaign name per locale (EN
+    // keeps the English name; AR shows the Arabic name), so scope the row
+    // match to BOTH — the seeded campaign's name is the same in either.
+    const campaignName = en ? "E2E Refunded Campaign" : "حملة مستردة تجريبية";
+    const previewLabel = en ? "Preview email" : "معاينة البريد";
+    // The email always embeds BOTH languages (primary block + the other
+    // language's secondary block), so the RELIABLE primary-locale marker is
+    // the root <html lang dir> attribute the renderer stamps per locale —
+    // the same attribute the dialog picks the srcdoc from. The refund card +
+    // CTA markers then confirm the copy actually rendered in that locale.
+    const htmlLang = en ? 'lang="en" dir="ltr"' : 'lang="ar" dir="rtl"';
+    const cardMarker = en ? "Refund details" : "تفاصيل الاسترداد";
+    const ctaMarker = en ? "View your campaigns" : "عرض حملاتك";
+
+    // The Preview button renders only on the REFUNDED row — wait for the
+    // seeded campaign to appear (SSR'd after the seed, which ran before the
+    // navigation). NOTE: the trigger's textContent includes the Mail icon SVG's
+    // path data, so match by INCLUDES + the refunded row's campaign name —
+    // never exact.
+    await waitFor(
+      page,
+      `[...document.querySelectorAll('button')].some(b => (b.textContent ?? '').includes('${previewLabel}') && (b.closest('tr')?.textContent ?? '').includes('${campaignName}'))`,
+      `refunded-row preview button (${locale})`
+    );
+    // Settle for hydration before the click (the button exists in SSR HTML;
+    // a pre-hydration click would silently no-op).
+    await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
+    await page.evaluate(
+      (label, name) => {
+        const btn = [...document.querySelectorAll("button")].find(
+          (b) =>
+            (b.textContent ?? "").includes(label) &&
+            (b.closest("tr")?.textContent ?? "").includes(name)
+        );
+        if (!(btn instanceof HTMLButtonElement)) throw new Error(`preview button not found: ${label}`);
+        btn.click();
+      },
+      previewLabel,
+      campaignName
+    );
+    // The dialog + its iframe mount in a portal after the click.
+    await waitFor(
+      page,
+      "document.querySelector('[role=dialog] iframe') !== null",
+      `email preview dialog iframe (${locale})`
+    );
+
+    const iframe = await page.evaluate(() => {
+      const el = document.querySelector('[role="dialog"] iframe');
+      return el ? (el as HTMLIFrameElement).srcdoc : null;
+    });
+    expect(iframe, `preview iframe srcdoc on /admin (${locale})`).not.toBeNull();
+    // The html lang/dir attribute IS the locale the dialog rendered — the
+    // always-EN bug renders lang="en" even when the page locale is ar.
+    expect(iframe!, `preview html locale on /admin (${locale})`).toContain(htmlLang);
+    expect(iframe!, `preview copy primary-locale marker on /admin (${locale})`).toContain(cardMarker);
+    expect(iframe!, `preview CTA in the page locale on /admin (${locale})`).toContain(ctaMarker);
+    pushNote(`[preview-dialog] /admin (${locale}) → ${en ? "EN" : "AR"} email copy asserted in the sandboxed iframe`);
   }
 
   /**
@@ -1147,7 +1269,7 @@ describeE2E("E2E hydration smoke", () => {
   }
 
   it(
-    "visits /admin /admin/bookings/BK-1001 /dashboard /company /notifications in EN + AR with zero hydration errors (compact SLA countdown bar content-checked on /dashboard)",
+    "visits /admin /admin/bookings/BK-1001 /dashboard /company /notifications in EN + AR with zero hydration errors (compact SLA countdown bar content-checked on /dashboard; refund-email preview dialog iframe content-checked in the page locale on /admin)",
     async () => {
       await runMatrix(ROUTES, { pushConfigured });
     },
