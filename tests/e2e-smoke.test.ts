@@ -33,10 +33,19 @@ import { installSignalGuard } from "./helpers/signal-guard.mjs";
  * it: the campaign-payments card (seeded via the demo-only
  * /api/dev/seed-refunded-campaign route — the real create→confirm→refund
  * seams) and the /admin/bookings/BK-0990 dispute view (the seeded COMPLETED
- * booking's header button). The matrix opens the dialog on each in EN + AR
- * and asserts the sandboxed iframe's srcdoc carries the page locale's
- * <html lang dir> + card + CTA markers — so the always-EN preview regression
- * fails the matrix even with a clean console.
+ * booking's header button). The CUSTOMER side gets the same guard on the
+ * /bookings rows' "What I received" preview (seeded via the demo-only
+ * /api/dev/seed-customer-booking route — a COMPLETED booking for Sara,
+ * whose system-actor completion emails her the receipt). The matrix opens
+ * the dialog on each surface in EN + AR and asserts the sandboxed iframe's
+ * srcdoc carries the page locale's <html lang dir> + card + CTA markers —
+ * so the always-EN preview regression fails the matrix even with a clean
+ * console. The DISPATCHED channels get the same content-level treatment:
+ * the seeded refund's pushNotification → dispatch must render the AR
+ * SMS + WhatsApp refund copy in the server log (the demo company carries a
+ * phone; console providers log it) with the Arabic campaign name + rounded
+ * amount + reason and no EN campaign-name leak — asserted per server, so
+ * the prod build matrix covers the dispatch path too.
  *
  * The SAME matrix also runs against a production build: `next build` into an
  * isolated NEXT_DIST_DIR, then `next start` on a free port — catching the
@@ -137,6 +146,13 @@ type RouteSpec = {
    * header preview button (the seeded BK-0990 — a COMPLETED booking whose
    * customer-facing email rendered) — the booking twin of the campaign card. */
   expectDisputeEmailPreview?: boolean;
+  /** Same dialog-content guard for the customer-side /bookings rows' "What I
+   * received" preview (mirroring the admin surfaces): the route must be
+   * seeded with a COMPLETED booking for the customer (the demo store seeds
+   * her only REQUESTED BK-1001, which implies no email — so no preview),
+   * then the dialog must open on that row and its sandboxed iframe must
+   * render the email in the PAGE locale (EN or AR). */
+  expectCustomerBookingEmailPreview?: boolean;
 };
 
 /** Auth-protected pages — each needs a demo session cookie. Includes the
@@ -186,6 +202,10 @@ const PUBLIC_ROUTES: RouteSpec[] = [
     // The customer rows render the compact SLA countdown on requested
     // bookings (BK-1001) — content-asserted, not just zero console errors.
     expectSlaBar: true,
+    // The customer-side "What I received" preview dialog — the matrix seeds
+    // a COMPLETED booking for Sara (demo-only /api/dev/seed-customer-booking)
+    // then asserts the dialog's iframe copy follows the page locale in EN + AR.
+    expectCustomerBookingEmailPreview: true,
   },
   // demo seed worker (src/lib/data/workers.ts) — anchored so a silent 404
   // can't pass the generic assertions.
@@ -815,6 +835,12 @@ describeE2E("E2E hydration smoke", () => {
     if (notes.length > 300) notes.splice(0, notes.length - 300);
   };
 
+  /** Per-server stdout capture — keyed by the spawn label so the dispatched
+   * channel assertions (assertCampaignChannelsDispatched) read ONLY the lines
+   * of the server they seeded, never a sibling server's cached output (the
+   * shared `notes` buffer mixes both dev + prod). */
+  const serverLogs = new Map<string, string[]>();
+
   /** Restore the shared tsconfig.json (sync, best-effort, idempotent). Shared
    * by afterAll AND the process-exit/signal guard installed in beforeAll — a
    * hard-killed run (Ctrl-C / CI timeout) never reaches afterAll, so the guard
@@ -832,7 +858,7 @@ describeE2E("E2E hydration smoke", () => {
   };
 
   /** Spawn a server (dev or start) in its own process group, teeing output. */
-  function spawnServer(args: string[], env: Record<string, string>): ChildProcess {
+  function spawnServer(args: string[], env: Record<string, string>, label = "dev"): ChildProcess {
     if (!nextBin) throw new Error("next binary not found");
     const child = spawn(process.execPath, args, {
       cwd: process.cwd(),
@@ -844,8 +870,13 @@ describeE2E("E2E hydration smoke", () => {
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    child.stdout?.on("data", (d: Buffer) => pushNote(`[server] ${d.toString().trimEnd()}`));
-    child.stderr?.on("data", (d: Buffer) => pushNote(`[server] ${d.toString().trimEnd()}`));
+    const tee = (d: Buffer) => {
+      const text = d.toString().trimEnd();
+      pushNote(`[server] ${text}`);
+      (serverLogs.get(label) ?? serverLogs.set(label, []).get(label)!).push(text);
+    };
+    child.stdout?.on("data", tee);
+    child.stderr?.on("data", tee);
     child.on("exit", (code) => pushNote(`[server-exit] code=${code}`));
     return child;
   }
@@ -1024,7 +1055,14 @@ describeE2E("E2E hydration smoke", () => {
         // once per server before navigating to /admin, so the SSR render the
         // browser receives already carries the refunded row + Preview button.
         if (spec.expectRefundEmailPreview) {
-          await seedRefundedCampaign(opts.baseUrl ?? baseUrl);
+          await seedRefundedCampaign(opts.baseUrl ?? baseUrl, opts.mode ?? "dev");
+        }
+        // Same for the customer /bookings rows: the completed-booking seed must
+        // land before navigation so the SSR render the browser receives already
+        // carries Sara's previewable row (the earlier bug — seeding after goto
+        // left the browser on the pre-seed render).
+        if (spec.expectCustomerBookingEmailPreview) {
+          await seedCustomerBooking(opts.baseUrl ?? baseUrl);
         }
 
         const url = `${opts.baseUrl ?? baseUrl}/${spec.path}`;
@@ -1127,19 +1165,18 @@ describeE2E("E2E hydration smoke", () => {
         }
 
         if (spec.expectRefundEmailPreview) {
-          // The /admin campaign-payments card only renders the refund-email
-          // Preview button on a REFUNDED purchase — the seed ran before the
-          // navigation above; now open the dialog and assert the sandboxed
-          // iframe renders the email in the PAGE locale — the exact
-          // bilingual-preview bug 6420952 fixed. The campaign-payments table
-          // renders the campaign name per locale (EN keeps the English name;
-          // AR shows the Arabic name), so scope the row match to both.
+          // The /admin campaign-payments card previews what the company
+          // RECEIVED — the demo company (BuildCo Ltd) prefers Arabic, so the
+          // email's PRIMARY block is the AR rendering in BOTH page locales
+          // (the recipient locale leads the email; the admin's UI locale only
+          // styles the dialog chrome). The campaign-payments table renders
+          // the campaign name per page locale, so scope the row match to both.
           await assertPreviewEmailDialog(page, locale, {
             surface: "/admin campaign card",
             previewLabel: locale === "en" ? "Preview email" : "معاينة البريد",
-            htmlLang: locale === "en" ? 'lang="en" dir="ltr"' : 'lang="ar" dir="rtl"',
-            cardMarker: locale === "en" ? "Refund details" : "تفاصيل الاسترداد",
-            ctaMarker: locale === "en" ? "View your campaigns" : "عرض حملاتك",
+            htmlLang: 'lang="ar" dir="rtl"',
+            cardMarker: "تفاصيل الاسترداد",
+            ctaMarker: "عرض حملاتك",
             rowName: locale === "en" ? "E2E Refunded Campaign" : "حملة مستردة تجريبية",
           });
         }
@@ -1158,6 +1195,53 @@ describeE2E("E2E hydration smoke", () => {
           });
         }
 
+        if (spec.expectCustomerBookingEmailPreview) {
+          // The customer /bookings rows render the SAME EmailPreviewDialog on
+          // the seeded COMPLETED booking (BK-0991 — system-actor completion,
+          // the auto-confirm path that emails the customer the receipt);
+          // assert its iframe carries the page locale like the admin twins.
+          //
+          // The booking is COMPLETED, so it lives under the "Past" tab, and
+          // Radix TabsContent only mounts the ACTIVE panel — the preview
+          // button isn't in the DOM until the tab is switched. Settle for
+          // hydration first, then click the localized tab trigger.
+          await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
+          const pastTab = locale === "en" ? "Past" : "السابقة";
+          // Radix Tabs only mounts the ACTIVE panel, so the button isn't in
+          // the DOM until the tab switches. A single el.click() can land
+          // pre-hydration and silently no-op (the expectSlaBar content wait
+          // matches SSR markup, so hydration isn't guaranteed) — retry until
+          // the past panel actually mounts with the seeded booking.
+          let pastMounted = false;
+          for (let attempt = 0; attempt < 6 && !pastMounted; attempt++) {
+            await page.evaluate((label) => {
+              const tab = [...document.querySelectorAll('[role="tab"]')].find(
+                (el) => (el.textContent ?? "").includes(label)
+              );
+              if (!(tab instanceof HTMLElement)) throw new Error(`past tab not found: ${label}`);
+              // Radix Tabs 1.1.21 activates on onMouseDown — a plain el.click()
+              // fires no mousedown and silently no-ops. Dispatch the real
+              // activation event (retries also cover a pre-hydration landing).
+              tab.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+              tab.click();
+            }, pastTab);
+            await new Promise((r) => setTimeout(r, 400));
+            pastMounted = await page.evaluate(() =>
+              [...document.querySelectorAll('[role="tabpanel"]')].some((p) =>
+                (p.textContent ?? "").includes("BK-0991")
+              )
+            );
+          }
+          if (!pastMounted) throw new Error(`past tab did not mount BK-0991 (${locale})`);
+          await assertPreviewEmailDialog(page, locale, {
+            surface: "/bookings customer row",
+            previewLabel: locale === "en" ? "Preview email" : "معاينة البريد",
+            htmlLang: locale === "en" ? 'lang="en" dir="ltr"' : 'lang="ar" dir="rtl"',
+            cardMarker: locale === "en" ? "Booking details" : "تفاصيل الحجز",
+            ctaMarker: locale === "en" ? "View your booking" : "عرض حجزك",
+          });
+        }
+
         pushNote(`[ok] /${spec.path} (${locale}) ${state.dir} · ${state.text.length} chars`);
       }
     }
@@ -1169,8 +1253,12 @@ describeE2E("E2E hydration smoke", () => {
   const seededRefundServers = new Set<string>();
 
   /** POST the demo-only seed route (create → confirm → refund via the real
-   * seams) so the /admin payments card has a refunded row to preview. */
-  async function seedRefundedCampaign(seedBaseUrl: string): Promise<void> {
+   * seams) so the /admin payments card has a refunded row to preview. The
+   * refund chain dispatches the campaignRefunded notification through the
+   * outbound channels — the demo company carries a phone, so the console
+   * SMS/WhatsApp providers render the copy into the server log, which
+   * assertCampaignChannelsDispatched then content-checks. */
+  async function seedRefundedCampaign(seedBaseUrl: string, label = "dev"): Promise<void> {
     if (seededRefundServers.has(seedBaseUrl)) return;
     const res = await fetch(`${seedBaseUrl}/api/dev/seed-refunded-campaign`, {
       method: "POST",
@@ -1180,6 +1268,107 @@ describeE2E("E2E hydration smoke", () => {
     }
     seededRefundServers.add(seedBaseUrl);
     pushNote(`[seed-refunded] ${seedBaseUrl} → refunded campaign ready`);
+    // The dispatched channels must be covered in BOTH build matrices: the
+    // seed runs per server (dev + prod boot separate in-memory stores), so
+    // this assertion fires against each server's own dispatch — reading only
+    // that server's captured stdout (label-keyed), never the sibling's.
+    await assertCampaignChannelsDispatched(seedBaseUrl, label);
+  }
+
+  /**
+   * Content-check the DISPATCHED campaign SMS + WhatsApp channels (the
+   * channel twin of the preview-dialog iframe assertions): the seed's chain
+   * (create → confirm → refund) calls pushNotification → dispatch, and the
+   * console SMS/WhatsApp providers (demo mode) log the rendered copy to the
+   * server stdout, which this test captures into `notes`. The demo company
+   * prefers Arabic, so BOTH campaign messages must render the AR copy — the
+   * campaign-live one on confirm (Arabic title الحملة نشطة الآن + Arabic
+   * campaign name) and the refund one on refund (Arabic name + rounded amount
+   * 250 USD + admin reason) — with NO EN campaign-name leak inside the AR
+   * copy (the campaign nameEn/nameAr locale fix, locked at the dispatch
+   * level). The dispatch is fire-and-forget, so the lines can land a beat
+   * after the seed POST resolves — poll the captured notes with a timeout.
+   */
+  async function assertCampaignChannelsDispatched(seedBaseUrl: string, label = "dev"): Promise<void> {
+    const smsMarker = "[notify:sms:console]";
+    const waMarker = "[notify:whatsapp:console]";
+    const arName = "حملة مستردة تجريبية"; // nameAr of the seeded E2E Refunded Campaign
+    const arLiveTitle = "الحملة نشطة الآن"; // titleAr of campaignActiveNotification
+    const amount = "250 USD";
+    const reason = "Seeded by the e2e hydration smoke";
+    const deadline = Date.now() + 15_000;
+    // The seed's chain dispatches TWO campaign notifications (the live one on
+    // confirm, the refund on refund) — so the server log carries MULTIPLE SMS
+    // and WhatsApp lines. Scan every marker occurrence and match the slice
+    // whose copy is the REFUND (amount + reason present) and the slice whose
+    // copy is the LIVE one (Arabic live title + Arabic name, NO amount) — not
+    // just the first line.
+    const channelSlices = (marker: string): string[] => {
+      const all = (serverLogs.get(label) ?? []).join("\n");
+      const out: string[] = [];
+      let at = all.indexOf(marker);
+      // Slice from THIS channel's marker to the NEXT channel marker (or the
+      // end of the captured log) — a fixed-length slice could bleed into the
+      // next channel's line (the email log legitimately carries the EN name),
+      // which would false-positive the EN-leak assertion below.
+      while (at !== -1) {
+        const next = all.indexOf("[notify:", at + marker.length);
+        out.push(next === -1 ? all.slice(at) : all.slice(at, next));
+        at = all.indexOf(marker, at + marker.length);
+      }
+      return out;
+    };
+    const isRefundSlice = (s: string) => s.includes(arName) && s.includes(amount) && s.includes(reason);
+    // The live copy carries the AR live title + Arabic campaign name and NO
+    // refund amount (it has no amount to tell) — distinguishing it from the
+    // refund slice.
+    const isLiveSlice = (s: string) => s.includes(arLiveTitle) && s.includes(arName) && !s.includes(amount);
+    for (;;) {
+      const smsRefund = channelSlices(smsMarker).find(isRefundSlice);
+      const waRefund = channelSlices(waMarker).find((s) => s.includes(arName) && s.includes(amount));
+      const smsLive = channelSlices(smsMarker).find(isLiveSlice);
+      const waLive = channelSlices(waMarker).find(isLiveSlice);
+      if (smsRefund && waRefund && smsLive && waLive) {
+        // The AR channel copy must NOT leak the EN campaign name (the
+        // dispatch level of the nameEn/nameAr locale fix — the AR SMS/WhatsApp
+        // bodies render nameAr, never "E2E Refunded Campaign").
+        expect(smsRefund).not.toContain("E2E Refunded Campaign");
+        expect(waRefund).not.toContain("E2E Refunded Campaign");
+        expect(smsLive).not.toContain("E2E Refunded Campaign");
+        expect(waLive).not.toContain("E2E Refunded Campaign");
+        pushNote(
+          `[campaign-channels] ${seedBaseUrl} (${label}) → SMS + WhatsApp dispatched the AR copy for BOTH campaign notifications (live on confirm + refund, no EN leak)`
+        );
+        return;
+      }
+      if (Date.now() > deadline) {
+        throw new Error(
+          `campaign SMS/WhatsApp dispatch not captured on ${seedBaseUrl} (${label}) ` +
+            `(smsRefund=${Boolean(smsRefund)} waRefund=${Boolean(waRefund)} smsLive=${Boolean(smsLive)} waLive=${Boolean(waLive)}) ` +
+            `— expected the console providers to log the AR live + refund copy`
+        );
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+
+  /** Seeded-server cache for the customer /bookings fixture — one completed
+   * booking per server (each dev/prod boot has its own in-memory store). */
+  const seededCustomerServers = new Set<string>();
+
+  /** POST the demo-only seed route (demoSeedCompletedBookingForCustomer — the
+   * same pure-data construction as the seeded BK-0990) so Sara's /bookings
+   * rows carry a COMPLETED booking whose received-email preview renders. */
+  async function seedCustomerBooking(seedBaseUrl: string): Promise<void> {
+    if (seededCustomerServers.has(seedBaseUrl)) return;
+    const res = await fetch(`${seedBaseUrl}/api/dev/seed-customer-booking`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      throw new Error(`seed-customer-booking failed: ${res.status} ${await res.text()}`);
+    }
+    seededCustomerServers.add(seedBaseUrl);
+    pushNote(`[seed-customer-booking] ${seedBaseUrl} → completed booking ready`);
   }
 
   /**
@@ -1317,7 +1506,7 @@ describeE2E("E2E hydration smoke", () => {
   }
 
   it(
-    "visits /admin /admin/bookings/BK-0990 /dashboard /company /notifications in EN + AR with zero hydration errors (compact SLA countdown bar content-checked on /dashboard; refund-email preview dialog iframe content-checked in the page locale on /admin and the dispute view)",
+    "visits /admin /admin/bookings/BK-0990 /dashboard /company /notifications in EN + AR with zero hydration errors (compact SLA countdown bar content-checked on /dashboard; refund-email preview dialog iframe content-checked — company locale on the campaign card, page locale on the dispute view)",
     async () => {
       await runMatrix(ROUTES, { pushConfigured });
     },
@@ -1325,7 +1514,7 @@ describeE2E("E2E hydration smoke", () => {
   );
 
   it(
-    "visits / /search /bookings /workers/:slug /auth/login in EN + AR with zero hydration errors (push prompt + /bookings SLA countdown bar content-checked)",
+    "visits / /search /bookings /workers/:slug /auth/login in EN + AR with zero hydration errors (push prompt + /bookings SLA countdown bar + customer email-preview dialog content-checked)",
     async () => {
       await runMatrix(PUBLIC_ROUTES, { pushConfigured });
     },
@@ -2435,11 +2624,15 @@ describeE2E("E2E hydration smoke", () => {
       pushNote(`[prod-build] ok · ${buildLog.split("\n").length} lines of output`);
 
       // 2. Start the production server against that build.
-      prodServer = spawnServer([nextBin!, "start", "-p", String(port), "--hostname", HOST], {
-        NEXT_DIST_DIR: prodDistDir,
-        ADMIN_ACTIVITY_FILE: path.join(prodDistDir, "activity.json"),
-        PUSH_STORE_FILE: path.join(prodDistDir, "push-subscriptions.json"),
-      });
+      prodServer = spawnServer(
+        [nextBin!, "start", "-p", String(port), "--hostname", HOST],
+        {
+          NEXT_DIST_DIR: prodDistDir,
+          ADMIN_ACTIVITY_FILE: path.join(prodDistDir, "activity.json"),
+          PUSH_STORE_FILE: path.join(prodDistDir, "push-subscriptions.json"),
+        },
+        "prod"
+      );
       await waitForServer(`${prodUrl}/`, 120_000, "production server");
 
       // 3. Same push setup as dev: probe VAPID, grant permission for this origin.
