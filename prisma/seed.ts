@@ -102,19 +102,29 @@ async function main() {
   const demoUsers = [
     { email: "sara@example.com", name: "Sara Customer", role: Role.CUSTOMER, hue: 200 },
     { email: "khaled@plumbfix.sa", name: "Khaled Al-Harbi", role: Role.WORKER, hue: 25 },
-    { email: "ads@buildco.sa", name: "BuildCo Ltd", role: Role.COMPANY, hue: 150 },
+    // The company user carries the same demo phone as the demo adapter's
+    // COMPANY recipient (src/lib/data/campaigns.ts) — so real-mode campaign
+    // SMS/WhatsApp dispatches render copy instead of logging "no phone".
+    { email: "ads@buildco.sa", name: "BuildCo Ltd", role: Role.COMPANY, hue: 150, phone: "+966 55 123 0099" },
     { email: "admin@workersarena.com", name: "Platform Admin", role: Role.ADMIN, hue: 280 },
   ];
   const users = new Map<string, string>(); // email → user id
   for (const u of demoUsers) {
     const row = await prisma.user.upsert({
       where: { email: u.email },
-      update: { name: u.name, role: u.role, hue: u.hue, passwordHash: hashPassword(DEMO_PASSWORD) },
+      update: {
+        name: u.name,
+        role: u.role,
+        hue: u.hue,
+        ...(u.phone ? { phone: u.phone } : {}),
+        passwordHash: hashPassword(DEMO_PASSWORD),
+      },
       create: {
         name: u.name,
         email: u.email,
         role: u.role,
         hue: u.hue,
+        ...(u.phone ? { phone: u.phone } : {}),
         passwordHash: hashPassword(DEMO_PASSWORD),
       },
     });

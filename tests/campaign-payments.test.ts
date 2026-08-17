@@ -50,7 +50,7 @@ import { demoCampaignPayment, resetCampaignStore } from "../src/lib/data/campaig
 import { getPaymentProvider } from "../src/lib/payments/registry";
 import { simulatedProvider } from "../src/lib/payments/simulated";
 import { createCampaignAction, payCampaignAction, refundCampaignAction } from "../src/app/actions/business";
-import { campaignRefundNotification } from "../src/lib/data/campaign-notifications";
+import { campaignActiveNotification, campaignRefundNotification } from "../src/lib/data/campaign-notifications";
 import { renderCampaignRefundEmail } from "../src/lib/notifications/templates";
 import type { ChannelPayload } from "../src/lib/notifications/types";
 import type { Campaign, CampaignPayment, Invoice } from "../src/lib/data/types";
@@ -173,6 +173,31 @@ describe("confirmCampaignPayment — the webhook flips PENDING → ACTIVE", () =
     expect(inbox.some((n) => n.href === "/company")).toBe(true);
   });
 
+  it("dispatches the campaign-live notification through the shared builder — never an inline copy", async () => {
+    const { campaign } = await created();
+    await confirmCampaignPayment(campaign.id, "sim_pay-c-6");
+
+    // The outbound payload must be EXACTLY the shared campaignActiveNotification
+    // builder's contract (type + bilingual titles/bodies + deep-link) — the
+    // invariant that demo and real adapters can never drift their copy.
+    const live = dispatched.find((p) => p.type === "campaign");
+    expect(live).toBeDefined();
+    const expected = campaignActiveNotification(campaign);
+    expect(live).toMatchObject({
+      type: expected.type,
+      titleEn: expected.titleEn,
+      titleAr: expected.titleAr,
+      bodyEn: expected.bodyEn,
+      bodyAr: expected.bodyAr,
+      href: expected.href,
+    });
+    // The dispatched recipient rides the demo company's preferred locale (AR)
+    // — the confirm-side twin of the refund-side locale assertion, so the
+    // SMS/WhatsApp/email channels render the campaign-live copy in AR.
+    expect(live!.recipient).toMatchObject({ email: "ads@buildco.sa", locale: "ar" });
+    expect(live!.recipient?.phone).toBeTruthy();
+  });
+
   it("is idempotent — a duplicate webhook delivery no-ops without re-notifying", async () => {
     const { campaign } = await created();
     // Count the campaign notifications BEFORE (earlier tests may have added
@@ -232,6 +257,10 @@ describe("admin campaign refund", () => {
     expect(refundPayload).toBeDefined();
     expect(refundPayload!.href).toBe("/company");
     expect(refundPayload!.recipient?.email).toBe("ads@buildco.sa");
+    // The demo company prefers Arabic — the recipient locale rides the
+    // payload, so outbound emails render in it and the /admin preview leads
+    // with it as the primary block.
+    expect(refundPayload!.recipient?.locale).toBe("ar");
     expect(refundPayload!.campaignRefund).toMatchObject({
       campaignName: campaign.nameEn,
       amount: 15000,
@@ -458,6 +487,7 @@ describe("campaignRefundNotification builder (single source of truth)", () => {
       href: "/company",
       campaignRefund: {
         campaignName: "Villa construction — Riyadh",
+        campaignNameAr: "بناء فيلا — الرياض",
         amount: 15000,
         currency: "USD",
         reason: "Campaign violated ad policy",
@@ -478,10 +508,24 @@ describe("campaignRefundNotification builder (single source of truth)", () => {
     };
     const email = renderCampaignRefundEmail(payload, "en");
     expect(email.subject).toContain("Campaign refunded");
+    expect(email.subject).toContain("Villa construction — Riyadh");
+    expect(email.subject).not.toContain("بناء فيلا"); // EN subject never shows the AR name
+    expect(email.html).toContain("Refund details");
     expect(email.html).toContain("Villa construction — Riyadh");
     expect(email.html).toContain("$150");
     expect(email.html).toContain("Campaign violated ad policy");
     expect(email.html).toContain("/company");
+
+    // The AR email renders the ARABIC name in the subject AND the details
+    // card — no stray EN name in the RTL subject (the card + subject follow
+    // the email's locale, like the headline body; the html itself carries
+    // both names by design — emailShell appends the secondary-language block).
+    const emailAr = renderCampaignRefundEmail(payload, "ar");
+    expect(emailAr.subject).toContain("تم استرداد الحملة");
+    expect(emailAr.subject).toContain("بناء فيلا — الرياض");
+    expect(emailAr.subject).not.toContain("Villa construction");
+    expect(emailAr.html).toContain("تفاصيل الاسترداد");
+    expect(emailAr.html).toContain("بناء فيلا — الرياض");
   });
 
   it("omits the reason row when the refund had no stated reason", () => {

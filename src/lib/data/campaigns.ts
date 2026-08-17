@@ -1,5 +1,5 @@
 import { pushNotification } from "./notifications";
-import { campaignRefundNotification } from "./campaign-notifications";
+import { campaignActiveNotification, campaignRefundNotification } from "./campaign-notifications";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import type { Campaign, CampaignPayment, Invoice, PendingManualPayment } from "./types";
@@ -101,8 +101,19 @@ export function resetCampaignStore(): void {
 }
 
 /** The demo company the campaign notifications are addressed to — mirrors the
- * demo company session (src/lib/auth-demo.ts → u-company / ads@buildco.sa). */
-const COMPANY = { name: "BuildCo Ltd", email: "ads@buildco.sa" };
+ * demo company session (src/lib/auth-demo.ts → u-company / ads@buildco.sa).
+ * Carries a demo phone so the SMS/WhatsApp channels render the campaign copy
+ * (console providers log it in demo mode — the e2e hydration smoke asserts
+ * the dispatched channels against this recipient). */
+const COMPANY = {
+  name: "BuildCo Ltd",
+  email: "ads@buildco.sa",
+  phone: "+966 55 123 0099",
+  // The demo company prefers Arabic — outbound campaign emails render in it,
+  // and the /admin refund-email preview leads with it as the primary block
+  // (so an EN admin previews the AR email the company received).
+  locale: "ar" as const,
+};
 
 /**
  * The company the refund notification is addressed to (demo adapter): the
@@ -110,7 +121,12 @@ const COMPANY = { name: "BuildCo Ltd", email: "ads@buildco.sa" };
  * company's user row from the AdCampaign. Used by the admin preview to show
  * the recipient line exactly as dispatched.
  */
-export function demoCampaignRecipient(): { name: string; email: string } {
+export function demoCampaignRecipient(): {
+  name: string;
+  email: string;
+  phone: string;
+  locale: "en" | "ar";
+} {
   return { ...COMPANY };
 }
 
@@ -337,17 +353,7 @@ export async function demoConfirmCampaignPayment(
     type: "payment",
   });
 
-  await pushNotification(
-    {
-      type: "campaign",
-      titleEn: "Campaign is live",
-      titleAr: "الحملة نشطة الآن",
-      bodyEn: `${campaign.nameEn} is now running — ads are being served across your placements.`,
-      bodyAr: `${campaign.nameAr} تعمل الآن — يتم عرض الإعلانات في المواضع المحددة.`,
-      href: "/company",
-    },
-    COMPANY
-  );
+  await pushNotification(campaignActiveNotification(campaign), COMPANY);
   return campaign;
 }
 

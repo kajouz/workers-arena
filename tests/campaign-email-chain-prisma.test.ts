@@ -50,6 +50,7 @@ import {
 import { getAdminActivityFeed } from "../src/lib/data/activity";
 import { getPrisma } from "../src/lib/server/prisma";
 import { simulatedProvider } from "../src/lib/payments/simulated";
+import { campaignActiveNotification } from "../src/lib/data/campaign-notifications";
 import { renderCampaignRefundEmail } from "../src/lib/notifications/templates";
 
 // Live-DB gate — the prisma path needs a reachable Postgres (mirrors the
@@ -122,6 +123,9 @@ async function seedCompany(): Promise<{ userId: string; companyId: string; email
       nameEn: "Chain Co",
       nameAr: "شركة تشين",
       slug: `chain-company-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      // The company prefers Arabic — the dispatched campaign email renders in
+      // it (recipient.locale), the /admin preview leads with it as primary.
+      locale: "ar",
     },
   });
   companyId = company.id;
@@ -260,6 +264,9 @@ describeLive("prisma campaign refund chain (live DB → prisma adapter → dispa
     expect(refundPayload).toBeDefined();
     expect(refundPayload!.href).toBe("/company");
     expect(refundPayload!.recipient?.email).toBe(email);
+    // The company's preferred locale rides the recipient — outbound emails
+    // render in it, and the /admin preview leads with it as the primary block.
+    expect(refundPayload!.recipient?.locale).toBe("ar");
     expect(refundPayload!.campaignRefund).toMatchObject({
       campaignName: "E2E plumbing ads",
       amount: 15000,
@@ -276,6 +283,14 @@ describeLive("prisma campaign refund chain (live DB → prisma adapter → dispa
     expect(emailRendered.html).toContain("$150");
     expect(emailRendered.html).toContain("Campaign violated ad policy"); // reason row
     expect(emailRendered.html).toContain("/company");
+
+    // In the company's language (locale "ar") the AR rendering leads — the
+    // exact email the recipient would receive through the email channel.
+    const emailAr = renderCampaignRefundEmail(refundPayload!, "ar");
+    expect(emailAr.subject).toContain("تم استرداد الحملة — إعلانات السباكة");
+    expect(emailAr.subject).not.toContain("E2E plumbing ads");
+    expect(emailAr.html).toContain("تفاصيل الاسترداد");
+    expect(emailAr.html).toContain("إعلانات السباكة");
 
     // The refund is audited to the admin activity feed (same story as the card).
     const feed = await getAdminActivityFeed();
@@ -336,12 +351,27 @@ describeLive("prisma campaign refund chain (live DB → prisma adapter → dispa
     invoiceId = purchase?.invoice?.id ?? null;
 
     // The company is notified — the same "Campaign is live" payload the demo
-    // adapter dispatches, addressed to the company's user row.
+    // adapter dispatches, addressed to the company's user row. The copy must
+    // be EXACTLY the shared campaignActiveNotification builder's contract —
+    // the demo/real never-drift invariant (mirrors the demo chain test).
     const live = dispatched.find((p) => p.type === "campaign");
     expect(live).toBeDefined();
     expect(live!.href).toBe("/company");
     expect(live!.recipient?.email).toBe(email);
-    expect(live!.titleEn).toBe("Campaign is live");
+    const expected = campaignActiveNotification({ nameEn: "Self-serve plumbing ads", nameAr: "إعلانات سباكة مباشرة" });
+    expect(live).toMatchObject({
+      type: expected.type,
+      titleEn: expected.titleEn,
+      titleAr: expected.titleAr,
+      bodyEn: expected.bodyEn,
+      bodyAr: expected.bodyAr,
+      href: expected.href,
+    });
+    // The dispatched recipient rides the company's preferred locale (the
+    // fixture company prefers AR) — the confirm-side twin of the demo chain's
+    // locale assertion: the campaign-live SMS/WhatsApp/email copy renders in
+    // the company's language, not always EN.
+    expect(live!.recipient?.locale).toBe("ar");
 
     // 4. Idempotent redelivery — the already-active campaign no-ops: no second
     //    invoice, no second notification.

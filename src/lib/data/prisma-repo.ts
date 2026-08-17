@@ -54,7 +54,7 @@ import { addMonths, planPrice, PLANS, subscriptionStatus } from "./subscriptions
 import { pushNotification } from "./notifications";
 import { bookingNotification } from "./booking-notifications";
 import { RECURRING_OCCURRENCE_COUNT, generateRecurringOccurrences, occurrencesInWindow } from "./recurring";
-import { campaignRefundNotification } from "./campaign-notifications";
+import { campaignActiveNotification, campaignRefundNotification } from "./campaign-notifications";
 import { quoteNotification } from "./quote-notifications";
 import type { CampaignCreateInput } from "./campaigns";
 import { PURCHASE_PRICES, type VerificationTier } from "./purchases";
@@ -3308,14 +3308,20 @@ export async function prismaGetCampaignPayment(campaignId: string): Promise<Camp
  */
 export async function prismaGetCampaignRecipient(
   campaignId: string
-): Promise<{ name: string; email: string } | null> {
+): Promise<{ name: string; email: string; locale: "en" | "ar" } | null> {
   const prisma = getPrisma();
   const row = await prisma.adCampaign.findUnique({
     where: { id: campaignId },
     include: { company: { include: { user: { select: { email: true } } } } },
   });
   if (!row?.company?.user?.email) return null;
-  return { name: row.company.nameEn, email: row.company.user.email };
+  // The company's preferred language — the email they received is rendered
+  // in it (the preview leads with it as the primary block).
+  return {
+    name: row.company.nameEn,
+    email: row.company.user.email,
+    locale: row.company.locale === "ar" ? "ar" : "en",
+  };
 }
 
 /**
@@ -3340,7 +3346,7 @@ export async function prismaRefundCampaignPayment(
     const locked = await prisma.$transaction(async (tx) => {
       const campaign = await tx.adCampaign.findUnique({
         where: { id: campaignId },
-        include: { company: { include: { user: { select: { email: true } } } } },
+        include: { company: { include: { user: { select: { email: true, phone: true } } } } },
       });
       if (!campaign) return null;
       const payment = await tx.payment.findFirst({
@@ -3418,7 +3424,16 @@ export async function prismaRefundCampaignPayment(
     // company's user row.
     await pushNotification(
       campaignRefundNotification(campaign, toDomainCampaignPayment(updated)),
-      { name: campaign.company.nameEn, email: campaign.company.user.email ?? undefined, locale: "en" }
+      {
+        name: campaign.company.nameEn,
+        email: campaign.company.user.email ?? undefined,
+        // The company's phone rides the recipient so real-mode SMS/WhatsApp
+        // dispatch renders copy (mirrors the demo COMPANY recipient) — the
+        // seed sets it on the BuildCo Ltd user row.
+        phone: campaign.company.user.phone ?? undefined,
+        // Dispatch the email in the COMPANY's preferred language.
+        locale: campaign.company.locale === "ar" ? "ar" : "en",
+      }
     );
     return toDomainCampaignPayment(updated);
   } catch (err) {
@@ -3660,7 +3675,7 @@ export async function prismaConfirmCampaignPayment(
           where: { id: campaignId },
           include: {
             ads: { orderBy: { createdAt: "asc" as const }, take: 1 },
-            company: { include: { user: { select: { email: true } } } },
+            company: { include: { user: { select: { email: true, phone: true } } } },
           },
         });
         if (!campaign) return null;
@@ -3719,15 +3734,18 @@ export async function prismaConfirmCampaignPayment(
       // call did the flip — a redelivery never re-notifies.
       if (transitioned) {
         await pushNotification(
+          campaignActiveNotification(result),
           {
-            type: "campaign",
-            titleEn: "Campaign is live",
-            titleAr: "الحملة نشطة الآن",
-            bodyEn: `${result.nameEn} is now running — ads are being served across your placements.`,
-            bodyAr: `${result.nameAr} تعمل الآن — يتم عرض الإعلانات في المواضع المحددة.`,
-            href: "/company",
-          },
-          { name: result.company.nameEn, email: result.company.user.email ?? undefined, locale: "en" }
+            name: result.company.nameEn,
+            email: result.company.user.email ?? undefined,
+            // The company's phone rides the recipient so real-mode SMS/WhatsApp
+            // dispatch renders copy (mirrors the demo COMPANY recipient).
+            phone: result.company.user.phone ?? undefined,
+            // Dispatch the campaign-live email in the COMPANY's preferred
+            // language — the same rule the refund path uses, so confirm and
+            // refund never disagree on the recipient locale.
+            locale: result.company.locale === "ar" ? "ar" : "en",
+          }
         );
         // §Lebanon — audit the manual (OMT/Whish) campaign confirm with the
         // ACTING ADMIN as actor (threaded via opts.by), the real-mode twin of
