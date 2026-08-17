@@ -79,11 +79,17 @@ export default async function AdminBookingDisputePage({
   );
 
   // "Preview email" — render the exact confirmation email the customer
-  // received, built from the SAME bookingNotification payload the adapters
-  // dispatch, so the preview and the real email can never drift. Hidden when
-  // the booking's current state implies no customer-facing email was sent
-  // (REQUESTED / NO_SHOW / customer-initiated cancellation).
-  let preview: { type: Notification["type"]; subject: string; html: string } | null = null;
+  // received in BOTH locales, built from the SAME bookingNotification payload
+  // the adapters dispatch, so the preview and the real email can never drift.
+  // Hidden when the booking's current state implies no customer-facing email
+  // was sent (REQUESTED / NO_SHOW / customer-initiated cancellation).
+  let preview: {
+    type: Notification["type"];
+    subjectEn: string;
+    subjectAr: string;
+    htmlEn: string;
+    htmlAr: string;
+  } | null = null;
   const emailKind = customerEmailKind(booking);
   if (emailKind) {
     const msg = bookingNotification(booking, emailKind);
@@ -99,8 +105,15 @@ export default async function AdminBookingDisputePage({
       booking: msg.booking,
       recipient: { name: booking.customerName, email: booking.customerEmail, locale: "en" },
     };
-    const email = renderBookingEmail(payload, "en");
-    preview = { type: msg.type, subject: email.subject, html: email.html };
+    const emailEn = renderBookingEmail(payload, "en");
+    const emailAr = renderBookingEmail(payload, "ar");
+    preview = {
+      type: msg.type,
+      subjectEn: emailEn.subject,
+      subjectAr: emailAr.subject,
+      htmlEn: emailEn.html,
+      htmlAr: emailAr.html,
+    };
   }
 
   return (
@@ -139,8 +152,10 @@ export default async function AdminBookingDisputePage({
           {preview && (
             <EmailPreviewDialog
               type={preview.type}
-              subject={preview.subject}
-              html={preview.html}
+              subjectEn={preview.subjectEn}
+              subjectAr={preview.subjectAr}
+              htmlEn={preview.htmlEn}
+              htmlAr={preview.htmlAr}
               recipient={{ name: booking.customerName, email: booking.customerEmail }}
             />
           )}

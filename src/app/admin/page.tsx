@@ -67,9 +67,10 @@ export default async function AdminPage({
   );
 
   // Campaign refund email previews — for REFUNDED purchases, render the exact
-  // email the company received (the shared campaignRefundNotification builder +
-  // renderCampaignRefundEmail — the same never-drift pattern as the booking
-  // dispute view), so the payments card's Preview button shows the real thing.
+  // email the company received in BOTH locales (the shared
+  // campaignRefundNotification builder + renderCampaignRefundEmail — the same
+  // never-drift pattern as the booking dispute view), so the payments card's
+  // Preview button shows the real thing in the admin's UI locale.
   const campaignEmailPreviews = Object.fromEntries(
     await Promise.all(
       campaignPayments
@@ -89,13 +90,29 @@ export default async function AdminPage({
             campaignRefund: msg.campaignRefund,
             recipient,
           };
-          const email = renderCampaignRefundEmail(payload, "en");
-          return [campaign.id, { subject: email.subject, html: email.html, recipient }] as const;
+          const emailEn = renderCampaignRefundEmail(payload, "en");
+          const emailAr = renderCampaignRefundEmail(payload, "ar");
+          return [
+            campaign.id,
+            {
+              subjectEn: emailEn.subject,
+              htmlEn: emailEn.html,
+              subjectAr: emailAr.subject,
+              htmlAr: emailAr.html,
+              recipient,
+            },
+          ] as const;
         })
     )
   ) as Record<
     string,
-    { subject: string; html: string; recipient?: { name: string; email: string } }
+    {
+      subjectEn: string;
+      htmlEn: string;
+      subjectAr: string;
+      htmlAr: string;
+      recipient?: { name: string; email: string };
+    }
   >;
 
   // Surface the most recent verification decisions at the top of Recent activity.

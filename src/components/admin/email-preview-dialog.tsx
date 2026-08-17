@@ -7,25 +7,33 @@ import { useLocale } from "@/components/providers/locale-provider";
 import type { Notification } from "@/lib/data/types";
 
 /**
- * Admin "Preview email" — renders the exact booking-confirmation email the
- * customer received (renderBookingEmail output, computed server-side on the
- * dispute page from the shared bookingNotification builder). The full HTML
- * document is shown in a sandboxed iframe (sandbox="" — no scripts, no
- * same-origin), which is the faithful email-client render.
+ * Admin "Preview email" — renders the exact email the customer/company
+ * received in the admin's UI locale. The page computes BOTH locale renderings
+ * server-side from the shared notification builders (renderBookingEmail /
+ * renderCampaignRefundEmail — the same never-drift pattern), and this dialog
+ * picks the one matching the current locale. The full HTML document is shown
+ * in a sandboxed iframe (sandbox="" — no scripts, no same-origin), which is
+ * the faithful email-client render.
  */
 export function EmailPreviewDialog({
   type,
-  subject,
-  html,
+  subjectEn,
+  subjectAr,
+  htmlEn,
+  htmlAr,
   recipient,
 }: {
   /** App notification type (bookingConfirmed, bookingPaid, …) — i18n label key. */
   type: Notification["type"];
-  subject: string;
-  html: string;
+  subjectEn: string;
+  subjectAr: string;
+  htmlEn: string;
+  htmlAr: string;
   recipient?: { name: string; email?: string };
 }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+  const subject = locale === "ar" ? subjectAr : subjectEn;
+  const html = locale === "ar" ? htmlAr : htmlEn;
 
   return (
     <Dialog>

@@ -201,12 +201,18 @@ export function AdminDashboard({
   /**
    * Server-rendered campaign refund emails (refunded purchases only) — keyed
    * by campaign id, so the payments table's Preview button shows exactly what
-   * the company received (renderCampaignRefundEmail output, same pattern as
-   * the booking dispute view).
+   * the company received in the admin's UI locale (renderCampaignRefundEmail
+   * output for both locales, same pattern as the booking dispute view).
    */
   campaignEmailPreviews: Record<
     string,
-    { subject: string; html: string; recipient?: { name: string; email: string } }
+    {
+      subjectEn: string;
+      htmlEn: string;
+      subjectAr: string;
+      htmlAr: string;
+      recipient?: { name: string; email: string };
+    }
   >;
   verificationQueue: Worker[];
   /** M5 take-rate revenue over the last 30 days (gross / refunded / net / avg). */
@@ -508,8 +514,10 @@ export function AdminDashboard({
                           {payment.status === "refunded" && campaignEmailPreviews[campaign.id] && (
                             <EmailPreviewDialog
                               type="campaignRefunded"
-                              subject={campaignEmailPreviews[campaign.id].subject}
-                              html={campaignEmailPreviews[campaign.id].html}
+                              subjectEn={campaignEmailPreviews[campaign.id].subjectEn}
+                              subjectAr={campaignEmailPreviews[campaign.id].subjectAr}
+                              htmlEn={campaignEmailPreviews[campaign.id].htmlEn}
+                              htmlAr={campaignEmailPreviews[campaign.id].htmlAr}
                               recipient={campaignEmailPreviews[campaign.id].recipient}
                             />
                           )}
