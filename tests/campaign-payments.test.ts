@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 
 // The server action imports next/cache — mock it so the action layer is
 // testable (the demo adapter underneath stays real).
@@ -43,6 +45,7 @@ import {
   getNotificationsList,
   refundCampaignPayment,
 } from "../src/lib/data/repo";
+import { resetAdminActivityFeed } from "../src/lib/data/activity";
 import { demoCampaignPayment, resetCampaignStore } from "../src/lib/data/campaigns";
 import { getPaymentProvider } from "../src/lib/payments/registry";
 import { simulatedProvider } from "../src/lib/payments/simulated";
@@ -52,15 +55,26 @@ import { renderCampaignRefundEmail } from "../src/lib/notifications/templates";
 import type { ChannelPayload } from "../src/lib/notifications/types";
 import type { Campaign, CampaignPayment, Invoice } from "../src/lib/data/types";
 
+// The campaign confirm/refund paths audit to the admin activity feed — isolate
+// the file-backed feed per test so this suite never touches the dev's
+// .data/admin-activity.json (same pattern as bookings.test.ts). Without this,
+// every unit run pollutes the live preview feed with CAMPAIGN_PAID /
+// CAMPAIGN_REFUNDED rows for the "E2E plumbing ads" fixture.
+let activityFile: string;
+
 beforeEach(() => {
   dispatched.length = 0;
   resetCampaignStore();
+  activityFile = `${tmpdir()}/campaigns-activity-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+  vi.stubEnv("ADMIN_ACTIVITY_FILE", activityFile);
   // Pin the simulated provider — a dev with STRIPE_SECRET_KEY exported would
   // otherwise get stripeProvider and the checkout URL tests would fail.
   delete process.env.STRIPE_SECRET_KEY;
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await resetAdminActivityFeed();
+  await rm(activityFile, { force: true }).catch(() => {});
   vi.restoreAllMocks();
 });
 

@@ -44,6 +44,11 @@ const describeLive = hasLiveDb ? describe : describe.skip;
 
 // The prisma inbox adapter requires demo mode OFF (runtime reads env per call).
 process.env.DEMO_MODE = "false";
+// The shared setup default (tests/setup-jsdom.ts) redirects the activity feed
+// to a temp file — the prisma activity adapter needs it UNSET to select
+// prisma mode, so clear it here (activityAdapterMode treats a truthy value as
+// file mode even in real mode).
+delete process.env.ADMIN_ACTIVITY_FILE;
 
 const TEST_EMAIL = "chain-prisma@test.sa";
 
