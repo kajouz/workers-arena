@@ -303,7 +303,8 @@ export async function demoCreateCampaignCheckout(
  */
 export async function demoConfirmCampaignPayment(
   campaignId: string,
-  providerRef: string
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
 ): Promise<Campaign | null> {
   const campaign = demoGetCampaignById(campaignId);
   const payment = STORE.payments.get(campaignId);
@@ -320,6 +321,21 @@ export async function demoConfirmCampaignPayment(
   if (invoice && invoice.status === "pending") {
     invoice.status = "paid";
   }
+
+  // §Lebanon — audit the manual (OMT/Whish) campaign confirm with the ACTING
+  // ADMIN as actor (the /admin pending-payments confirm threads it through
+  // opts.by), mirroring the booking deposit's BOOKING_CONFIRMED entry so all
+  // three manual scopes show up in the feed. Webhook-simulated confirms fall
+  // back to "Platform Admin" — the same default the refund uses.
+  const actor = opts.by ?? "Platform Admin";
+  await logAdminActivity({
+    code: ACTION_CODES.CAMPAIGN_PAID,
+    actionEn: `${actor} confirmed campaign ${campaign.nameEn} (${payment.id})`,
+    actionAr: `${actor} أكّد دفع حملة ${campaign.nameAr} (${payment.id})`,
+    actor,
+    ...(opts.byId ? { actorId: opts.byId } : {}),
+    type: "payment",
+  });
 
   await pushNotification(
     {

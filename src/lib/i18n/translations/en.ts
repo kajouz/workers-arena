@@ -726,6 +726,7 @@ export const en = {
     successBody: "The worker will respond soon — you'll be notified at every step.",
     viewBookings: "View my bookings",
     invoice: "Invoice",
+    invoiceVoided: "Voided",
     conflict: "This time is no longer available",
     status: {
       requested: "Waiting for response",

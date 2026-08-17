@@ -592,6 +592,29 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
     expect(b.paymentStatus).toBe("paid"); // §2.4 — gates the admin Refund-deposit action
   });
 
+  it("maps a VOIDed invoice (refunded deposit) as voided so the row strikes it through", () => {
+    const b = toDomainBooking(
+      makeBookingRow({
+        customerId: "u-customer",
+        payment: {
+          id: "pay-3",
+          amount: 4000,
+          status: "REFUNDED",
+          invoice: {
+            number: "WA-2026-00002",
+            amount: 4000,
+            currency: "SAR",
+            status: "VOID",
+            paidAt: new Date("2026-08-10T10:00:00.000Z"),
+            createdAt: new Date("2026-08-10T10:00:00.000Z"),
+          },
+        },
+      })
+    );
+    expect(b.invoice).toMatchObject({ number: "WA-2026-00002", status: "voided" });
+    expect(b.paymentStatus).toBe("refunded"); // §2.4 — the refund-deposit button hides
+  });
+
   it("leaves customerId + invoice undefined for guests or unpaid payments", () => {
     const guest = toDomainBooking(makeBookingRow({ customerId: null }));
     expect(guest.customerId).toBeUndefined();

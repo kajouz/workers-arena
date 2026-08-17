@@ -232,13 +232,21 @@ export async function confirmManualPaymentAction(
   const payment = pending.find((p) => p.id === paymentId);
   if (!payment) return { ok: false, error: "not-found" };
 
+  // Thread the ACTING ADMIN's identity into the confirm so the audited
+  // activity-feed entry credits who actually confirmed receipt — the
+  // BOOKING_CONFIRMED / CAMPAIGN_PAID / PURCHASE_CONFIRMED entries all carry
+  // `actor: session.name` (and the admin FK as actorId) instead of a generic
+  // worker or "Platform Admin" fallback.
+  const by = session.name ?? "Platform Admin";
+  const byId = session.id;
+
   let ok = false;
   if (payment.scope === "booking") {
-    ok = (await confirmBookingPayment(payment.entityId, payment.reference)) !== null;
+    ok = (await confirmBookingPayment(payment.entityId, payment.reference, { by, byId })) !== null;
   } else if (payment.scope === "campaign") {
-    ok = (await confirmCampaignPayment(payment.entityId, payment.reference)) !== null;
+    ok = (await confirmCampaignPayment(payment.entityId, payment.reference, { by, byId })) !== null;
   } else {
-    ok = await confirmPurchase(payment.entityId, payment.reference);
+    ok = await confirmPurchase(payment.entityId, payment.reference, { by, byId });
   }
   revalidatePath("/admin");
   revalidatePath("/dashboard");

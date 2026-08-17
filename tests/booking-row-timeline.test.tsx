@@ -367,3 +367,37 @@ describe("WorkerBookingRow — the same §2.4 timeline from the worker's side", 
     expect(await within(dialog).findByText(/Audit emailed/)).toBeInTheDocument();
   });
 });
+
+describe("BookingRow — M3 receipt vs voided receipt", () => {
+  const invoice = (status: "paid" | "voided"): Booking["invoice"] => ({
+    number: "WA-2026-00001",
+    amount: 15000,
+    currency: "SAR",
+    status,
+    date: new Date().toISOString(),
+  });
+
+  it("renders a PAID receipt as the green invoice pill", () => {
+    renderRow("en", makeBooking({ invoice: invoice("paid") }));
+    expect(screen.getByText("Invoice")).toBeInTheDocument();
+    expect(screen.getByText("WA-2026-00001")).toBeInTheDocument();
+    // Green paid styling — no voided chip.
+    expect(screen.queryByText("Voided")).not.toBeInTheDocument();
+    expect(screen.getByText("Invoice").closest("div")!.className).toContain("emerald");
+  });
+
+  it("strikes a VOIDED receipt through with the Voided chip (admin refunded the deposit)", () => {
+    renderRow("en", makeBooking({ invoice: invoice("voided") }));
+    expect(screen.getByText("Invoice")).toBeInTheDocument();
+    expect(screen.getByText("WA-2026-00001")).toHaveClass("line-through");
+    expect(screen.getByText("Voided")).toBeInTheDocument();
+    // No green paid pill.
+    expect(screen.getByText("Invoice").closest("div")!.className).not.toContain("emerald");
+  });
+
+  it("localizes the Voided chip in Arabic", () => {
+    renderRow("ar", makeBooking({ invoice: invoice("voided") }));
+    expect(screen.getByText("ملغاة")).toBeInTheDocument();
+    expect(screen.getByText("WA-2026-00001")).toHaveClass("line-through");
+  });
+});

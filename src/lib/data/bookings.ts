@@ -946,6 +946,9 @@ export async function demoCancelBooking(
         .refund(payment.providerRef ?? payment.id, payment.amount);
       payment.status = "refunded";
       payment.refundedAt = new Date().toISOString();
+      // The M3 receipt stops representing money the platform holds — void it
+      // (parity with prismaCancelBooking, which flips the Invoice row to VOID).
+      if (booking.invoice) booking.invoice.status = "voided";
       refunded = true;
     }
     // else — the deposit is kept (payment stays PAID).
@@ -1002,6 +1005,10 @@ export async function demoRefundBookingDeposit(
     .refund(payment.providerRef ?? payment.id, payment.amount);
   payment.status = "refunded";
   payment.refundedAt = new Date().toISOString();
+  // M3 receipt voids with the refund (parity with prismaRefundBookingDeposit,
+  // which flips the Invoice row to VOID) — the customer row then renders it
+  // struck through instead of as a green paid pill.
+  if (booking.invoice) booking.invoice.status = "voided";
   booking.events.push({
     status: "refunded",
     actorType: "admin",
@@ -1179,7 +1186,8 @@ export async function demoCreateBookingCheckout(
  */
 export async function demoConfirmBookingPayment(
   bookingId: string,
-  providerRef: string
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
 ): Promise<Booking | null> {
   const booking = STORE.bookings.find((b) => b.id === bookingId);
   const payment = STORE.payments.get(bookingId);
@@ -1196,12 +1204,17 @@ export async function demoConfirmBookingPayment(
   // M4 activity feed — the deposit path reaches CONFIRMED here (not at the
   // respond step, which left it PENDING_PAYMENT). Logged inside the adapter so
   // an idempotent webhook redelivery (early-returns above) never re-logs.
+  // The entry copy names the worker whose booking got confirmed, while the
+  // ACTOR is the person who confirmed receipt — the /admin pending-payments
+  // confirm threads the acting admin through (opts.by), so the feed shows who
+  // actually did it; webhook-simulated confirms keep the worker name.
   const workerName = workerById(booking.workerId)?.nameEn ?? "Worker";
   await logAdminActivity({
     code: ACTION_CODES.BOOKING_CONFIRMED,
     actionEn: `${workerName} confirmed ${booking.number}`,
     actionAr: `${workerName} أكّد الحجز ${booking.number}`,
-    actor: workerName,
+    actor: opts.by ?? workerName,
+    ...(opts.byId ? { actorId: opts.byId } : {}),
     type: "booking",
     bookingNo: booking.number,
   });

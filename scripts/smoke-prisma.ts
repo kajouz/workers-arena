@@ -103,6 +103,7 @@ import {
   prismaRespondToRecurring,
   prismaRefundBookingDeposit,
   prismaRefundCampaignPayment,
+  prismaGetPendingManualPayments,
   prismaSendBookingMessage,
   prismaRespondToBooking,
   prismaSearchWorkers,
@@ -145,6 +146,29 @@ function assert(cond: unknown, label: string): asserts cond {
 
 async function main() {
   const prisma = getPrisma();
+  // Free-hour walk for a dedicated smoke slot (the reminder-walk pattern,
+  // shared so every slot section is time-of-day independent). Returns the
+  // first hour in [minH, maxH) whose window half-open-overlaps NO existing
+  // slot — ANY status: the seeded slots anchor to FIXED wall-clock hours
+  // (tomorrow 09:00/10:00/11:00/14:00 local) while a hardcoded now+Xh offset
+  // drifts relative to them, so the two collide at some times of day (the
+  // completion +37h and admin +38h → slot-taken flakes seen live). Checking
+  // the live DB — including AVAILABLE rows, so a later walk can never land on
+  // the exact (workerId, startAt) of an earlier section's freed slot — makes
+  // every section independent of the wall clock. Sibling sections in the same
+  // band also walk and check the DB, so a later walk automatically skips an
+  // earlier section's already-created slot.
+  const pickFreeSlotHour = async (workerId: string, minH: number, maxH: number, label: string): Promise<Date> => {
+    for (let h = minH; h < maxH; h++) {
+      const start = new Date(Date.now() + h * 60 * 60 * 1000);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const clash = await prisma.bookingSlot.count({
+        where: { workerId, startAt: { lt: end }, endAt: { gt: start } },
+      });
+      if (clash === 0) return start;
+    }
+    throw new Error(`SMOKE ASSERT FAILED: no free ${label}-slot window`);
+  };
   const workersInDb = await prisma.worker.count();
   console.log("workers in DB:", workersInDb);
   assert(workersInDb > 0, "database is seeded (run npm run db:seed)");
@@ -312,7 +336,7 @@ async function main() {
   }
   await prisma.bookingSlot.deleteMany({
     where: {
-      note: { in: ["smoke-m3", "smoke-reschedule", "smoke-reminder", "smoke-ops", "smoke-activity", "smoke-admin", "smoke-recurring-anchor", "smoke-recurring-7d", "smoke-recurring-14d", "smoke-recurring-decline", "smoke-sla", "smoke-quote"] },
+      note: { in: ["smoke-m3", "smoke-manual", "smoke-reschedule", "smoke-reminder", "smoke-ops", "smoke-activity", "smoke-admin", "smoke-recurring-anchor", "smoke-recurring-7d", "smoke-recurring-14d", "smoke-recurring-decline", "smoke-sla", "smoke-quote"] },
     },
   });
   if (m3rsLeftovers.length > 0) console.log("self-heal: cleared", m3rsLeftovers.length, "leftover deposit/reschedule booking(s)");
@@ -1010,12 +1034,12 @@ async function main() {
   // earnings credit, customer receipt. Backdate completionPendingAt past the
   // grace window and run the ENGINE (the cron path) — the CAS on the status
   // means a re-run auto-confirms nothing.
-  // +37h — clear of every sibling section's windows (hour-walk sections use
-  // 3–23, m3 +30/31, activity +32, feed no-show +35, payouts +40, recurring
-  // +48/49/57/65): a neighbor hour half-overlaps by the seconds of drift
-  // between Date.now() calls (the ops2 → slot-taken flake the reminder walk
-  // documents), so keep 2h of clearance on each side.
-  const ccSlotStart = new Date(Date.now() + 37 * 60 * 60 * 1000);
+  // The slot walks forward past any existing slot (the shared free-hour
+  // helper) — the seeded BLOCKED slot anchors to a FIXED wall-clock hour
+  // while the old hardcoded +37h derived from Date.now(), so the two drifted
+  // into a half-open overlap at some times of day (the completion →
+  // slot-taken flake seen live, same class as the reminder walk documents).
+  const ccSlotStart = await pickFreeSlotHour(khaled!.id, 24, 48, "completion");
   const ccSlot = await prisma.bookingSlot.create({
     data: {
       workerId: khaled!.id,
@@ -1092,7 +1116,10 @@ async function main() {
   // refunds the deposit (payment → REFUNDED) while freeing the slot; a second
   // paid booking 2h out cancelled by the worker KEEPS the deposit (stays
   // PAID).
-  const m3SlotStart = new Date(Date.now() + 30 * 60 * 60 * 1000); // outside the refund window
+  // The slot must sit OUTSIDE the 24h refund window (a worker cancel then
+  // refunds the deposit) — min 25h; the shared free-hour walk keeps it clear
+  // of the seeded fixed-hour slots whatever the wall clock.
+  const m3SlotStart = await pickFreeSlotHour(khaled!.id, 25, 48, "m3 deposit");
   const m3Slot = await prisma.bookingSlot.create({
     data: {
       workerId: khaled!.id,
@@ -1216,6 +1243,95 @@ async function main() {
   assert(m3bSlotFreed?.status === "AVAILABLE", "keep-branch cancel still frees the slot");
   console.log("M4 policy: worker cancel within 24h keeps the deposit (payment stays PAID); slot freed");
 
+  // ── §Lebanon — manual OMT deposit lifecycle (admin-confirmed, OMT-refunded) ──
+  // The manual twin of the M3 webhook path (docs/PAYMENTS.md → "Lebanon
+  // launch"), driven through the PRISMA adapters the /admin pending-payments
+  // card and the confirm action use: accept-with-deposit → PENDING Payment;
+  // prismaCreateBookingCheckout(id, "OMT") mints the signed /payments/manual
+  // instructions URL and stamps method=OMT + an OMT- reference on the Payment
+  // row; the row surfaces in prismaGetPendingManualPayments() (the admin
+  // card's feed); prismaConfirmBookingPayment (the admin confirm's twin)
+  // flips PENDING_PAYMENT → CONFIRMED + PAID and drops it from the queue; the
+  // M4 policy cancel (customer, slot outside the 24h window) then refunds
+  // THROUGH the OMT provider — the method-aware refund resolves
+  // payment.method and the provider's omt_refund_* id lands on the row.
+  const manualSlotStart = await pickFreeSlotHour(khaled!.id, 25, 48, "manual omt deposit");
+  const manualSlot = await prisma.bookingSlot.create({
+    data: {
+      workerId: khaled!.id,
+      startAt: manualSlotStart,
+      endAt: new Date(manualSlotStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+      note: "smoke-manual",
+    },
+  });
+  const manualBooking = await prismaCreateBookingRequest({
+    workerId: khaled!.id,
+    slotId: manualSlot.id,
+    customerName: "Manual OMT Tester",
+    customerPhone: "+961 70 555 0000",
+    customerEmail: "deposit@workersarena.test", // swept by the shared cleanup
+    jobTitle: "Smoke manual OMT deposit",
+  });
+  if ("error" in manualBooking) throw new Error(`SMOKE ASSERT FAILED: manual create → ${manualBooking.error}`);
+
+  await prismaRespondToBooking(manualBooking.id, { accept: true, quote: 20000, deposit: 4000 });
+  const manualCheckout = await prismaCreateBookingCheckout(manualBooking.id, "OMT");
+  assert(
+    manualCheckout?.url.includes("/payments/manual") && manualCheckout.url.includes("provider=omt"),
+    "OMT checkout mints the signed /payments/manual instructions URL"
+  );
+  const manualRow = await prisma.booking.findUnique({
+    where: { id: manualBooking.id },
+    include: { payment: true },
+  });
+  assert(manualRow?.payment?.method === "OMT", "Payment row stamped method=OMT");
+  assert(manualRow!.payment!.providerRef?.startsWith("OMT-"), "OMT reference is prefixed OMT-");
+  const manualMeta = manualRow!.payment!.metadata as { bookingId?: string; checkoutUrl?: string } | null;
+  assert(
+    manualMeta?.bookingId === manualBooking.id && manualMeta?.checkoutUrl?.includes("/payments/manual"),
+    "checkout URL persisted in metadata for the instructions page"
+  );
+
+  // The /admin pending-payments card's feed — the booking's deposit shows up
+  // as an OMT manual payment awaiting confirmation.
+  const manualPending = (await prismaGetPendingManualPayments()).find(
+    (p) => p.scope === "booking" && p.method === "omt" && p.entityId === manualBooking.id
+  );
+  assert(manualPending !== undefined, "OMT deposit listed in getPendingManualPayments (admin card)");
+  assert(manualPending!.reference === manualRow!.payment!.providerRef, "pending row carries the OMT reference");
+
+  // The admin confirm (the manual twin of a webhook) → CONFIRMED + PAID.
+  const manualConfirmed = await prismaConfirmBookingPayment(manualBooking.id, manualRow!.payment!.providerRef!);
+  assert(manualConfirmed?.status === "confirmed", "admin confirm (manual twin) → CONFIRMED");
+  const manualPaid = await prisma.booking.findUnique({
+    where: { id: manualBooking.id },
+    include: { payment: true },
+  });
+  assert(manualPaid?.payment?.status === "PAID" && manualPaid!.payment!.paidAt !== null, "manual deposit → PAID with paidAt");
+  assert(
+    !(await prismaGetPendingManualPayments()).some((p) => p.id === manualRow!.payment!.id),
+    "confirmed manual payment leaves the pending queue"
+  );
+
+  // M4 policy cancel by the customer (>24h out) — refunded THROUGH the OMT
+  // provider: the method-aware refund resolves payment.method and stores the
+  // provider's omt_refund_* id.
+  const manualCancelled = await prismaCancelBooking(manualBooking.id, { by: "customer", reason: "Smoke manual OMT refund" });
+  assert(manualCancelled?.status === "cancelled", "manual-paid booking cancelled by customer");
+  const manualRefunded = await prisma.booking.findUnique({
+    where: { id: manualBooking.id },
+    include: { payment: true },
+  });
+  assert(manualRefunded?.payment?.status === "REFUNDED", "customer cancel refunds the manual deposit (payment → REFUNDED)");
+  assert(
+    manualRefunded!.payment!.refundRef?.startsWith("omt_refund_"),
+    "refund routed through the OMT provider (omt_refund_* id)"
+  );
+  const manualSlotFreed = await prisma.bookingSlot.findUnique({ where: { id: manualSlot.id } });
+  assert(manualSlotFreed?.status === "AVAILABLE" && manualSlotFreed.bookingId === null, "manual refund frees the slot (rule 3)");
+  console.log("§Lebanon manual: OMT deposit → /payments/manual → admin confirm → customer cancel refunds via OMT (omt_refund_*), slot freed");
+
   // ── M5 — take-rate revenue stats (prismaGetPlatformFeeStats) ─────────────
   // The adapter's gross/refunded/net must equal a DIRECT sum over the live
   // Booking rows with the same 30-day cutoff — a self-referential cross-check
@@ -1250,7 +1366,7 @@ async function main() {
   // it (the debit drops the balance). Assertions are delta-based so any
   // pre-existing ledger state can't flake them.
   const poBefore = await prismaGetWorkerBalance(khaled!.id);
-  const poSlotStart = new Date(Date.now() + 40 * 60 * 60 * 1000);
+  const poSlotStart = await pickFreeSlotHour(khaled!.id, 24, 48, "payout");
   const poSlot = await prisma.bookingSlot.create({
     data: {
       workerId: khaled!.id,
@@ -1310,7 +1426,7 @@ async function main() {
   // customer lookup must map it onto the booking for the /bookings page.
   const sara = await prisma.user.findUnique({ where: { email: "sara@example.com" } });
   assert(sara !== null, "seed user sara exists for the signed-in invoice check");
-  const m3cSlotStart = new Date(Date.now() + 31 * 60 * 60 * 1000); // clear of m3 (30h)
+  const m3cSlotStart = await pickFreeSlotHour(khaled!.id, 24, 48, "m3 signed-in");
   const m3cSlot = await prisma.bookingSlot.create({
     data: {
       workerId: khaled!.id,
@@ -1353,7 +1469,24 @@ async function main() {
     m3cLookup.some((b) => b.invoice?.number === m3cInvoice!.number),
     "customer lookup maps the invoice onto the booking"
   );
-  console.log("M3 invoice: signed-in confirm mints WA-YYYY-NNNNN (amount minor, PAID, linked to the user); guest gets none");
+
+  // The §2.4 admin deposit refund voids the receipt — the money-only
+  // correction flips the payment to REFUNDED AND the Invoice row to VOID, and
+  // the /bookings mapper reads the void back so the customer row strikes it
+  // through instead of showing a green paid pill.
+  const m3cRefunded = await prismaRefundBookingDeposit(m3cCreated.id, {
+    reason: "Smoke admin refund voids the receipt",
+  });
+  assert(m3cRefunded !== null, "admin deposit refund succeeds on the signed-in booking");
+  const m3cInvoiceAfter = await prisma.invoice.findUnique({ where: { paymentId: m3cRow!.payment!.id } });
+  assert(m3cInvoiceAfter?.status === "VOID", "refund flips the Invoice row to VOID (receipt voided)");
+  const m3cLookupAfter = await prismaGetCustomerBookings({ email: "depositu@workersarena.test" });
+  const voided = m3cLookupAfter.find((b) => b.id === m3cCreated.id);
+  assert(
+    voided?.invoice?.status === "voided" && voided?.paymentStatus === "refunded",
+    "customer lookup maps the VOIDed invoice + REFUNDED payment onto the booking"
+  );
+  console.log("M3 invoice: signed-in confirm mints WA-YYYY-NNNNN (amount minor, PAID, linked to the user); guest gets none; admin refund VOIDs the receipt");
 
   // ── §2.4 — admin dispute-view money actions (live DB) ────────────────────
   // Two platform actions from the admin dispute page, both on PAID bookings:
@@ -1364,7 +1497,7 @@ async function main() {
   //   • cancelBooking by admin — the platform cancel: status → CANCELLED,
   //     the slot freed, the deposit refunded (admin always refunds, no window),
   //     and BOTH parties notified (customer-cancelled + worker-cancelled).
-  const admSlotStart = new Date(Date.now() + 38 * 60 * 60 * 1000); // clear of cc (+37h BOOKED, drift-safe) + m3c (31h)
+  const admSlotStart = await pickFreeSlotHour(khaled!.id, 24, 48, "admin refund");
   const admSlot = await prisma.bookingSlot.create({
     data: {
       workerId: khaled!.id,
@@ -1420,7 +1553,7 @@ async function main() {
   );
 
   // Admin cancel of a DIFFERENT paid booking — refund + notify both parties.
-  const adm2SlotStart = new Date(Date.now() + 39 * 60 * 60 * 1000);
+  const adm2SlotStart = await pickFreeSlotHour(khaled!.id, 24, 48, "admin cancel");
   const adm2Slot = await prisma.bookingSlot.create({
     data: {
       workerId: khaled!.id,
@@ -1496,7 +1629,7 @@ async function main() {
     "../src/lib/data/repo"
   );
   const { listActivityEntries } = await import("../src/lib/data/activity");
-  const actSlotStart = new Date(Date.now() + 32 * 60 * 60 * 1000); // clear of m3c (31h)
+  const actSlotStart = await pickFreeSlotHour(khaled!.id, 24, 48, "activity");
   const actSlot = await prisma.bookingSlot.create({
     data: {
       workerId: khaled!.id,
@@ -1549,18 +1682,20 @@ async function main() {
   // booking moved to a new slot) and BOOKING_NO_SHOW (a worker voiding a
   // no-show) — completing the lifecycle codes so the dispute timeline and the
   // feed stay in full lockstep. Driven through the repo seam (not the prisma
-  // adapters) so the logging sites are exercised. The slots sit at +33h/+34h/
-  // +35h — beyond the reminder walk's <24h range, so no sibling-hour
-  // bookkeeping is needed.
-  const rs2SlotStart = new Date(Date.now() + 33 * 60 * 60 * 1000);
+  // adapters) so the logging sites are exercised. The three slots come from
+  // the shared free-hour walk (24–48h, live-DB checked), so they can't land
+  // on the seeded fixed-hour slots whatever the wall clock.
+  const rs2SlotStart = await pickFreeSlotHour(khaled!.id, 24, 48, "feed-reschedule");
   const rs2Slot = await prisma.bookingSlot.create({
     data: { workerId: khaled!.id, startAt: rs2SlotStart, endAt: new Date(rs2SlotStart.getTime() + 60 * 60 * 1000), status: "AVAILABLE", note: "smoke-activity" },
   });
-  const rs2TargetStart = new Date(Date.now() + 34 * 60 * 60 * 1000);
+  // The target walk runs AFTER the source slot exists, so the live-DB check
+  // (any status) guarantees a different (workerId, startAt) than the source.
+  const rs2TargetStart = await pickFreeSlotHour(khaled!.id, 24, 48, "feed-reschedule target");
   const rs2Target = await prisma.bookingSlot.create({
     data: { workerId: khaled!.id, startAt: rs2TargetStart, endAt: new Date(rs2TargetStart.getTime() + 60 * 60 * 1000), status: "AVAILABLE", note: "smoke-activity" },
   });
-  const nsSlotStart = new Date(Date.now() + 35 * 60 * 60 * 1000);
+  const nsSlotStart = await pickFreeSlotHour(khaled!.id, 24, 48, "feed no-show");
   const nsSlot = await prisma.bookingSlot.create({
     data: { workerId: khaled!.id, startAt: nsSlotStart, endAt: new Date(nsSlotStart.getTime() + 60 * 60 * 1000), status: "AVAILABLE", note: "smoke-activity" },
   });

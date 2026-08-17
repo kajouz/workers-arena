@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 
 // The server actions import next/cache — mock it so the action layer is
 // testable (the demo adapters underneath stay real).
@@ -25,6 +27,7 @@ import {
 import { resetBookingsStore } from "../src/lib/data/bookings";
 import { resetCampaignStore } from "../src/lib/data/campaigns";
 import { resetPurchaseStore } from "../src/lib/data/purchases";
+import { getAdminActivityFeed, resetAdminActivityFeed } from "../src/lib/data/activity";
 import { getPaymentProvider } from "../src/lib/payments/registry";
 import { omtProvider } from "../src/lib/payments/omt";
 import { whishProvider } from "../src/lib/payments/whish";
@@ -32,6 +35,11 @@ import { toDomainPaymentMethod, type Booking } from "../src/lib/data/types";
 import { workerBySlug } from "../src/lib/data/workers";
 
 const DEMO_WORKER = "khaled-al-harbi-plumbing";
+
+// The §Lebanon confirms audit to the admin activity feed — isolate the
+// file-backed feed per test so it never touches the dev's
+// .data/admin-activity.json (same pattern as bookings.test.ts).
+let activityFile: string;
 
 function bookingOf(r: Booking | { error: string }): Booking {
   if ("error" in r) throw new Error(`expected booking, got error ${r.error}`);
@@ -47,9 +55,13 @@ beforeEach(() => {
   resetCampaignStore();
   resetPurchaseStore();
   getSessionMock.mockReset();
+  activityFile = `${tmpdir()}/lebanon-activity-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+  vi.stubEnv("ADMIN_ACTIVITY_FILE", activityFile);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await resetAdminActivityFeed();
+  await rm(activityFile, { force: true }).catch(() => {});
   vi.restoreAllMocks();
 });
 
@@ -197,6 +209,14 @@ describe("§Lebanon — booking deposits via OMT/Whish", () => {
     getSessionMock.mockResolvedValue(ADMIN);
     const again = await confirmManualPaymentAction(bookingPayment!.id);
     expect(again).toEqual({ ok: false, error: "not-found" });
+
+    // The admin confirm is audited with the ACTING ADMIN's identity, not the
+    // worker's — the feed entry credits who actually confirmed receipt.
+    const feed = await getAdminActivityFeed();
+    const entry = feed.find((e) => e.code === "BOOKING_CONFIRMED" && e.bookingNo === "BK-1001");
+    expect(entry).toBeDefined();
+    expect(entry!.actor).toBe("Amina Admin");
+    expect(entry!.actorId).toBe("a1");
   });
 
   it("non-admins cannot confirm manual payments", async () => {
@@ -237,6 +257,13 @@ describe("§Lebanon — campaign purchases via Whish", () => {
 
     const campaigns = await (await import("../src/lib/data/repo")).getCampaigns();
     expect(campaigns.find((c) => c.id === campaignId)?.status).toBe("active");
+
+    // CAMPAIGN_PAID lands in the feed with the acting admin as actor.
+    const feed = await getAdminActivityFeed();
+    const entry = feed.find((e) => e.code === "CAMPAIGN_PAID" && e.actionEn.includes("Beirut plumbing ads"));
+    expect(entry).toBeDefined();
+    expect(entry!.actor).toBe("Amina Admin");
+    expect(entry!.actorId).toBe("a1");
   });
 });
 
@@ -291,6 +318,13 @@ describe("§Lebanon — paid upgrades (BUSINESS-MODEL §5.1, no Stripe)", () => 
     await confirmManualPaymentAction(payment!.id);
     expect(workerBySlug(DEMO_WORKER)!.verified).toBe(true);
     expect(workerBySlug(DEMO_WORKER)!.verification).toBe("verified");
+
+    // PURCHASE_CONFIRMED lands in the feed with the acting admin as actor.
+    const feed = await getAdminActivityFeed();
+    const entry = feed.find((e) => e.code === "PURCHASE_CONFIRMED" && e.actionEn.includes("verification"));
+    expect(entry).toBeDefined();
+    expect(entry!.actor).toBe("Amina Admin");
+    expect(entry!.actorId).toBe("a1");
   });
 
   it("featured + emergency add-ons activate on admin confirm", async () => {

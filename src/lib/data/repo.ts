@@ -394,10 +394,11 @@ export async function createCampaignCheckout(
  */
 export async function confirmCampaignPayment(
   campaignId: string,
-  providerRef: string
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
 ): Promise<Campaign | null> {
-  if (realDataEnabled) return (await prismaRepo()).prismaConfirmCampaignPayment(campaignId, providerRef);
-  return demoConfirmCampaignPayment(campaignId, providerRef);
+  if (realDataEnabled) return (await prismaRepo()).prismaConfirmCampaignPayment(campaignId, providerRef, opts);
+  return demoConfirmCampaignPayment(campaignId, providerRef, opts);
 }
 
 /**
@@ -1329,10 +1330,11 @@ export async function createBookingCheckout(
  */
 export async function confirmBookingPayment(
   bookingId: string,
-  providerRef: string
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
 ): Promise<Booking | null> {
-  if (realDataEnabled) return (await prismaRepo()).prismaConfirmBookingPayment(bookingId, providerRef);
-  return demoConfirmBookingPayment(bookingId, providerRef);
+  if (realDataEnabled) return (await prismaRepo()).prismaConfirmBookingPayment(bookingId, providerRef, opts);
+  return demoConfirmBookingPayment(bookingId, providerRef, opts);
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1387,9 +1389,13 @@ export async function createPurchaseCheckout(input: {
  * slot / emergency marker). Idempotent. Demo mutates the in-memory worker;
  * prisma flips the Payment row (CAS) + the worker's row in real mode.
  */
-export async function confirmPurchase(paymentId: string, providerRef: string): Promise<boolean> {
-  if (realDataEnabled) return (await prismaRepo()).prismaConfirmPurchase(paymentId, providerRef);
-  return demoConfirmPurchase(paymentId, providerRef);
+export async function confirmPurchase(
+  paymentId: string,
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
+): Promise<boolean> {
+  if (realDataEnabled) return (await prismaRepo()).prismaConfirmPurchase(paymentId, providerRef, opts);
+  return demoConfirmPurchase(paymentId, providerRef, opts);
 }
 
 /**

@@ -905,14 +905,15 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
     currency,
     paymentId: row.paymentId ?? undefined,
     // M3 receipt — the Invoice row tied to the deposit Payment. Amount is
-    // minor units in both stores, mapped as-is; status is always "paid" (the
-    // invoice is generated when the payment lands).
+    // minor units in both stores, mapped as-is; PAID maps to "paid", VOID
+    // (flipped when the deposit is refunded) maps to "voided" so the customer
+    // row strikes it through; any other DB status renders as the paid pill.
     invoice: row.payment?.invoice
       ? {
           number: row.payment.invoice.number,
           amount: row.payment.invoice.amount,
           currency: row.payment.invoice.currency as CurrencyCode,
-          status: "paid",
+          status: row.payment.invoice.status === "VOID" ? "voided" : "paid",
           date: (row.payment.invoice.paidAt ?? row.payment.invoice.createdAt).toISOString(),
         }
       : undefined,
@@ -1739,6 +1740,12 @@ export async function prismaCreateBookingRequest(
   // Prisma reports the unique violation as P2002 (duck-typed — no runtime
   // Prisma import needed in this module).
   const isNumberCollision = (err: unknown) => (err as { code?: string })?.code === "P2002";
+  // P2028 = Transaction API error. "Unable to start a transaction in the given
+  // time" is Prisma's maxWait (5s default) exceeded while the transaction
+  // waited on the slot row lock — under N parallel claims on one slot the
+  // losers time out waiting. That IS the "someone else claimed it" outcome,
+  // not a failure: the whole tx rolled back, so the slot was never theirs.
+  const isContentionTimeout = (err: unknown) => (err as { code?: string })?.code === "P2028";
 
   for (let attempt = 0; attempt < 3; attempt++) {
     let created: { ok: true; booking: BookingFullRow; worker: BookingWorkerInfo } | { ok: false; error: "slot-taken" | "invalid" };
@@ -1746,6 +1753,7 @@ export async function prismaCreateBookingRequest(
       created = await prisma.$transaction((tx) => createBookingRequestTx(tx, input));
     } catch (err) {
       if (attempt < 2 && isNumberCollision(err)) continue; // whole tx rolled back — retry
+      if (isContentionTimeout(err)) return { error: "slot-taken" };
       console.error("[prisma-repo] createBookingRequest failed:", err);
       return { error: "invalid" };
     }
@@ -2327,7 +2335,8 @@ export async function prismaCreateBookingCheckout(
  */
 export async function prismaConfirmBookingPayment(
   bookingId: string,
-  providerRef: string
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
 ): Promise<Booking | null> {
   const prisma = getPrisma();
   // The count-derived invoice number can collide with a concurrent confirm of
@@ -2408,11 +2417,16 @@ export async function prismaConfirmBookingPayment(
     if (transitioned) {
       const worker = await txWorkerName(bookingId);
       const name = worker ?? "Worker";
+      // The entry copy names the worker whose booking got confirmed; the
+      // ACTOR is whoever confirmed receipt — the /admin pending-payments
+      // confirm threads the acting admin (opts.by), webhook-simulated
+      // confirms keep the worker name (demo/prisma parity).
       await logAdminActivity({
         code: ACTION_CODES.BOOKING_CONFIRMED,
         actionEn: `${name} confirmed ${result.number}`,
         actionAr: `${name} أكّد الحجز ${result.number}`,
-        actor: name,
+        actor: opts.by ?? name,
+        ...(opts.byId ? { actorId: opts.byId } : {}),
         type: "booking",
         bookingNo: result.number,
       });
@@ -2792,7 +2806,11 @@ export async function prismaCancelBooking(
       bookingCancelRefundDue({ startAt: result.startAt?.toISOString() ?? "" }, new Date(), input.by)
     ) {
       try {
-        const refundRef = await getPaymentProvider().refund(
+        // Refunds route through the provider that took the money — an OMT-paid
+        // deposit refunds via the OMT provider (omt_refund_*), not the default.
+        const refundMethod =
+          result.payment.method === "OMT" ? "OMT" : result.payment.method === "WHISH" ? "WHISH" : "STRIPE";
+        const refundRef = await getPaymentProvider(refundMethod).refund(
           result.payment.providerRef ?? result.payment.id,
           result.payment.amount
         );
@@ -2800,6 +2818,13 @@ export async function prismaCancelBooking(
           where: { id: result.payment.id },
           data: { status: "REFUNDED", refundRef, refundedAt: new Date() },
         });
+        // M3 receipt voids with the refund (parity with prismaRefundBookingDeposit).
+        if (result.payment.invoice) {
+          await prisma.invoice.updateMany({
+            where: { id: result.payment.invoice.id, status: "PAID" },
+            data: { status: "VOID" },
+          });
+        }
         refunded = true;
       } catch (err) {
         console.error("[prisma-repo] cancelBooking refund failed:", err);
@@ -2909,8 +2934,11 @@ export async function prismaRefundBookingDeposit(
 
     // The actual money move + the payment flip run AFTER the read tx (same
     // pattern as prismaCancelBooking's refund): the provider call is async
-    // and must not hold the tx's locks.
-    const refundRef = await getPaymentProvider().refund(
+    // and must not hold the tx's locks. The refund goes through the provider
+    // that took the money (OMT/Whish for manual deposits).
+    const refundMethod =
+      result.payment?.method === "OMT" ? "OMT" : result.payment?.method === "WHISH" ? "WHISH" : "STRIPE";
+    const refundRef = await getPaymentProvider(refundMethod).refund(
       result.payment?.providerRef ?? result.payment?.id ?? bookingId,
       result.payment?.amount ?? 0
     );
@@ -2918,6 +2946,15 @@ export async function prismaRefundBookingDeposit(
       where: { id: result.payment!.id, status: "PAID" },
       data: { status: "REFUNDED", refundRef, refundedAt: new Date() },
     });
+    // M3 receipt voids with the refund — the Invoice row stops representing
+    // money the platform holds, so the customer row strikes it through (the
+    // campaign refund path does the same via its credit-note flip).
+    if (result.payment?.invoice) {
+      await prisma.invoice.updateMany({
+        where: { id: result.payment.invoice.id, status: "PAID" },
+        data: { status: "VOID" },
+      });
+    }
 
     await pushNotification(
       bookingNotification(toDomainBooking(result), "customer-refund", {
@@ -3342,7 +3379,10 @@ export async function prismaRefundCampaignPayment(
     // was refunded — the payment stays PAID so a retry re-enters the path).
     let refundRef: string;
     try {
-      refundRef = await getPaymentProvider().refund(payment.providerRef ?? payment.id, payment.amount);
+      // Method-aware like the booking refunds: an OMT/Whish-paid campaign
+      // refunds via the provider that took the money (omt_refund_* / whish_*).
+      const refundMethod = payment.method === "OMT" ? "OMT" : payment.method === "WHISH" ? "WHISH" : "STRIPE";
+      refundRef = await getPaymentProvider(refundMethod).refund(payment.providerRef ?? payment.id, payment.amount);
     } catch (err) {
       console.error("[prisma-repo] refundCampaignPayment provider refund failed:", err);
       return null;
@@ -3599,7 +3639,8 @@ export async function prismaCreateCampaignCheckout(
  */
 export async function prismaConfirmCampaignPayment(
   campaignId: string,
-  providerRef: string
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
 ): Promise<Campaign | null> {
   const prisma = getPrisma();
   // The count-derived invoice number can collide with a concurrent confirm of
@@ -3688,6 +3729,19 @@ export async function prismaConfirmCampaignPayment(
           },
           { name: result.company.nameEn, email: result.company.user.email ?? undefined, locale: "en" }
         );
+        // §Lebanon — audit the manual (OMT/Whish) campaign confirm with the
+        // ACTING ADMIN as actor (threaded via opts.by), the real-mode twin of
+        // the demo CAMPAIGN_PAID entry so all three manual scopes appear in
+        // the feed (demo/prisma parity).
+        const actor = opts.by ?? "Platform Admin";
+        await logAdminActivity({
+          code: ACTION_CODES.CAMPAIGN_PAID,
+          actionEn: `${actor} confirmed campaign ${result.nameEn} (${campaignId})`,
+          actionAr: `${actor} أكّد دفع حملة ${result.nameAr} (${campaignId})`,
+          actor,
+          ...(opts.byId ? { actorId: opts.byId } : {}),
+          type: "payment",
+        });
       }
       const row = await prisma.adCampaign.findUnique({
         where: { id: campaignId },
@@ -4795,7 +4849,11 @@ function purchaseAmountMinor(
  * the worker after the flip. Returns false when the payment is unknown or
  * the flip lost the CAS and the payment isn't already PAID.
  */
-export async function prismaConfirmPurchase(paymentId: string, providerRef: string): Promise<boolean> {
+export async function prismaConfirmPurchase(
+  paymentId: string,
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
+): Promise<boolean> {
   const prisma = getPrisma();
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
@@ -4824,6 +4882,21 @@ export async function prismaConfirmPurchase(paymentId: string, providerRef: stri
     where: { id: payment.workerId },
     include: { subscription: true, user: { select: { email: true, locale: true } } },
   });
+
+  // §Lebanon — audit the manual (OMT/Whish) upgrade confirm with the ACTING
+  // ADMIN as actor (threaded via opts.by), the real-mode twin of the demo
+  // PURCHASE_CONFIRMED entry so verification / featured / emergency purchases
+  // appear in the feed (demo/prisma parity).
+  const actor = opts.by ?? "Platform Admin";
+  await logAdminActivity({
+    code: ACTION_CODES.PURCHASE_CONFIRMED,
+    actionEn: `${actor} confirmed ${scope} purchase for ${worker?.nameEn ?? "Worker"} (${payment.id})`,
+    actionAr: `${actor} أكّد شراء ${scope} للعامل ${worker?.nameAr ?? "العامل"} (${payment.id})`,
+    actor,
+    ...(opts.byId ? { actorId: opts.byId } : {}),
+    type: "payment",
+  });
+
   const notify = (type: "subscription" | "verification" | "system", titleEn: string, titleAr: string, bodyEn: string, bodyAr: string) =>
     pushNotification(
       { type, titleEn, titleAr, bodyEn, bodyAr, href: "/dashboard" },

@@ -728,6 +728,7 @@ export const ar: Dictionary = {
     successBody: "سيرد العامل قريباً — سنخطرك في كل خطوة.",
     viewBookings: "عرض حجوزاتي",
     invoice: "الفاتورة",
+    invoiceVoided: "ملغاة",
     conflict: "هذا الموعد غير متاح حالياً",
     status: {
       requested: "بانتظار الرد",

@@ -19,6 +19,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 import { workerBySlug } from "./workers";
+import { ACTION_CODES, logAdminActivity } from "./activity";
 import { pushNotification } from "./notifications";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import { planPrice, renewSubscription } from "./subscriptions";
@@ -178,7 +179,11 @@ export async function demoCreatePurchaseCheckout(
  * offline with the reference, the admin's confirm flips the payment PAID and
  * activates the purchased capability. Idempotent (a second confirm no-ops).
  */
-export async function demoConfirmPurchase(paymentId: string, providerRef: string): Promise<boolean> {
+export async function demoConfirmPurchase(
+  paymentId: string,
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
+): Promise<boolean> {
   const payment = STORE.payments.get(paymentId);
   if (!payment) return false;
   if (payment.status === "paid") return true; // idempotent
@@ -188,6 +193,22 @@ export async function demoConfirmPurchase(paymentId: string, providerRef: string
   payment.status = "paid";
   payment.providerRef = providerRef;
   payment.paidAt = new Date().toISOString();
+
+  // §Lebanon — audit the manual (OMT/Whish) upgrade confirm with the ACTING
+  // ADMIN as actor (threaded by the /admin pending-payments confirm via
+  // opts.by), so verification / featured / emergency purchases land in the
+  // feed alongside the booking and campaign confirms. The scope rides the
+  // entry text; the worker's name keeps the entry readable.
+  const actor = opts.by ?? "Platform Admin";
+  const scopeLabel = payment.meta.scope ?? "subscription";
+  await logAdminActivity({
+    code: ACTION_CODES.PURCHASE_CONFIRMED,
+    actionEn: `${actor} confirmed ${scopeLabel} purchase for ${w.nameEn} (${payment.id})`,
+    actionAr: `${actor} أكّد شراء ${scopeLabel} للعامل ${w.nameAr} (${payment.id})`,
+    actor,
+    ...(opts.byId ? { actorId: opts.byId } : {}),
+    type: "payment",
+  });
 
   switch (payment.meta.scope) {
     case "subscription": {

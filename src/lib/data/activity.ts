@@ -236,6 +236,15 @@ export const ACTION_CODES = {
   // Admin refunded a booking's paid deposit from the dispute view (§2.4) —
   // the feed mirrors the trail's REFUNDED audit event.
   BOOKING_REFUNDED: "BOOKING_REFUNDED",
+  // §Lebanon manual-payment confirms (the /admin pending OMT/Whish card):
+  // each of the three manual scopes logs its own audited entry with the
+  // ACTING ADMIN as actor (confirmManualPaymentAction threads the session
+  // name through), so the feed shows who confirmed the offline receipt —
+  // booking deposit (BOOKING_CONFIRMED), campaign purchase (CAMPAIGN_PAID),
+  // and the paid upgrades — verification / featured / emergency
+  // (PURCHASE_CONFIRMED).
+  CAMPAIGN_PAID: "CAMPAIGN_PAID",
+  PURCHASE_CONFIRMED: "PURCHASE_CONFIRMED",
   // Ad-campaign refund (admin action) — the payment trail on /admin so the
   // feed tells the same story as the campaign-payments card.
   CAMPAIGN_REFUNDED: "CAMPAIGN_REFUNDED",

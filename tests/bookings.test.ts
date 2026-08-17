@@ -958,9 +958,12 @@ describe("admin cancel + refund — §2.4 dispute view (demo adapter)", () => {
     expect(slot.status).toBe("available");
 
     // A platform cancel ALWAYS refunds a paid deposit (the window policy is
-    // worker-only) — the customer gets the refund email.
+    // worker-only) — the customer gets the refund email, and the M3 receipt
+    // voids so the /bookings row strikes it through.
     const inbox = await getNotificationsList();
     expect(inbox.some((n) => n.type === "bookingRefund")).toBe(true);
+    const paidBooking = bookingOf(result ?? { error: "not-found" });
+    expect(paidBooking.invoice?.status).toBe("voided");
     // BOTH the customer (/bookings) and the worker (/dashboard) are told.
     expect(inbox.some((n) => n.type === "bookingCancelled" && n.href === "/bookings")).toBe(true);
     expect(inbox.some((n) => n.type === "bookingCancelled" && n.href === "/dashboard")).toBe(true);
@@ -987,6 +990,10 @@ describe("admin cancel + refund — §2.4 dispute view (demo adapter)", () => {
     // The booking itself is unchanged — money-only correction (post-payment it sits at CONFIRMED).
     expect(booking.status).toBe("confirmed");
     expect(booking.events.at(-1)).toMatchObject({ status: "refunded", actorType: "admin", reason: "Dispute resolved in customer's favour" });
+    // The M3 receipt voids with the refund — the customer row renders it struck
+    // through (WA-YYYY-NNNNN exists because BK-1001 is a signed-in booking).
+    expect(booking.invoice?.number).toMatch(/^WA-/);
+    expect(booking.invoice?.status).toBe("voided");
 
     const inbox = await getNotificationsList();
     expect(inbox.some((n) => n.type === "bookingRefund")).toBe(true);

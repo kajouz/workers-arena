@@ -199,13 +199,16 @@ export interface QuoteBidInput {
 /**
  * A booking's receipt (M3): created at payment-confirm time for signed-in
  * customers only (guest bookings have no account to attach it to). Mirrors
- * the prisma `Invoice` row for the booking case.
+ * the prisma `Invoice` row for the booking case. `voided` = the deposit was
+ * refunded (an admin refund or a refund-due cancellation) — the receipt no
+ * longer represents money the platform holds, so the customer row renders it
+ * struck through instead of as a green paid pill.
  */
 export interface BookingInvoice {
   number: string; // WA-YYYY-NNNNN
   amount: number; // minor units
   currency: CurrencyCode;
-  status: "paid"; // generated when the payment lands
+  status: "paid" | "voided"; // generated when the payment lands; voided on refund
   date: string; // ISO
 }
 

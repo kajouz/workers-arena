@@ -214,23 +214,47 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
               </p>
             )}
 
-            {/* M3 receipt — created at payment-confirm for signed-in customers only. */}
-            {booking.invoice && (
-              <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
-                <FileText className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <p className="min-w-0 flex-1 truncate text-xs text-ink-600 dark:text-ink-300">
-                  {t("booking.invoice")}{" "}
-                  <span className="font-bold text-ink-900 dark:text-ink-50">{booking.invoice.number}</span>
-                  <span className="mx-1.5 text-ink-300 dark:text-ink-600">·</span>
-                  <Price
-                    amount={booking.invoice.amount / 100}
-                    currency={booking.invoice.currency}
-                    locale={locale}
-                    className="font-bold text-emerald-600 dark:text-emerald-400"
-                  />
-                </p>
-              </div>
-            )}
+            {/* M3 receipt — created at payment-confirm for signed-in customers
+                only. VOIDED when the deposit was refunded (admin refund or a
+                refund-due cancellation) — the receipt then renders struck
+                through so it stops reading as money the platform holds. */}
+            {booking.invoice &&
+              (booking.invoice.status === "voided" ? (
+                <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-ink-200 bg-ink-900/5 px-3 py-2.5 dark:border-ink-800 dark:bg-ink-100/5">
+                  <FileText className="size-4 shrink-0 text-ink-400" />
+                  <p className="min-w-0 flex-1 truncate text-xs text-ink-400">
+                    {t("booking.invoice")}{" "}
+                    <span className="font-bold text-ink-500 line-through decoration-ink-400/60 dark:text-ink-400">
+                      {booking.invoice.number}
+                    </span>
+                    <span className="mx-1.5 text-ink-300 dark:text-ink-600">·</span>
+                    <Price
+                      amount={booking.invoice.amount / 100}
+                      currency={booking.invoice.currency}
+                      locale={locale}
+                      className="font-bold text-ink-400 line-through decoration-ink-400/60"
+                    />
+                    <span className="ms-2 rounded-full bg-ink-900/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-500 dark:bg-ink-100/10 dark:text-ink-400">
+                      {t("booking.invoiceVoided")}
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
+                  <FileText className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <p className="min-w-0 flex-1 truncate text-xs text-ink-600 dark:text-ink-300">
+                    {t("booking.invoice")}{" "}
+                    <span className="font-bold text-ink-900 dark:text-ink-50">{booking.invoice.number}</span>
+                    <span className="mx-1.5 text-ink-300 dark:text-ink-600">·</span>
+                    <Price
+                      amount={booking.invoice.amount / 100}
+                      currency={booking.invoice.currency}
+                      locale={locale}
+                      className="font-bold text-emerald-600 dark:text-emerald-400"
+                    />
+                  </p>
+                </div>
+              ))}
           </div>
         </div>
 
