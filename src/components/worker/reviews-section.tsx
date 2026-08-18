@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { formatNumber, timeAgo } from "@/lib/utils";
 import { submitReviewAction } from "@/app/actions/auth";
+import { enqueueAction } from "@/lib/offline-queue";
 import { toast } from "@/components/ui/toast";
 
 const reviewSchema = z.object({
@@ -44,6 +45,21 @@ export function ReviewsSection({ worker, onReview }: { worker: Worker; onReview?
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitting(true);
+    // Offline → queue for background replay; online → direct server action.
+    if (!navigator.onLine) {
+      await enqueueAction({
+        type: "review",
+        payload: {
+          workerId: worker.id,
+          author: values.name,
+          rating,
+          text: values.text,
+        },
+      });
+      setSubmitting(false);
+      toast("info", t("worker.reviewQueued") || "Review queued — will submit when you're back online.");
+      return;
+    }
     const formData = new FormData();
     formData.set("name", values.name);
     formData.set("text", values.text);

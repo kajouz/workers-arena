@@ -9,6 +9,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toast";
 import { ServiceWorkerRegistrar } from "@/components/notifications/service-worker-registrar";
+import { InstallBanner } from "@/components/pwa/install-banner";
 
 export const metadata: Metadata = {
   title: {
@@ -27,6 +28,19 @@ export const metadata: Metadata = {
     "عمال محترفون",
   ],
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001"),
+  applicationName: "WorkersArena",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "WorkersArena",
+  },
+  formatDetection: {
+    telephone: true, // call links are a first-class action on worker profiles
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   openGraph: {
     title: "WorkersArena",
     description: "Find trusted professionals near you — verified workers, real reviews.",
@@ -42,6 +56,7 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover", // safe-area aware when installed (notches / home indicator)
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -54,7 +69,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} dir={dir} className={theme === "dark" ? "dark" : ""} suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -66,10 +80,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <LocaleProvider locale={locale} dir={dir}>
           <ThemeProvider>
             <Header session={session} initialTheme={theme} />
-            <main>{children}</main>
-            <Footer />
-            <Toaster />
-            <ServiceWorkerRegistrar />
+          <main>{children}</main>
+          <Footer />
+          <Toaster />
+          <InstallBanner />
+          <ServiceWorkerRegistrar />
           </ThemeProvider>
         </LocaleProvider>
       </body>

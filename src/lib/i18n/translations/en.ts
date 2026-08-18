@@ -560,6 +560,8 @@ export const en = {
     activityHistoryEmpty: "No events match these filters.",
     emailPreview: "Preview email",
     emailPreviewSubtitle: "Exactly what the customer received for this booking.",
+    emailPreviewSubtitleWorker: "Exactly what you received for this booking.",
+    emailPreviewSubtitleCompany: "Exactly what the company received for this campaign.",
     emailPreviewSubject: "Subject",
     emailPreviewRecipient: "Recipient",
     activityHistoryPage: "Page",
@@ -1081,6 +1083,17 @@ export const en = {
     languageArabic: "العربية",
     languageEnglish: "English",
     switchLocale: "Switch language",
+  },
+  install: {
+    title: "Install WorkersArena",
+    subtitle: "Get the full offline experience",
+    benefit1: "Browse workers offline — no internet needed",
+    benefit2: "Send requests even without a connection",
+    benefit3: "Faster loading — cached pages load instantly",
+    benefit4: "Add to your home screen like a native app",
+    install: "Install app",
+    dismiss: "Not now",
+    installed: "App installed! You can now use WorkersArena offline.",
   },
 };
 

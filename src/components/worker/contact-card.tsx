@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Phone, MessageCircle, Mail, Globe, Send, ShieldAlert, BadgeCheck, CalendarClock, ShieldCheck, Users } from "lucide-react";
+import { Phone, MessageCircle, Mail, Globe, Send, ShieldAlert, BadgeCheck, CalendarClock, ShieldCheck, Users, WifiOff } from "lucide-react";
 import type { BookingSlot, Worker } from "@/lib/data/types";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { VerifiedBadge, EmergencyBadge } from "@/components/shared/badges";
 import { requestServiceAction } from "@/app/actions/auth";
+import { enqueueAction } from "@/lib/offline-queue";
 import { toast } from "@/components/ui/toast";
 import { Price } from "@/components/shared/price";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
@@ -33,6 +34,17 @@ export function ContactCard({
 
   const sendRequest = async () => {
     setSending(true);
+    // Offline → queue for background replay; online → direct server action.
+    if (!navigator.onLine) {
+      await enqueueAction({
+        type: "lead",
+        payload: { workerId: worker.id },
+      });
+      setSending(false);
+      setMessage("");
+      toast("info", t("worker.requestQueued") || "Request queued — will send when you're back online.");
+      return;
+    }
     const res = await requestServiceAction(worker.id);
     setSending(false);
     // Only claim success when the lead actually persisted (false in real mode
