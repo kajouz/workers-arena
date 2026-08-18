@@ -32,7 +32,7 @@
 ### 2.1 Bilingual platform & UX
 - ✅ **i18n EN/AR with full RTL** — server-side detection (`wa_locale` cookie → `Accept-Language`), one-click switch, logical CSS everywhere, Arabic font (Cairo) + Inter, dictionary parity enforced by test
 - ✅ **Dark mode** — SSR from `wa_theme` cookie (no flash, no hydration warnings), persisted toggle
-- ✅ **Responsive web app** — mobile-first layout, PWA manifest + service worker registered
+- ✅ **Responsive web app** — mobile-first layout, installable PWA (manifest + PNG/maskable icons + app shortcuts), service worker registered on every page
 - ✅ **Accessibility** — Radix primitives, aria labels, `role=status` loading states, focus rings
 - ✅ **Toasts, skeletons, micro-interactions** — Framer Motion entrances, hover states throughout
 
@@ -87,7 +87,7 @@
 - ✅ REST APIs (workers, categories, search suggest, notifications, ads, push, health), Server Actions
 - ✅ SEO — sitemap, robots, JSON-LD, metadata/OG, manifest
 - ✅ `output: standalone` for Docker, isolated E2E dist dirs, demo stores gitignored
-- ✅ **Testing** — 149 vitest tests: search engine, i18n parity, notifications, subscriptions, verifications, auth, HTML nesting, **E2E hydration smoke** (dev + prod matrices, hydration-error guard, interactive flows)
+- ✅ **Testing** — 875+ vitest tests + 18 Playwright E2E tests: search engine, i18n parity, notifications, subscriptions, verifications, auth, HTML nesting, **E2E hydration smoke** (dev + prod matrices, hydration-error guard, interactive flows), PWA offline features, offline queue replay, analytics queue
 - 🟡 **Production swap steps documented** in `docs/ARCHITECTURE.md` (repo seam → Prisma, Redis, Cloudinary, Sentry)
 
 ### 2.10 Data model (ready, mostly unused by UI)
@@ -143,10 +143,21 @@ Priorities are tagged **P0** (blocking production launch), **P1** (high product 
 - [ ] **More locales** — Urdu/Hindi/Filipino/French (schema is locale-paired; `Language` model supports it).
 
 ### 3.4 PWA hardening (prerequisite for mobile strategy)
-- [ ] Offline shell (app-shell caching, cached search + top profiles)
-- [ ] Install prompt + iOS `apple-touch-icon`/splash polish
-- [ ] App shortcuts / share target
-- [ ] Push notification click-through routing deep links
+- [x] **Offline shell** — `public/sw.js` is now a full app-shell service worker: versioned precache of the shell (root, manifest, icons), **network-first navigations** that fall back to the cached shell then a bilingual `/offline.html` page, and **stale-while-revalidate** caching of static assets (content-hashed chunks can never go stale). `/api/*` data is never cached — the shell works offline, live data only online. Registered from the root layout, so any page installs it.
+- [x] **Installable** — manifest (`src/app/manifest.ts`) now declares `id`, `scope`, `display: standalone` + `display_override`, **PNG icons at 192/512 + a maskable 512** (generated from the SVG by `npm run pwa:icons` into `public/icons/`), and **`dir`/`lang` read from the `wa_locale` cookie** so an Arabic visitor's installed app is RTL. iOS polish: `apple-touch-icon` 180² + `appleWebApp` metadata + `viewport-fit: cover`.
+- [x] **App shortcuts** — manifest `shortcuts` deep-link to `/search`, `/bookings`, `/dashboard`, `/company` (long-press on Android).
+- [x] **Push notification click-through** — `notificationclick` focuses an existing tab and navigates it to the payload's deep link, or opens a window. (Web share-target remains a 🔜 idea — see §7.)
+- [x] **Precached content pages** — featured worker profiles and all 21 category search pages are precached at install so the most-visited content works fully offline, not just the shell. Manifest auto-generated at build time from `src/lib/data/workers.ts` and `src/lib/data/search.ts` via `scripts/generate-sw-precache.mjs` (`npm run precache:sw` / `prebuild` hook).
+- [x] **Runtime profile cache** — recently-visited `/workers/*` pages are saved to a bounded LRU cache (`MAX_PROFILES = 20`). When offline, the profiles cache is checked before the shell, so recently-browsed workers work fully offline.
+- [x] **Background sync for search** — when a search page is served from cache while offline, a `refresh-search` sync event is registered. On network restore, all precached search URLs are re-fetched and the shell cache updated. Clients can also trigger an immediate refresh via `postMessage`.
+- [x] **Offline queue** — leads and reviews submitted while offline are queued in IndexedDB (`workers-arena-offline` database) and replayed to `/api/offline-queue/replay` on reconnect. The service worker registers a `replay-offline-queue` sync event, and the registrar's `online` listener triggers replay directly.
+- [x] **Offline analytics** — page-view events are tracked in IndexedDB (`workers-arena-analytics` database) while offline and batch-sent to `/api/analytics/page-view` when back online. A `useTrackView(workerId?)` hook auto-tracks on pathname changes.
+- [x] **Storage budgeting** — uses `navigator.storage.estimate()` to monitor disk usage. When free storage drops below 50 MB, cached profiles are evicted aggressively. New profiles are only cached if > 25 MB remains free.
+- [x] **Custom install banner** — replaces the browser's default install prompt with an in-app banner that explains offline benefits (browse offline, send requests offline, faster loading, home screen). Respects user dismissal for 7 days.
+- [x] **Notification action buttons** — push notifications include "View" and "Dismiss" action buttons for quick deep-linking without opening the notification panel.
+- [x] **PWA debug dashboard** — hidden `/debug/pwa` page showing live cache sizes, storage usage, offline queue depth, analytics queue depth, and service worker status.
+- [x] **Playwright E2E tests** — browser-based tests for the complete offline flow (service worker registration, precached pages, offline queue, API contract, analytics).
+- [x] **Offline category browsing** — `/categories` listing and all `/search?category=…` pages are precached so browsing by trade works fully offline.
 
 ---
 
