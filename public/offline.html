@@ -15,8 +15,6 @@
       body {
         margin: 0;
         min-height: 100dvh;
-        display: grid;
-        place-items: center;
         font-family: "Inter", "Cairo", system-ui, -apple-system, "Segoe UI", sans-serif;
         background: #f7f6f4;
         color: #0f172a;
@@ -27,104 +25,558 @@
           color: #f5f5f4;
         }
       }
-      .card {
-        max-width: 26rem;
-        margin: 2rem;
-        padding: 2.5rem 2rem;
+      .container {
+        max-width: 64rem;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+      .header {
         text-align: center;
-        border-radius: 1.25rem;
-        background: #ffffff;
-        box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+        margin-bottom: 2rem;
       }
-      @media (prefers-color-scheme: dark) {
-        .card {
-          background: #1c1917;
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-        }
-      }
-      img.logo {
+      .logo {
         width: 72px;
         height: 72px;
         border-radius: 18px;
         margin-bottom: 1.25rem;
       }
       h1 {
-        font-size: 1.35rem;
+        font-size: 1.5rem;
         margin: 0 0 0.5rem;
         font-weight: 800;
       }
-      p {
+      .subtitle {
         font-size: 0.95rem;
         line-height: 1.6;
-        margin: 0 0 1.75rem;
+        margin: 0;
         opacity: 0.75;
       }
-      .en {
-        display: block;
+      .offline-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        margin-top: 1rem;
+        background: #fef3c7;
+        border: 1px solid #fcd34d;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #92400e;
       }
-      .ar {
-        display: block;
-        direction: rtl;
-        font-family: "Cairo", "Inter", sans-serif;
-        margin-top: 0.75rem;
-        padding-top: 0.75rem;
-        border-top: 1px dashed rgba(120, 113, 108, 0.35);
-        opacity: 0.9;
+      @media (prefers-color-scheme: dark) {
+        .offline-badge {
+          background: #451a03;
+          border-color: #92400e;
+          color: #fcd34d;
+        }
       }
-      button {
+      .offline-dot {
+        width: 8px;
+        height: 8px;
+        background: #ef4444;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      .section {
+        margin-bottom: 2rem;
+      }
+      .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+      }
+      .section-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .section-count {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        background: #e0e7ff;
+        color: #3730a3;
+        border-radius: 999px;
+        font-weight: 600;
+      }
+      @media (prefers-color-scheme: dark) {
+        .section-count {
+          background: #312e81;
+          color: #c7d2fe;
+        }
+      }
+      .empty-state {
+        text-align: center;
+        padding: 2rem;
+        background: #ffffff;
+        border-radius: 1rem;
+        border: 1px dashed #d1d5db;
+      }
+      @media (prefers-color-scheme: dark) {
+        .empty-state {
+          background: #1c1917;
+          border-color: #44403c;
+        }
+      }
+      .empty-state p {
+        margin: 0;
+        opacity: 0.6;
+        font-size: 0.9rem;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 1rem;
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      }
+      @media (prefers-color-scheme: dark) {
+        .card {
+          background: #1c1917;
+          border-color: #44403c;
+        }
+      }
+      .card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+      .card-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        object-fit: cover;
+        background: #e5e7eb;
+      }
+      @media (prefers-color-scheme: dark) {
+        .card-avatar {
+          background: #44403c;
+        }
+      }
+      .card-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .card-name {
+        font-weight: 700;
+        font-size: 0.95rem;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card-category {
+        font-size: 0.8rem;
+        opacity: 0.7;
+        margin: 0;
+      }
+      .card-meta {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.8rem;
+        opacity: 0.7;
+      }
+      .search-link {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: #ffffff;
+        border-radius: 0.75rem;
+        border: 1px solid #e5e7eb;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.2s;
+      }
+      .search-link:hover {
+        background: #f9fafb;
+      }
+      @media (prefers-color-scheme: dark) {
+        .search-link {
+          background: #1c1917;
+          border-color: #44403c;
+        }
+        .search-link:hover {
+          background: #292524;
+        }
+      }
+      .search-icon {
+        width: 32px;
+        height: 32px;
+        background: #fef3c7;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        .search-icon {
+          background: #451a03;
+        }
+      }
+      .search-info {
+        flex: 1;
+      }
+      .search-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin: 0;
+      }
+      .search-count {
+        font-size: 0.75rem;
+        opacity: 0.6;
+        margin: 0;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 2rem;
+        justify-content: center;
+      }
+      .btn {
         appearance: none;
         border: 0;
         cursor: pointer;
         font: inherit;
         font-weight: 700;
-        padding: 0.8rem 1.75rem;
+        padding: 0.75rem 1.5rem;
         border-radius: 999px;
+        font-size: 0.9rem;
+      }
+      .btn-primary {
         color: #fff;
         background: linear-gradient(135deg, #fb923c, #f97316, #9a3412);
-        box-shadow: 0 6px 18px rgba(249, 115, 22, 0.4);
+        box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
       }
-      button:hover {
+      .btn-primary:hover {
         filter: brightness(1.05);
       }
-      a.home {
-        display: inline-block;
-        margin-top: 1rem;
-        font-size: 0.85rem;
-        color: #f97316;
-        text-decoration: none;
+      .btn-secondary {
+        color: #374151;
+        background: #ffffff;
+        border: 1px solid #d1d5db;
       }
-      a.home:hover {
-        text-decoration: underline;
+      .btn-secondary:hover {
+        background: #f9fafb;
+      }
+      @media (prefers-color-scheme: dark) {
+        .btn-secondary {
+          color: #f5f5f4;
+          background: #1c1917;
+          border-color: #44403c;
+        }
+        .btn-secondary:hover {
+          background: #292524;
+        }
+      }
+      .ar {
+        direction: rtl;
+        font-family: "Cairo", "Inter", sans-serif;
+      }
+      .loading {
+        text-align: center;
+        padding: 2rem;
+        opacity: 0.5;
+      }
+      .cache-status {
+        font-size: 0.75rem;
+        text-align: center;
+        margin-top: 2rem;
+        opacity: 0.5;
       }
     </style>
   </head>
   <body>
-    <div class="card" role="status" aria-live="polite">
-      <img class="logo" src="/icons/icon-192.png" alt="" width="72" height="72" />
-      <h1>
-        <span class="en">You're offline</span>
-        <span class="ar">أنت غير متصل</span>
-      </h1>
-      <p>
-        <span class="en">
-          WorkersArena needs a connection to load this page. Check your network
-          and try again — your saved bookings and workers will be right here when
-          you're back online.
-        </span>
-        <span class="ar">
-          يحتاج WorkersArena إلى اتصال بالإنترنت لتحميل هذه الصفحة. تحقق من شبكتك
-          وحاول مجدداً — ستجد حجوزاتك والعاملين المحفوظين هنا فور عودتك أونلاين.
-        </span>
-      </p>
-      <button type="button" onclick="window.location.reload()">
-        <span class="en">Try again</span>
-        <span class="ar">إعادة المحاولة</span>
-      </button>
-      <br />
-      <a class="home" href="/">
-        <span class="en">Back to WorkersArena</span>
-        <span class="ar">العودة إلى WorkersArena</span>
-      </a>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <img class="logo" src="/icons/icon-192.png" alt="" width="72" height="72" />
+        <h1>
+          <span class="en">You're offline</span>
+          <span class="ar">أنت غير متصل</span>
+        </h1>
+        <p class="subtitle">
+          <span class="en">
+            Check your network connection. Here's what you can access from cache.
+          </span>
+          <span class="ar ar">
+            تحقق من اتصالك بالإنترنت. إليك ما يمكن الوصول إليه من التخزين المؤقت.
+          </span>
+        </p>
+        <div class="offline-badge">
+          <div class="offline-dot"></div>
+          <span class="en">Offline Mode</span>
+          <span class="ar">وضع عدم الاتصال</span>
+        </div>
+      </div>
+
+      <!-- Loading indicator -->
+      <div id="loading" class="loading">
+        <p>Loading cached content…</p>
+      </div>
+
+      <!-- Cached Worker Profiles -->
+      <div id="profiles-section" class="section" style="display: none;">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span>👷</span>
+            <span class="en">Recently Viewed Workers</span>
+            <span class="ar">العمال الم Recent Viewed Workers</span>
+          </h2>
+          <span id="profiles-count" class="section-count">0</span>
+        </div>
+        <div id="profiles-list" class="cards"></div>
+      </div>
+
+      <!-- Cached Search Results -->
+      <div id="search-section" class="section" style="display: none;">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span>🔍</span>
+            <span class="en">Cached Search Pages</span>
+            <span class="ar">صفحات البحث المخزنة</span>
+          </h2>
+          <span id="search-count" class="section-count">0</span>
+        </div>
+        <div id="search-list" class="cards"></div>
+      </div>
+
+      <!-- No cached content -->
+      <div id="empty-state" class="empty-state" style="display: none;">
+        <p>
+          <span class="en">No cached content available. Visit pages while online to access them offline.</span>
+          <span class="ar">لا يوجد محتوى مخزن. قم بزيارة الصفحات أثناء الاتصال للوصول إليها بدون إنترنت.</span>
+        </p>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button type="button" class="btn btn-primary" onclick="window.location.reload()">
+          <span class="en">Try again</span>
+          <span class="ar">إعادة المحاولة</span>
+        </button>
+        <a href="/" class="btn btn-secondary">
+          <span class="en">Back to Home</span>
+          <span class="ar">العودة للرئيسية</span>
+        </a>
+      </div>
+
+      <!-- Cache status -->
+      <div id="cache-status" class="cache-status"></div>
     </div>
+
+    <script>
+      (async function () {
+        const loadingEl = document.getElementById('loading');
+        const profilesSection = document.getElementById('profiles-section');
+        const profilesList = document.getElementById('profiles-list');
+        const profilesCount = document.getElementById('profiles-count');
+        const searchSection = document.getElementById('search-section');
+        const searchList = document.getElementById('search-list');
+        const searchCount = document.getElementById('search-count');
+        const emptyState = document.getElementById('empty-state');
+        const cacheStatusEl = document.getElementById('cache-status');
+
+        // Category icon mapping
+        const categoryIcons = {
+          plumbing: '🔧',
+          electrical: '⚡',
+          carpentry: '🪚',
+          painting: '🎨',
+          masonry: '🧱',
+          'ac-technician': '❄️',
+          'satellite-technician': '📡',
+          mechanic: '🔩',
+          welding: '🔥',
+          blacksmith: '⚒️',
+          roofing: '🏠',
+          cleaning: '🧹',
+          movers: '📦',
+          gardening: '🌿',
+          'pest-control': '🐛',
+          locksmith: '🔑',
+          'glass-works': '🪟',
+          'aluminum-works': '🪨',
+          'gypsum-works': '🏗️',
+          'interior-design': '🛋️',
+          construction: '🚧',
+        };
+
+        // Category name mapping
+        const categoryNames = {
+          plumbing: { en: 'Plumbing', ar: 'سباكة' },
+          electrical: { en: 'Electrical', ar: 'كهرباء' },
+          carpentry: { en: 'Carpentry', ar: 'نجارة' },
+          painting: { en: 'Painting', ar: 'دهانات' },
+          masonry: { en: 'Masonry', ar: 'بناء' },
+          'ac-technician': { en: 'AC Technician', ar: 'فني تكييف' },
+          'satellite-technician': { en: 'Satellite', ar: 'فني أقمار' },
+          mechanic: { en: 'Mechanic', ar: 'ميكانيكي' },
+          welding: { en: 'Welding', ar: 'لحام' },
+          blacksmith: { en: 'Blacksmith', ar: 'حدادة' },
+          roofing: { en: 'Roofing', ar: 'أسطح' },
+          cleaning: { en: 'Cleaning', ar: 'تنظيف' },
+          movers: { en: 'Movers', ar: 'نقل أثاث' },
+          gardening: { en: 'Gardening', ar: 'حدائق' },
+          'pest-control': { en: 'Pest Control', ar: 'مكافحة حشرات' },
+          locksmith: { en: 'Locksmith', ar: 'أقفال' },
+          'glass-works': { en: 'Glass Works', ar: 'زجاج' },
+          'aluminum-works': { en: 'Aluminum', ar: 'ألومنيوم' },
+          'gypsum-works': { en: 'Gypsum', ar: 'جبس' },
+          'interior-design': { en: 'Interior Design', ar: 'تصميم داخلي' },
+          construction: { en: 'Construction', ar: 'مقاولات' },
+        };
+
+        try {
+          // Get all cache names
+          const cacheNames = await caches.keys();
+
+          // Get profiles from wa-profiles cache
+          let profiles = [];
+          const profilesCacheName = cacheNames.find((n) => n.startsWith('wa-profiles'));
+          if (profilesCacheName) {
+            const cache = await caches.open(profilesCacheName);
+            const requests = await cache.keys();
+            for (const req of requests) {
+              const url = new URL(req.url);
+              if (url.pathname.startsWith('/workers/')) {
+                const slug = url.pathname.split('/').pop();
+                // Extract name from slug (e.g., "khaled-al-harbi-plumbing" → "Khaled Al Harbi")
+                const name = slug
+                  .split('-')
+                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ')
+                  .replace(/\b\w+ (Plumbing|Carpentry|AC Technician|Cleaning|Interior Design)\b/g, '');
+
+                // Extract category from slug
+                let category = '';
+                for (const [key, value] of Object.entries(categoryNames)) {
+                  if (slug.includes(key)) {
+                    category = key;
+                    break;
+                  }
+                }
+
+                profiles.push({
+                  slug,
+                  name: name || slug,
+                  category,
+                  url: `/workers/${slug}`,
+                });
+              }
+            }
+          }
+
+          // Get search pages from wa-shell cache
+          let searchPages = [];
+          const shellCacheName = cacheNames.find((n) => n.startsWith('wa-shell'));
+          if (shellCacheName) {
+            const cache = await caches.open(shellCacheName);
+            const requests = await cache.keys();
+            for (const req of requests) {
+              const url = new URL(req.url);
+              if (url.pathname === '/search' && url.searchParams.has('category')) {
+                const category = url.searchParams.get('category');
+                searchPages.push({
+                  category,
+                  icon: categoryIcons[category] || '🔍',
+                  name: categoryNames[category] || { en: category, ar: category },
+                  url: `/search?category=${category}`,
+                });
+              }
+            }
+          }
+
+          // Hide loading
+          loadingEl.style.display = 'none';
+
+          // Show profiles
+          if (profiles.length > 0) {
+            profilesSection.style.display = 'block';
+            profilesCount.textContent = profiles.length;
+            profilesList.innerHTML = profiles
+              .map(
+                (p) => `
+                <a href="${p.url}" class="card">
+                  <div class="card-header">
+                    <div class="card-avatar" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;">
+                      ${categoryIcons[p.category] || '👷'}
+                    </div>
+                    <div class="card-info">
+                      <p class="card-name">${escapeHtml(p.name)}</p>
+                      <p class="card-category">${categoryNames[p.category]?.en || p.category || 'Worker'}</p>
+                    </div>
+                  </div>
+                  <div class="card-meta">
+                    <span>Available offline</span>
+                  </div>
+                </a>
+              `
+              )
+              .join('');
+          }
+
+          // Show search pages
+          if (searchPages.length > 0) {
+            searchSection.style.display = 'block';
+            searchCount.textContent = searchPages.length;
+            searchList.innerHTML = searchPages
+              .map(
+                (s) => `
+                <a href="${s.url}" class="search-link">
+                  <div class="search-icon">${s.icon}</div>
+                  <div class="search-info">
+                    <p class="search-name">${escapeHtml(s.name.en)}</p>
+                    <p class="search-count">Browse workers offline</p>
+                  </div>
+                </a>
+              `
+              )
+              .join('');
+          }
+
+          // Show empty state if no cached content
+          if (profiles.length === 0 && searchPages.length === 0) {
+            emptyState.style.display = 'block';
+          }
+
+          // Show cache status
+          const totalCaches = cacheNames.filter((n) => n.startsWith('wa-')).length;
+          cacheStatusEl.textContent = `${totalCaches} cache${totalCaches !== 1 ? 's' : ''} available`;
+        } catch (error) {
+          console.error('Error loading cached content:', error);
+          loadingEl.innerHTML = '<p>Error loading cached content</p>';
+        }
+
+        // Helper to escape HTML
+        function escapeHtml(text) {
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        }
+      })();
+    </script>
   </body>
 </html>

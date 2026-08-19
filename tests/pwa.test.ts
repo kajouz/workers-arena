@@ -180,6 +180,48 @@ describe("Offline page (public/offline.html)", () => {
     expect(html).toContain('src="/icons/icon-192.png"');
     expect(html).toContain("window.location.reload()");
   });
+
+  it("shows cached worker profiles section", () => {
+    expect(html).toContain("profiles-section");
+    expect(html).toContain("profiles-list");
+    expect(html).toContain("Recently Viewed Workers");
+  });
+
+  it("shows cached search pages section", () => {
+    expect(html).toContain("search-section");
+    expect(html).toContain("search-list");
+    expect(html).toContain("Cached Search Pages");
+  });
+
+  it("reads from service worker caches", () => {
+    expect(html).toContain("caches.keys()");
+    expect(html).toContain("wa-profiles");
+    expect(html).toContain("wa-shell");
+  });
+
+  it("displays worker profiles with category icons", () => {
+    expect(html).toContain("categoryIcons");
+    expect(html).toContain("plumbing");
+    expect(html).toContain("electrical");
+    expect(html).toContain("🔧");
+  });
+
+  it("has offline badge with animation", () => {
+    expect(html).toContain("offline-badge");
+    expect(html).toContain("offline-dot");
+    expect(html).toContain("Offline Mode");
+  });
+
+  it("shows empty state when no cached content", () => {
+    expect(html).toContain("empty-state");
+    expect(html).toContain("No cached content available");
+  });
+
+  it("has retry and home buttons", () => {
+    expect(html).toContain("Try again");
+    expect(html).toContain("Back to Home");
+    expect(html).toContain('href="/"');
+  });
 });
 
 describe("Root layout PWA metadata (src/app/layout.tsx)", () => {
