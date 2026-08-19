@@ -1,15 +1,38 @@
 import type { MetadataRoute } from "next";
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workersarena.com";
+
 export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "https://workersarena.com";
   return {
     rules: [
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/admin", "/dashboard"],
+        disallow: [
+          "/api/",
+          "/dashboard",
+          "/admin",
+          "/company",
+          "/bookings",
+          "/favorites",
+          "/debug/",
+          "/auth/",
+        ],
+      },
+      {
+        userAgent: "Googlebot",
+        allow: "/",
+        disallow: [
+          "/api/",
+          "/dashboard",
+          "/admin",
+          "/company",
+          "/bookings",
+          "/favorites",
+          "/debug/",
+        ],
       },
     ],
-    sitemap: `${base}/sitemap.xml`,
+    sitemap: `${BASE_URL}/sitemap.xml`,
   };
 }

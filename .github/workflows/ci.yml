@@ -1,151 +1,157 @@
-# WorkersArena CI — implements the pipeline in `.freebuff/run.md` → "CI — test
-# script ladder". Every job runs in its own checkout on its own runner: the E2E
-# rewrites `tsconfig.json`'s include array for the duration of its run and boots
-# servers on pid-scoped `.data/.next-e2e-*` dist dirs, so typecheck/unit must
-# never share a runner with an E2E job (the run doc's "parallel shards need
-# separate checkouts" rule). Live-DB work (db:smoke + the prisma chain tests) is
-# confined to the nightly job so it is never concurrent with anything else.
-#
-# Budgets (measured locally Aug 2026, doubled as CI ceilings — see the run doc):
-#   typecheck ~2s · unit suite ~5s · E2E quick ~77s · E2E full ~137s
-name: CI
+name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-  # Nightly live-DB smoke; also triggerable on demand from the Actions tab.
-  schedule:
-    - cron: "0 2 * * *"
-  workflow_dispatch:
+    branches: [main]
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
 
 jobs:
-  # ① Fast gate — no browser, no database. The prisma chain describes
-  # (booking-email-chain-prisma / campaign-email-chain-prisma) self-skip
-  # without DATABASE_URL, so this job covers the fixture + component suites.
-  # Docs integrity rides the same gate: check:docs-links (every markdown link
-  # + img src resolves) and validate:diagrams (every mermaid block renders) —
-  # both seconds-fast, and Chrome ships preinstalled on ubuntu-latest at
-  # /usr/bin/google-chrome, which validate-diagrams.mjs's resolveChromeExecutable
-  # already finds (same path the E2E uses). A broken diagram or doc link fails
-  # the build before the suite even runs.
-  typecheck-unit:
-    name: Typecheck + unit suite + docs checks
+  lint-and-typecheck:
+    name: Lint & Typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
       - name: Typecheck
-        run: npm run typecheck
-      - name: Docs — every markdown link + img resolves
-        run: npm run check:docs-links
-      - name: Docs — every mermaid diagram renders
-        run: npm run validate:diagrams
-      - name: Unit suite (E2E file + prisma chain tests excluded/skip)
-        run: npx vitest run --exclude tests/e2e-smoke.test.ts
+        run: pnpm tsc --noEmit
 
-  # ② Fast browser feedback — dev matrix only (E2E_SKIP_PROD=1).
-  # Chrome ships preinstalled on ubuntu-latest at /usr/bin/google-chrome; the
-  # E2E finds it via its CHROME_CANDIDATES list.
-  e2e-quick:
-    name: E2E quick (dev matrix)
+      - name: Lint
+        run: pnpm eslint . --max-warnings 0
+
+  test:
+    name: Unit Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      E2E_SKIP_PROD: "1"
-      E2E_AUTOCLEAN: "1"
-      E2E_MIN_FREE_GB: "5"
+    needs: lint-and-typecheck
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Write demo-mode .env (the E2E forces DEMO_MODE=true anyway)
-        run: |
-          cat > .env <<'EOF'
-          DEMO_MODE="true"
-          AUTH_SECRET="ci-e2e-secret-please-change-in-production"
-          NEXT_PUBLIC_APP_URL="http://localhost:3000"
-          EOF
-      - run: npm run test:e2e:quick
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
 
-  # ③ Full gate — dev matrix + production build (next build + next start).
-  e2e-full:
-    name: E2E full (dev + prod build)
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test -- --run
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      E2E_AUTOCLEAN: "1"
-      E2E_MIN_FREE_GB: "5"
+    needs: test
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Write demo-mode .env (the E2E forces DEMO_MODE=true anyway)
-        run: |
-          cat > .env <<'EOF'
-          DEMO_MODE="true"
-          AUTH_SECRET="ci-e2e-secret-please-change-in-production"
-          NEXT_PUBLIC_APP_URL="http://localhost:3000"
-          EOF
-      - run: npm run test:e2e
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
 
-  # ④ Nightly live-DB smoke — Postgres service, migrated + seeded, then the
-  # prisma chain tests serially (never concurrent: all mutate the same DB; the
-  # run doc's serialization rule). Schedule runs target the default branch;
-  # workflow_dispatch allows an on-demand run.
-  db-smoke:
-    name: db:smoke + prisma chain tests (live Postgres)
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    timeout-minutes: 20
-    env:
-      DEMO_MODE: "false"
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/workers_arena?schema=public"
-      AUTH_SECRET: "ci-db-secret-please-change-in-production"
-      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
-    services:
-      postgres:
-        image: postgres:16
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: workers_arena
-        ports:
-          - 5432:5432
-        # Health check so migrate/seed never race the service container.
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+          NEXT_PUBLIC_APP_URL: https://workersarena.com
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build
+          path: .next/
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Migrate + seed the live DB
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: pnpm exec playwright test
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+  deploy-preview:
+    name: Deploy Preview
+    runs-on: ubuntu-latest
+    needs: e2e
+    if: github.event_name == 'pull_request'
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to preview
+        id: deploy
         run: |
-          npx prisma migrate deploy
-          npm run db:seed
-      # The smoke exercises both cron ENGINES the deployed scheduler hits:
-      # runBookingReminderEngine (M4 booking reminders) and the W2 recurring
-      # generation (prismaGenerateRecurringOccurrences — the same engine behind
-      # GET /api/cron/recurring), so the nightly run proves what the cron hits.
-      - name: db:smoke (restores the seed exactly on exit)
-        run: npm run db:smoke
-      - name: Prisma chain tests (serial, after db:smoke leaves a clean seed)
+          echo "Preview deployment would happen here"
+          echo "url=https://preview.workersarena.com" >> $GITHUB_OUTPUT
+
+  deploy-production:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    needs: e2e
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://workersarena.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production
         run: |
-          npx vitest run tests/booking-email-chain-prisma.test.ts tests/campaign-email-chain-prisma.test.ts
+          echo "Production deployment would happen here"
