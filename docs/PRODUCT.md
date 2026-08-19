@@ -73,7 +73,9 @@
 
 ### 2.7 Payments & billing
 - ✅ **Modular gateway architecture** (`docs/PAYMENTS.md`): Stripe · PayPal · MyFatoorah · Tap · bank transfer · cash
-- 🔜 **Live integration** — schemas for `Payment`/`Invoice`/`Subscription` (minor units, statuses, provider refs) are ready; no live checkout yet
+- ✅ **Lebanon-first payments** — OMT and Whish manual providers (agent-based, admin-confirmed)
+- ✅ **Multi-currency support** — LBP, USD, SAR, EUR, GBP with exchange rate caching
+- 🟡 **Live integration** — schemas for `Payment`/`Invoice`/`Subscription` (minor units, statuses, provider refs) are ready; no live checkout yet
 - ✅ Demo renewal flow generates invoices + notifications (deterministic, test-covered)
 
 ### 2.8 Notifications (multi-channel)
@@ -84,10 +86,40 @@
 - ✅ **Admin activity feed** — structured `ACTION_CODES`, `ActivityLog` FK to actor, retention cron (`/api/cron/activity-prune`)
 
 ### 2.9 Platform / infra
-- ✅ REST APIs (workers, categories, search suggest, notifications, ads, push, health), Server Actions
+- ✅ REST APIs (workers, categories, search suggest, notifications, ads, push, health, forum), Server Actions
 - ✅ SEO — sitemap, robots, JSON-LD, metadata/OG, manifest
 - ✅ `output: standalone` for Docker, isolated E2E dist dirs, demo stores gitignored
 - ✅ **Testing** — 875+ vitest tests + 18 Playwright E2E tests: search engine, i18n parity, notifications, subscriptions, verifications, auth, HTML nesting, **E2E hydration smoke** (dev + prod matrices, hydration-error guard, interactive flows), PWA offline features, offline queue replay, analytics queue
+- ✅ **WCAG 2.1 AA audit tools** — client-side accessibility auditor with score calculation
+- ✅ **Voice commands** — EN/AR voice navigation with 15+ built-in commands
+- ✅ **Keyboard shortcuts** — global shortcuts for navigation and actions
+- ✅ **Print-friendly styles** — optimized CSS for printing pages
+- ✅ **Social media sharing** — Facebook, Twitter, LinkedIn, Email share buttons
+- ✅ **QR codes** — worker profile QR codes with download
+- ✅ **CSV/PDF/JSON export** — analytics data export in multiple formats
+- ✅ **Bulk operations** — admin bulk actions with confirmation dialogs
+- ✅ **Drag & drop uploads** — file upload with validation
+- ✅ **Enhanced infinite scroll** — Intersection Observer based hooks
+- ✅ **Lazy loading** — images, videos, content with skeleton fallbacks
+- ✅ **Route prefetching** — prefetch on hover with batch support
+- ✅ **Enhanced SW** — periodic background sync for fresh content
+- ✅ **Sentry integration** — error tracking with optional @sentry/nextjs
+- ✅ **Real-time analytics** — live dashboard with BroadcastChannel
+- ✅ **Meilisearch** — advanced search with typo tolerance
+- ✅ **Email service** — SendGrid/Resend integration with weekly digests
+- ✅ **Forum** — Q&A with voting, categories, answers
+- ✅ **Premium badges** — verified, pro, enterprise tiers
+- ✅ **WhatsApp integration** — instant contact with pre-filled messages
+- ✅ **Portfolio gallery** — before/after photos with lightbox
+- ✅ **Help center** — FAQ, articles, support tickets
+- ✅ **Referral system** — referral codes with rewards tracking
+- ✅ **Promo codes** — discount code input with validation
+- ✅ **Certificate verification** — worker certificates with details dialog
+- ✅ **Availability calendar** — visual calendar with time slots
+- ✅ **Price comparison** — side-by-side worker comparison
+- ✅ **Real-time messaging** — chat window with typing indicators
+- ✅ **Offline forms** — IndexedDB queue with auto-retry
+- ✅ **OCR document verification** — Tesseract.js for client-side OCR
 - 🟡 **Production swap steps documented** in `docs/ARCHITECTURE.md` (repo seam → Prisma, Redis, Cloudinary, Sentry)
 
 ### 2.10 Data model (ready, mostly unused by UI)

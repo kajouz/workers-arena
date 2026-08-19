@@ -1,94 +1,287 @@
-# API Design
+# WorkersArena API Documentation
 
-[← Back to docs index](README.md)
+## Overview
 
-## REST endpoints (App Router route handlers)
+WorkersArena provides a RESTful API for managing workers, bookings, search, and more. All endpoints return JSON responses.
 
-All responses are JSON. Demo mode returns embedded data; production maps to Prisma with the same shapes.
+**Base URL:** `https://api.workersarena.com`
 
-### Public
+**Authentication:** Demo mode uses cookie-based sessions. Production uses JWT tokens.
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/workers` | Search workers. Query params: `q, category, city, area, rating, min, max, exp, verified, featured, emergency, open, available, sort, page` → `{ items, total, tookMs }` |
-| GET | `/api/workers/:slug` | Single worker profile |
-| GET | `/api/categories` | Categories with worker counts |
-| GET | `/api/search/suggest?q=&locale=` | Autocomplete suggestions (`category | worker | city`) |
-| GET | `/api/ads?placement=&category=&city=` | Ad rotation for a placement — records an impression server-side |
-| POST | `/api/ads/:id/click` | Track a sponsored click (updates `clicks`, `ctr`, `spent`) |
-| GET | `/api/notifications` | `{ items, unread }` — inbox for the header bell & `/notifications` page |
-| GET | `/api/health` | `{ ok, mode: "demo"\|"production" }` |
+---
 
-Example:
+## Endpoints
 
-```bash
-curl "http://localhost:3001/api/workers?category=plumbing&city=riyadh&rating=4.5&sort=rating"
-```
+### Workers
 
-### Response shape (workers)
+#### GET /api/workers
+Search and list workers with filters.
 
-```jsonc
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| q | string | Search query |
+| category | string | Category slug |
+| city | string | City slug |
+| area | string | Area slug |
+| rating | number | Minimum rating |
+| min | number | Minimum price |
+| max | number | Maximum price |
+| exp | number | Minimum years of experience |
+| verified | 1 | Only verified workers |
+| featured | 1 | Only featured workers |
+| emergency | 1 | Only emergency workers |
+| open | 1 | Only open now |
+| available | 1 | Only available this week |
+| feeWaived | 1 | Only fee-waived workers |
+| sort | string | Sort mode (relevance, rating, reviews, priceLow, priceHigh, experience, nearest) |
+| page | number | Page number |
+
+**Response:**
+```json
 {
-  "items": [
-    {
-      "id": "khaled-plumb",
-      "slug": "khaled-al-harbi-plumbing",
-      "nameEn": "Khaled Al-Harbi",
-      "nameAr": "خالد الحربي",
-      "categorySlug": "plumbing",
-      "rating": 4.9,
-      "reviewCount": 132,
-      "verified": true,
-      "priceMin": 80,
-      "currency": "SAR",
-      "services": [{ "nameEn": "Fix leaking pipe", "price": 120, "unit": "job" }],
-      "reviews": [/* … */]
-    }
-  ],
-  "total": 12,
-  "tookMs": 3
+  "items": [...],
+  "total": 150,
+  "page": 1,
+  "hasMore": true
 }
 ```
 
-### Error model
+#### GET /api/workers/[slug]
+Get a worker by slug.
 
-```jsonc
-{ "error": "Not found" }          // 404
-{ "error": "invalid_request" }    // 400 with details in "details"
-{ "error": "rate_limited" }       // 429
-{ "error": "unauthorized" }       // 401
+---
+
+### Search
+
+#### GET /api/search/suggest
+Get autocomplete suggestions.
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| q | string | Search query (min 2 chars) |
+| locale | string | Language (en/ar) |
+
+**Response:**
+```json
+{
+  "suggestions": [
+    { "type": "category", "labelEn": "Plumbing", "labelAr": "سباكة", "href": "/search?category=plumbing" }
+  ]
+}
 ```
 
-## Server Actions (`src/app/actions/`)
+---
 
-| Action | Purpose |
-|---|---|
-| `loginAction` / `registerAction` / `loginDemoAction` / `logoutAction` | Session lifecycle |
-| `submitReviewAction(workerId, formData)` | Create review (demo in-memory; production → `Review` with PENDING moderation) |
-| `requestServiceAction(workerId)` | Log a contact lead |
-| `trackViewAction(workerId)` | Profile-view analytics event |
-| `renewSubscriptionAction(formData)` | Renew / switch subscription plan → issues invoice + notification |
-| `createCampaignAction(formData)` | Create an ad campaign as PENDING and return its checkout URL (paid → ACTIVE via webhook) |
-| `payCampaignAction(campaignId)` | Re-mint the checkout URL for a PENDING campaign (Pay now) |
-| `refundCampaignAction(campaignId, reason)` | Admin: refund a paid campaign purchase — `reason` is required and recorded on the payment + activity-feed entry (payment → REFUNDED, campaign ends) |
-| `decideVerificationAction(formData)` | Admin: approve / reject a worker verification request |
-| `submitVerificationAction()` | Worker: submit (or resubmit) verification documents |
-| `markReadAction(formData)` / `markAllReadAction()` | Notification inbox management |
+### Forum
 
-## Webhooks (production)
+#### GET /api/forum
+List forum posts.
 
-| Webhook | Source | Purpose |
-|---|---|---|
-| `POST /api/webhooks/stripe` | Stripe | `checkout.session.completed` → activate subscription, generate invoice |
-| `POST /api/webhooks/paypal` | PayPal | IPN verification → mark payment paid |
-| `POST /api/webhooks/myfatoorah` | MyFatoorah | Payment status callback |
-| `POST /api/webhooks/tap` | Tap | Charge status callback |
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| category | string | Filter by category |
+| q | string | Search query |
+| sort | string | Sort mode (newest, popular, unanswered) |
+| page | number | Page number |
+| limit | number | Results per page |
 
-All webhooks verify provider signatures, are idempotent (`providerRef` unique) and write to `ActivityLog`.
+#### POST /api/forum
+Create a new forum post.
 
-## Notifications & expiry jobs
+**Body:**
+```json
+{
+  "title": "How to fix a leaky faucet?",
+  "content": "I have a leaky kitchen faucet...",
+  "category": "plumbing",
+  "tags": ["faucet", "leak"]
+}
+```
 
-Cron (Vercel Cron / GitHub Actions / Docker sidecar):
+#### GET /api/forum/[id]
+Get a forum post with answers.
 
-- Daily: find subscriptions expiring in 7/3/1 days → send reminders (channel per user preference).
-- Hourly: expire overdue subscriptions → deactivate worker (`status: INACTIVE`), hide from search, notify admin, log audit entry.
+#### POST /api/forum/[id]
+Add an answer to a post.
+
+#### POST /api/forum/[id]/vote
+Vote on a post or answer.
+
+**Body:**
+```json
+{
+  "targetType": "post",
+  "targetId": "abc123",
+  "value": 1
+}
+```
+
+---
+
+### Offline Queue
+
+#### POST /api/offline-queue/replay
+Replay queued offline actions.
+
+**Body:**
+```json
+{
+  "actions": [
+    {
+      "type": "lead",
+      "workerId": "abc123",
+      "name": "John Doe",
+      "phone": "+961 71 123 456",
+      "message": "I need a plumber"
+    }
+  ]
+}
+```
+
+---
+
+### Analytics
+
+#### POST /api/analytics/page-view
+Track a page view.
+
+**Body:**
+```json
+{
+  "path": "/workers/john-doe",
+  "workerId": "abc123"
+}
+```
+
+---
+
+### Notifications
+
+#### GET /api/notifications
+List user notifications.
+
+#### POST /api/notifications/[id]/read
+Mark a notification as read.
+
+---
+
+### Push Subscriptions
+
+#### POST /api/push/subscribe
+Register a push subscription.
+
+**Body:**
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/...",
+  "keys": {
+    "p256dh": "...",
+    "auth": "..."
+  }
+}
+```
+
+#### DELETE /api/push/subscribe
+Unregister a push subscription.
+
+---
+
+### Ads
+
+#### GET /api/ads
+List active advertisements.
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| placement | string | Placement (homepage, category, search, sidebar) |
+| categoryId | string | Target category |
+| cityId | string | Target city |
+
+#### POST /api/ads/[id]/click
+Track an ad click.
+
+---
+
+### Payments
+
+#### POST /api/payments/webhook
+Stripe webhook endpoint.
+
+#### GET /api/payments/simulate
+Simulated payment completion (demo mode).
+
+---
+
+### Health
+
+#### GET /api/health
+Health check endpoint.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-01-01T00:00:00Z"
+}
+```
+
+---
+
+## Error Responses
+
+All errors follow this format:
+
+```json
+{
+  "error": "error_code",
+  "message": "Human-readable error message"
+}
+```
+
+**Common Error Codes:**
+| Code | Description |
+|------|-------------|
+| unauthorized | Authentication required |
+| forbidden | Insufficient permissions |
+| not_found | Resource not found |
+| validation_error | Invalid request data |
+| rate_limited | Too many requests |
+| internal_error | Server error |
+
+---
+
+## Rate Limits
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| /api/auth | 10 requests | 15 minutes |
+| /api/contact | 5 requests | 1 minute |
+| /api/reviews | 10 requests | 1 minute |
+| /api/offline-queue | 30 requests | 1 minute |
+| Other /api/* | 60 requests | 1 minute |
+
+---
+
+## Demo Mode
+
+In demo mode (`DEMO_MODE=true`):
+- All data is embedded (no database required)
+- Payments are simulated (instant completion)
+- Emails are logged to console
+- Push notifications use web-push with VAPID
+
+---
+
+## Production Mode
+
+To switch to production mode:
+1. Set `DEMO_MODE=false`
+2. Configure `DATABASE_URL` for PostgreSQL
+3. Configure `STRIPE_SECRET_KEY` for payments
+4. Configure `SENDGRID_API_KEY` or `RESEND_API_KEY` for emails
+5. Configure `SENTRY_DSN` for error tracking
+6. Run `npx prisma migrate deploy`
