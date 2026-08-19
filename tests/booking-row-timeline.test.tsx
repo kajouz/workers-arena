@@ -13,6 +13,7 @@ import { BookingRow } from "@/components/bookings/booking-row";
 import { BookingRow as WorkerBookingRow } from "@/components/dashboard/bookings/booking-row";
 import { LocaleProvider } from "@/components/providers/locale-provider";
 import type { CustomerBookingRow } from "@/app/bookings/page";
+import type { WorkerEmailPreview } from "@/app/dashboard/page";
 import type { Booking, Worker } from "@/lib/data/types";
 
 const { payBookingActionMock, confirmCompletionActionMock, availableSlotsActionMock, rescheduleBookingActionMock, respondBookingActionMock, submitQuoteActionMock, cancelBookingActionMock, transitionBookingActionMock, emailBookingAuditActionMock, sendBookingMessageActionMock, markChatReadActionMock, setChatTypingActionMock, getChatPresenceActionMock, refreshMock } = vi.hoisted(() => ({
@@ -103,6 +104,8 @@ function renderRow(locale: "en" | "ar" = "en", booking: Booking = makeBooking())
       whatsapp: "966501234567",
     },
     messages: [],
+    // No customer email was sent for this booking — no preview button.
+    emailPreview: null,
   };
   return render(
     <LocaleProvider locale={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
@@ -260,7 +263,7 @@ describe("WorkerBookingRow — the same §2.4 timeline from the worker's side", 
   function renderWorkerRow(locale: "en" | "ar" = "en", booking: Booking = makeBooking()) {
     return render(
       <LocaleProvider locale={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
-        <WorkerBookingRow booking={booking} messages={[]} worker={worker} nowSeed={Date.now()} />
+        <WorkerBookingRow booking={booking} messages={[]} emailPreview={null} worker={worker} nowSeed={Date.now()} />
       </LocaleProvider>
     );
   }
@@ -365,6 +368,48 @@ describe("WorkerBookingRow — the same §2.4 timeline from the worker's side", 
 
     expect(emailBookingAuditActionMock).toHaveBeenCalledWith("BK-1001", ["customer", "worker"], "en");
     expect(await within(dialog).findByText(/Audit emailed/)).toBeInTheDocument();
+  });
+
+  it("shows the 'Preview email' button only when the worker received an email, and renders the receipt dialog in the page locale", () => {
+    // A completed booking whose completion was CUSTOMER-confirmed (the
+    // workerEmailKind → worker-completion-confirmed case — the receipt that
+    // emails the WORKER the payout-on-its-way notice).
+    const workerReceipt: WorkerEmailPreview = {
+      type: "bookingCompletionConfirmed",
+      subjectEn: "[WorkersArena] Customer confirmed completion — BK-1001",
+      subjectAr: "[WorkersArena] أكّد العميل إتمام المهمة — BK-1001",
+      htmlEn: '<html lang="en" dir="ltr"><p>Khaled, Sara Customer confirmed BK-1001 is done — your payout is on its way.</p></html>',
+      htmlAr: '<html lang="ar" dir="rtl"><p>خالد، أكّدت Sara Customer إتمام BK-1001 — دفعتك في الطريق.</p></html>',
+    };
+
+    const renderWithPreview = (locale: "en" | "ar") =>
+      render(
+        <LocaleProvider locale={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
+          <WorkerBookingRow booking={makeBooking()} messages={[]} emailPreview={workerReceipt} worker={worker} nowSeed={Date.now()} />
+        </LocaleProvider>
+      );
+
+    // EN — button visible, dialog renders the EN receipt copy in the iframe.
+    renderWithPreview("en");
+    fireEvent.click(screen.getByRole("button", { name: "Preview email" }));
+    const enDialog = screen.getByRole("dialog");
+    const enIframe = within(enDialog).getByTitle(/Customer confirmed completion/) as HTMLIFrameElement;
+    expect(enIframe.getAttribute("srcdoc") ?? "").toContain('lang="en" dir="ltr"');
+    expect(enIframe.getAttribute("srcdoc") ?? "").toContain("payout is on its way");
+
+    // AR — the dialog flips to the AR receipt copy (mirroring the admin + customer surfaces).
+    renderWithPreview("ar");
+    fireEvent.click(screen.getByRole("button", { name: "معاينة البريد" }));
+    const arDialog = screen.getByRole("dialog");
+    const arIframe = within(arDialog).getByTitle(/أكّد العميل إتمام المهمة/) as HTMLIFrameElement;
+    expect(arIframe.getAttribute("srcdoc") ?? "").toContain('lang="ar" dir="rtl"');
+    expect(arIframe.getAttribute("srcdoc") ?? "").toContain("دفعتك في الطريق");
+  });
+
+  it("hides the preview button when the worker received no email (system auto-confirm case)", () => {
+    renderWorkerRow(); // emailPreview: null
+    expect(screen.queryByRole("button", { name: "Preview email" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "معاينة البريد" })).not.toBeInTheDocument();
   });
 });
 

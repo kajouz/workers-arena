@@ -16,6 +16,7 @@ import { RECURRING_OCCURRENCE_COUNT } from "@/lib/data/recurring";
 import { respondRecurringBookingAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
 import type { Booking, BookingMessage, RecurringBooking, Worker } from "@/lib/data/types";
+import type { WorkerEmailPreview } from "@/app/dashboard/page";
 
 const FREQ_LABEL_KEY: Record<RecurringBooking["frequency"], string> = {
   weekly: "booking.repeatWeekly",
@@ -145,6 +146,7 @@ function RecurringContractRow({ contract }: { contract: RecurringBooking }) {
 export function BookingsPanel({
   bookings,
   messagesByBooking,
+  previewsByBooking,
   worker,
   recurrings,
   nowSeed,
@@ -152,6 +154,9 @@ export function BookingsPanel({
   bookings: Booking[];
   /** §2.3 chat — each booking's negotiation thread, keyed by booking id. */
   messagesByBooking: Record<string, BookingMessage[]>;
+  /** "Preview email" — the WORKER-facing email each booking's state implies,
+   * keyed by booking id (computed server-side in /dashboard). */
+  previewsByBooking: Record<string, WorkerEmailPreview>;
   worker: Worker;
   recurrings: RecurringBooking[];
   /** Date.now() at server render time — the rows' hydration-safe now seed. */
@@ -216,7 +221,7 @@ export function BookingsPanel({
               />
             ) : (
               requests.map((b) => (
-                <BookingRow key={b.id} booking={b} messages={messagesByBooking[b.id] ?? []} worker={worker} nowSeed={nowSeed} />
+                <BookingRow key={b.id} booking={b} messages={messagesByBooking[b.id] ?? []} emailPreview={previewsByBooking[b.id] ?? null} worker={worker} nowSeed={nowSeed} />
               ))
             )}
           </TabsContent>
@@ -230,7 +235,7 @@ export function BookingsPanel({
               />
             ) : (
               upcoming.map((b) => (
-                <BookingRow key={b.id} booking={b} messages={messagesByBooking[b.id] ?? []} worker={worker} nowSeed={nowSeed} />
+                <BookingRow key={b.id} booking={b} messages={messagesByBooking[b.id] ?? []} emailPreview={previewsByBooking[b.id] ?? null} worker={worker} nowSeed={nowSeed} />
               ))
             )}
           </TabsContent>
@@ -240,7 +245,7 @@ export function BookingsPanel({
               <EmptyState icon={<CalendarClock className="size-5" />} title={t("booking.pastEmpty")} body={t("booking.pastEmptyBody")} />
             ) : (
               past.map((b) => (
-                <BookingRow key={b.id} booking={b} messages={messagesByBooking[b.id] ?? []} worker={worker} nowSeed={nowSeed} />
+                <BookingRow key={b.id} booking={b} messages={messagesByBooking[b.id] ?? []} emailPreview={previewsByBooking[b.id] ?? null} worker={worker} nowSeed={nowSeed} />
               ))
             )}
           </TabsContent>

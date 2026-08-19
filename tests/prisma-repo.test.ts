@@ -553,6 +553,18 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
     expect(b.events).toEqual([]);
   });
 
+  it("maps the customer's preferred language from the User relation (customerLocale)", () => {
+    // User.locale "ar" → the booking's notifications render Arabic.
+    const ar = toDomainBooking(makeBookingRow({ customer: { locale: "ar" } }));
+    expect(ar.customerLocale).toBe("ar");
+    // Absent relation (guest booking / query without the include) → "en".
+    const none = toDomainBooking(makeBookingRow({}));
+    expect(none.customerLocale).toBe("en");
+    // An explicit "en" stays English.
+    const en = toDomainBooking(makeBookingRow({ customer: { locale: "en" } }));
+    expect(en.customerLocale).toBe("en");
+  });
+
   it("maps the §2.2 request-SLA nudge stamp (lastSlaNudgeAt → slaNudgeSent)", () => {
     // Never nudged → undefined (the UI shows the plain countdown).
     const fresh = toDomainBooking(makeBookingRow({ lastSlaNudgeAt: null }));

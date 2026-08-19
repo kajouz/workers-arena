@@ -12,8 +12,19 @@ import {
   getWorkerBalance,
   getWorkerPayouts,
 } from "@/lib/data/repo";
-import type { BookingMessage } from "@/lib/data/types";
+import type { BookingMessage, Notification } from "@/lib/data/types";
+import { workerEmailPreviewFor } from "@/lib/data/booking-notifications";
 import { WorkerDashboard } from "@/components/dashboard/worker-dashboard";
+
+/** The worker-facing email a booking's state implies, rendered in BOTH locales
+ * (workerEmailPreviewFor — the mirror of the customer rows' preview). */
+export type WorkerEmailPreview = {
+  type: Notification["type"];
+  subjectEn: string;
+  subjectAr: string;
+  htmlEn: string;
+  htmlAr: string;
+} | null;
 
 export const metadata = { title: "Dashboard" };
 
@@ -54,6 +65,14 @@ export default async function DashboardPage() {
     getWorkerBalance(demoWorker.id),
     getWorkerPayouts(demoWorker.id),
   ]);
+  // "Preview email" — each worker row carries the bilingual render of the
+  // email the WORKER received for that booking (the mirror of the customer
+  // rows' preview; workerEmailKind decides which worker-facing email the
+  // state implies — e.g. worker-completion-confirmed on a customer-confirmed
+  // completion, null on the system auto-confirm which emails the customer).
+  const previewsByBooking: Record<string, WorkerEmailPreview> = {};
+  for (const b of bookings) previewsByBooking[b.id] = workerEmailPreviewFor(b, demoWorker);
+
   // Hydration safety (useSsrSafeNow): the booking rows' SLA countdown derives
   // from Date.now(), so the server passes its own render-time clock down as
   // nowSeed — the client renders from it until mount, making the SSR markup
@@ -68,6 +87,7 @@ export default async function DashboardPage() {
       invoices={subInvoices}
       bookings={bookings}
       messagesByBooking={messagesByBooking}
+      previewsByBooking={previewsByBooking}
       recurrings={recurrings}
       slots={slots}
       balance={balance}

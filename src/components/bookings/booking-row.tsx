@@ -18,6 +18,7 @@ import { BookingTimeline } from "./booking-timeline";
 import { BookingChat } from "./booking-chat";
 import { BookingPrintButton } from "./booking-print-button";
 import { BookingEmailButton } from "./booking-email-button";
+import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
 import { BookingSlaCountdown } from "./booking-sla-countdown";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
@@ -79,6 +80,20 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <BookingPrintButton booking={booking} workerName={name} />
               <BookingEmailButton booking={booking} workerName={name} workerEmail={worker?.email} />
+              {/* "What I received" — the bilingual preview of the customer email
+                  the booking's state implies, rendered with the SAME builder
+                  the adapters dispatch (mirroring the admin dispute view).
+                  Hidden until the customer received an email (REQUESTED etc.). */}
+              {row.emailPreview && (
+                <EmailPreviewDialog
+                  type={row.emailPreview.type}
+                  subjectEn={row.emailPreview.subjectEn}
+                  subjectAr={row.emailPreview.subjectAr}
+                  htmlEn={row.emailPreview.htmlEn}
+                  htmlAr={row.emailPreview.htmlAr}
+                  recipient={{ name: booking.customerName, email: booking.customerEmail }}
+                />
+              )}
             </div>
 
             <p className="mt-1.5 text-sm font-semibold text-ink-700 dark:text-ink-200">{booking.jobTitle}</p>

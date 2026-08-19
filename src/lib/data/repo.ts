@@ -417,7 +417,7 @@ export async function getCampaignPayment(campaignId: string): Promise<CampaignPa
  */
 export async function getCampaignRecipient(
   campaignId: string
-): Promise<{ name: string; email: string } | null> {
+): Promise<{ name: string; email: string; locale: "en" | "ar" } | null> {
   if (realDataEnabled) return (await prismaRepo()).prismaGetCampaignRecipient(campaignId);
   return demoCampaignRecipient();
 }

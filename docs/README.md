@@ -8,6 +8,7 @@ This folder is the project's living documentation. Start here to find the right 
 - **How it's built** → [ARCHITECTURE.md](ARCHITECTURE.md) · [API.md](API.md) · [DEPLOYMENT.md](DEPLOYMENT.md) · [mobile-architecture.md](mobile-architecture.md)
 - **How the parties interact** (the workflow docs) → [INTERACTION-WORKFLOWS.md](INTERACTION-WORKFLOWS.md) (start here) · [selection-workflow.md](selection-workflow.md) · [booking-scheduling.md](booking-scheduling.md) · [booking-customer-ui.md](booking-customer-ui.md) · [multi-candidate-quotes.md](multi-candidate-quotes.md)
 - **Where the money comes from** → [BUSINESS-MODEL.md](BUSINESS-MODEL.md) · [PAYMENTS.md](PAYMENTS.md) · [booking-take-rate.md](booking-take-rate.md) · [payouts.md](payouts.md)
+- **User-facing manual (Word)** → [WorkersArena-User-Manual.docx](WorkersArena-User-Manual.docx) — every module, step-by-step usage, and each role's job (regenerated from `scripts/generate-user-manual.mjs`)
 
 ---
 
@@ -30,6 +31,7 @@ This folder is the project's living documentation. Start here to find the right 
 | **[API.md](API.md)** | REST endpoints (App Router route handlers): shapes, demo vs production mapping. | → [ARCHITECTURE.md](ARCHITECTURE.md) (system overview) · [PAYMENTS.md](PAYMENTS.md) (payment webhooks) |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Deploying: Vercel, Docker, env, demo ⇄ real mode. | → [ARCHITECTURE.md](ARCHITECTURE.md) (the demo/real flip it configures) · [PRODUCT.md](PRODUCT.md) (feature scope) |
 | **[mobile-architecture.md](mobile-architecture.md)** | Mobile engineering playbook (Capacitor path): native shells, push, deep links, store checklist. | → [PRODUCT.md](PRODUCT.md) (§5 mobile plan) · [ARCHITECTURE.md](ARCHITECTURE.md) (shared web core) |
+| **[WorkersArena-User-Manual.docx](WorkersArena-User-Manual.docx)** | **The user-facing Word manual**: every module (functionality + step-by-step usage), each role's responsibilities (customer / worker / company / admin), cross-party workflows, and the revenue each party generates. Generated, not hand-edited — see “Keeping the user manual fresh” below. | → [INTERACTION-WORKFLOWS.md](INTERACTION-WORKFLOWS.md) (the same workflows in diagram form) · [PRODUCT.md](PRODUCT.md) (feature inventory) · [BUSINESS-MODEL.md](BUSINESS-MODEL.md) · [PAYMENTS.md](PAYMENTS.md) · [ENHANCEMENT-PLAN.md](ENHANCEMENT-PLAN.md) (what ships next) |
 
 ---
 
@@ -77,6 +79,14 @@ The 8 directed party-pair workflows from [INTERACTION-WORKFLOWS.md](INTERACTION-
 4. **[multi-candidate-quotes.md](multi-candidate-quotes.md)** — how selection got its auction upgrade (quotes from up to 3 workers).
 5. **[booking-take-rate.md](booking-take-rate.md)** → **[payouts.md](payouts.md)** → **[PAYMENTS.md](PAYMENTS.md)** — the money: fee at accept, net earnings at completion, settlement rails.
 6. **[BUSINESS-MODEL.md](BUSINESS-MODEL.md)** — why the money is structured that way and what's next.
+
+## Keeping the user manual fresh
+
+The Word manual (`WorkersArena-User-Manual.docx`) is **generated, not hand-edited** — its source of truth is `scripts/generate-user-manual.mjs`. Keep them in lockstep:
+
+1. **When a feature or module ships**, update its section in the generator (module title, the “Roles involved” line, and the step-by-step list) — or add a new module block after §3.15. Keep steps user-facing and grounded in the actual UI; keep the revenue and identifier tables in sync with BUSINESS-MODEL.md / PAYMENTS.md / INTERACTION-WORKFLOWS.md.
+2. **Regenerate** with `npm run docs:manual`.
+3. **The standard check regenerates it for you**: `npm run test:all` runs `docs:manual` on every pass, so the committed `.docx` is always the generator's output — a manual that drifted from the generator shows up as a dirty diff, never as silent staleness. The document cover prints its generation date, so a reader can tell at a glance how fresh it is.
 
 ## Keeping this index fresh
 

@@ -48,6 +48,7 @@ import {
   type RecurringBooking,
   type RecurringRequestInput,
   type RecurringRespondInput,
+  type ServiceItem,
   type SlotStatus,
 } from "./types";
 import { RECURRING_OCCURRENCE_COUNT, generateRecurringOccurrences } from "./recurring";
@@ -248,6 +249,10 @@ function seed(): void {
     customerPhone: "+966 50 000 0000",
     customerEmail: "sara@example.com",
     jobTitle: "Leaking kitchen sink repair",
+    // The catalog service the booking was created from — carries nameEn/nameAr
+    // so the email receipt's "Service" row localizes (the booking-rows UI
+    // already renders serviceItem.nameAr/nameEn; the email follows suit).
+    serviceItem: { nameEn: "Fix leaking pipe", nameAr: "إصلاح تسريب ماسورة", price: 120, unit: "job" },
     note: "Sink under the kitchen window has been leaking for two days.",
     startAt: reserved.startAt,
     endAt: reserved.endAt,
@@ -304,6 +309,9 @@ function seed(): void {
       customerPhone: "+966 55 123 4871",
       customerEmail: "noor@example.com",
       jobTitle: "Custom wardrobe install",
+      // Carpentry catalog item — the email receipt's "Service" row renders
+      // the Arabic name in AR emails (same localization as the booking rows).
+      serviceItem: { nameEn: "Custom wardrobe", nameAr: "خزانة ملابس مخصصة", price: 1200, unit: "job" },
       startAt,
       endAt,
       status: "completed",
@@ -352,7 +360,10 @@ async function notifyWorker(
   );
 }
 
-/** Notify the customer about a worker's decision (email known → addressed). */
+/** Notify the customer about a worker's decision (email known → addressed).
+ * Renders in the customer's preferred language (booking.customerLocale — the
+ * demo store doesn't carry one, so it defaults to "en" exactly like the
+ * prisma adapter's User.locale default). */
 async function notifyCustomer(
   booking: Booking,
   kind: CustomerNotificationKind,
@@ -361,7 +372,12 @@ async function notifyCustomer(
   await pushNotification(
     bookingNotification(booking, kind, opts),
     booking.customerEmail
-      ? { name: booking.customerName, email: booking.customerEmail, phone: booking.customerPhone, locale: "en" }
+      ? {
+          name: booking.customerName,
+          email: booking.customerEmail,
+          phone: booking.customerPhone,
+          locale: booking.customerLocale ?? "en",
+        }
       : undefined
   );
 }
@@ -713,6 +729,91 @@ export function demoGetCustomerBookings(identifier: { email?: string; phone?: st
     })
     .sort((a, b) => (b.startAt ?? b.events[0]?.time ?? "").localeCompare(a.startAt ?? a.events[0]?.time ?? ""))
     .map(withSlaSignal);
+}
+
+/**
+ * e2e fixture — seed a COMPLETED booking for a customer, mirroring the W1
+ * showcase BK-0990 construction exactly (pure-data push: no transitions, no
+ * ledger credit, no notifications, and the first audit event >30 days old so
+ * the admin funnel still counts only the seeded BK-1001). Used by the
+ * demo-only /api/dev/seed-customer-booking route so the customer /bookings
+ * rows carry a booking whose received-email preview renders
+ * (customerEmailKind non-null — the completion event is SYSTEM-actor, i.e.
+ * the auto-confirm path, which emails the customer the completion receipt).
+ * Idempotent on the fixed booking number: a re-seed returns the existing row.
+ */
+export function demoSeedCompletedBookingForCustomer(input: {
+  id: string;
+  number: string;
+  workerId: string;
+  customerId?: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  jobTitle: string;
+  /**
+   * The catalog service the booking was created from (nameEn/nameAr) — the
+   * email receipt's "Service" row renders the locale-appropriate name, same
+   * as the booking-rows UI. Optional: free-text jobTitle is used otherwise.
+   */
+  serviceItem?: ServiceItem;
+  /**
+   * Who confirmed the completion — "system" (the grace-cron auto-confirm,
+   * which emails the CUSTOMER the completion receipt, the default and the
+   * /bookings preview case) or "customer" (the customer confirmed the staged
+   * completion, which emails the WORKER the payout-on-its-way receipt — the
+   * /dashboard preview case). Both adapters' completion receipts are
+   * recipient-actor-driven (customerEmailKind/workerEmailKind).
+   */
+  completionActor?: "system" | "customer";
+}): Booking | null {
+  const existing = STORE.bookings.find((b) => b.number === input.number);
+  if (existing) return existing;
+
+  const worker = workerById(input.workerId);
+  const past = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
+  past.setHours(10, 0, 0, 0);
+  const startAt = past.toISOString();
+  const endAt = new Date(past.getTime() + 60 * 60 * 1000).toISOString();
+  const created = new Date(past.getTime() - 60 * 60 * 1000).toISOString(); // >30 days ago
+
+  // A past BOOKED slot mirrors BK-0990 (the booking always has its slot row,
+  // which demoRespondToBooking etc. assume; it's outside the 14-day window,
+  // so it can never collide with live availability).
+  STORE.slots.push({
+    id: `slot-${input.id}`,
+    workerId: input.workerId,
+    startAt,
+    endAt,
+    status: "booked",
+    bookingId: input.id,
+  });
+  const booking: Booking = {
+    id: input.id,
+    number: input.number,
+    workerId: input.workerId,
+    customerId: input.customerId,
+    customerName: input.customerName,
+    customerPhone: input.customerPhone,
+    customerEmail: input.customerEmail,
+    jobTitle: input.jobTitle,
+    serviceItem: input.serviceItem,
+    startAt,
+    endAt,
+    status: "completed",
+    currency: worker?.currency ?? "SAR",
+    events: [
+      { status: "requested", actorType: "customer", time: created },
+      { status: "confirmed", actorType: "worker", time: startAt },
+      // §2.3 — the completion actor decides which side got the receipt email:
+      // customer-actor (the customer confirmed the staged completion) emails
+      // the WORKER (workerEmailKind → worker-completion-confirmed); system
+      // (the grace-cron auto-confirm) emails the CUSTOMER (customerEmailKind).
+      { status: "completed", actorType: input.completionActor ?? "system", time: startAt },
+    ],
+  };
+  STORE.bookings.push(booking);
+  return booking;
 }
 
 /* ─────────────────────────────── Availability (M2) ─────────────────────────────── */
@@ -1255,8 +1356,11 @@ export function demoPendingManualBookingPayments(): PendingManualPayment[] {
       id: payment.id,
       scope: "booking",
       entityId: booking.id,
-      labelEn: `${booking.number} — ${booking.jobTitle}`,
-      labelAr: `${booking.number} — ${booking.jobTitle}`,
+      // The label localizes via the booking's bilingual catalog serviceItem
+      // (nameAr in the Arabic card row — the free-text jobTitle is a
+      // single-locale fallback, same rule as the email Service row).
+      labelEn: `${booking.number} — ${booking.serviceItem?.nameEn ?? booking.jobTitle}`,
+      labelAr: `${booking.number} — ${booking.serviceItem?.nameAr ?? booking.jobTitle}`,
       amount: payment.amount,
       currency: booking.currency,
       method: payment.method,

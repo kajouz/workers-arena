@@ -312,6 +312,12 @@ async function main() {
           "activity@workersarena.test",
           "payout@workersarena.test",
           "admindispute@workersarena.test",
+          // The W2 booking-transaction section's accept/decline bookings — a
+          // crash between accept and cleanup leaves its BOOKED slot for the
+          // whole 24-48h window, which then collides with the recurring
+          // anchor's +48h pick (self-heal gap surfaced by a recurring
+          // 'slot-taken' during the label work).
+          "accept@workersarena.test",
         ],
       },
     },
@@ -1275,6 +1281,18 @@ async function main() {
   });
   if ("error" in manualBooking) throw new Error(`SMOKE ASSERT FAILED: manual create → ${manualBooking.error}`);
 
+  // Link the booking to the seed's bilingual catalog service (nameAr in the
+  // admin card label — the localized-label rule under test).
+  const manualServiceItem = await prisma.serviceItem.findFirst({
+    where: { workerId: khaled!.id, nameEn: "Fix leaking pipe" },
+  });
+  if (manualServiceItem) {
+    await prisma.booking.update({
+      where: { id: manualBooking.id },
+      data: { serviceItemId: manualServiceItem.id },
+    });
+  }
+
   await prismaRespondToBooking(manualBooking.id, { accept: true, quote: 20000, deposit: 4000 });
   const manualCheckout = await prismaCreateBookingCheckout(manualBooking.id, "OMT");
   assert(
@@ -1300,6 +1318,18 @@ async function main() {
   );
   assert(manualPending !== undefined, "OMT deposit listed in getPendingManualPayments (admin card)");
   assert(manualPending!.reference === manualRow!.payment!.providerRef, "pending row carries the OMT reference");
+  // The admin card label localizes via the booking's bilingual serviceItem —
+  // the AR row shows the Arabic catalog name, never the EN free-text jobTitle.
+  assert(
+    manualServiceItem !== undefined,
+    "seed ServiceItem 'Fix leaking pipe' resolvable for the manual booking label"
+  );
+  assert(
+    manualPending!.labelEn.endsWith("Fix leaking pipe") &&
+      manualPending!.labelAr.endsWith("إصلاح تسريب ماسورة") &&
+      !manualPending!.labelAr.includes("Smoke manual OMT deposit"),
+    "pending label localizes (EN catalog name / AR catalog name, no free-text jobTitle)"
+  );
 
   // The admin confirm (the manual twin of a webhook) → CONFIRMED + PAID.
   const manualConfirmed = await prismaConfirmBookingPayment(manualBooking.id, manualRow!.payment!.providerRef!);
@@ -1933,8 +1963,53 @@ async function main() {
     "PENDING campaign never serves rotation (getActiveAdsFor only matches ACTIVE)"
   );
 
-  const camConfirmed = await prismaConfirmCampaignPayment(camId, "sim_pay-smoke-campaign");
-  assert(camConfirmed?.status === "active", "webhook confirm → ACTIVE");
+  // Mirror the campaign chain test's recipient-locale assertion: the
+  // campaign-live email must render in the COMPANY's preferred language, not
+  // a hardcoded "en". The seeded company defaults to "en" — flip it to "ar"
+  // for the exercise (restored below), and enable the console EMAIL channel
+  // (prod mode turns it off; the console channel renders synchronously in
+  // payload.recipient.locale and logs the locale-specific subject). The
+  // memoized channel list is reset so the new env is picked up, and console.log
+  // is captured around the confirm so the rendered dispatch is observable —
+  // the real-mode twin of the chain test's `live.recipient?.locale === "ar"`.
+  const companyLocaleBefore = seededCompany!.locale;
+  const emailEnabledBefore = process.env.NOTIFY_EMAIL_ENABLED;
+  const emailProviderBefore = process.env.NOTIFY_EMAIL_PROVIDER;
+  await prisma.company.update({ where: { id: seededCompany!.id }, data: { locale: "ar" } });
+  process.env.NOTIFY_EMAIL_ENABLED = "true";
+  process.env.NOTIFY_EMAIL_PROVIDER = "console";
+  // resetChannels is a READABLE export (only assignment to `dispatch` is
+  // blocked on the frozen ESM namespace) — calling it rebuilds the list from
+  // the new env on the next dispatch.
+  require("../src/lib/notifications/dispatcher").resetChannels();
+  const originalLog = console.log;
+  const capturedLog: string[] = [];
+  console.log = (...args: unknown[]) => {
+    capturedLog.push(args.map(String).join(" "));
+  };
+  try {
+    const camConfirmed = await prismaConfirmCampaignPayment(camId, "sim_pay-smoke-campaign");
+    assert(camConfirmed?.status === "active", "webhook confirm → ACTIVE");
+    // The console email channel renders in recipient.locale — an Arabic
+    // subject line proves the dispatch addressed the company in AR.
+    const emailLine = capturedLog.find((l) => l.includes("[notify:email:console]"));
+    assert(emailLine !== undefined, "campaign-live email dispatched through the email channel");
+    assert(
+      emailLine!.includes("الحملة نشطة الآن") && emailLine!.includes("حملة سميك"),
+      "campaign-live email rendered in the company's preferred locale (ar) — Arabic title + campaign name"
+    );
+  } finally {
+    console.log = originalLog;
+    require("../src/lib/notifications/dispatcher").resetChannels();
+    if (emailEnabledBefore === undefined) delete process.env.NOTIFY_EMAIL_ENABLED;
+    else process.env.NOTIFY_EMAIL_ENABLED = emailEnabledBefore;
+    if (emailProviderBefore === undefined) delete process.env.NOTIFY_EMAIL_PROVIDER;
+    else process.env.NOTIFY_EMAIL_PROVIDER = emailProviderBefore;
+    await prisma.company.update({ where: { id: seededCompany!.id }, data: { locale: companyLocaleBefore } });
+  }
+  console.log(
+    "campaign-live email locale: rendered in AR for the company's preferred language (subject contains الحملة نشطة الآن + حملة سميك)"
+  );
   const camPaid = await prisma.payment.findFirst({ where: { advertisementId: camId } });
   assert(camPaid?.status === "PAID" && camPaid!.paidAt !== null, "payment → PAID with paidAt");
   const camInvoice = await prisma.invoice.findUnique({ where: { paymentId: camPaid!.id } });

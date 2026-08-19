@@ -197,6 +197,12 @@ describe("§Lebanon — booking deposits via OMT/Whish", () => {
     expect(bookingPayment).toBeDefined();
     expect(bookingPayment!.reference).toMatch(/^OMT-/);
 
+    // The admin card label localizes via the booking's bilingual serviceItem —
+    // the AR row shows the Arabic catalog name, never the EN free-text jobTitle.
+    expect(bookingPayment!.labelEn).toBe("BK-1001 — Fix leaking pipe");
+    expect(bookingPayment!.labelAr).toBe("BK-1001 — إصلاح تسريب ماسورة");
+    expect(bookingPayment!.labelAr).not.toContain("Leaking kitchen sink repair");
+
     getSessionMock.mockResolvedValue(ADMIN);
     const res = await confirmManualPaymentAction(bookingPayment!.id);
     expect(res.ok).toBe(true);

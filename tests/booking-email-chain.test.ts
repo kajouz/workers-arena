@@ -112,6 +112,41 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     expect(email.html).toContain(`/admin/bookings/${booking!.number}`);
   });
 
+  it("respondToBooking dispatches the customer email in the booking's preferred language (customerLocale)", async () => {
+    const worker = workerBySlug("khaled-al-harbi-plumbing");
+    if (!worker) throw new Error("demo worker missing");
+
+    const slot = demoAddSlot(
+      worker.id,
+      "2026-08-24T09:00:00.000Z",
+      "2026-08-24T10:00:00.000Z",
+      "available"
+    );
+    const created = await demoCreateBookingRequest({
+      workerId: worker.id,
+      slotId: slot.id,
+      customerName: "Noor E.",
+      customerPhone: "+966 55 123 4871",
+      customerEmail: "noor@example.com",
+      jobTitle: "Leaking kitchen sink repair",
+    });
+    if ("error" in created) throw new Error(`create failed: ${created.error}`);
+
+    // The customer prefers Arabic (mirrors a prisma User.locale="ar") — the
+    // recipient must follow it, never a hardcoded "en".
+    created.customerLocale = "ar";
+    await demoRespondToBooking(created.id, { accept: true, quote: 8000 });
+
+    const emailPayload = dispatched.find((p) => p.type === "bookingConfirmed");
+    expect(emailPayload).toBeDefined();
+    expect(emailPayload!.recipient?.locale).toBe("ar");
+    // The AR email renders the Arabic copy through the same renderer.
+    const email = renderBookingEmail(emailPayload!, "ar");
+    expect(email.subject).toContain("تأكيد الحجز");
+    expect(email.html).toContain("تفاصيل الحجز");
+    expect(email.html).not.toContain("Booking details");
+  });
+
   it("an Enterprise worker's confirmation email shows a fee-waived line instead of an amount", async () => {
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
@@ -440,5 +475,27 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     expect(email.html).toContain(formatDate(nextVisit.startAt!, "en"));
     expect(email.text).toContain(formatDate(nextVisit.startAt!, "en"));
     expect(email.html).toContain(`/admin/bookings/${nextVisit.number}`);
+
+    // Per-locale slot TIME in the bodies AND the email text version — the AR
+    // rendering formats the visit time with Arabic-Indic numerals (the
+    // booking-notifications timeFor fix), never the server-locale English time.
+    const arTime = new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short" }).format(
+      new Date(nextVisit.startAt!)
+    );
+    const enTime = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(
+      new Date(nextVisit.startAt!)
+    );
+    expect(visitPayload.bodyAr).toContain(arTime);
+    expect(visitPayload.bodyAr).not.toContain("Aug");
+    expect(visitPayload.bodyEn).toContain(enTime);
+
+    const emailAr = renderBookingEmail(visitPayload, "ar");
+    expect(emailAr.subject).toContain(nextVisit.number);
+    expect(emailAr.html).toContain("تمت جدولة زيارتك القادمة");
+    expect(emailAr.html).toContain(formatDate(nextVisit.startAt!, "ar"));
+    // The AR TEXT version carries the AR-formatted time, never the EN month.
+    expect(emailAr.text).toContain(arTime);
+    expect(emailAr.text).toContain(formatDate(nextVisit.startAt!, "ar"));
+    expect(emailAr.text).not.toContain("Aug");
   });
 });

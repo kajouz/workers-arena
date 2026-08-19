@@ -83,7 +83,7 @@ export default config;
 
 **Build/sync flow:** `next build && next export` → `npx cap sync` copies web assets + plugins into both native projects → build with Xcode / Android Studio (or EAS/GitHub Actions, §6).
 
-> **M1 prerequisite (PWA hardening) ships first and is shared:** offline app-shell in `public/sw.js`, install prompt, iOS splash + `apple-touch-icon`, and deep-link friendly routes. None of that changes for Capacitor — the WebView reuses the same service worker.
+> **M1 prerequisite (PWA hardening) — ✅ shipped and shared:** `public/sw.js` is a full app-shell service worker (versioned precache, network-first navigations falling back to a bilingual `/offline.html`, stale-while-revalidate static assets, `/api/*` never cached); the manifest declares PNG 192/512 + maskable icons, `display: standalone`, app `shortcuts` (deep links to `/search`, `/bookings`, `/dashboard`, `/company`), and `dir`/`lang` read from the `wa_locale` cookie; iOS gets `apple-touch-icon` 180² + `appleWebApp` metadata + `viewport-fit: cover`. Covered by `tests/pwa.test.ts` and regenerable icons via `npm run pwa:icons`. None of that changes for Capacitor — the WebView reuses the same service worker.
 
 ---
 

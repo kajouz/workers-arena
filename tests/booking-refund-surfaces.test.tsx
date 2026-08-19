@@ -179,3 +179,57 @@ describe("booking-refund notification — amount + reason reach all three surfac
     expect(output).toContain("/admin/bookings/BK-1001");
   });
 });
+
+describe("audit — booking refund + completion emails: secondary-block locale correctness (campaign campaignName/nameAr fix, mirrored)", () => {
+  const AR_SERVICE = { nameEn: "Kitchen sink repair", nameAr: "إصلاح حوض المطبخ", price: 25000, unit: "job" as const };
+
+  it("the AR refund email's Service row renders the catalog's Arabic name, never the EN jobTitle", () => {
+    const booking = makeBooking({ serviceItem: AR_SERVICE });
+    const msg = buildRefundPayload(booking);
+    const ar = renderBookingEmail(asChannelPayload(msg), "ar");
+    const en = renderBookingEmail(asChannelPayload(msg), "en");
+
+    // AR card row — localized catalog name, no EN leak (the AR secondary block
+    // inside the EN email carries no service name, so the absence check is exact).
+    expect(ar.html).toContain("الخدمة");
+    expect(ar.html).toContain("إصلاح حوض المطبخ");
+    expect(ar.html).not.toContain("Kitchen sink repair");
+
+    // EN card row — the EN catalog name, no AR leak.
+    expect(en.html).toContain("Service");
+    expect(en.html).toContain("Kitchen sink repair");
+    expect(en.html).not.toContain("إصلاح حوض المطبخ");
+  });
+
+  it("the AR customer-completed email's Service row renders the catalog's Arabic name too", () => {
+    const booking = makeBooking({ status: "completed", serviceItem: AR_SERVICE });
+    const msg = bookingNotification(booking, "customer-completed");
+    const ar = renderBookingEmail(asChannelPayload(msg), "ar");
+
+    expect(ar.subject).toContain("اكتملت المهمة");
+    expect(ar.html).toContain("إصلاح حوض المطبخ");
+    expect(ar.html).not.toContain("Kitchen sink repair");
+  });
+
+  it("without a catalog service, the Service row falls back to the free-text jobTitle in both locales", () => {
+    const msg = buildRefundPayload(); // makeBooking() carries no serviceItem
+    const ar = renderBookingEmail(asChannelPayload(msg), "ar");
+    const en = renderBookingEmail(asChannelPayload(msg), "en");
+    expect(ar.html).toContain("Leaking kitchen sink repair");
+    expect(en.html).toContain("Leaking kitchen sink repair");
+  });
+
+  it("the EN refund email's secondary block is dir=rtl with the AR copy (bilingual shell)", () => {
+    const msg = buildRefundPayload();
+    const email = renderBookingEmail(asChannelPayload(msg), "en");
+
+    // Extract the flipped-language cell — the emailShell secondary block.
+    const m = email.html.match(/<td dir="rtl">([\s\S]*?)<\/td>/);
+    expect(m).not.toBeNull();
+    const block = m![1];
+    expect(block).toContain("تم استرداد الدفعة المقدمة");
+    expect(block).toContain("تم استرداد دفعتك المقدمة للحجز BK-1001");
+    expect(block).toContain("direction:rtl");
+    expect(block).toContain("text-align:right");
+  });
+});

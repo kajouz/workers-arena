@@ -48,11 +48,20 @@ function agentFor(endpoint: string): https.Agent | undefined {
   }
 }
 
-function logPush(payload: ChannelPayload, title: string): DispatchResult {
+function logPush(payload: ChannelPayload): DispatchResult {
+  // Render the SAME single-language copy the device would receive: the
+  // web-push provider renders the payload per recipient locale (title +
+  // body via copy()), and the SMS/WhatsApp console channels do the same — so
+  // the console push line must never show the EN title/body inside an Arabic
+  // dispatch (the titleEn/bodyEn hardcode was the same drift class as the
+  // SMS/WhatsApp ones).
+  const locale = payload.recipient?.locale ?? "en";
+  const title = locale === "ar" ? payload.titleAr : payload.titleEn;
+  const body = locale === "ar" ? payload.bodyAr : payload.bodyEn;
   console.log(
     `\n🔔 [notify:push:console] → ${payload.recipient?.name ?? "unknown"}\n` +
       `   Title: ${title}\n` +
-      `   Body:  ${payload.bodyEn}${payload.bodyAr !== payload.bodyEn ? " | " + payload.bodyAr : ""}\n` +
+      `   Body:  ${body}\n` +
       `   Href:  ${payload.href ?? "—"}`
   );
   return { channel: "push", ok: true, provider: "console" };
@@ -63,7 +72,7 @@ class ConsolePushChannel implements NotificationChannel {
   readonly provider = "console";
 
   async send(payload: ChannelPayload): Promise<DispatchResult> {
-    return logPush(payload, payload.titleEn);
+    return logPush(payload);
   }
 }
 

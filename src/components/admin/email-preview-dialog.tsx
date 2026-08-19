@@ -22,6 +22,7 @@ export function EmailPreviewDialog({
   htmlEn,
   htmlAr,
   recipient,
+  surface = "admin",
 }: {
   /** App notification type (bookingConfirmed, bookingPaid, …) — i18n label key. */
   type: Notification["type"];
@@ -29,11 +30,29 @@ export function EmailPreviewDialog({
   subjectAr: string;
   htmlEn: string;
   htmlAr: string;
-  recipient?: { name: string; email?: string };
+  /**
+   * Display identity + preferred language of the email's recipient. When
+   * locale is set (the company on the campaign card), the preview renders the
+   * email in the RECIPIENT's language as the primary block — what they
+   * actually received — regardless of the admin's UI locale; the dialog's own
+   * chrome still follows the page locale. Surfaces without a recipient locale
+   * (customer/worker rows, the dispute view) fall back to the page locale.
+   */
+  recipient?: { name: string; email?: string; locale?: "en" | "ar" };
+  /**
+   * Which surface shows the preview — picks the subtitle that matches the
+   * email's recipient: the admin dispute view and customer rows preview the
+   * CUSTOMER email, the worker dashboard rows preview the WORKER email, and
+   * the admin campaign-payments card previews the COMPANY email.
+   */
+  surface?: "admin" | "customer" | "worker" | "company";
 }) {
   const { locale, t } = useLocale();
-  const subject = locale === "ar" ? subjectAr : subjectEn;
-  const html = locale === "ar" ? htmlAr : htmlEn;
+  // Primary = the recipient's preferred language when known (the company on
+  // the campaign card), else the admin's UI locale.
+  const primary = recipient?.locale ?? locale;
+  const subject = primary === "ar" ? subjectAr : subjectEn;
+  const html = primary === "ar" ? htmlAr : htmlEn;
 
   return (
     <Dialog>
@@ -49,7 +68,15 @@ export function EmailPreviewDialog({
             <Mail className="size-4 text-brand-500" />
             {t(`notifications.types.${type}`)}
           </DialogTitle>
-          <DialogDescription>{t("admin.emailPreviewSubtitle")}</DialogDescription>
+          <DialogDescription>
+            {t(
+              surface === "worker"
+                ? "admin.emailPreviewSubtitleWorker"
+                : surface === "company"
+                  ? "admin.emailPreviewSubtitleCompany"
+                  : "admin.emailPreviewSubtitle",
+            )}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-1.5 rounded-xl border border-ink-100 bg-ink-50/70 p-3 text-xs dark:border-ink-800 dark:bg-ink-800/40">

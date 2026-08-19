@@ -236,8 +236,21 @@ function buildWorker(cfg: WorkerConfig): Worker {
   };
 }
 
-/** The complete demo workforce — stable across requests (generated once). */
-export const WORKERS: Worker[] = CONFIGS.map(buildWorker);
+/**
+ * The complete demo workforce — stable across requests (generated once).
+ *
+ * SHARED across module instances via globalThis (the same singleton pattern
+ * the bookings + notifications demo stores use): Turbopack dev gives server
+ * actions, pages and route handlers SEPARATE module registries, so a plain
+ * module-level array would be duplicated per graph — a worker-side resubmit /
+ * renewal / plan change mutating one instance would never reflect on pages
+ * reading another. Keyed on globalThis, every graph reads and writes the one
+ * array (a fresh process starts fresh; HMR keeps the existing state).
+ */
+const WORKERS_KEY = "__workersArenaDemoWorkers";
+const g = globalThis as Record<string, unknown>;
+export const WORKERS: Worker[] =
+  (g[WORKERS_KEY] as Worker[] | undefined) ?? (g[WORKERS_KEY] = CONFIGS.map(buildWorker));
 
 export const workerBySlug = (slug: string): Worker | undefined =>
   WORKERS.find((w) => w.slug === slug);

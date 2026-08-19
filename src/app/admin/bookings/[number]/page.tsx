@@ -5,10 +5,7 @@ import { getSession } from "@/lib/auth-demo";
 import { getI18n } from "@/lib/i18n/server";
 import { getBookingByNumber, getBookingMessages, getRecurringById, getWorkerById } from "@/lib/data/repo";
 import { formatSlotRange } from "@/lib/data/booking-ui";
-import { customerEmailKind, bookingNotification } from "@/lib/data/booking-notifications";
-import { renderBookingEmail } from "@/lib/notifications/templates";
-import type { ChannelPayload } from "@/lib/notifications/types";
-import type { Notification } from "@/lib/data/types";
+import { bookingEmailPreviewFor } from "@/lib/data/booking-notifications";
 import { timeAgo } from "@/lib/utils";
 import { BookingStatusBadge } from "@/components/bookings/booking-status-badge";
 import { BookingPrintButton } from "@/components/bookings/booking-print-button";
@@ -78,43 +75,13 @@ export default async function AdminBookingDisputePage({
     (o) => !RECURRING_TERMINAL_STATUSES.includes(o.status) && o.endAt != null && new Date(o.endAt).getTime() >= Date.now()
   );
 
-  // "Preview email" — render the exact confirmation email the customer
-  // received in BOTH locales, built from the SAME bookingNotification payload
-  // the adapters dispatch, so the preview and the real email can never drift.
-  // Hidden when the booking's current state implies no customer-facing email
-  // was sent (REQUESTED / NO_SHOW / customer-initiated cancellation).
-  let preview: {
-    type: Notification["type"];
-    subjectEn: string;
-    subjectAr: string;
-    htmlEn: string;
-    htmlAr: string;
-  } | null = null;
-  const emailKind = customerEmailKind(booking);
-  if (emailKind) {
-    const msg = bookingNotification(booking, emailKind);
-    const payload: ChannelPayload = {
-      id: `preview-${booking.id}`,
-      type: msg.type,
-      titleEn: msg.titleEn,
-      titleAr: msg.titleAr,
-      bodyEn: msg.bodyEn,
-      bodyAr: msg.bodyAr,
-      href: msg.href,
-      time: new Date().toISOString(),
-      booking: msg.booking,
-      recipient: { name: booking.customerName, email: booking.customerEmail, locale: "en" },
-    };
-    const emailEn = renderBookingEmail(payload, "en");
-    const emailAr = renderBookingEmail(payload, "ar");
-    preview = {
-      type: msg.type,
-      subjectEn: emailEn.subject,
-      subjectAr: emailAr.subject,
-      htmlEn: emailEn.html,
-      htmlAr: emailAr.html,
-    };
-  }
+  // "Preview email" — render the exact email the customer received in BOTH
+  // locales, built from the SAME bookingNotification payload the adapters
+  // dispatch (shared bookingEmailPreviewFor helper — also used by the
+  // customer /bookings rows), so the preview and the real email can never
+  // drift. Hidden when the booking's current state implies no customer-facing
+  // email was sent (REQUESTED / NO_SHOW / customer-initiated cancellation).
+  const preview = bookingEmailPreviewFor(booking);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">

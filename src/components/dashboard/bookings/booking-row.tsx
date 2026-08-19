@@ -14,6 +14,7 @@ import { BookingTimeline } from "@/components/bookings/booking-timeline";
 import { BookingChat } from "@/components/bookings/booking-chat";
 import { BookingPrintButton } from "@/components/bookings/booking-print-button";
 import { BookingEmailButton } from "@/components/bookings/booking-email-button";
+import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { useLocale } from "@/components/providers/locale-provider";
 import { formatDate, cn } from "@/lib/utils";
 import { formatSlotRange } from "@/lib/data/booking-ui";
@@ -22,6 +23,7 @@ import { RespondDialog } from "./respond-dialog";
 import { BookingActions } from "./booking-actions";
 import { submitQuoteAction } from "@/app/actions/bookings";
 import type { Booking, BookingMessage, Worker } from "@/lib/data/types";
+import type { WorkerEmailPreview } from "@/app/dashboard/page";
 
 /**
  * One booking as the WORKER sees it (docs/booking-scheduling.md §6): the
@@ -34,12 +36,19 @@ import type { Booking, BookingMessage, Worker } from "@/lib/data/types";
 export function BookingRow({
   booking,
   messages,
+  emailPreview,
   worker,
   nowSeed,
 }: {
   booking: Booking;
   /** §2.3 chat — the booking's negotiation thread (oldest first). */
   messages: BookingMessage[];
+  /** "What I received" — the bilingual preview of the WORKER email the
+   * booking's state implies (workerEmailPreviewFor, computed server-side in
+   * /dashboard). Null when the worker received no email yet (e.g. a system
+   * auto-confirm emails the customer instead) — the row then hides the
+   * button, mirroring the customer + admin surfaces. */
+  emailPreview: WorkerEmailPreview;
   worker: Worker;
   nowSeed: number;
 }) {
@@ -176,6 +185,20 @@ export function BookingRow({
             workerName={locale === "ar" ? worker.nameAr : worker.nameEn}
             workerEmail={worker.email}
           />
+          {/* "What I received" — the bilingual preview of the WORKER email the
+              booking's state implies (mirroring the customer row + admin
+              dispute view). Hidden until the worker received an email. */}
+          {emailPreview && (
+            <EmailPreviewDialog
+              type={emailPreview.type}
+              subjectEn={emailPreview.subjectEn}
+              subjectAr={emailPreview.subjectAr}
+              htmlEn={emailPreview.htmlEn}
+              htmlAr={emailPreview.htmlAr}
+              recipient={{ name: worker.nameEn, email: worker.email }}
+              surface="worker"
+            />
+          )}
         </div>
 
         {/* §2.4 dispute timeline — the shared "what happened and when" trail

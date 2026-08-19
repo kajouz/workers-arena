@@ -240,7 +240,18 @@ export function renderBookingEmail(
     rows.push({ label: l("Refunded", "المبلغ المسترد"), value: price(booking.refund.amount), ltr: true });
     if (booking.refund.reason) rows.push({ label: l("Reason", "السبب"), value: booking.refund.reason });
   }
-  if (booking.jobTitle) rows.push({ label: l("Service", "الخدمة"), value: booking.jobTitle });
+  // The Service row renders the locale-appropriate catalog name when the
+  // booking was created off the worker's service list (serviceItem.nameEn /
+  // nameAr — same as the booking rows UI), falling back to the free-text
+  // jobTitle (user-typed, single-locale — can't be translated; the campaign
+  // campaignName/nameAr locale fix, mirrored for bookings).
+  if (booking.jobTitle || booking.serviceItem) {
+    const serviceName =
+      booking.serviceItem && locale === "ar"
+        ? booking.serviceItem.nameAr
+        : booking.serviceItem?.nameEn ?? booking.jobTitle ?? "";
+    rows.push({ label: l("Service", "الخدمة"), value: serviceName });
+  }
 
   const card = `
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border:1px solid #eef0f3;border-radius:12px;overflow:hidden;">
@@ -333,9 +344,12 @@ export function renderCampaignRefundEmail(
 
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const price = (minor: number) => formatPrice(minor / 100, currency, locale);
+  // The campaign name follows the EMAIL's locale (AR emails show the Arabic
+  // name in the subject + card; the body headline already embeds it).
+  const campaignName = locale === "ar" ? refund.campaignNameAr : refund.campaignName;
 
   const rows: { label: string; value: string; ltr?: boolean; auto?: boolean }[] = [
-    { label: l("Campaign", "الحملة"), value: refund.campaignName },
+    { label: l("Campaign", "الحملة"), value: campaignName, ltr: false },
     { label: l("Refunded", "المبلغ المسترد"), value: price(refund.amount), ltr: true },
   ];
   // The reason is admin-typed free text that may be in either language —
@@ -367,7 +381,7 @@ export function renderCampaignRefundEmail(
   const textExtra = [
     "",
     l("Refund details", "تفاصيل الاسترداد"),
-    `${l("Campaign", "الحملة")}: ${refund.campaignName}`,
+    `${l("Campaign", "الحملة")}: ${campaignName}`,
     `${l("Refunded", "المبلغ المسترد")}: ${price(refund.amount)}`,
     ...(refund.reason ? [`${l("Reason", "السبب")}: ${refund.reason}`] : []),
   ];
@@ -384,7 +398,7 @@ export function renderCampaignRefundEmail(
     ctaLabel,
     extraHtml: card,
     textExtra,
-    subjectSuffix: refund.campaignName,
+    subjectSuffix: campaignName,
   });
 }
 

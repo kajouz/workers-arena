@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { getI18n } from "@/lib/i18n/server";
 import { getSession } from "@/lib/auth-demo";
 import { getCustomerBookings, getCustomerQuoteRequests, getCustomerRecurrings, getWorkerById, getBookingMessages } from "@/lib/data/repo";
+import { bookingEmailPreviewFor } from "@/lib/data/booking-notifications";
 import { BookingsClient } from "@/components/bookings/bookings-client";
 import type { QuoteWorker } from "@/components/bookings/quote-request-card";
-import type { Booking, BookingMessage, QuoteRequest, RecurringBooking } from "@/lib/data/types";
+import type { Booking, BookingMessage, QuoteRequest, RecurringBooking, Notification } from "@/lib/data/types";
 
 export const metadata: Metadata = {
   title: "My bookings",
@@ -17,6 +18,20 @@ export interface CustomerBookingRow {
   worker: { nameEn: string; nameAr: string; slug: string; hue: number; email: string; whatsapp: string } | null;
   /** §2.3 chat — the booking's negotiation thread (oldest first). */
   messages: BookingMessage[];
+  /**
+   * "What I received" — the customer-facing email the booking's current state
+   * implies, rendered in BOTH locales via the SAME builder the adapters
+   * dispatch (bookingEmailPreviewFor). Null when no customer email was sent
+   * yet (REQUESTED / NO_SHOW / customer-initiated cancellation) — the row
+   * then hides the preview button, mirroring the admin dispute view.
+   */
+  emailPreview: {
+    type: Notification["type"];
+    subjectEn: string;
+    subjectAr: string;
+    htmlEn: string;
+    htmlAr: string;
+  } | null;
 }
 
 /** A recurring contract plus its worker display data (M1 §7 #1). */
@@ -60,10 +75,14 @@ export default async function BookingsPage({
   // the worker display data (one lookup per booking; the rows render the SAME
   // messages the admin dispute view reads).
   const messageLists = await Promise.all(bookings.map((b) => getBookingMessages(b.id)));
+  // "Preview email" — each row carries the bilingual render of the email the
+  // customer received for that booking (same helper the admin dispute view
+  // uses), so the customer sees exactly what was sent without leaving the page.
   const rows: CustomerBookingRow[] = bookings.map((booking, i) => ({
     booking,
     worker: workers[i] ?? null,
     messages: messageLists[i] ?? [],
+    emailPreview: bookingEmailPreviewFor(booking),
   }));
 
   // M1 recurring contracts (§7 #1) — same identifier as the bookings lookup.

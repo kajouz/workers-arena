@@ -51,6 +51,7 @@ process.env.DEMO_MODE = "false";
 delete process.env.ADMIN_ACTIVITY_FILE;
 
 const TEST_EMAIL = "chain-prisma@test.sa";
+const TEST_AR_EMAIL = "chain-prisma-ar@test.sa";
 
 let slotId: string | null = null;
 let bookingId: string | null = null;
@@ -71,7 +72,9 @@ afterEach(async () => {
       .catch(() => {});
     bookingId = null;
   }
-  await prisma.booking.deleteMany({ where: { customerEmail: TEST_EMAIL } }).catch(() => {});
+  await prisma.booking
+    .deleteMany({ where: { customerEmail: { in: [TEST_EMAIL, TEST_AR_EMAIL] } } })
+    .catch(() => {});
   if (slotId) {
     await prisma.bookingSlot.deleteMany({ where: { id: slotId } }).catch(() => {});
     slotId = null;
@@ -149,6 +152,58 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     expect(email.html).toContain("SAR 6"); // 560 minor → 5.6, display-rounded
     expect(email.text).toContain("Platform fee: SAR 6");
     expect(email.html).toContain(`/admin/bookings/${created.number}`);
+  });
+
+  it("prismaRespondToBooking dispatches the customer email in the customer's User.locale (not always EN)", async () => {
+    const prisma = getPrisma();
+    const worker = await prisma.worker.findUnique({ where: { slug: "khaled-al-harbi-plumbing" } });
+    if (!worker) throw new Error("demo worker missing");
+
+    // A signed-in customer who prefers Arabic — the exact row the
+    // Booking.customer relation resolves at dispatch (User.locale).
+    const arEmail = TEST_AR_EMAIL;
+    const user = await prisma.user.create({
+      data: {
+        name: "Chain AR Customer",
+        email: arEmail,
+        passwordHash: "x",
+        role: "CUSTOMER",
+        locale: "ar",
+      },
+    });
+
+    const startAt = new Date(Date.now() + 44 * 60 * 60 * 1000);
+    const slot = await prisma.bookingSlot.create({
+      data: { workerId: worker.id, startAt, endAt: new Date(startAt.getTime() + 60 * 60 * 1000), status: "AVAILABLE" },
+    });
+    slotId = slot.id;
+
+    const created = await prismaCreateBookingRequest({
+      workerId: worker.id,
+      slotId: slot.id,
+      customerId: user.id,
+      customerName: "Chain AR Customer",
+      customerPhone: "+966 50 222 3333",
+      customerEmail: arEmail,
+      jobTitle: "Chain test plumbing job",
+    });
+    if ("error" in created) throw new Error(`create failed: ${created.error}`);
+    bookingId = created.id;
+
+    await prismaRespondToBooking(created.id, { accept: true, quote: 8000 });
+
+    const emailPayload = dispatched.find((p) => p.type === "bookingConfirmed");
+    expect(emailPayload).toBeDefined();
+    // The recipient rides the customer's stored language — the same rule the
+    // campaign adapter uses, never a hardcoded "en".
+    expect(emailPayload!.recipient?.locale).toBe("ar");
+    // The AR email renders Arabic copy through the same renderer.
+    const email = renderBookingEmail(emailPayload!, "ar");
+    expect(email.subject).toContain("تأكيد الحجز");
+    expect(email.html).toContain("تفاصيل الحجز");
+    expect(email.html).not.toContain("Booking details");
+
+    await prisma.user.deleteMany({ where: { email: arEmail } }).catch(() => {});
   });
 
   it("a customer cancel dispatches a bookingCancelled payload (to the worker) that renderBookingEmail renders", async () => {

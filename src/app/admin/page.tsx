@@ -111,7 +111,7 @@ export default async function AdminPage({
       htmlEn: string;
       subjectAr: string;
       htmlAr: string;
-      recipient?: { name: string; email: string };
+      recipient?: { name: string; email: string; locale: "en" | "ar" };
     }
   >;
 

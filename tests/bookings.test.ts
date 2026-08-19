@@ -107,6 +107,16 @@ describe("seeded demo store", () => {
     expect(bookings[0]?.status).toBe("requested");
     expect(bookings[0]?.events).toHaveLength(1);
     expect(bookings[0]?.events[0]?.status).toBe("requested");
+
+    // The seeded request carries the bilingual catalog serviceItem — the
+    // email receipt's "Service" row localizes (nameAr in AR emails, nameEn in
+    // EN), exactly like the booking-rows UI.
+    expect(bookings[0]?.serviceItem).toEqual({
+      nameEn: "Fix leaking pipe",
+      nameAr: "إصلاح تسريب ماسورة",
+      price: 120,
+      unit: "job",
+    });
   });
 });
 

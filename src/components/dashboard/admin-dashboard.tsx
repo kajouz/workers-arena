@@ -519,6 +519,7 @@ export function AdminDashboard({
                               htmlEn={campaignEmailPreviews[campaign.id].htmlEn}
                               htmlAr={campaignEmailPreviews[campaign.id].htmlAr}
                               recipient={campaignEmailPreviews[campaign.id].recipient}
+                              surface="company"
                             />
                           )}
                         </td>

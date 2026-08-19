@@ -762,6 +762,10 @@ export interface PrismaBookingRow {
   customerName: string;
   customerPhone: string;
   customerEmail: string | null;
+  /** The customer's User row — its locale is the customer's preferred
+   * notification language (mapped to Booking.customerLocale). Optional: only
+   * queries that include `customer: { select: { locale: true } }` carry it. */
+  customer?: { locale: string | null } | null;
   jobTitle: string;
   note: string | null;
   /** Null for slot-less multi-candidate quote bids (QUOTING/QUOTED). */
@@ -891,6 +895,9 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
     customerName: row.customerName,
     customerPhone: row.customerPhone,
     customerEmail: row.customerEmail ?? undefined,
+    // The customer's preferred notification language — User.locale via the
+    // customer relation (absent → "en": the user never chose a language).
+    customerLocale: row.customer?.locale === "ar" ? "ar" : "en",
     jobTitle: row.jobTitle,
     note: row.note ?? undefined,
     // quote/deposit are minor units in BOTH the DB and the domain (the action
@@ -1271,7 +1278,9 @@ export async function prismaAcceptChatQuote(
             name: result.worker.nameEn,
             ...(result.worker.email ? { email: result.worker.email } : {}),
             phone: result.worker.phone,
-            locale: "en",
+            // The worker's preferred language (first listed) — same rule as
+            // every other worker notification, not always EN.
+            locale: (result.worker.languages as { code?: string }[] | null)?.[0]?.code === "ar" ? "ar" : "en",
           }
         : undefined
     );
@@ -1855,7 +1864,11 @@ export async function prismaRespondToBooking(
 
       return tx.booking.findUnique({
         where: { id: bookingId },
-        include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
+        include: {
+          events: { orderBy: { createdAt: "asc" as const } },
+          serviceItem: true,
+          customer: { select: { locale: true } },
+        },
       });
     });
 
@@ -1864,7 +1877,13 @@ export async function prismaRespondToBooking(
     await pushNotification(
       bookingNotification(toDomainBooking(result), accepted ? "customer-confirmed" : "customer-declined"),
       result.customerEmail
-        ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+        ? {
+            name: result.customerName,
+            email: result.customerEmail,
+            phone: result.customerPhone,
+            // The customer's preferred language (User.locale) — not always EN.
+            locale: result.customer?.locale === "ar" ? "ar" : "en",
+          }
         : undefined
     );
     return toDomainBooking(result);
@@ -2354,7 +2373,10 @@ export async function prismaConfirmBookingPayment(
       const result = await prisma.$transaction(async (tx) => {
         const booking = await tx.booking.findUnique({
           where: { id: bookingId },
-          include: { payment: { include: { invoice: true } } },
+          include: {
+            payment: { include: { invoice: true } },
+            customer: { select: { locale: true } },
+          },
         });
         if (!booking) return null;
         if (booking.status === "CONFIRMED" && booking.payment?.status === "PAID") {
@@ -2405,6 +2427,7 @@ export async function prismaConfirmBookingPayment(
             events: { orderBy: { createdAt: "asc" as const } },
             serviceItem: true,
             payment: { include: { invoice: true } },
+            customer: { select: { locale: true } },
           },
         });
       });
@@ -2435,7 +2458,13 @@ export async function prismaConfirmBookingPayment(
     await pushNotification(
       bookingNotification(toDomainBooking(result), "customer-paid"),
       result.customerEmail
-        ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+        ? {
+            name: result.customerName,
+            email: result.customerEmail,
+            phone: result.customerPhone,
+            // The customer's preferred language (User.locale) — not always EN.
+            locale: result.customer?.locale === "ar" ? "ar" : "en",
+          }
         : undefined
     );
     return toDomainBooking(result);
@@ -2502,7 +2531,11 @@ export async function prismaTransitionBooking(
       // prismaAutoConfirmCompletions run creditEarningsInTx in their txs).
       return tx.booking.findUnique({
         where: { id: bookingId },
-        include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
+        include: {
+          events: { orderBy: { createdAt: "asc" as const } },
+          serviceItem: true,
+          customer: { select: { locale: true } },
+        },
       });
     });
     if (!result) return null;
@@ -2510,7 +2543,13 @@ export async function prismaTransitionBooking(
       await pushNotification(
         bookingNotification(toDomainBooking(result), "customer-completion-pending"),
         result.customerEmail
-          ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+          ? {
+              name: result.customerName,
+              email: result.customerEmail,
+              phone: result.customerPhone,
+              // The customer's preferred language (User.locale) — not always EN.
+              locale: result.customer?.locale === "ar" ? "ar" : "en",
+            }
           : undefined
       );
     }
@@ -2545,16 +2584,18 @@ export async function prismaConfirmBookingCompletion(bookingId: string): Promise
       });
       if (updated.count === 0) return null;
       await creditEarningsInTx(tx, row);
-      await tx.bookingEvent.create({ data: { bookingId, status: "COMPLETED", actorType: "customer" } });
-      return tx.booking.findUnique({
+      await tx.bookingEvent.create({ data: { bookingId, status: "COMPLETED", actorType: "customer" } });      return tx.booking.findUnique({
         where: { id: bookingId },
         include: {
           events: { orderBy: { createdAt: "asc" as const } },
           serviceItem: true,
           payment: { include: { invoice: true } },
           worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+          customer: { select: { locale: true } },
         },
       });
+
+
     });
     if (!result) return null;
     const workerLocale =
@@ -2601,14 +2642,27 @@ export async function prismaAutoConfirmCompletions(now = new Date()): Promise<nu
       if (updated.count === 0) return null;
       await creditEarningsInTx(tx, row);
       await tx.bookingEvent.create({ data: { bookingId: row.id, status: "COMPLETED", actorType: "system" } });
-      return tx.booking.findUnique({ where: { id: row.id }, include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true } });
+      return tx.booking.findUnique({
+        where: { id: row.id },
+        include: {
+          events: { orderBy: { createdAt: "asc" as const } },
+          serviceItem: true,
+          customer: { select: { locale: true } },
+        },
+      });
     });
     if (!result) continue;
     autoConfirmed += 1;
     await pushNotification(
       bookingNotification(toDomainBooking(result), "customer-completed"),
       result.customerEmail
-        ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+        ? {
+            name: result.customerName,
+            email: result.customerEmail,
+            phone: result.customerPhone,
+            // The customer's preferred language (User.locale) — not always EN.
+            locale: result.customer?.locale === "ar" ? "ar" : "en",
+          }
         : undefined
     );
   }
@@ -2700,6 +2754,7 @@ export async function prismaRescheduleBooking(
           events: { orderBy: { createdAt: "asc" as const } },
           serviceItem: true,
           worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+          customer: { select: { locale: true } },
         },
       });
     });
@@ -2718,7 +2773,13 @@ export async function prismaRescheduleBooking(
       await pushNotification(
         bookingNotification(toDomainBooking(result), "customer-rescheduled"),
         result.customerEmail
-          ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+          ? {
+              name: result.customerName,
+              email: result.customerEmail,
+              phone: result.customerPhone,
+              // The customer's preferred language (User.locale) — not always EN.
+              locale: result.customer?.locale === "ar" ? "ar" : "en",
+            }
           : undefined
       );
     }
@@ -2782,16 +2843,18 @@ export async function prismaCancelBooking(
       }
       await tx.bookingEvent.create({
         data: { bookingId, status: "CANCELLED", actorType: input.by, reason: input.reason ?? null },
-      });
-      return tx.booking.findUnique({
+      });      return tx.booking.findUnique({
         where: { id: bookingId },
         include: {
           events: { orderBy: { createdAt: "asc" as const } },
           serviceItem: true,
           payment: { include: { invoice: true } },
           worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+          customer: { select: { locale: true } },
         },
       });
+
+
     });
     if (!result) return null;
 
@@ -2847,7 +2910,13 @@ export async function prismaCancelBooking(
       await pushNotification(
         bookingNotification(toDomainBooking(result), "customer-cancelled"),
         result.customerEmail
-          ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+          ? {
+              name: result.customerName,
+              email: result.customerEmail,
+              phone: result.customerPhone,
+              // The customer's preferred language (User.locale) — not always EN.
+              locale: result.customer?.locale === "ar" ? "ar" : "en",
+            }
           : undefined
       );
       const workerLocale =
@@ -2862,7 +2931,13 @@ export async function prismaCancelBooking(
       await pushNotification(
         bookingNotification(toDomainBooking(result), "customer-cancelled"),
         result.customerEmail
-          ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+          ? {
+              name: result.customerName,
+              email: result.customerEmail,
+              phone: result.customerPhone,
+              // The customer's preferred language (User.locale) — not always EN.
+              locale: result.customer?.locale === "ar" ? "ar" : "en",
+            }
           : undefined
       );
     }
@@ -2875,7 +2950,13 @@ export async function prismaCancelBooking(
           refund: { amount: result.payment.amount, reason: input.reason },
         }),
         result.customerEmail
-          ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+          ? {
+              name: result.customerName,
+              email: result.customerEmail,
+              phone: result.customerPhone,
+              // The customer's preferred language (User.locale) — not always EN.
+              locale: result.customer?.locale === "ar" ? "ar" : "en",
+            }
           : undefined
       );
     }
@@ -2919,16 +3000,18 @@ export async function prismaRefundBookingDeposit(
       if (row.payment?.status !== "PAID") return null;
       await tx.bookingEvent.create({
         data: { bookingId, status: "REFUNDED", actorType: "admin", reason: input.reason ?? null },
-      });
-      return tx.booking.findUnique({
+      });      return tx.booking.findUnique({
         where: { id: bookingId },
         include: {
           events: { orderBy: { createdAt: "asc" as const } },
           serviceItem: true,
           payment: { include: { invoice: true } },
           worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+          customer: { select: { locale: true } },
         },
       });
+
+
     });
     if (!result) return null;
 
@@ -2961,7 +3044,13 @@ export async function prismaRefundBookingDeposit(
         refund: { amount: result.payment!.amount, reason: input.reason },
       }),
       result.customerEmail
-        ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+        ? {
+            name: result.customerName,
+            email: result.customerEmail,
+            phone: result.customerPhone,
+            // The customer's preferred language (User.locale) — not always EN.
+            locale: result.customer?.locale === "ar" ? "ar" : "en",
+          }
         : undefined
     );
     return toDomainBooking(result);
@@ -2990,6 +3079,9 @@ export async function prismaGetBookingsDueForReminder(now = new Date()): Promise
     include: {
       events: { orderBy: { createdAt: "asc" as const } },
       serviceItem: true,
+      // The customer's User row — its locale is the preferred language the
+      // reminder email renders in (guest bookings → "en").
+      customer: { select: { locale: true } },
     },
   });
   return rows.map(toDomainBooking);
@@ -4055,7 +4147,13 @@ export function prismaRecordClick(campaignId: string): Promise<Campaign | null> 
 
 const RECURRING_OCCURRENCES = {
   orderBy: { startAt: "asc" as const },
-  include: { events: { orderBy: { createdAt: "asc" as const } }, serviceItem: true },
+  include: {
+    events: { orderBy: { createdAt: "asc" as const } },
+    serviceItem: true,
+    // The customer's User row — its locale is the preferred language the
+    // occurrence notifications render in (guest occurrences → "en").
+    customer: { select: { locale: true } },
+  },
 } as const;
 
 /** Worker-side: create a recurring request. The first occurrence claims the
@@ -4302,7 +4400,13 @@ export async function prismaRespondToRecurring(
       await pushNotification(
         bookingNotification(toDomainBooking(first), accepted ? "customer-confirmed" : "customer-declined"),
         first.customerEmail
-          ? { name: first.customerName, email: first.customerEmail, phone: first.customerPhone, locale: "en" }
+          ? {
+              name: first.customerName,
+              email: first.customerEmail,
+              phone: first.customerPhone,
+              // The customer's preferred language (User.locale) — not always EN.
+              locale: first.customer?.locale === "ar" ? "ar" : "en",
+            }
           : undefined
       );
     }
@@ -4330,6 +4434,9 @@ export async function prismaGenerateRecurringOccurrences(
     where: { status: "ACTIVE" },
     include: {
       serviceItem: true,
+      // The customer's User row — its locale is the preferred language the
+      // recurring-visit notification renders in (guest contracts → "en").
+      customer: { select: { locale: true } },
       occurrences: { orderBy: { startAt: "asc" as const }, select: { startAt: true, status: true, quote: true, deposit: true, platformFee: true, platformFeeRateBps: true, currency: true } },
     },
   });
@@ -4421,7 +4528,14 @@ export async function prismaGenerateRecurringOccurrences(
       await pushNotification(
         bookingNotification(toDomainBooking(next), "customer-recurring-visit"),
         next.customerEmail
-          ? { name: next.customerName, email: next.customerEmail, phone: next.customerPhone, locale: "en" }
+          ? {
+              name: next.customerName,
+              email: next.customerEmail,
+              phone: next.customerPhone,
+              // The contract's customer locale — the occurrence was created
+              // from it, so its User.locale is the recipient's preference.
+              locale: contract.customer?.locale === "ar" ? "ar" : "en",
+            }
           : undefined
       );
     }
@@ -4569,12 +4683,14 @@ export async function prismaRunRequestSla(now = new Date()): Promise<RequestSlaR
   const expiredNumbers: string[] = [];
 
   // Same shape as prismaCancelBooking's post-tx read (events for the domain
-  // mapper, serviceItem + payment for the email context, worker for addressing).
+  // mapper, serviceItem + payment for the email context, worker for addressing,
+  // customer for the recipient's preferred language).
   const include = {
     events: { orderBy: { createdAt: "asc" as const } },
     serviceItem: true,
     payment: { include: { invoice: true } },
     worker: { select: { nameEn: true, email: true, phone: true, languages: true } },
+    customer: { select: { locale: true } },
   } as const;
 
   // Nudge — CAS on the null lastSlaNudgeAt column: a concurrent cron run
@@ -4640,7 +4756,13 @@ export async function prismaRunRequestSla(now = new Date()): Promise<RequestSlaR
     await pushNotification(
       bookingNotification(toDomainBooking(result), "customer-request-expired"),
       result.customerEmail
-        ? { name: result.customerName, email: result.customerEmail, phone: result.customerPhone, locale: "en" }
+        ? {
+            name: result.customerName,
+            email: result.customerEmail,
+            phone: result.customerPhone,
+            // The customer's preferred language (User.locale) — not always EN.
+            locale: result.customer?.locale === "ar" ? "ar" : "en",
+          }
         : undefined
     );
   }
@@ -4685,8 +4807,11 @@ export async function prismaGetPendingManualPayments(): Promise<PendingManualPay
         id: row.id,
         scope: "booking",
         entityId: row.booking.id,
-        labelEn: `${row.booking.number} — ${row.booking.jobTitle}`,
-        labelAr: `${row.booking.number} — ${row.booking.jobTitle}`,
+        // The label localizes via the booking's bilingual catalog serviceItem
+        // (nameAr in the Arabic card row — the free-text jobTitle is a
+        // single-locale fallback, same rule as the email Service row).
+        labelEn: `${row.booking.number} — ${row.booking.serviceItem?.nameEn ?? row.booking.jobTitle}`,
+        labelAr: `${row.booking.number} — ${row.booking.serviceItem?.nameAr ?? row.booking.jobTitle}`,
         amount: row.amount,
         currency: row.currency,
         method,

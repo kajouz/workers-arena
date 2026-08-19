@@ -20,6 +20,7 @@ import {
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
 import type { AnalyticsOverview, Booking, BookingMessage, BookingSlot, Invoice, LedgerEntry, RecurringBooking, Worker, WorkerBalance } from "@/lib/data/types";
+import type { WorkerEmailPreview } from "@/app/dashboard/page";
 import { PLANS, subscriptionStatus, daysUntil } from "@/lib/data/subscriptions";
 import { computeResponseRate } from "@/lib/data/booking-ui";
 import { WithdrawDialog } from "./withdraw-dialog";
@@ -46,6 +47,7 @@ export function WorkerDashboard({
   invoices,
   bookings,
   messagesByBooking,
+  previewsByBooking,
   recurrings,
   slots,
   balance,
@@ -59,6 +61,10 @@ export function WorkerDashboard({
   bookings: Booking[];
   /** §2.3 chat — each booking's negotiation thread, keyed by booking id. */
   messagesByBooking: Record<string, BookingMessage[]>;
+  /** "Preview email" — the WORKER-facing email each booking's state implies
+   * (workerEmailPreviewFor), keyed by booking id. The rows render the same
+   * bilingual dialog the customer + admin surfaces use. */
+  previewsByBooking: Record<string, WorkerEmailPreview>;
   /** M1 recurring contracts (§7 #1) — the BookingsPanel's Recurring tab. */
   recurrings: RecurringBooking[];
   slots: BookingSlot[];
@@ -140,7 +146,7 @@ export function WorkerDashboard({
         {/* chart + reviews */}
         <div className="space-y-6 lg:col-span-2">
           {/* bookings — M1 worker panel (docs/booking-scheduling.md §6) */}
-          <BookingsPanel bookings={bookings} messagesByBooking={messagesByBooking} recurrings={recurrings} worker={worker} nowSeed={nowSeed} />
+          <BookingsPanel bookings={bookings} messagesByBooking={messagesByBooking} previewsByBooking={previewsByBooking} recurrings={recurrings} worker={worker} nowSeed={nowSeed} />
 
           <Card>
             <CardHeader className="flex-row items-center justify-between">

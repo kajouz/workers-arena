@@ -8,13 +8,17 @@
  * the REAL create→confirm→refund seams and leaves the store with a refunded
  * payment whose bilingual preview renderings the /admin page computes.
  *
- * These tests cover the route's three branches:
+ * These tests cover the route's four branches:
  *   1. Happy path — a refunded campaign lands in the store (payment REFUNDED,
  *      campaign ENDED, method-aware refund through the provider).
  *   2. Idempotent re-seed — a second call finds the fixed-name campaign
  *      already refunded and no-ops (no duplicate campaign).
  *   3. Production refusal — DEMO_MODE=false (the route is unreachable in
  *      real deployments) returns 404 and touches nothing.
+ *   4. WHISH fallback — NODE_ENV=production refuses the SIMULATED provider
+ *      (no Stripe keys), so create-time minting fails and the route re-mints
+ *      the checkout through the keyless WHISH manual provider (the path the
+ *      e2e prod matrix actually exercises), refunding through WHISH too.
  * ────────────────────────────────────────────────────────────────────────────
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -114,5 +118,40 @@ describe("POST /api/dev/seed-refunded-campaign (demo-mode fixture)", () => {
     const campaigns = demoGetCampaigns();
     expect(campaigns).toHaveLength(5);
     expect(campaigns.some((c) => c.nameEn === "E2E Refunded Campaign")).toBe(false);
+  });
+
+  it("falls back to the WHISH manual provider when NODE_ENV=production refuses the simulated one", async () => {
+    // NODE_ENV is a call-time read in the provider registry: with it set to
+    // production and no Stripe keys, getPaymentProvider("STRIPE") throws, so
+    // the route's create-time checkout mint fails and its fallback re-mints
+    // the checkout through the keyless WHISH provider — the exact path the
+    // e2e prod matrix exercises. isDemoMode stays true (demo gate open).
+    vi.stubEnv("NODE_ENV", "production");
+    // Reload the module registry so the fresh imports see the stubbed env
+    // (the demo store survives resets via globalThis).
+    vi.resetModules();
+    const { POST } = await import("../src/app/api/dev/seed-refunded-campaign/route");
+    const { demoCampaignPayment: paymentOf, demoGetCampaigns: getCampaigns } = await import(
+      "../src/lib/data/campaigns"
+    );
+
+    const res = await POST();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok?: boolean; method?: string; status?: string };
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe("refunded");
+    expect(body.method).toBe("whish-fallback");
+
+    // The payment row carries the WHISH method (stamped at fallback-mint time)
+    // and the refund was routed through the WHISH provider — the manual twin
+    // of the Stripe refund the /admin card's method-aware refund uses. (The
+    // providerRef itself is overwritten by the confirm step's simulated ref;
+    // the METHOD is what the refund routes on.)
+    const seeded = getCampaigns().find((c) => c.nameEn === "E2E Refunded Campaign");
+    expect(seeded).toBeTruthy();
+    const payment = seeded ? paymentOf(seeded.id) : null;
+    expect(payment).not.toBeNull();
+    expect(payment?.status).toBe("refunded");
+    expect(payment?.method).toBe("whish");
   });
 });

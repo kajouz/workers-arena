@@ -42,10 +42,27 @@ import { installSignalGuard } from "./helpers/signal-guard.mjs";
  * so the always-EN preview regression fails the matrix even with a clean
  * console. The DISPATCHED channels get the same content-level treatment:
  * the seeded refund's pushNotification → dispatch must render the AR
- * SMS + WhatsApp refund copy in the server log (the demo company carries a
- * phone; console providers log it) with the Arabic campaign name + rounded
- * amount + reason and no EN campaign-name leak — asserted per server, so
- * the prod build matrix covers the dispatch path too.
+ * SMS + WhatsApp + push copy in the server log (the demo company carries a
+ * phone; console providers log it — push because the servers run with a
+ * blanked VAPID private key, selecting the console provider) with the Arabic
+ * campaign name + rounded amount + reason and no EN campaign-name leak —
+ * asserted per server, so the prod build matrix covers the dispatch path too.
+ * The booking lifecycle gets the same dual-slice treatment after the
+ * interactive request→accept flows: the worker-request line must render in
+ * the WORKER's locale (AR — Khaled's first language) and the customer-
+ * confirmed line in the CUSTOMER's locale (EN — the guest has no stored
+ * locale), proving each render follows its own recipient rather than the
+ * page locale.
+ *
+ * Each matrix (dev + prod) ALSO runs a Lighthouse-grade INSTALLABILITY check
+ * on the start_url: Chrome's own installability engine (the CDP signals
+ * Lighthouse's PWA-installability audit consumes — Page.getAppManifest +
+ * Page.getInstallabilityErrors) must return zero manifest/installability
+ * errors, and the HTTP-level contract (manifest parses with name, short_name,
+ * start_url, display: standalone, the 192/512 "any" + 512 maskable icon set,
+ * and every declared icon URL resolving 200) must hold — so a missing icon,
+ * broken manifest, or dangling icon src fails the matrix exactly the way
+ * Lighthouse would.
  *
  * The SAME matrix also runs against a production build: `next build` into an
  * isolated NEXT_DIST_DIR, then `next start` on a free port — catching the
@@ -105,12 +122,65 @@ if (E2E_SKIP_PROD) {
   console.warn("⚠ e2e-smoke: E2E_SKIP_PROD=1 — production-build matrix SKIPPED (dev matrix still runs).");
 }
 
+/** Dump the collected notes (and the per-server dispatched-channel slices) at
+ * the end of a run even when every test passes — the notes normally only
+ * surface attached to a failure's rethrown error, so a green run hides the
+ * progress markers ([booking-channels], [campaign-channels], per-route [ok],
+ * seeds, …). Set E2E_DUMP_NOTES=1 to see them. */
+const E2E_DUMP_NOTES = process.env.E2E_DUMP_NOTES === "1";
+
 /**
  * Wait after a page load before clicking SSR-rendered controls. The buttons
  * exist in the SSR HTML before React hydrates, and a pre-hydration click
  * silently no-ops (the onClick isn't attached yet) — see runInteractions.
  */
 const HYDRATION_SETTLE_MS = 400;
+
+/** PWA manifest route (src/app/manifest.ts → /manifest.webmanifest). */
+const PWA_MANIFEST_PATH = "/manifest.webmanifest";
+
+/**
+ * Pure installability validator — the manifest half of the Lighthouse-grade
+ * check (assertInstallable below). Returns the problems (empty = installable
+ * by our contract): the exact fields Chrome's installability engine requires —
+ * name, short_name, an in-scope start_url, display: standalone, and the
+ * 192/512 "any" + 512 maskable icon set (missing any of these is precisely
+ * the "bad manifest / missing icons" regression class Lighthouse fails).
+ * Shared by the e2e check and the unit test below so the verdict the matrix
+ * enforces is the same contract the unit test locks.
+ */
+function manifestInstallabilityProblems(manifest: unknown): string[] {
+  if (typeof manifest !== "object" || manifest === null) return ["manifest is not a JSON object"];
+  const m = manifest as Record<string, unknown>;
+  const problems: string[] = [];
+  if (typeof m.name !== "string" || !m.name.trim()) problems.push("manifest.name missing or empty");
+  if (typeof m.short_name !== "string" || !m.short_name.trim()) problems.push("manifest.short_name missing or empty");
+  if (m.start_url !== "/") problems.push(`manifest.start_url should be "/" (got ${JSON.stringify(m.start_url)})`);
+  if (m.display !== "standalone") problems.push(`manifest.display should be "standalone" (got ${JSON.stringify(m.display)})`);
+  const icons = Array.isArray(m.icons) ? (m.icons as Array<Record<string, unknown>>) : [];
+  if (icons.length === 0) {
+    problems.push("manifest.icons missing or empty");
+    return problems;
+  }
+  const sized = icons.map((i) => ({
+    src: typeof i.src === "string" ? i.src : "",
+    sizes: typeof i.sizes === "string" ? i.sizes : "",
+    purpose: typeof i.purpose === "string" ? i.purpose : "any",
+  }));
+  const has = (px: number, purpose: string) =>
+    sized.some(
+      (i) =>
+        i.sizes.split(/\s+/).includes(`${px}x${px}`) && i.purpose.split(/\s+/).includes(purpose)
+    );
+  if (!has(192, "any")) problems.push('no 192x192 icon with purpose "any"');
+  if (!has(512, "any")) problems.push('no 512x512 icon with purpose "any"');
+  if (!has(512, "maskable")) problems.push('no 512x512 icon with purpose "maskable"');
+  for (const i of sized) {
+    if (!i.src) problems.push("an icon entry is missing src");
+    else if (!i.src.startsWith("/")) problems.push(`icon src outside the app scope: ${i.src}`);
+  }
+  return problems;
+}
 
 /** Demo session values (mirror src/lib/auth-demo.ts → DEMO_USERS). */
 const SESSIONS: Record<string, { id: string; name: string; email: string; role: string; hue: number }> = {
@@ -520,6 +590,122 @@ function assertCleanWorkspace(
   );
 }
 
+/** The installability manifest contract is unit-tested (runs even without
+ * Chrome) — the matrix enforces this exact contract, so a future manifest
+ * edit that drops an icon or field fails the unit test before the e2e ever
+ * boots a server. */
+describe("manifestInstallabilityProblems", () => {
+  const shipped = {
+    name: "WorkersArena — Professional Workers Directory",
+    short_name: "WorkersArena",
+    start_url: "/",
+    display: "standalone",
+    icons: [
+      { src: "/icon.svg", sizes: "any", purpose: "any" },
+      { src: "/icons/icon-192.png", sizes: "192x192", purpose: "any" },
+      { src: "/icons/icon-512.png", sizes: "512x512", purpose: "any" },
+      { src: "/icons/maskable-512.png", sizes: "512x512", purpose: "maskable" },
+    ],
+  };
+
+  it("accepts the shipped manifest", () => {
+    expect(manifestInstallabilityProblems(shipped)).toEqual([]);
+  });
+
+  it("accepts purpose values written as a space-separated list", () => {
+    expect(
+      manifestInstallabilityProblems({
+        ...shipped,
+        icons: [
+          { src: "/icon.svg", sizes: "any", purpose: "any" },
+          { src: "/icons/icon-192.png", sizes: "192x192", purpose: "any maskable" },
+          { src: "/icons/icon-512.png", sizes: "512x512", purpose: "any maskable" },
+          { src: "/icons/maskable-512.png", sizes: "512x512", purpose: "maskable" },
+        ],
+      })
+    ).toEqual([]);
+  });
+
+  it("rejects a non-object manifest", () => {
+    expect(manifestInstallabilityProblems(null)).toEqual(["manifest is not a JSON object"]);
+    expect(manifestInstallabilityProblems("oops")).toEqual(["manifest is not a JSON object"]);
+  });
+
+  it("flags a missing name or short_name", () => {
+    const { name: _name, ...noName } = shipped;
+    expect(manifestInstallabilityProblems(noName)).toContain("manifest.name missing or empty");
+    const { short_name: _short, ...noShort } = shipped;
+    expect(manifestInstallabilityProblems(noShort)).toContain("manifest.short_name missing or empty");
+  });
+
+  it("flags a start_url outside the app scope", () => {
+    // toContain is exact-element — the validator appends a (got …) suffix, so
+    // match the prefix instead.
+    expect(
+      manifestInstallabilityProblems({ ...shipped, start_url: "https://evil.example/" })
+    ).toEqual([expect.stringMatching(/^manifest.start_url should be/) ]);
+  });
+
+  it("flags a non-standalone display mode", () => {
+    expect(manifestInstallabilityProblems({ ...shipped, display: "minimal-ui" })).toEqual([
+      expect.stringMatching(/^manifest.display should be/),
+    ]);
+  });
+
+  it("flags each missing icon size/purpose the engine requires", () => {
+    expect(
+      manifestInstallabilityProblems({
+        ...shipped,
+        icons: [
+          { src: "/icon.svg", sizes: "any", purpose: "any" },
+          { src: "/icons/icon-512.png", sizes: "512x512", purpose: "any" },
+          { src: "/icons/maskable-512.png", sizes: "512x512", purpose: "maskable" },
+        ],
+      })
+    ).toContain('no 192x192 icon with purpose "any"');
+
+    expect(
+      manifestInstallabilityProblems({
+        ...shipped,
+        icons: [
+          { src: "/icon.svg", sizes: "any", purpose: "any" },
+          { src: "/icons/icon-192.png", sizes: "192x192", purpose: "any" },
+          { src: "/icons/maskable-512.png", sizes: "512x512", purpose: "maskable" },
+        ],
+      })
+    ).toContain('no 512x512 icon with purpose "any"');
+
+    expect(
+      manifestInstallabilityProblems({
+        ...shipped,
+        icons: [
+          { src: "/icon.svg", sizes: "any", purpose: "any" },
+          { src: "/icons/icon-192.png", sizes: "192x192", purpose: "any" },
+          { src: "/icons/icon-512.png", sizes: "512x512", purpose: "any" },
+        ],
+      })
+    ).toContain('no 512x512 icon with purpose "maskable"');
+  });
+
+  it("flags an icon src outside the app scope (absolute URL, no leading slash)", () => {
+    expect(
+      manifestInstallabilityProblems({
+        ...shipped,
+        icons: [
+          ...shipped.icons,
+          { src: "https://cdn.example/icon-256.png", sizes: "256x256", purpose: "any" },
+        ],
+      })
+    ).toContain("icon src outside the app scope: https://cdn.example/icon-256.png");
+  });
+
+  it("flags an empty icon list", () => {
+    expect(manifestInstallabilityProblems({ ...shipped, icons: [] })).toContain(
+      "manifest.icons missing or empty"
+    );
+  });
+});
+
 /** The classifier itself is unit-tested (runs even without Chrome). */
 describe("hydration message classifier", () => {
   it("flags real hydration/DOM-nesting messages", () => {
@@ -836,10 +1022,29 @@ describeE2E("E2E hydration smoke", () => {
   };
 
   /** Per-server stdout capture — keyed by the spawn label so the dispatched
-   * channel assertions (assertCampaignChannelsDispatched) read ONLY the lines
-   * of the server they seeded, never a sibling server's cached output (the
-   * shared `notes` buffer mixes both dev + prod). */
+   * channel assertions (assertCampaignChannelsDispatched /
+   * assertBookingChannelsDispatched) read ONLY the lines of the server they
+   * exercised, never a sibling server's cached output (the shared `notes`
+   * buffer mixes both dev + prod). */
   const serverLogs = new Map<string, string[]>();
+
+  /** Slice ONE server's captured stdout into per-channel chunks — from THIS
+   * channel's marker to the NEXT channel marker (or the end of the log). A
+   * fixed-length slice could bleed into the next channel's line (the email
+   * log legitimately carries the EN name), which would false-positive the
+   * EN-leak assertions below. Shared by the campaign + booking dispatched-
+   * channel content checks. */
+  function capturedChannelSlices(label: string, marker: string): string[] {
+    const all = (serverLogs.get(label) ?? []).join("\n");
+    const out: string[] = [];
+    let at = all.indexOf(marker);
+    while (at !== -1) {
+      const next = all.indexOf("[notify:", at + marker.length);
+      out.push(next === -1 ? all.slice(at) : all.slice(at, next));
+      at = all.indexOf(marker, at + marker.length);
+    }
+    return out;
+  }
 
   /** Restore the shared tsconfig.json (sync, best-effort, idempotent). Shared
    * by afterAll AND the process-exit/signal guard installed in beforeAll — a
@@ -864,7 +1069,26 @@ describeE2E("E2E hydration smoke", () => {
       cwd: process.cwd(),
       // DEMO_MODE=true wins over any .env value (existing env > .env), and
       // NEXT_DIST_DIR keeps this server's cache out of the shared .next.
-      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", DEMO_MODE: "true", ...env },
+      //
+      // VAPID trio: the server loads real keys from .env itself, which would
+      // select the web-push provider — a no-op with no registered
+      // subscriptions, so the dispatched campaign copy would never be logged.
+      // Blanking the PRIVATE key + subject forces createPushChannel() to the
+      // console provider (whose per-locale render is what
+      // assertCampaignChannelsDispatched content-checks), while the SYNTHETIC
+      // public key keeps /api/push/vapid-public-key non-empty so the
+      // pushConfigured probe still passes and the onboarding-banner
+      // assertions keep running (the banner only needs a key string to reach
+      // the "idle" state — no subscribe happens in the smoke).
+      env: {
+        ...process.env,
+        NEXT_TELEMETRY_DISABLED: "1",
+        DEMO_MODE: "true",
+        VAPID_PUBLIC_KEY: "BElJkaYwE6P6mB8M1QYfLdW3tRhV0sXnZc2aKvUoNpQrStUwXyZ0AbCdEfGhIjKlMnO4PqRsTuVwXyZ1",
+        VAPID_PRIVATE_KEY: "",
+        VAPID_SUBJECT: "",
+        ...env,
+      },
       // Own process group so teardown can kill the whole tree (next's CLI
       // spawns a child server process that SIGTERM-on-the-parent misses).
       detached: true,
@@ -994,6 +1218,25 @@ describeE2E("E2E hydration smoke", () => {
         pushNote(`[dist-cleanup] skipped: ${err instanceof Error ? err.message : String(err)}`);
       }
       restoreTsconfig();
+
+      if (E2E_DUMP_NOTES) {
+        // Green runs normally hide the notes (they're attached to failures'
+        // rethrown errors only) — dump them here, plus each server's captured
+        // dispatched-channel lines, so a passing matrix's progress markers and
+        // the channel copy the assertions content-checked are inspectable.
+        console.log("\n════════ E2E NOTES DUMP (E2E_DUMP_NOTES=1) ════════");
+        console.log(notes.join("\n"));
+        for (const [label, lines] of serverLogs) {
+          const channelLines = lines.filter((l) =>
+            /\[notify:(sms|whatsapp|push|email):console\]/.test(l)
+          );
+          if (channelLines.length > 0) {
+            console.log(`\n── server "${label}" — dispatched channel lines ──`);
+            console.log(channelLines.join("\n"));
+          }
+        }
+        console.log("════════ END NOTES DUMP ════════\n");
+      }
     },
     60_000
   );
@@ -1256,7 +1499,9 @@ describeE2E("E2E hydration smoke", () => {
    * seams) so the /admin payments card has a refunded row to preview. The
    * refund chain dispatches the campaignRefunded notification through the
    * outbound channels — the demo company carries a phone, so the console
-   * SMS/WhatsApp providers render the copy into the server log, which
+   * SMS/WhatsApp providers render the copy into the server log, and the
+   * console push provider (the servers run with a blanked VAPID private
+   * key) logs the campaign-live title — all of which
    * assertCampaignChannelsDispatched then content-checks. */
   async function seedRefundedCampaign(seedBaseUrl: string, label = "dev"): Promise<void> {
     if (seededRefundServers.has(seedBaseUrl)) return;
@@ -1276,22 +1521,26 @@ describeE2E("E2E hydration smoke", () => {
   }
 
   /**
-   * Content-check the DISPATCHED campaign SMS + WhatsApp channels (the
-   * channel twin of the preview-dialog iframe assertions): the seed's chain
-   * (create → confirm → refund) calls pushNotification → dispatch, and the
-   * console SMS/WhatsApp providers (demo mode) log the rendered copy to the
-   * server stdout, which this test captures into `notes`. The demo company
-   * prefers Arabic, so BOTH campaign messages must render the AR copy — the
-   * campaign-live one on confirm (Arabic title الحملة نشطة الآن + Arabic
-   * campaign name) and the refund one on refund (Arabic name + rounded amount
-   * 250 USD + admin reason) — with NO EN campaign-name leak inside the AR
-   * copy (the campaign nameEn/nameAr locale fix, locked at the dispatch
-   * level). The dispatch is fire-and-forget, so the lines can land a beat
-   * after the seed POST resolves — poll the captured notes with a timeout.
+   * Content-check the DISPATCHED campaign SMS + WhatsApp + push channels
+   * (the channel twin of the preview-dialog iframe assertions): the seed's
+   * chain (create → confirm → refund) calls pushNotification → dispatch, and
+   * the console SMS/WhatsApp providers (demo mode) log the rendered copy to
+   * the server stdout, which this test captures into `notes`. Push rides the
+   * console provider because the servers boot with a blanked VAPID private
+   * key (see spawnServer) — its per-locale title/body render is asserted the
+   * same way. The demo company prefers Arabic, so ALL THREE channels must
+   * render the AR copy — the campaign-live one on confirm (Arabic title
+   * الحملة نشطة الآن + Arabic campaign name) and the refund one on refund
+   * (Arabic name + rounded amount 250 USD + admin reason) — with NO EN
+   * campaign-name leak inside the AR copy (the campaign nameEn/nameAr
+   * locale fix, locked at the dispatch level). The dispatch is
+   * fire-and-forget, so the lines can land a beat after the seed POST
+   * resolves — poll the captured notes with a timeout.
    */
   async function assertCampaignChannelsDispatched(seedBaseUrl: string, label = "dev"): Promise<void> {
     const smsMarker = "[notify:sms:console]";
     const waMarker = "[notify:whatsapp:console]";
+    const pushMarker = "[notify:push:console]";
     const arName = "حملة مستردة تجريبية"; // nameAr of the seeded E2E Refunded Campaign
     const arLiveTitle = "الحملة نشطة الآن"; // titleAr of campaignActiveNotification
     const amount = "250 USD";
@@ -1303,49 +1552,96 @@ describeE2E("E2E hydration smoke", () => {
     // whose copy is the REFUND (amount + reason present) and the slice whose
     // copy is the LIVE one (Arabic live title + Arabic name, NO amount) — not
     // just the first line.
-    const channelSlices = (marker: string): string[] => {
-      const all = (serverLogs.get(label) ?? []).join("\n");
-      const out: string[] = [];
-      let at = all.indexOf(marker);
-      // Slice from THIS channel's marker to the NEXT channel marker (or the
-      // end of the captured log) — a fixed-length slice could bleed into the
-      // next channel's line (the email log legitimately carries the EN name),
-      // which would false-positive the EN-leak assertion below.
-      while (at !== -1) {
-        const next = all.indexOf("[notify:", at + marker.length);
-        out.push(next === -1 ? all.slice(at) : all.slice(at, next));
-        at = all.indexOf(marker, at + marker.length);
-      }
-      return out;
-    };
     const isRefundSlice = (s: string) => s.includes(arName) && s.includes(amount) && s.includes(reason);
     // The live copy carries the AR live title + Arabic campaign name and NO
     // refund amount (it has no amount to tell) — distinguishing it from the
     // refund slice.
     const isLiveSlice = (s: string) => s.includes(arLiveTitle) && s.includes(arName) && !s.includes(amount);
     for (;;) {
-      const smsRefund = channelSlices(smsMarker).find(isRefundSlice);
-      const waRefund = channelSlices(waMarker).find((s) => s.includes(arName) && s.includes(amount));
-      const smsLive = channelSlices(smsMarker).find(isLiveSlice);
-      const waLive = channelSlices(waMarker).find(isLiveSlice);
-      if (smsRefund && waRefund && smsLive && waLive) {
+      const smsRefund = capturedChannelSlices(label, smsMarker).find(isRefundSlice);
+      const waRefund = capturedChannelSlices(label, waMarker).find((s) => s.includes(arName) && s.includes(amount));
+      const smsLive = capturedChannelSlices(label, smsMarker).find(isLiveSlice);
+      const waLive = capturedChannelSlices(label, waMarker).find(isLiveSlice);
+      // The console push channel (active because the servers run with a
+      // blanked VAPID private key) renders the per-locale title + body like
+      // the SMS/WhatsApp providers — the campaign-live push must carry the AR
+      // title الحملة نشطة الآن + Arabic name, never the EN title.
+      const pushLive = capturedChannelSlices(label, pushMarker).find(isLiveSlice);
+      if (smsRefund && waRefund && smsLive && waLive && pushLive) {
         // The AR channel copy must NOT leak the EN campaign name (the
         // dispatch level of the nameEn/nameAr locale fix — the AR SMS/WhatsApp
-        // bodies render nameAr, never "E2E Refunded Campaign").
+        // bodies render nameAr, never "E2E Refunded Campaign"; the push
+        // console line is single-locale by the same rule).
         expect(smsRefund).not.toContain("E2E Refunded Campaign");
         expect(waRefund).not.toContain("E2E Refunded Campaign");
         expect(smsLive).not.toContain("E2E Refunded Campaign");
         expect(waLive).not.toContain("E2E Refunded Campaign");
+        expect(pushLive).not.toContain("E2E Refunded Campaign");
+        expect(pushLive).not.toContain("Campaign is live");
         pushNote(
-          `[campaign-channels] ${seedBaseUrl} (${label}) → SMS + WhatsApp dispatched the AR copy for BOTH campaign notifications (live on confirm + refund, no EN leak)`
+          `[campaign-channels] ${seedBaseUrl} (${label}) → SMS + WhatsApp + push dispatched the AR copy for BOTH campaign notifications (live on confirm + refund, no EN leak)`
         );
         return;
       }
       if (Date.now() > deadline) {
         throw new Error(
-          `campaign SMS/WhatsApp dispatch not captured on ${seedBaseUrl} (${label}) ` +
-            `(smsRefund=${Boolean(smsRefund)} waRefund=${Boolean(waRefund)} smsLive=${Boolean(smsLive)} waLive=${Boolean(waLive)}) ` +
+          `campaign SMS/WhatsApp/push dispatch not captured on ${seedBaseUrl} (${label}) ` +
+            `(smsRefund=${Boolean(smsRefund)} waRefund=${Boolean(waRefund)} smsLive=${Boolean(smsLive)} waLive=${Boolean(waLive)} pushLive=${Boolean(pushLive)}) ` +
             `— expected the console providers to log the AR live + refund copy`
+        );
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+
+  /**
+   * Content-check the DISPATCHED booking SMS + WhatsApp channels for the
+   * request→accept lifecycle — the booking twin of the campaign dual-slice
+   * assertion. The interactions pass's runBookingFlow (EN + AR) creates a
+   * request for the demo worker Khaled (first language Arabic) and the worker
+   * accepts, confirming the guest (no stored locale → "en"). So the server
+   * log carries TWO recipient-distinct slices per channel:
+   *
+   *   • worker-request → rendered in the WORKER's locale (AR title طلب حجز
+   *     جديد, never the EN title "New booking request")
+   *   • customer-confirmed → rendered in the CUSTOMER's locale (EN title
+   *     "Booking confirmed", never the AR title تم تأكيد الحجز)
+   *
+   * Because the two recipients prefer DIFFERENT languages, this proves each
+   * channel render follows its OWN recipient's language rather than the page
+   * locale: the EN flow's worker line is still AR, and the AR flow's
+   * customer line is still EN. The dispatch is fire-and-forget, so the lines
+   * can land a beat after the server actions resolve — poll the captured
+   * notes with a timeout.
+   */
+  async function assertBookingChannelsDispatched(label = "dev"): Promise<void> {
+    const smsMarker = "[notify:sms:console]";
+    const waMarker = "[notify:whatsapp:console]";
+    const workerArTitle = "طلب حجز جديد"; // worker-request titleAr (Khaled's locale)
+    const customerEnTitle = "Booking confirmed"; // customer-confirmed titleEn (guest default)
+    const deadline = Date.now() + 15_000;
+    // The worker slice must be the AR render (Arabic title) — never the EN
+    // title — and the customer slice the EN render — never the AR title.
+    const isWorkerSlice = (s: string) =>
+      s.includes(workerArTitle) && !s.includes("New booking request");
+    const isCustomerSlice = (s: string) =>
+      s.includes(customerEnTitle) && !s.includes("تم تأكيد الحجز");
+    for (;;) {
+      const smsWorker = capturedChannelSlices(label, smsMarker).find(isWorkerSlice);
+      const waWorker = capturedChannelSlices(label, waMarker).find(isWorkerSlice);
+      const smsCustomer = capturedChannelSlices(label, smsMarker).find(isCustomerSlice);
+      const waCustomer = capturedChannelSlices(label, waMarker).find(isCustomerSlice);
+      if (smsWorker && waWorker && smsCustomer && waCustomer) {
+        pushNote(
+          `[booking-channels] (${label}) → worker-request SMS/WhatsApp rendered in the worker's AR locale + customer-confirmed in the customer's EN locale (per-recipient, not page locale)`
+        );
+        return;
+      }
+      if (Date.now() > deadline) {
+        throw new Error(
+          `booking SMS/WhatsApp dispatch not captured (${label}) ` +
+            `(smsWorker=${Boolean(smsWorker)} waWorker=${Boolean(waWorker)} smsCustomer=${Boolean(smsCustomer)} waCustomer=${Boolean(waCustomer)}) ` +
+            `— expected the worker-request (AR) + customer-confirmed (EN) console lines from the request→accept flows`
         );
       }
       await new Promise((r) => setTimeout(r, 300));
@@ -1459,12 +1755,42 @@ describeE2E("E2E hydration smoke", () => {
    * (predicates can't be closures — they run in the page). Tolerant of the
    * execution-context destruction that a `location.reload()` causes.
    */
-  async function waitFor(page: Page, fn: string, label: string, timeoutMs = 20_000): Promise<void> {
+  async function waitFor(
+    page: Page,
+    fn: string,
+    label: string,
+    timeoutMs = 20_000,
+    reloadOnTimeout = false
+  ): Promise<void> {
     const start = Date.now();
     for (;;) {
       const ok = await page.evaluate(fn).catch(() => false);
       if (ok) return;
-      if (Date.now() - start > timeoutMs) throw new Error(`timeout waiting for: ${label}`);
+      if (Date.now() - start > timeoutMs) {
+        if (reloadOnTimeout) {
+          // Dev-mode-only resilience: a server action provably mutates the
+          // shared demo store (the SSR DOCUMENT renders the new state — we've
+          // verified this), but a dev-mode Turbopack router.refresh() flight
+          // can lag the document and never reconcile on the client (the
+          // failure position shifts with any chunk-graph change). The
+          // document render is authoritative, so reload once — the assertion
+          // then checks the SAME fresh state the refresh was meant to apply.
+          // Prod stays strict (no fallback): real server-action → refresh
+          // round-trips are the point of the prod matrix.
+          pushNote(
+            `[refresh-fallback] (dev) refresh flight didn't apply for: ${label} — reloading once; the SSR document is provably fresh (the flight reconcile is the dev-mode gap)`
+          );
+          await page.reload({ waitUntil: "load", timeout: 120_000 });
+          const restart = Date.now();
+          for (;;) {
+            const after = await page.evaluate(fn).catch(() => false);
+            if (after) return;
+            if (Date.now() - restart > timeoutMs) throw new Error(`timeout waiting for (after reload): ${label}`);
+            await new Promise((r) => setTimeout(r, 200));
+          }
+        }
+        throw new Error(`timeout waiting for: ${label}`);
+      }
       await new Promise((r) => setTimeout(r, 200));
     }
   }
@@ -1475,9 +1801,101 @@ describeE2E("E2E hydration smoke", () => {
    * errors + notes appended, and the page is always closed (finally), so a
    * mid-matrix failure is diagnosable and never leaks a page handle.
    */
+  /**
+   * Lighthouse-grade installability check — asks CHROME'S OWN installability
+   * engine (the same CDP signals Lighthouse's PWA-installability audit
+   * consumes: Page.getAppManifest + Page.getInstallabilityErrors), so a
+   * missing icon, broken manifest, or unsupported display mode fails the
+   * matrix exactly the way Lighthouse would fail it. On top of the engine's
+   * verdict it ALWAYS asserts the HTTP-level contract: the manifest must
+   * parse and satisfy manifestInstallabilityProblems (the field/icon set),
+   * and every declared icon URL must actually resolve (a dangling icon src is
+   * the classic "installs fine locally, breaks after deploy" regression — and
+   * the engine may not fetch every icon in every Chrome version). If the CDP
+   * method is unavailable on this Chrome, the content contract still runs.
+   */
+  async function assertInstallable(page: Page, baseUrl: string, label: string, issues: string[]): Promise<void> {
+    const fail = (msg: string) => issues.push(`[installability:${label}] ${msg}`);
+
+    await page.goto(`${baseUrl}/`, { waitUntil: "load", timeout: 120_000 });
+    // Chrome's installability engine requires an active service worker with a
+    // fetch handler — the registrar installs /sw.js on first visit, but
+    // registration is async, so wait for it (bounded) before asking for a
+    // verdict; if registration never completes the engine reports it itself.
+    try {
+      await page.evaluate(() => {
+        const sw = (navigator as { serviceWorker?: ServiceWorkerContainer }).serviceWorker;
+        if (!sw) return;
+        return new Promise<void>((resolve) => {
+          const t = setTimeout(resolve, 8000);
+          sw.ready
+            .then(() => {
+              clearTimeout(t);
+              resolve();
+            })
+            .catch(() => {
+              clearTimeout(t);
+              resolve();
+            });
+        });
+      });
+    } catch {
+      /* SW unavailable — the engine's verdict will reflect it. */
+    }
+
+    let cdp = false;
+    try {
+      const session = await page.createCDPSession();
+      const appManifest = (await session.send("Page.getAppManifest")) as {
+        errors?: Array<{ message?: string }>;
+        parsed?: string | null;
+      };
+      const install = (await session.send("Page.getInstallabilityErrors")) as {
+        installabilityErrors?: Array<{ errorId?: string }>;
+      };
+      cdp = true;
+      for (const e of appManifest.errors ?? []) fail(`Chrome manifest error: ${e.message ?? "unknown"}`);
+      for (const e of install.installabilityErrors ?? []) fail(`Chrome installability error: ${e.errorId ?? "unknown"}`);
+      pushNote(
+        `[installability] ${label}: Chrome engine verdict — ${(install.installabilityErrors ?? []).length} installability errors, ${(appManifest.errors ?? []).length} manifest errors`
+      );
+    } catch (err) {
+      pushNote(
+        `[installability] ${label}: CDP engine unavailable (${err instanceof Error ? err.message : String(err)}) — content contract only`
+      );
+    }
+
+    // HTTP-level contract — always asserted, engine or not.
+    let manifest: unknown;
+    try {
+      const res = await fetch(`${baseUrl}${PWA_MANIFEST_PATH}`);
+      if (!res.ok) fail(`manifest fetch → HTTP ${res.status}`);
+      else manifest = await res.json();
+    } catch (err) {
+      fail(`manifest fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    if (manifest !== undefined) {
+      for (const p of manifestInstallabilityProblems(manifest)) fail(p);
+      const icons = Array.isArray((manifest as Record<string, unknown>).icons)
+        ? ((manifest as Record<string, unknown>).icons as Array<{ src?: unknown }>)
+        : [];
+      for (const icon of icons) {
+        if (typeof icon?.src !== "string" || !icon.src) continue; // validator flags missing src
+        const url = icon.src.startsWith("http") ? icon.src : `${baseUrl}${icon.src}`;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) fail(`icon ${icon.src} → HTTP ${res.status}`);
+        } catch (err) {
+          fail(`icon ${icon.src} fetch failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
+    pushNote(`[installability] ${label}: ${cdp ? "engine + " : ""}contract verdict — ${issues.length === 0 ? "INSTALLABLE" : `${issues.length} problem(s)`}`);
+  }
+
   async function runMatrix(
     specs: RouteSpec[],
-    opts: { pushConfigured?: boolean; baseUrl?: string; mode?: "dev" | "prod" } = {},
+    opts: { pushConfigured?: boolean; baseUrl?: string; mode?: "dev" | "prod"; installability?: boolean } = {},
     strict = false
   ): Promise<void> {
     const issues: string[] = [];
@@ -1485,6 +1903,9 @@ describeE2E("E2E hydration smoke", () => {
     try {
       attachCollectors(page, issues, strict);
       await visitRoutes(page, specs, issues, opts);
+      if (opts.installability) {
+        await assertInstallable(page, opts.baseUrl ?? baseUrl, opts.mode ?? "dev", issues);
+      }
     } catch (err) {
       throw new Error(
         [
@@ -1506,17 +1927,17 @@ describeE2E("E2E hydration smoke", () => {
   }
 
   it(
-    "visits /admin /admin/bookings/BK-0990 /dashboard /company /notifications in EN + AR with zero hydration errors (compact SLA countdown bar content-checked on /dashboard; refund-email preview dialog iframe content-checked — company locale on the campaign card, page locale on the dispute view)",
+    "visits /admin /admin/bookings/BK-0990 /dashboard /company /notifications in EN + AR with zero hydration errors (compact SLA countdown bar content-checked on /dashboard; refund-email preview dialog iframe content-checked — company locale on the campaign card, page locale on the dispute view; installability engine + manifest/icon contract checked)",
     async () => {
-      await runMatrix(ROUTES, { pushConfigured });
+      await runMatrix(ROUTES, { pushConfigured, installability: true });
     },
     300_000
   );
 
   it(
-    "visits / /search /bookings /workers/:slug /auth/login in EN + AR with zero hydration errors (push prompt + /bookings SLA countdown bar + customer email-preview dialog content-checked)",
+    "visits / /search /bookings /workers/:slug /auth/login in EN + AR with zero hydration errors (push prompt + /bookings SLA countdown bar + customer email-preview dialog content-checked; installability engine + manifest/icon contract checked)",
     async () => {
-      await runMatrix(PUBLIC_ROUTES, { pushConfigured });
+      await runMatrix(PUBLIC_ROUTES, { pushConfigured, installability: true });
     },
     300_000
   );
@@ -1530,9 +1951,16 @@ describeE2E("E2E hydration smoke", () => {
    */
   async function runRenewal(
     page: Page,
-    opts: { baseUrl: string; plan: "basic" | "professional" | "premium" | "enterprise"; locale: "en" | "ar" }
+    opts: {
+      baseUrl: string;
+      plan: "basic" | "professional" | "premium" | "enterprise";
+      locale: "en" | "ar";
+      /** Dev-only: reload once when a refresh flight doesn't apply (see
+       * waitFor's reloadOnTimeout — the SSR document is provably fresh). */
+      refreshFallback?: boolean;
+    }
   ): Promise<void> {
-    const { baseUrl: b, plan, locale } = opts;
+    const { baseUrl: b, plan, locale, refreshFallback = false } = opts;
     // Tightly keyed so a typo'd plan fails at compile time, not at runtime.
     const planEn: Record<typeof plan, string> = { basic: "Basic", professional: "Professional", premium: "Premium", enterprise: "Enterprise" };
     const planAr: Record<typeof plan, string> = { basic: "أساسية", professional: "احترافية", premium: "مميزة", enterprise: "مؤسسات" };
@@ -1580,9 +2008,11 @@ describeE2E("E2E hydration smoke", () => {
     await waitFor(
       page,
       `[...document.querySelectorAll('span')].some(s => (s.textContent ?? '').trim() === '${label}')`,
-      "subscription card plan badge"
+      "subscription card plan badge",
+      20_000,
+      refreshFallback
     );
-    await waitFor(page, `document.body.innerText.includes('${invoiceDesc}')`, "invoice card shows the new invoice");
+    await waitFor(page, `document.body.innerText.includes('${invoiceDesc}')`, "invoice card shows the new invoice", 20_000, refreshFallback);
     await page.goto(`${b}/notifications`, { waitUntil: "load", timeout: 120_000 });
     await waitFor(page, `document.body.innerText.includes('${notifText}')`, "renewal notification in inbox");
   }
@@ -1745,7 +2175,7 @@ describeE2E("E2E hydration smoke", () => {
    *   1. Worker: /dashboard → "Generate slots" (M2) so a fresh slot exists.
    *   2. Guest: /workers/khaled-al-harbi-plumbing → Request a booking dialog,
    *      type a job title (step 1) → pick the first available slot (step 2)
-   *      → name + phone (step 3) → send. Assert the success state.
+   *      → name + phone + email (step 3) → send. Assert the success state.
    *   3. Worker: /dashboard → the new REQUESTED row appears in the Requests
    *      tab → Respond dialog → Accept (deposit mode also toggles the
    *      "Require deposit" switch and enters an amount) → assert the toast.
@@ -1767,6 +2197,11 @@ describeE2E("E2E hydration smoke", () => {
     const en = locale === "en";
     const name = en ? "E2E Customer" : "عميل تجريبي";
     const phone = en ? "+966 50 111 2222" : "+966 50 333 4444";
+    // An email makes the guest a FULLY-ADDRESSED customer: notifyCustomer only
+    // builds a recipient when booking.customerEmail is set, so without it the
+    // customer-confirmed SMS/WhatsApp lines never dispatch (and the
+    // assertBookingChannelsDispatched dual-slice check has nothing to match).
+    const email = en ? "e2e.customer@example.com" : "e2e.ar.customer@example.com";
     const jobTitle = en ? "E2E leak fix request" : "طلب إصلاح تسريب تجريبي";
     const nextLabel = en ? "Next" : "التالي";
     const sendLabel = en ? "Send booking request" : "إرسال طلب الحجز";
@@ -1863,7 +2298,8 @@ describeE2E("E2E hydration smoke", () => {
       btn.click();
     }, nextLabel);
 
-    // Step 3 — name + phone (inputs are name, phone, email in DOM order).
+    // Step 3 — name + phone + email (inputs are name, phone, email in DOM
+    // order; the email input is the only type=email one).
     await waitFor(
       page,
       `document.querySelectorAll('${dialogSel} input').length >= 2`,
@@ -1871,6 +2307,7 @@ describeE2E("E2E hydration smoke", () => {
     );
     await setInput(page, `${dialogSel} input[placeholder="${namePlaceholder}"]`, name);
     await setInput(page, `${dialogSel} input[dir="ltr"]`, phone);
+    await setInput(page, `${dialogSel} input[type="email"]`, email);
     await page.evaluate((label) => {
       const dialog = document.querySelector('[role="dialog"]');
       const btn = [...(dialog?.querySelectorAll("button") ?? [])].find((x) => (x.textContent ?? "").includes(label));
@@ -2056,6 +2493,12 @@ describeE2E("E2E hydration smoke", () => {
     mode?: "dev" | "prod";
   }): Promise<void> {
     const { baseUrl: targetBase, strict = false, mode = "dev" } = opts;
+    // Dev-only refresh resilience: a dev-mode Turbopack router.refresh()
+    // flight can fail to reconcile even when the SSR document is fresh (the
+    // store is singleton-shared and the document provably renders the new
+    // state). The prod matrix stays strict — real server-action → refresh
+    // round-trips are its whole point.
+    const refreshFallback = mode !== "prod";
     const issues: string[] = [];
     const page: Page = await browser!.newPage();
     try {
@@ -2077,7 +2520,7 @@ describeE2E("E2E hydration smoke", () => {
         // here so step 2 is deterministic on ANY server/origin.
         { name: "wa_theme", value: "light", domain: HOST, path: "/" }
       );
-      await runRenewal(page, { baseUrl: targetBase, plan: "enterprise", locale: "en" });
+      await runRenewal(page, { baseUrl: targetBase, plan: "enterprise", locale: "en", refreshFallback });
 
       // ── 2. Theme toggle: light → dark, persisted via the wa_theme cookie ──
       await page.goto(`${targetBase}/`, { waitUntil: "load", timeout: 120_000 });
@@ -2168,7 +2611,9 @@ describeE2E("E2E hydration smoke", () => {
       await waitFor(
         page,
         "[...document.querySelectorAll('span')].some(s => (s.textContent ?? '').trim() === 'قيد المراجعة')",
-        "verification banner badge → pending"
+        "verification banner badge → pending",
+        20_000,
+        refreshFallback
       );
 
       // ── 5. Admin approve from the verification queue (AR) ────────────────
@@ -2208,7 +2653,7 @@ describeE2E("E2E hydration smoke", () => {
         domain: HOST,
         path: "/",
       });
-      await runRenewal(page, { baseUrl: targetBase, plan: "professional", locale: "ar" });
+      await runRenewal(page, { baseUrl: targetBase, plan: "professional", locale: "ar", refreshFallback });
 
       // ── 7. Booking request → accept (EN; deposit path in dev) ────────────
       await runBookingFlow(page, {
@@ -2554,6 +2999,14 @@ describeE2E("E2E hydration smoke", () => {
       pushNote(
         "[plan-change] bilal Enterprise → Premium → fee-waived search SSR + profile badge hide him → reverted to Enterprise → both surface him again"
       );
+
+      // ── 10. Dispatched-channel content check (booking dual-slice) ────────
+      // The two runBookingFlow chains above dispatched the worker-request +
+      // customer-confirmed SMS/WhatsApp lines into this server's captured
+      // stdout. Assert each slice rendered in ITS OWN recipient's locale
+      // (worker AR, guest EN) — the booking twin of the campaign assertion,
+      // covered against the same server the flows just ran on.
+      await assertBookingChannelsDispatched(mode === "prod" ? "prod" : "dev");
     } catch (err) {
       throw new Error(
         [
@@ -2656,7 +3109,7 @@ describeE2E("E2E hydration smoke", () => {
       // collection, stylesheet/JS-bundle presence, no error overlay.
       await runMatrix(
         [...ROUTES, ...PUBLIC_ROUTES],
-        { baseUrl: prodUrl, pushConfigured: prodPush, mode: "prod" },
+        { baseUrl: prodUrl, pushConfigured: prodPush, mode: "prod", installability: true },
         /* strict */ true
       );
 

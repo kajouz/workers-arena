@@ -190,7 +190,14 @@ export async function runBookingReminderEngine(now = new Date()): Promise<Bookin
     await pushNotification(
       buildBookingReminder(booking),
       booking.customerEmail
-        ? { name: booking.customerName, email: booking.customerEmail, phone: booking.customerPhone, locale: "en" }
+        ? {
+            name: booking.customerName,
+            email: booking.customerEmail,
+            phone: booking.customerPhone,
+            // The customer's preferred language (booking.customerLocale — the
+            // prisma adapter maps it from User.locale; demo defaults "en").
+            locale: booking.customerLocale ?? "en",
+          }
         : undefined
     );
     dispatched += 1;

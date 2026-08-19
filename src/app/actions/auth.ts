@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { DEMO_USERS, SESSION_COOKIE, realAuthEnabled, type SessionRole } from "@/lib/auth-demo";
 import { addLead, addReview, registerView } from "@/lib/data/repo";
+import { getLocale } from "@/lib/i18n/server";
 import { DEMO_PASSWORD, hashPassword } from "@/lib/security";
 
 const loginSchema = z.object({
@@ -112,6 +113,11 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
       const { getPrisma } = await import("@/lib/server/prisma");
       const prisma = getPrisma();
       const role = parsed.data.role as SessionRole;
+      // Capture the register page's language (wa_locale cookie / Accept-
+      // Language) so the new user's preferred language is stored from day one
+      // — the recipient-locale threading downstream reads User.locale, and a
+      // hardcoded "en" would silently make every real-mode email English.
+      const locale = await getLocale();
       await prisma.user.create({
         data: {
           name: String(parsed.data.name),
@@ -119,7 +125,7 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
           passwordHash: hashPassword(parsed.data.password),
           phone: parsed.data.phone ?? null,
           role: prismaRole(role),
-          locale: "en",
+          locale,
           hue: 210,
         },
       });

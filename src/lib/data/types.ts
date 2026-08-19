@@ -388,6 +388,10 @@ export interface Booking {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  /** The customer's preferred notification language (prisma: User.locale via
+   * the customer relation; demo: unset → "en"). Recipients follow it so
+   * emails/SMS/WhatsApp render in the language the customer actually uses. */
+  customerLocale?: "en" | "ar";
   jobTitle: string;
   note?: string;
   serviceItem?: ServiceItem;
@@ -499,6 +503,14 @@ export interface BookingEmailContext {
   currency?: string;
   jobTitle?: string;
   /**
+   * The catalog service the booking was created from (when booked off the
+   * worker's service list) — carries nameEn/nameAr so the email receipt's
+   * "Service" row renders the locale-appropriate name like the booking rows
+   * do, instead of leaking the single-locale free-text jobTitle into both
+   * languages (the campaign campaignName/nameAr fix, mirrored for bookings).
+   */
+  serviceItem?: ServiceItem;
+  /**
    * M5 — the platform-fee snapshot at accept-with-quote (minor units), so the
    * confirmation email can show the fee (or "fee waived" when 0 — the exempt
    * marker) exactly like the customer booking row.
@@ -516,7 +528,10 @@ export interface BookingEmailContext {
  * /admin campaign-payments table carry.
  */
 export interface CampaignRefundContext {
+  /** EN campaign name — the locale-agnostic default (subject + card in EN emails). */
   campaignName: string;
+  /** AR campaign name — the card + subject use it in Arabic emails. */
+  campaignNameAr: string;
   amount: number; // minor units
   currency: string;
   reason?: string;

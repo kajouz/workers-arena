@@ -68,7 +68,7 @@ export function formatSlotRange(slot: { startAt?: string; endAt?: string }, loca
 export function bookingEmailContext(
   booking: Pick<
     Booking,
-    "number" | "startAt" | "endAt" | "quote" | "deposit" | "currency" | "jobTitle" | "platformFee" | "events"
+    "number" | "startAt" | "endAt" | "quote" | "deposit" | "currency" | "jobTitle" | "serviceItem" | "platformFee" | "events"
   >
 ): BookingEmailContext {
   return {
@@ -81,6 +81,7 @@ export function bookingEmailContext(
     deposit: booking.deposit,
     currency: booking.currency,
     jobTitle: booking.jobTitle,
+    serviceItem: booking.serviceItem,
     // M5 — the fee snapshot rides the payload so the receipt matches the row.
     platformFee: booking.platformFee,
   };
