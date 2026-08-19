@@ -1,0 +1,280 @@
+/**
+ * Print-friendly styles for WorkersArena
+ *
+ * This stylesheet provides optimized styles for printing pages.
+ * Include in layout.tsx: <link rel="stylesheet" href="/print.css" media="print" />
+ */
+
+@media print {
+  /* Hide non-essential elements */
+  header,
+  footer,
+  nav,
+  .no-print,
+  button,
+  [role="navigation"],
+  .toast,
+  .modal,
+  dialog,
+  .sidebar,
+  .filter-panel,
+  .search-bar,
+  .pagination,
+  .breadcrumb {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Page setup */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+
+  body {
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #000;
+    background: #fff;
+  }
+
+  /* Links */
+  a {
+    color: #000;
+    text-decoration: underline;
+  }
+
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  /* Hide links that are just navigation */
+  nav a[href]::after,
+  header a[href]::after,
+  footer a[href]::after {
+    content: none;
+  }
+
+  /* Images */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Tables */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    page-break-inside: avoid;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+  }
+
+  th {
+    background-color: #f3f4f6;
+    font-weight: bold;
+  }
+
+  /* Cards and boxes */
+  .card,
+  .box,
+  .panel {
+    border: 1px solid #ccc;
+    page-break-inside: avoid;
+  }
+
+  /* Page breaks */
+  .page-break {
+    page-break-before: always;
+  }
+
+  .no-break {
+    page-break-inside: avoid;
+  }
+
+  /* Colors */
+  .text-primary {
+    color: #000 !important;
+  }
+
+  .bg-primary {
+    background-color: #f3f4f6 !important;
+  }
+
+  /* Shadows and effects */
+  .shadow,
+  .shadow-soft,
+  .shadow-lift {
+    box-shadow: none !important;
+  }
+
+  .gradient,
+  .bg-gradient {
+    background: #f3f4f6 !important;
+  }
+
+  /* Animations */
+  .animate,
+  .animate-pulse,
+  .animate-spin,
+  .animate-bounce {
+    animation: none !important;
+  }
+
+  /* Fixed elements */
+  .sticky,
+  .fixed {
+    position: static !important;
+  }
+
+  /* Overflow */
+  .overflow-hidden,
+  .overflow-auto,
+  .overflow-scroll {
+    overflow: visible !important;
+  }
+
+  /* Width constraints */
+  .max-w-7xl,
+  .max-w-6xl,
+  .max-w-5xl,
+  .max-w-4xl {
+    max-width: 100% !important;
+  }
+
+  /* Flex and grid for print */
+  .flex {
+    display: block !important;
+  }
+
+  .grid {
+    display: block !important;
+  }
+
+  /* Print header */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #000;
+  }
+
+  .print-header h1 {
+    font-size: 24pt;
+    margin: 0;
+  }
+
+  .print-header p {
+    font-size: 10pt;
+    color: #666;
+    margin: 5px 0 0;
+  }
+
+  /* Print footer */
+  .print-footer {
+    display: block !important;
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px solid #ccc;
+    font-size: 9pt;
+    color: #666;
+  }
+
+  /* Worker profile print styles */
+  .worker-profile {
+    page-break-after: always;
+  }
+
+  .worker-profile .hero {
+    background: none !important;
+    padding: 0 !important;
+  }
+
+  /* Booking print styles */
+  .booking-details {
+    page-break-inside: avoid;
+  }
+
+  /* Invoice print styles */
+  .invoice {
+    page-break-after: always;
+  }
+
+  .invoice-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+  }
+
+  .invoice-table {
+    width: 100%;
+    margin: 20px 0;
+  }
+
+  .invoice-total {
+    text-align: right;
+    font-size: 14pt;
+    font-weight: bold;
+    margin-top: 20px;
+  }
+
+  /* Receipt print styles */
+  .receipt {
+    max-width: 300px;
+    margin: 0 auto;
+    font-family: monospace;
+  }
+
+  .receipt-header {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .receipt-line {
+    display: flex;
+    justify-content: space-between;
+    margin: 5px 0;
+  }
+
+  .receipt-total {
+    border-top: 1px dashed #000;
+    margin-top: 10px;
+    padding-top: 10px;
+    font-weight: bold;
+  }
+}
+
+/* Print-only styles (hidden on screen) */
+.print-only {
+  display: none;
+}
+
+@media screen {
+  .print-only {
+    display: none;
+  }
+}
+
+@media print {
+  .print-only {
+    display: block;
+  }
+}
