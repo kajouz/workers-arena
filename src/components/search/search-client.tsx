@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Mic, SlidersHorizontal, X, MapPin } from "lucide-react";
@@ -23,6 +24,9 @@ import { Rating } from "@/components/ui/rating";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useVoiceSearch } from "@/hooks/use-voice-search";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
+import { useSearchHistory } from "@/hooks/use-search-history";
+import { useGeolocation } from "@/hooks/use-geolocation";
+import { SearchHistory } from "@/components/search/search-history";
 import { cn, formatNumber } from "@/lib/utils";
 import { filtersToSearchParams } from "@/lib/data/search-params";
 
@@ -93,6 +97,16 @@ export function SearchClient({
   const [suggestOpen, setSuggestOpen] = useState(false);
   const debouncedQuery = useDebounce(query, 220);
   const searchSeq = useRef(0);
+  const { addSearch } = useSearchHistory();
+  const {
+    latitude,
+    longitude,
+    loading: geoLoading,
+    error: geoError,
+    requestPosition,
+    calculateDistance,
+    isSupported: geoSupported,
+  } = useGeolocation();
 
   const hasMore = results.items.length < results.total;
   const activeCount = useMemo(() => {
@@ -159,6 +173,14 @@ export function SearchClient({
     const qs = filtersToSearchParams(filters);
     router.replace(`/search${qs}`, { scroll: false });
     runSearch(filters, 1);
+    // Track search in history
+    if (filters.query || filters.category || filters.city) {
+      addSearch({
+        query: filters.query ?? "",
+        category: filters.category,
+        city: filters.city,
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
@@ -184,6 +206,15 @@ export function SearchClient({
   }, [hasMore, loading, page, filters, runSearch]);
 
   const sentinel = useInfiniteScroll(loadMore, hasMore);
+
+  // Virtual scrolling for large result lists
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: results.items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 280, // estimated card height
+    overscan: 5,
+  });
 
   const update = <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
     setFilters((f) => ({ ...f, [key]: value, page: undefined }));
@@ -223,6 +254,20 @@ export function SearchClient({
 
       {/* ─── Main ─── */}
       <div>
+        {/* search history */}
+        <SearchHistory
+          className="mb-4"
+          onSelect={(entry) => {
+            setQuery(entry.query);
+            setFilters((f) => ({
+              ...f,
+              query: entry.query,
+              category: entry.category,
+              city: entry.city,
+            }));
+          }}
+        />
+
         {/* search + sort row */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
@@ -289,6 +334,33 @@ export function SearchClient({
               )}
             </AnimatePresence>
           </div>
+
+          {/* location-based search */}
+          {geoSupported && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!latitude || !longitude) {
+                  requestPosition();
+                } else {
+                  update("sort", "nearest");
+                }
+              }}
+              disabled={geoLoading}
+              className={cn(
+                "gap-2",
+                filters.sort === "nearest" && "border-brand-500 bg-brand-500/10 text-brand-600"
+              )}
+            >
+              <MapPin className="size-4" />
+              {geoLoading
+                ? "Locating…"
+                : filters.sort === "nearest"
+                ? "Near Me"
+                : "Find Near Me"}
+            </Button>
+          )}
 
           {/* sort */}
           <Select value={filters.sort ?? "relevance"} onValueChange={(v) => update("sort", v as SearchFilters["sort"])}>
@@ -377,7 +449,40 @@ export function SearchClient({
                 {L.emptyCta}
               </Button>
             </div>
+          ) : results.items.length > 12 ? (
+            // Virtual scrolling for large result sets (>12 items)
+            <div ref={parentRef} className="h-[800px] overflow-auto">
+              <div
+                className="relative grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+                style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const worker = results.items[virtualRow.index];
+                  return (
+                    <div
+                      key={worker.id}
+                      className="absolute inset-x-0 top-0 grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+                      style={{
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      <WorkerCard worker={worker} index={virtualRow.index} />
+                    </div>
+                  );
+                })}
+              </div>
+              {loading && (
+                <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <WorkerCardSkeleton key={`s-${i}`} />
+                  ))}
+                </div>
+              )}
+              <div ref={sentinel} className="h-4" aria-hidden />
+            </div>
           ) : (
+            // Standard grid for small result sets
             <>
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 <AnimatePresence mode="popLayout">
