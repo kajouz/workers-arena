@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { replayQueue } from "@/lib/offline-queue";
 import { flushAnalyticsQueue } from "@/lib/analytics-queue";
+import { isCapacitorApp, initializePushNotifications, cleanupPushNotifications } from "@/lib/mobile/push-notifications";
 
 export const SW_PATH = "/sw.js";
 
@@ -23,38 +24,54 @@ export const SW_PATH = "/sw.js";
  */
 export function ServiceWorkerRegistrar() {
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    navigator.serviceWorker
-      .register(SW_PATH)
-      .then((reg) => {
-        // When the browser comes back online, ask the SW to refresh cached
-        // search results, replay the offline queue, and flush analytics.
-        const onOnline = () => {
-          if (reg.active) {
-            reg.active.postMessage({ type: "refresh-search" });
-            reg.active.postMessage({ type: "replay-offline-queue" });
-          }
-          // Flush analytics directly (no SW involvement needed).
-          flushAnalyticsQueue().catch(() => {});
-        };
-        window.addEventListener("online", onOnline);
+    if (typeof window === "undefined") return;
 
-        // If the SW sends a replay message (e.g. from a sync event), honour it.
-        const onMessage = (event: MessageEvent) => {
-          if (event.data?.type === "replay-offline-queue") {
-            replayQueue().catch(() => {});
-          }
-        };
-        navigator.serviceWorker.addEventListener("message", onMessage);
+    // Initialize native push notifications for Capacitor
+    const isNative = isCapacitorApp();
+    if (isNative) {
+      initializePushNotifications().catch(() => {});
+    }
 
-        return () => {
-          window.removeEventListener("online", onOnline);
-          navigator.serviceWorker.removeEventListener("message", onMessage);
-        };
-      })
-      .catch(() => {
-        /* offline-capable app? no — this is just push delivery. Ignore. */
-      });
+    // Register service worker for web PWA
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register(SW_PATH)
+        .then((reg) => {
+          // When the browser comes back online, ask the SW to refresh cached
+          // search results, replay the offline queue, and flush analytics.
+          const onOnline = () => {
+            if (reg.active) {
+              reg.active.postMessage({ type: "refresh-search" });
+              reg.active.postMessage({ type: "replay-offline-queue" });
+            }
+            // Flush analytics directly (no SW involvement needed).
+            flushAnalyticsQueue().catch(() => {});
+          };
+          window.addEventListener("online", onOnline);
+
+          // If the SW sends a replay message (e.g. from a sync event), honour it.
+          const onMessage = (event: MessageEvent) => {
+            if (event.data?.type === "replay-offline-queue") {
+              replayQueue().catch(() => {});
+            }
+          };
+          navigator.serviceWorker.addEventListener("message", onMessage);
+
+          return () => {
+            window.removeEventListener("online", onOnline);
+            navigator.serviceWorker.removeEventListener("message", onMessage);
+          };
+        })
+        .catch(() => {
+          /* offline-capable app? no — this is just push delivery. Ignore. */
+        });
+    }
+
+    return () => {
+      if (isNative) {
+        cleanupPushNotifications();
+      }
+    };
   }, []);
 
   return null;
