@@ -145,8 +145,8 @@ enum TicketStatus {
 
 enum BookingStatus {
   REQUESTED
-  QUOTING   // multi-candidate quotes (docs/multi-candidate-quotes.md): invited to quote, bid not submitted
-  QUOTED    // multi-candidate quotes: the worker's bid is in, awaiting the customer's pick
+  QUOTING // multi-candidate quotes (docs/multi-candidate-quotes.md): invited to quote, bid not submitted
+  QUOTED // multi-candidate quotes: the worker's bid is in, awaiting the customer's pick
   PENDING_PAYMENT
   CONFIRMED
   IN_PROGRESS
@@ -165,10 +165,10 @@ enum BookingStatus {
 /// workers ARE its linked Bookings (one Booking per worker, QUOTING/QUOTED,
 /// slot-less until the winner is picked).
 enum QuoteStatus {
-  OPEN      // created, invites sent, waiting for quotes
-  QUOTING   // >=1 quote submitted, awaiting the customer's pick
-  SELECTED  // a winner was chosen — the job moved into a slot-bound Booking
-  EXPIRED   // the SLA window passed with no quotes worth picking
+  OPEN // created, invites sent, waiting for quotes
+  QUOTING // >=1 quote submitted, awaiting the customer's pick
+  SELECTED // a winner was chosen — the job moved into a slot-bound Booking
+  EXPIRED // the SLA window passed with no quotes worth picking
   CANCELLED // the customer withdrew the job
 }
 
@@ -222,25 +222,29 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  worker        Worker?
-  company       Company?
-  accounts      Account[]
-  sessions      Session[]
-  reviewsGiven  Review[]
-  favorites     Favorite[]
-  notifications Notification[]
+  worker            Worker?
+  company           Company?
+  accounts          Account[]
+  sessions          Session[]
+  reviewsGiven      Review[]
+  favorites         Favorite[]
+  notifications     Notification[]
   pushSubscriptions PushSubscription[]
-  leads         Lead[]
-  searches      SearchLog[]
-  tickets       Ticket[]
-  referrals    Referral[]    @relation("Referrer")
-  referralCode  String?      @unique
-  invoices      Invoice[]
-  payments      Payment[]
-  activityLogs  ActivityLog[]
-  bookings      Booking[] // customer-side bookings
+  leads             Lead[]
+  searches          SearchLog[]
+  tickets           Ticket[]
+  referrals         Referral[]         @relation("Referrer")
+  referralCode      String?            @unique
+  invoices          Invoice[]
+  payments          Payment[]
+  activityLogs      ActivityLog[]
+  bookings          Booking[] // customer-side bookings
   recurringBookings RecurringBooking[]
-  quoteRequests QuoteRequest[] // multi-candidate quote jobs (customer side)
+  quoteRequests     QuoteRequest[] // multi-candidate quote jobs (customer side)
+  forumPosts        ForumPost[]
+  forumAnswers      ForumAnswer[]
+  forumVotes        ForumVote[]
+  forumBookmarks    ForumBookmark[]
 
   @@index([role])
   @@index([email])
@@ -287,26 +291,26 @@ model VerificationToken {
 // ─────────────────────────────── Catalog ───────────────────────────────
 
 model Category {
-  id          String    @id @default(cuid())
-  slug        String    @unique
-  nameEn      String
-  nameAr      String
-  icon        String // lucide icon name
-  taglineEn   String?
-  taglineAr   String?
-  hue         Int       @default(0)
-  parentId    String?
-  parent      Category? @relation("Subcategories", fields: [parentId], references: [id])
-  children    Category[] @relation("Subcategories")
-  sortOrder   Int       @default(0)
-  isFeatured  Boolean   @default(false)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String     @id @default(cuid())
+  slug       String     @unique
+  nameEn     String
+  nameAr     String
+  icon       String // lucide icon name
+  taglineEn  String?
+  taglineAr  String?
+  hue        Int        @default(0)
+  parentId   String?
+  parent     Category?  @relation("Subcategories", fields: [parentId], references: [id])
+  children   Category[] @relation("Subcategories")
+  sortOrder  Int        @default(0)
+  isFeatured Boolean    @default(false)
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
-  workers      Worker[]
-  adTargets    Advertisement[]
-  blogPosts    BlogPost[]
+  workers   Worker[]
+  adTargets Advertisement[]
+  blogPosts BlogPost[]
 
   @@index([parentId])
 }
@@ -323,8 +327,8 @@ model City {
   lng       Float
   isActive  Boolean @default(true)
 
-  areas   Area[]
-  workers Worker[]
+  areas     Area[]
+  workers   Worker[]
   adTargets Advertisement[]
 }
 
@@ -345,74 +349,74 @@ model Area {
 // ─────────────────────────────── Workers ───────────────────────────────
 
 model Worker {
-  id           String   @id @default(cuid())
-  userId       String?  @unique // null for admin-imported workers
-  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id     String  @id @default(cuid())
+  userId String? @unique // null for admin-imported workers
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  slug         String   @unique
-  nameEn       String
-  nameAr       String
-  taglineEn    String?
-  taglineAr    String?
-  bioEn        String?  @db.Text
-  bioAr        String?  @db.Text
+  slug      String  @unique
+  nameEn    String
+  nameAr    String
+  taglineEn String?
+  taglineAr String?
+  bioEn     String? @db.Text
+  bioAr     String? @db.Text
 
-  categoryId   String
-  category     Category @relation(fields: [categoryId], references: [id])
-  cityId       String
-  city         City     @relation(fields: [cityId], references: [id])
-  areaId       String
-  area         Area     @relation(fields: [areaId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  cityId     String
+  city       City     @relation(fields: [cityId], references: [id])
+  areaId     String
+  area       Area     @relation(fields: [areaId], references: [id])
 
-  lat          Float?
-  lng          Float?
+  lat Float?
+  lng Float?
 
-  phone        String
-  whatsapp     String?
-  email        String?
-  website      String?
-  socials      Json? // [{ platform, url }]
+  phone    String
+  whatsapp String?
+  email    String?
+  website  String?
+  socials  Json? // [{ platform, url }]
 
-  priceMin     Int      @default(0) // minor units of city currency
-  priceMax     Int      @default(0)
-  hourlyRate   Int?
-  yearsExp     Int      @default(0)
-  languages    Json? // [{ code, nameEn, nameAr }]
+  priceMin   Int   @default(0) // minor units of city currency
+  priceMax   Int   @default(0)
+  hourlyRate Int?
+  yearsExp   Int   @default(0)
+  languages  Json? // [{ code, nameEn, nameAr }]
 
-  rating       Float    @default(0)
-  reviewCount  Int      @default(0)
-  viewCount    Int      @default(0)
-  leadCount    Int      @default(0)
+  rating      Float @default(0)
+  reviewCount Int   @default(0)
+  viewCount   Int   @default(0)
+  leadCount   Int   @default(0)
 
-  verified     Boolean  @default(false)
-  premium      Boolean  @default(false)
-  emergency    Boolean  @default(false)
-  available    Boolean  @default(true)
-  hue          Int      @default(0)
-  completion   Int      @default(0) // profile completion %
+  verified   Boolean @default(false)
+  premium    Boolean @default(false)
+  emergency  Boolean @default(false)
+  available  Boolean @default(true)
+  hue        Int     @default(0)
+  completion Int     @default(0) // profile completion %
 
-  status       WorkerStatus @default(PENDING_VERIFICATION)
-  isFeatured   Boolean  @default(false)
-  verifiedAt   DateTime?
-  joinedAt     DateTime @default(now())
-  deletedAt    DateTime?
+  status     WorkerStatus @default(PENDING_VERIFICATION)
+  isFeatured Boolean      @default(false)
+  verifiedAt DateTime?
+  joinedAt   DateTime     @default(now())
+  deletedAt  DateTime?
 
-  subscription Subscription?
-  services     ServiceItem[]
-  certifications Certification[]
-  portfolio    PortfolioItem[]
-  hours        WorkingHour[]
-  reviews      Review[]
-  favorites    Favorite[]
-  ledger       WorkerLedgerEntry[]
-  leads        Lead[]
-  views        WorkerView[]
-  slots        BookingSlot[]
-  bookings     Booking[]
+  subscription      Subscription?
+  services          ServiceItem[]
+  certifications    Certification[]
+  portfolio         PortfolioItem[]
+  hours             WorkingHour[]
+  reviews           Review[]
+  favorites         Favorite[]
+  ledger            WorkerLedgerEntry[]
+  leads             Lead[]
+  views             WorkerView[]
+  slots             BookingSlot[]
+  bookings          Booking[]
   recurringBookings RecurringBooking[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([categoryId, cityId])
   @@index([status, verified])
@@ -421,29 +425,29 @@ model Worker {
 }
 
 model ServiceItem {
-  id          String @id @default(cuid())
-  workerId    String
-  worker      Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  nameEn      String
-  nameAr      String
+  id            String  @id @default(cuid())
+  workerId      String
+  worker        Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  nameEn        String
+  nameAr        String
   descriptionEn String?
   descriptionAr String?
-  price       Int // minor units
-  unit        String @default("job") // "hour" | "job"
-  durationMin Int?
-  sortOrder   Int    @default(0)
+  price         Int // minor units
+  unit          String  @default("job") // "hour" | "job"
+  durationMin   Int?
+  sortOrder     Int     @default(0)
 
-  bookings Booking[]
+  bookings          Booking[]
   recurringBookings RecurringBooking[]
-  quoteRequests QuoteRequest[] // multi-candidate quote jobs (customer side)
+  quoteRequests     QuoteRequest[] // multi-candidate quote jobs (customer side)
 
   @@index([workerId])
 }
 
 model WorkingHour {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   workerId String
-  worker   Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  worker   Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
   day      Int // 0 = Sunday … 6 = Saturday
   open     String // "08:00"
   close    String // "18:00"
@@ -453,32 +457,32 @@ model WorkingHour {
 }
 
 model Certification {
-  id        String @id @default(cuid())
-  workerId  String
-  worker    Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  nameEn    String
-  nameAr    String
-  issuerEn  String?
-  issuerAr  String?
-  year      Int?
-  fileUrl   String? // Cloudinary PDF/image
-  verified  Boolean @default(false)
+  id       String  @id @default(cuid())
+  workerId String
+  worker   Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  nameEn   String
+  nameAr   String
+  issuerEn String?
+  issuerAr String?
+  year     Int?
+  fileUrl  String? // Cloudinary PDF/image
+  verified Boolean @default(false)
 
   @@index([workerId])
 }
 
 model PortfolioItem {
-  id          String @id @default(cuid())
-  workerId    String
-  worker      Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  titleEn     String
-  titleAr     String
+  id            String   @id @default(cuid())
+  workerId      String
+  worker        Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  titleEn       String
+  titleAr       String
   descriptionEn String?
   descriptionAr String?
-  imageUrl    String // Cloudinary
-  category    String?
-  tags        String[] @default([])
-  sortOrder   Int     @default(0)
+  imageUrl      String // Cloudinary
+  category      String?
+  tags          String[] @default([])
+  sortOrder     Int      @default(0)
 
   @@index([workerId])
 }
@@ -557,21 +561,21 @@ model Lead {
 // ─────────────────────────────── Subscriptions & Billing ───────────────────────────────
 
 model Subscription {
-  id            String             @id @default(cuid())
-  workerId      String             @unique
-  worker        Worker             @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  plan          SubscriptionPlan
-  status        SubscriptionStatus @default(ACTIVE)
-  price         Int // minor units per period
-  currency      String             @default("USD")
-  periodDays    Int                @default(30)
-  autoRenew     Boolean            @default(true)
-  startedAt     DateTime
-  expiresAt     DateTime
-  canceledAt    DateTime?
-  lastReminderSent Int             @default(0) // 0=none, 1=7d, 2=3d, 3=1d, 4=expired
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id               String             @id @default(cuid())
+  workerId         String             @unique
+  worker           Worker             @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  plan             SubscriptionPlan
+  status           SubscriptionStatus @default(ACTIVE)
+  price            Int // minor units per period
+  currency         String             @default("USD")
+  periodDays       Int                @default(30)
+  autoRenew        Boolean            @default(true)
+  startedAt        DateTime
+  expiresAt        DateTime
+  canceledAt       DateTime?
+  lastReminderSent Int                @default(0) // 0=none, 1=7d, 2=3d, 3=1d, 4=expired
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   payments Payment[]
 
@@ -579,24 +583,24 @@ model Subscription {
 }
 
 model Payment {
-  id             String        @id @default(cuid())
-  userId         String? // null for guest (phone-keyed) bookings — see Booking.customerId
-  user           User?         @relation(fields: [userId], references: [id])
-  workerId       String?
-  subscriptionId String?
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  companyId      String?
+  id              String        @id @default(cuid())
+  userId          String? // null for guest (phone-keyed) bookings — see Booking.customerId
+  user            User?         @relation(fields: [userId], references: [id])
+  workerId        String?
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  companyId       String?
   advertisementId String?
-  amount         Int // minor units
-  currency       String        @default("USD")
-  method         PaymentMethod
-  status         PaymentStatus @default(PENDING)
-  providerRef    String? // Stripe pi_xxx / PayPal tx / MyFatoorah id / Tap ref
-  refundRef      String? // provider's refund id (worker-cancel deposit refund)
-  metadata       Json?
-  paidAt         DateTime?
-  refundedAt     DateTime?
-  createdAt      DateTime      @default(now())
+  amount          Int // minor units
+  currency        String        @default("USD")
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  providerRef     String? // Stripe pi_xxx / PayPal tx / MyFatoorah id / Tap ref
+  refundRef       String? // provider's refund id (worker-cancel deposit refund)
+  metadata        Json?
+  paidAt          DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime      @default(now())
 
   invoice Invoice?
   booking Booking? // deposit/quote payment for a booking
@@ -629,39 +633,43 @@ model Invoice {
 // ─────────────────────────────── Companies & Ads ───────────────────────────────
 
 model Company {
-  id        String  @id @default(cuid())
-  userId    String  @unique
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   nameEn    String
   nameAr    String
-  slug      String  @unique
+  slug      String   @unique
   logoUrl   String?
   website   String?
   phone     String?
-  verified  Boolean @default(false)
-  balance   Int     @default(0) // minor units, pre-paid ad credit
+  verified  Boolean  @default(false)
+  balance   Int      @default(0) // minor units, pre-paid ad credit
+  // Preferred notification/email language — outbound campaign emails render
+  // in it (the /admin refund-email preview leads with it as the primary
+  // block), like NotificationRecipient.locale for bookings.
+  locale    String   @default("en")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  ads         Advertisement[]
-  campaigns   AdCampaign[]
+  ads       Advertisement[]
+  campaigns AdCampaign[]
 }
 
 model AdCampaign {
-  id          String   @id @default(cuid())
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  nameEn      String
-  nameAr      String
-  objective   String? // brand | leads | sales
-  budget      Int // minor units
-  spent       Int      @default(0)
-  currency    String   @default("USD")
-  startsAt    DateTime
-  endsAt      DateTime
-  status      AdStatus @default(PENDING)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  nameEn    String
+  nameAr    String
+  objective String? // brand | leads | sales
+  budget    Int // minor units
+  spent     Int      @default(0)
+  currency  String   @default("USD")
+  startsAt  DateTime
+  endsAt    DateTime
+  status    AdStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   ads Advertisement[]
 
@@ -669,35 +677,35 @@ model AdCampaign {
 }
 
 model Advertisement {
-  id             String    @id @default(cuid())
+  id             String      @id @default(cuid())
   campaignId     String?
   campaign       AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   companyId      String
-  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company        Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   type           AdType
-  status         AdStatus  @default(PENDING)
+  status         AdStatus    @default(PENDING)
   titleEn        String
   titleAr        String
   imageUrl       String?
   videoUrl       String?
   targetUrl      String
   categoryId     String?
-  category       Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category       Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   cityId         String?
-  city           City?     @relation(fields: [cityId], references: [id], onDelete: SetNull)
-  placement      String    @default("homepage") // homepage | category | search | sidebar | footer | featured
+  city           City?       @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  placement      String      @default("homepage") // homepage | category | search | sidebar | footer | featured
   price          Int // minor units
-  currency       String    @default("USD")
-  rotation       Int       @default(1) // 1 = always, N = 1/N impressions
-  impressions    Int       @default(0)
-  clicks         Int       @default(0)
-  ctr            Float     @default(0)
+  currency       String      @default("USD")
+  rotation       Int         @default(1) // 1 = always, N = 1/N impressions
+  impressions    Int         @default(0)
+  clicks         Int         @default(0)
+  ctr            Float       @default(0)
   maxImpressions Int?
   maxClicks      Int?
   startsAt       DateTime
   endsAt         DateTime
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   @@index([status, type, placement])
   @@index([categoryId, cityId])
@@ -707,9 +715,9 @@ model Advertisement {
 // ─────────────────────────────── Notifications & Support ───────────────────────────────
 
 model Notification {
-  id        String             @id @default(cuid())
+  id        String              @id @default(cuid())
   userId    String
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      NotificationType
   channel   NotificationChannel @default(IN_APP)
   titleEn   String
@@ -717,9 +725,9 @@ model Notification {
   bodyEn    String?
   bodyAr    String?
   data      Json?
-  isRead    Boolean            @default(false)
+  isRead    Boolean             @default(false)
   readAt    DateTime?
-  createdAt DateTime           @default(now())
+  createdAt DateTime            @default(now())
 
   @@index([userId, isRead])
   @@index([type])
@@ -751,15 +759,15 @@ model PushSubscription {
 }
 
 model SearchLog {
-  id         String   @id @default(cuid())
-  query      String
-  locale     String   @default("en")
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  filters    Json?
-  resultsCount Int    @default(0)
-  tookMs     Int?
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  query        String
+  locale       String   @default("en")
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  filters      Json?
+  resultsCount Int      @default(0)
+  tookMs       Int?
+  createdAt    DateTime @default(now())
 
   @@index([createdAt])
   @@index([query])
@@ -803,35 +811,35 @@ model ActivityLog {
 // ─────────────────────────────── Content & Misc ───────────────────────────────
 
 model BlogPost {
-  id          String   @id @default(cuid())
-  slug        String   @unique
+  id          String    @id @default(cuid())
+  slug        String    @unique
   titleEn     String
   titleAr     String
   excerptEn   String?
   excerptAr   String?
-  bodyEn      String   @db.Text
-  bodyAr      String   @db.Text
+  bodyEn      String    @db.Text
+  bodyAr      String    @db.Text
   coverUrl    String?
   categoryId  String?
   category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  tags        String[] @default([])
-  isPublished Boolean  @default(false)
+  tags        String[]  @default([])
+  isPublished Boolean   @default(false)
   publishedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([isPublished, publishedAt])
 }
 
 model HelpArticle {
-  id        String @id @default(cuid())
-  slug      String @unique
+  id        String  @id @default(cuid())
+  slug      String  @unique
   titleEn   String
   titleAr   String
-  bodyEn    String @db.Text
-  bodyAr    String @db.Text
+  bodyEn    String  @db.Text
+  bodyAr    String  @db.Text
   category  String
-  sortOrder Int    @default(0)
+  sortOrder Int     @default(0)
   isActive  Boolean @default(true)
 }
 
@@ -866,37 +874,113 @@ model Media {
 }
 
 model Referral {
-  id           String   @id @default(cuid())
-  referrerId   String
-  referrer     User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
-  code         String   @unique
-  clicks       Int      @default(0)
-  signups      Int      @default(0)
-  conversions  Int      @default(0)
-  reward       Int      @default(0)
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  referrerId  String
+  referrer    User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  code        String   @unique
+  clicks      Int      @default(0)
+  signups     Int      @default(0)
+  conversions Int      @default(0)
+  reward      Int      @default(0)
+  createdAt   DateTime @default(now())
 
   @@index([referrerId])
 }
 
 model PromoCode {
-  id          String    @id @default(cuid())
-  code        String    @unique
-  description String?
-  discountPct Int       @default(0)
+  id            String    @id @default(cuid())
+  code          String    @unique
+  description   String?
+  discountPct   Int       @default(0)
   discountFixed Int? // minor units
-  maxUses     Int?
-  usedCount   Int       @default(0)
-  appliesTo   String    @default("subscription") // subscription | ad
-  startsAt    DateTime?
-  endsAt      DateTime?
-  isActive    Boolean   @default(true)
+  maxUses       Int?
+  usedCount     Int       @default(0)
+  appliesTo     String    @default("subscription") // subscription | ad
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isActive      Boolean   @default(true)
 }
 
 model Setting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────── Forum & Q&A ───────────────────────────────
+
+model ForumPost {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category    String   @default("general") // general | plumbing | electrical | hvac | etc.
+  tags        String[] @default([])
+  views       Int      @default(0)
+  upvotes     Int      @default(0)
+  downvotes   Int      @default(0)
+  answerCount Int      @default(0)
+  isPinned    Boolean  @default(false)
+  isLocked    Boolean  @default(false)
+  isSolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  answers   ForumAnswer[]
+  votes     ForumVote[]
+  bookmarks ForumBookmark[]
+
+  @@index([category, createdAt])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model ForumAnswer {
+  id         String    @id @default(cuid())
+  postId     String
+  post       ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  content    String    @db.Text
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  upvotes    Int       @default(0)
+  downvotes  Int       @default(0)
+  isAccepted Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  votes ForumVote[]
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+}
+
+model ForumVote {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetType    String // "post" | "answer"
+  targetId      String
+  value         Int // 1 = upvote, -1 = downvote
+  createdAt     DateTime     @default(now())
+  forumPost     ForumPost?   @relation(fields: [forumPostId], references: [id])
+  forumPostId   String?
+  forumAnswer   ForumAnswer? @relation(fields: [forumAnswerId], references: [id])
+  forumAnswerId String?
+
+  @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId])
+}
+
+model ForumBookmark {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, postId])
 }
 
 model Language {
@@ -925,8 +1009,8 @@ model BookingSlot {
   endAt     DateTime
   status    SlotStatus @default(AVAILABLE)
   note      String? // worker-visible note (e.g. "site visit", "off day")
-  bookingId String?   @unique // the Booking that claims this slot
-  booking   Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  bookingId String?    @unique // the Booking that claims this slot
+  booking   Booking?   @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   @@unique([workerId, startAt])
   @@index([workerId, status, startAt])
@@ -938,17 +1022,17 @@ model BookingSlot {
 /// customer ⇄ worker negotiation lives in BookingMessage rows keyed on the
 /// booking (docs/ENHANCEMENT-PLAN.md §2.3) — one shared thread per booking.
 model Booking {
-  id            String        @id @default(cuid())
-  number        String        @unique
+  id            String       @id @default(cuid())
+  number        String       @unique
   workerId      String
-  worker        Worker        @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  worker        Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
   customerId    String? // null for guest requests
-  customer      User?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer      User?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   leadId        String? // converted from a contact lead, if any
-  lead          Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  lead          Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
   slot          BookingSlot? // back-relation — the FK lives on BookingSlot.bookingId
   serviceItemId String?
-  serviceItem   ServiceItem?  @relation(fields: [serviceItemId], references: [id], onDelete: SetNull)
+  serviceItem   ServiceItem? @relation(fields: [serviceItemId], references: [id], onDelete: SetNull)
 
   customerName  String
   customerPhone String
@@ -959,18 +1043,18 @@ model Booking {
   // Nullable for multi-candidate quote bids (docs/multi-candidate-quotes.md):
   // a QUOTING/QUOTED booking is slot-less until the customer picks a winner,
   // at which point the winner's slot range is stamped on (status REQUESTED).
-  startAt       DateTime?
-  endAt         DateTime?
-  status        BookingStatus @default(REQUESTED)
+  startAt DateTime?
+  endAt   DateTime?
+  status  BookingStatus @default(REQUESTED)
 
-  quote         Int? // minor units — worker's price for this job
-  deposit       Int? // minor units — required upfront when set
+  quote              Int? // minor units — worker's price for this job
+  deposit            Int? // minor units — required upfront when set
   // M5 take rate (docs/booking-take-rate.md) — the platform-fee snapshot at
   // accept-with-quote (minor units). Null until a quoted accept; NEVER
   // recomputed from a later rate change. Exempt plans store 0 + the rate.
-  platformFee      Int?
+  platformFee        Int?
   platformFeeRateBps Int?
-  currency      String @default("USD")
+  currency           String @default("USD")
 
   // Idempotency marker for the "job starts tomorrow" reminder (same pattern
   // as Subscription.lastReminderSent): null = never sent; the cron engine
@@ -987,15 +1071,15 @@ model Booking {
   // staged time is past BOOKING_COMPLETION_CONFIRM_GRACE_HOURS.
   completionPendingAt DateTime?
 
-  paymentId     String?       @unique
-  payment       Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  paymentId String?  @unique
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   cancelReason   String?
   cancelledBy    String? // "customer" | "worker" | "system"
   declinedReason String?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // M1 recurring contracts (ENHANCEMENT-PLAN §7 #1) — set when this booking is
   // an occurrence of a contract (the first occurrence IS the request).
@@ -1007,16 +1091,16 @@ model Booking {
   quoteRequestId String?
   quoteRequest   QuoteRequest? @relation(fields: [quoteRequestId], references: [id], onDelete: SetNull)
 
-  events BookingEvent[]
-  messages      BookingMessage[]
-  ledger        WorkerLedgerEntry[]
+  events   BookingEvent[]
+  messages BookingMessage[]
+  ledger   WorkerLedgerEntry[]
 
-  @@index([workerId, status, startAt])
-  @@index([customerId, status])
   // W2 recurring — one occurrence per contract per start: the generation cron
   // and the accept-time materializer both guard on this unique (createMany
   // skipDuplicates / P2002), so overlapping runs can never double-materialize.
   @@unique([recurringBookingId, startAt])
+  @@index([workerId, status, startAt])
+  @@index([customerId, status])
   @@index([recurringBookingId])
 }
 
@@ -1084,14 +1168,14 @@ model RecurringBooking {
 /// Append-only audit trail per booking — who changed what and why. Feeds
 /// dispute lookup and the admin activity feed (mirrors ActivityLog style).
 model BookingEvent {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   bookingId String
-  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   status    BookingStatus
   actorType String // "customer" | "worker" | "system" | "admin"
   actorId   String?
   reason    String?
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
 
   @@index([bookingId, createdAt])
 }
@@ -1101,16 +1185,16 @@ model BookingEvent {
 /// negotiation stays inside the booking's record (quote sharing: a message can
 /// carry a price in minor units; the UI renders it as an in-thread quote chip).
 model BookingMessage {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   bookingId  String
-  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking    Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   senderRole String // "customer" | "worker" | "admin"
   senderId   String?
-  text       String   @db.Text
+  text       String    @db.Text
   quote      Int? // minor units — a price shared in-thread
   /// Read receipt — when the OTHER party (customer/worker) saw the thread.
   readAt     DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([bookingId, createdAt])
 }
