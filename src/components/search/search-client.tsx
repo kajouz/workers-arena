@@ -28,6 +28,7 @@ import { useSearchHistory } from "@/hooks/use-search-history";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { SearchHistory } from "@/components/search/search-history";
 import { cn, formatNumber } from "@/lib/utils";
+import { SearchResultsAnnouncement } from "@/components/ui/aria-live-region";
 import { filtersToSearchParams } from "@/lib/data/search-params";
 
 interface Labels {
@@ -429,6 +430,9 @@ export function SearchClient({
             </span>
           )}
         </div>
+
+        {/* Screen reader announcement for search results */}
+        <SearchResultsAnnouncement count={results.total} isLoading={debouncedLoading} />
 
         {/* results */}
         <div className="mt-6">

@@ -10,6 +10,11 @@ import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toast";
 import { ServiceWorkerRegistrar } from "@/components/notifications/service-worker-registrar";
 import { InstallBanner } from "@/components/pwa/install-banner";
+import { SkipNav } from "@/components/layout/skip-nav";
+import { initMonitoring } from "@/lib/monitoring";
+import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
+import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
+import { HelpButton } from "@/components/onboarding/help-button";
 
 export const metadata: Metadata = {
   title: {
@@ -60,6 +65,9 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Initialize monitoring on server startup
+  initMonitoring();
+
   const { locale, dir } = await getI18n();
   const session = await getSession();
 
@@ -77,15 +85,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="min-h-dvh antialiased">
+        <SkipNav />
         <LocaleProvider locale={locale} dir={dir}>
+          <OnboardingProvider>
           <ThemeProvider>
             <Header session={session} initialTheme={theme} />
-          <main>{children}</main>
+          <main id="main-content" tabIndex={-1} className="focus:outline-none">{children}</main>
           <Footer />
           <Toaster />
           <InstallBanner />
           <ServiceWorkerRegistrar />
+          <OnboardingOverlay />
+          <HelpButton />
           </ThemeProvider>
+          </OnboardingProvider>
         </LocaleProvider>
       </body>
     </html>
