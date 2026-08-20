@@ -12,7 +12,6 @@ concurrency:
 
 env:
   NODE_VERSION: "20"
-  PNPM_VERSION: "9"
 
 jobs:
   # ─── Lint & Typecheck ───
@@ -22,24 +21,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          cache: npm
 
-      - run: pnpm install --frozen-lockfile
+      - run: npm ci
 
       - name: ESLint
-        run: pnpm lint --max-warnings 0
+        run: npx eslint . --max-warnings 0
         continue-on-error: true
 
       - name: TypeScript
-        run: pnpm tsc --noEmit
-        continue-on-error: true  # Pre-existing forum API errors
+        run: npx tsc --noEmit
+        continue-on-error: true
 
   # ─── Unit Tests ───
   test:
@@ -48,19 +43,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          cache: npm
 
-      - run: pnpm install --frozen-lockfile
+      - run: npm ci
 
       - name: Run tests
-        run: pnpm vitest run --reporter=verbose --exclude '**/e2e-smoke.test.ts' --exclude '**/e2e-critical-flows.test.ts'
+        run: npx vitest run --reporter=verbose --exclude '**/e2e-smoke.test.ts' --exclude '**/e2e-critical-flows.test.ts'
         continue-on-error: false
 
       - name: Upload test results
@@ -79,20 +70,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          cache: npm
 
-      - run: pnpm install --frozen-lockfile
+      - run: npm ci
 
       - name: Build
-        run: pnpm build
-        continue-on-error: true  # May fail due to TypeScript errors
+        run: npm run build
+        continue-on-error: true
         env:
           NEXT_PUBLIC_APP_URL: https://workersarena.com
 
@@ -104,7 +91,7 @@ jobs:
           path: .next
           retention-days: 3
 
-  # ─── E2E Tests (when server is available) ───
+  # ─── E2E Tests ───
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
@@ -113,16 +100,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          cache: npm
 
-      - run: pnpm install --frozen-lockfile
+      - run: npm ci
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -131,7 +114,7 @@ jobs:
           path: .next
 
       - name: Run E2E tests
-        run: pnpm vitest run tests/e2e-critical-flows.test.ts --reporter=verbose
+        run: npx vitest run tests/e2e-critical-flows.test.ts --reporter=verbose
         env:
           BASE_URL: http://localhost:3000
         continue-on-error: true
