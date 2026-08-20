@@ -105,7 +105,7 @@ interface FileEntry extends PushSubscriptionJson {
 
 async function readFileStore(): Promise<Map<string, FileEntry>> {
   try {
-    const raw = await fs.readFile(storePath(), "utf8");
+    const raw = await fs.readFile(/* turbopackIgnore: true */ storePath(), "utf8");
     const arr = JSON.parse(raw) as FileEntry[];
     return new Map(arr.map((s) => [s.endpoint, s]));
   } catch {

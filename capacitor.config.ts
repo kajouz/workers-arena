@@ -85,11 +85,6 @@ const config: CapacitorConfig = {
     },
   },
   
-  // Build options
-  build: {
-    // Output directory for web assets
-    webDir: ".next",
-  },
 };
 
 export default config;

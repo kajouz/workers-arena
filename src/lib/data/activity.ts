@@ -82,7 +82,7 @@ function feedPath(): string {
 
 async function readFeed(): Promise<ActivityEntry[]> {
   try {
-    const raw = await fs.readFile(feedPath(), "utf8");
+    const raw = await fs.readFile(/* turbopackIgnore: true */ feedPath(), "utf8");
     const arr = JSON.parse(raw) as ActivityEntry[];
     return Array.isArray(arr) ? arr : [];
   } catch {
