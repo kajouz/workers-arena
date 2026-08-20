@@ -193,7 +193,16 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
 
-    const slot = demoAddSlot(worker.id, "2030-06-15T20:00:00.000Z", "2030-06-15T21:00:00.000Z", "available");
+    // Use a dynamic date far enough from seed slots (tomorrow ± days) to avoid
+    // any overlap — the seed creates reserved/blocked slots for "tomorrow" at
+    // hours 9-16 via slotAt(), which uses local time then toISOString().
+    const startAt = new Date(Date.now() + 96 * 60 * 60 * 1000).toISOString();
+    const slot = demoAddSlot(
+      worker.id,
+      startAt,
+      new Date(new Date(startAt).getTime() + 60 * 60 * 1000).toISOString(),
+      "available"
+    );
     const created = await demoCreateBookingRequest({
       workerId: worker.id,
       slotId: slot.id,
