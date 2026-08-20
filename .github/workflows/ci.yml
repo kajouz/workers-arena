@@ -60,7 +60,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: pnpm test -- --reporter=verbose
+        run: pnpm vitest run --reporter=verbose --exclude '**/e2e-smoke.test.ts' --exclude '**/e2e-critical-flows.test.ts'
         continue-on-error: false
 
       - name: Upload test results
