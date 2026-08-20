@@ -271,3 +271,44 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ─── Dark Mode Polish ─── */
+/* Subtle radial gradient on dark background for depth */
+.dark body {
+  background: radial-gradient(ellipse at top, rgb(33 31 28 / 1) 0%, var(--color-ink-950) 50%);
+}
+
+/* Elevation shadows for dark mode cards */
+.dark .card-lift:hover {
+  box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.3), 0 16px 40px -12px rgb(0 0 0 / 0.5);
+}
+
+/* ─── Touch Targets (WCAG 2.5.5) ─── */
+/* Ensure all interactive elements meet 44×44px minimum */
+a, button, [role="button"], input[type="checkbox"], input[type="radio"], label, select {
+  min-height: 44px;
+}
+
+/* Exception: tiny inline elements like badge counts */
+.badge-icon, .text-xs {
+  min-height: auto;
+}
+
+/* ─── Focus Transitions ─── */
+:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+  transition: outline-offset 0.15s ease;
+}
+
+/* ─── Reduced Motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .skeleton::after {
+    animation: none;
+  }
+}

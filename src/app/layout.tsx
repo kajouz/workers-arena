@@ -15,6 +15,7 @@ import { initMonitoring } from "@/lib/monitoring";
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
 import { HelpButton } from "@/components/onboarding/help-button";
+import { LayoutClients } from "@/components/layout/layout-clients";
 
 export const metadata: Metadata = {
   title: {
@@ -92,6 +93,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Header session={session} initialTheme={theme} />
           <main id="main-content" tabIndex={-1} className="focus:outline-none">{children}</main>
           <Footer />
+          <LayoutClients />
           <Toaster />
           <InstallBanner />
           <ServiceWorkerRegistrar />
