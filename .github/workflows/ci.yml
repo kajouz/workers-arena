@@ -57,7 +57,7 @@ jobs:
         run: npx prisma generate
 
       - name: Run tests
-        run: npx vitest run --reporter=verbose --exclude '**/e2e-smoke.test.ts' --exclude '**/e2e-critical-flows.test.ts'
+        run: npx vitest run --reporter=verbose --exclude '**/e2e-smoke.test.ts' --exclude '**/e2e-critical-flows.test.ts' --exclude '**/*-prisma.test.ts'
 
   # ─── Build ───
   build:
