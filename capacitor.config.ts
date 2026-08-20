@@ -3,31 +3,93 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "com.workersarena.app",
   appName: "WorkersArena",
-  webDir: "out",
+  webDir: ".next",
   server: {
+    // In production, point to deployed URL
+    // url: "https://workersarena.com",
+    // cleartext: false,
+    
+    // In development, use local server
+    url: "http://localhost:3001",
+    cleartext: true,
     androidScheme: "https",
   },
+  
+  // iOS specific
+  ios: {
+    contentInset: "automatic",
+    backgroundColor: "#14120f",
+    scheme: "WorkersArena",
+    // bundleId is set in Xcode project
+  },
+  
+  // Android specific
+  android: {
+    backgroundColor: "#14120f",
+    allowMixedContent: true,
+    captureInput: true,
+    // packageName is set in build.gradle
+  },
+  
+  // Deep linking
   plugins: {
+    // Push Notifications
     PushNotifications: {
-      // iOS: how notifications appear when the app is in the foreground
       presentationOptions: ["badge", "sound", "alert"],
     },
-    StatusBar: {
-      style: "DARK",
-      backgroundColor: "#1a1a2e",
+    
+    // App deeplinks
+    App: {
+      // Custom URL scheme for iOS Universal Links
+      urlScheme: "workersarena",
     },
+    
+    // Splash Screen
     SplashScreen: {
       launchAutoHide: true,
       launchShowDuration: 2000,
-      backgroundColor: "#1a1a2e",
-      showSpinner: true,
-      spinnerColor: "#FF5722",
+      backgroundColor: "#14120f",
+      androidScaleType: "CENTER_CROP",
+      showSpinner: false,
+      splashFullScreen: true,
+      splashImmersive: true,
     },
-    App: {
-      // Handle URL schemes for deep linking
-      // Universal Links (iOS) and App Links (Android) are configured
-      // in the native projects (ios/ and android/ directories)
+    
+    // Status Bar
+    StatusBar: {
+      style: "DARK",
+      backgroundColor: "#14120f",
+      overlaysWebView: true,
     },
+    
+    // Keyboard
+    Keyboard: {
+      resize: "body",
+      resizeOnFullScreen: true,
+    },
+    
+    // Haptics
+    Haptics: {
+      // Default haptic feedback
+    },
+    
+    // Local Notifications
+    LocalNotifications: {
+      smallIcon: "ic_stat_icon_config_sample",
+      iconColor: "#f97316",
+    },
+    
+    // Biometrics
+    BiometricAuth: {
+      reason: "Authenticate to access your account",
+      cancelTitle: "Cancel",
+    },
+  },
+  
+  // Build options
+  build: {
+    // Output directory for web assets
+    webDir: ".next",
   },
 };
 
