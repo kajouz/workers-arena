@@ -50,6 +50,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
       - name: Run tests
         run: npx vitest run --reporter=verbose --exclude '**/e2e-smoke.test.ts' --exclude '**/e2e-critical-flows.test.ts'
         continue-on-error: false
@@ -76,6 +79,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
       - name: Build
         run: npm run build
