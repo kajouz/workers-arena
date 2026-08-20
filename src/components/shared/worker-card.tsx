@@ -65,11 +65,34 @@ export function WorkerCard({ worker, index = 0 }: { worker: Worker; index?: numb
               e.preventDefault();
               e.stopPropagation();
               toggle(worker);
-              toast(isFav ? "info" : "success", isFav ? t("common.remove") : t("common.favorite"), name);
             }}
-            className="absolute bottom-3 end-3 rounded-full bg-white/85 p-2 text-ink-600 shadow-soft backdrop-blur-sm transition-all hover:scale-110 hover:text-red-500 dark:bg-ink-900/80 dark:text-ink-200"
+            className="absolute bottom-3 end-3 flex size-10 items-center justify-center rounded-full bg-white/85 shadow-soft backdrop-blur-sm transition-all hover:scale-110 dark:bg-ink-900/80"
           >
-            <Heart className={cn("size-4", isFav && "fill-red-500 text-red-500")} />
+            <motion.div
+              animate={isFav ? { scale: [1, 1.35, 1] } : { scale: 1 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <Heart className={cn("size-4 transition-colors", isFav ? "fill-red-500 text-red-500" : "text-ink-600 dark:text-ink-200")} />
+            </motion.div>
+            {/* Burst particles on favoriting */}
+            {isFav && (
+              <>
+                {[0, 60, 120, 180, 240, 300].map((deg) => (
+                  <motion.span
+                    key={deg}
+                    className="absolute size-1.5 rounded-full bg-red-400"
+                    initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
+                    animate={{
+                      scale: [0, 1, 0],
+                      x: Math.cos((deg * Math.PI) / 180) * 18,
+                      y: Math.sin((deg * Math.PI) / 180) * 18,
+                      opacity: [1, 1, 0],
+                    }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                  />
+                ))}
+              </>
+            )}
           </button>
         </WorkerCover>
 

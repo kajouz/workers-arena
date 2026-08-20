@@ -31,7 +31,7 @@ export function Header({
     { href: "/", label: t("nav.home") },
     { href: "/search", label: t("nav.findWorkers") },
     { href: "/categories", label: t("nav.categories") },
-    { href: "/favorites", label: t("nav.favorites") },
+    { href: "/favorites", label: t("nav.favorites"), tour: "favorites" },
   ];
 
   const isActive = (href: string) =>
@@ -54,6 +54,7 @@ export function Header({
               <Link
                 key={link.href}
                 href={link.href}
+                {...('tour' in link && link.tour ? { 'data-tour': link.tour as string } : {})}
                 className={cn(
                   "relative rounded-lg px-3 py-2 text-sm font-medium text-ink-600 transition-colors hover:text-ink-900 dark:text-ink-300 dark:hover:text-ink-50",
                   isActive(link.href) && "text-ink-900 dark:text-ink-50"
@@ -73,6 +74,7 @@ export function Header({
                 <NotificationBell />
                 <Link
                   href={dashboardHref}
+                  data-tour="profile"
                   className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-100 sm:inline-flex dark:text-ink-200 dark:hover:bg-ink-800"
                 >
                   <DashboardIcon className="size-4" />

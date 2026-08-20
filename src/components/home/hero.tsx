@@ -61,7 +61,7 @@ export function Hero({ popular }: { popular: { en: string; ar: string; href: str
             {t("hero.subtitle")}
           </motion.p>
 
-          <motion.div {...fadeUp(0.24)} className="mt-8">
+          <motion.div {...fadeUp(0.24)} className="mt-8" data-tour="search">
             <SearchBar popular={popular} />
           </motion.div>
 
