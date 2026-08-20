@@ -193,7 +193,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
 
-    const slot = demoAddSlot(worker.id, "2026-08-21T14:00:00.000Z", "2026-08-21T15:00:00.000Z", "available");
+    const slot = demoAddSlot(worker.id, "2026-08-21T16:00:00.000Z", "2026-08-21T17:00:00.000Z", "available");
     const created = await demoCreateBookingRequest({
       workerId: worker.id,
       slotId: slot.id,
