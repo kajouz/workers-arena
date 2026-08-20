@@ -40,8 +40,7 @@ const config: CapacitorConfig = {
     
     // App deeplinks
     App: {
-      // Custom URL scheme for iOS Universal Links
-      urlScheme: "workersarena",
+
     },
     
     // Splash Screen

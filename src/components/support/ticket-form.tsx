@@ -289,7 +289,7 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
                 </div>
                 <div className="mt-1 flex items-center gap-3 text-xs text-ink-400">
                   <span>#{ticket.id.slice(-6)}</span>
-                  <span>{categoryInfo?.icon} {categoryInfo?.label}</span>
+                  <span>{categoryInfo?.label}</span>
                   <span className={priorityInfo?.color}>{priorityInfo?.label}</span>
                   <span>{new Date(ticket.createdAt).toLocaleDateString()}</span>
                 </div>

@@ -126,8 +126,7 @@ export const MOCK_BLOG_POSTS: ContentPost[] = [
     title: "How to Find a Reliable Plumber in Riyadh",
     titleAr: "كيف تجد ساكباً موثوقاً في الرياض",
     excerpt: "Finding a trustworthy plumber can be challenging. Here's how WorkersArena makes it easy to find verified professionals in Riyadh.",
-    excerptAr: "قد يكون العثور على ساكب موثوق صعباً. إليك كيف تجعل وركرز أرينا العثور على محترفين معتمدين في الرياض سهلاً.",
-    content: `
+    excerptAr: "قد يكون العثور على ساكب موثوق صعباً. إليك كيف تجعل وركرز أرينا العثور على محترفين معتمدين في الرياض سهلاً.",    content: `
 ## Why Finding a Good Plumber Matters
 
 A bad plumbing job can cost thousands in water damage. That's why it's crucial to hire a verified professional.
@@ -147,9 +146,23 @@ A bad plumbing job can cost thousands in water damage. That's why it's crucial t
 - Prices significantly lower than average
 - No portfolio or past work examples
 
+
 ## Why WorkersArena is Different
 
 Every worker on our platform is background-checked and verified. We only accept professionals with proven track records.
+    `,
+    contentAr: `
+## لماذا يهم العثور على ساكب جيد
+
+يمكن أن تكلفة عمل سباكة سيء الآلاف من أضرار المياه. لهذا من المهم توظيف محترف معتمد.
+
+## خطوات العثور على ساكب على وركرز أرينا
+
+1. **ابحث حسب الحرفة** — اكتب "سباك" في شريط البحث
+2. ** FILTR حسب الموقع** — اختر الرياض ومنطقتك
+3. **تحقق من المراجعات** — ابحث عن عمال بتقييم 4+ نجوم
+4. **تحقق من الأوراق** — اختر العمال بشارة التوثيق
+5. **قارن الأسعار** — احصل على عروض أسعار من عدة عمال
     `,
     category: "getting-started",
     tags: ["plumber", "riyadh", "search", "hiring"],
@@ -183,6 +196,7 @@ Customers see hundreds of profiles. A great profile helps you stand out and win 
 9. **Respond quickly** — Fast response rate boosts visibility
 10. **Add certifications** — Upload licenses and certificates
     `,
+    contentAr: "ملفك هو انطباعك الأول. تعلم كيفية تحسينه لجذب المزيد من العملاء.",
     category: "worker-tips",
     tags: ["profile", "optimization", "workers", "marketing"],
     author: "WorkersArena Team",
@@ -216,6 +230,7 @@ Customers see hundreds of profiles. A great profile helps you stand out and win 
 9. **Inspect the work** — Check everything before final payment
 10. **Leave a review** — Help other customers make informed decisions
     `,
+    contentAr: "يجب أن تكون السلامة أولويتك عند توظيف شخص للعمل في منزلك.",
     category: "safety",
     tags: ["safety", "hiring", "verification", "trust"],
     author: "WorkersArena Team",
@@ -249,6 +264,7 @@ export const MOCK_HELP_ARTICLES: ContentPost[] = [
 - You'll be notified of their response
 - Once confirmed, you'll get booking details
     `,
+    contentAr: "دليل خطوة بخطوة لحجز عامل على وركرز أرينا.",
     category: "booking",
     tags: ["booking", "how-to", "guide"],
     author: "WorkersArena Team",
@@ -282,6 +298,7 @@ export const MOCK_HELP_ARTICLES: ContentPost[] = [
 4. Complete the payment
 5. You'll receive a confirmation
     `,
+    contentAr: "تعرف على جميع خيارات الدفع المتاحة على وركرز أرينا.",
     category: "payments",
     tags: ["payments", "stripe", "omt", "whish"],
     author: "WorkersArena Team",
@@ -318,6 +335,7 @@ export const MOCK_HELP_ARTICLES: ContentPost[] = [
 - Two-factor authentication
 - Active sessions
     `,
+    contentAr: "كيفية تحديث ملفك الشخصي والإشعارات والتفضيلات.",
     category: "account",
     tags: ["account", "settings", "profile", "privacy"],
     author: "WorkersArena Team",
