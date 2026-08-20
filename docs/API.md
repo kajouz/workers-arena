@@ -254,6 +254,117 @@ All errors follow this format:
 
 ---
 
+## Verification
+
+### POST /api/verification/send
+Send a verification code via email, phone, or WhatsApp.
+
+**Request Body:**
+```json
+{
+  "userId": "u-customer",
+  "channel": "email",
+  "target": "user@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "requestId": "ver_1234567890_abc123",
+  "expiresIn": 600
+}
+```
+
+### POST /api/verification/verify
+Verify a 6-digit OTP code.
+
+**Request Body:**
+```json
+{
+  "userId": "u-customer",
+  "channel": "email",
+  "code": "123456"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "channel": "email"
+}
+```
+
+---
+
+## Geolocation
+
+### GET /api/workers/near
+Find workers within a radius of a geographic point.
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| lat | number | Latitude |
+| lng | number | Longitude |
+| radius | number | Radius in km (default: 25) |
+| category | string | Optional category filter |
+
+**Response:** Workers sorted by distance with `distance` field added.
+
+---
+
+## Disputes
+
+### POST /api/disputes
+File a new dispute for a booking.
+
+**Request Body:**
+```json
+{
+  "bookingNumber": "WA-2024-1847",
+  "category": "quality",
+  "title": "Work quality was poor",
+  "description": "Detailed description...",
+  "evidence": ["url1", "url2"]
+}
+```
+
+**Response:**
+```json
+{
+  "id": "dispute_abc123",
+  "status": "open",
+  "createdAt": "2026-08-20T10:00:00Z"
+}
+```
+
+### GET /api/disputes/:id
+Get dispute details and timeline.
+
+### POST /api/disputes/:id/respond
+Add a message to a dispute thread.
+
+---
+
+## Analytics
+
+### POST /api/analytics/page-view
+Track a page view (used by offline queue).
+
+**Request Body:**
+```json
+{
+  "url": "/workers/khaled-al-harbi-plumbing",
+  "referrer": "/search?category=plumbing",
+  "timestamp": "2026-08-20T10:00:00Z"
+}
+```
+
+---
+
 ## Rate Limits
 
 | Endpoint | Limit | Window |
@@ -262,6 +373,7 @@ All errors follow this format:
 | /api/contact | 5 requests | 1 minute |
 | /api/reviews | 10 requests | 1 minute |
 | /api/offline-queue | 30 requests | 1 minute |
+| /api/verification/send | 3 requests | 10 minutes |
 | Other /api/* | 60 requests | 1 minute |
 
 ---

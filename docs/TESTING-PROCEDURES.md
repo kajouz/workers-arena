@@ -29,6 +29,12 @@
 18. [Accessibility Testing](#18-accessibility-testing)
 19. [Security Testing](#19-security-testing)
 20. [API Endpoint Testing](#20-api-endpoint-testing)
+21. [Verification Testing](#21-verification-testing)
+22. [Geolocation Near Me Testing](#22-geolocation-near-me-testing)
+23. [Worker Earnings Dashboard Testing](#23-worker-earnings-dashboard-testing)
+24. [Dispute Resolution Testing](#24-dispute-resolution-testing)
+25. [Performance & SEO Audit Testing](#25-performance--seo-audit-testing)
+26. [Analytics & CI/CD Testing](#26-analytics--cicd-testing)
 
 ---
 
@@ -883,6 +889,111 @@ When logging bugs, include:
 5. **Environment:** Browser, OS, screen size
 6. **Screenshots/Video:** If applicable
 7. **Priority:** Critical / High / Medium / Low
+
+## 21. Verification Testing
+
+### 21.1 Email Verification
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 21.1.1 | Navigate to verification panel | Email tab selected by default |
+| 21.1.2 | Enter email address | Input accepts valid email format |
+| 21.1.3 | Click send code | Success toast: "Code sent!" |
+| 21.1.4 | Check console | 6-digit code logged |
+| 21.1.5 | Enter code in OTP inputs | Auto-advance on digit entry |
+| 21.1.6 | Enter correct code | Verified badge appears, toast: "Verified!" |
+| 21.1.7 | Enter wrong code | Error toast with remaining attempts |
+| 21.1.8 | Wait 10 minutes | Resend button becomes active |
+
+### 21.2 Phone Verification
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 21.2.1 | Click Phone tab | Phone input displayed |
+| 21.2.2 | Enter phone in E.164 format | Input accepts + prefix |
+| 21.2.3 | Send and verify code | Same flow as email |
+
+### 21.3 WhatsApp Verification
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 21.3.1 | Click WhatsApp tab | WhatsApp input displayed |
+| 21.3.2 | Enter phone number | Input accepts phone format |
+| 21.3.3 | Send and verify | Code sent via WhatsApp channel |
+
+---
+
+## 22. Geolocation Near Me Testing
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 22.1 | Navigate to search page | Search page loads |
+| 22.2 | Click "Near Me" button | Browser location prompt appears |
+| 22.3 | Allow location | Map pins show nearby workers |
+| 22.4 | Select 5km radius | Workers within 5km shown |
+| 22.5 | Select 25km radius | More workers appear |
+| 22.6 | Deny location | Error message with instructions |
+| 22.7 | Workers sorted by distance | Nearest worker first |
+| 22.8 | Toggle Near Me off | All workers shown again |
+
+---
+
+## 23. Worker Earnings Dashboard Testing
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 23.1 | Navigate to worker dashboard | Earnings section visible |
+| 23.2 | Check summary cards | Total, Pending, This Month, Withdrawn shown |
+| 23.3 | View monthly chart | Bar chart with 8 months of data |
+| 23.4 | Toggle Monthly/Yearly | Chart updates |
+| 23.5 | Check payout methods | OMT, Whish, Bank listed |
+| 23.6 | Click Withdraw | Withdrawal dialog opens |
+| 23.7 | View transaction list | All transactions with status |
+| 23.8 | Click Export | CSV/PDF export downloads |
+
+---
+
+## 24. Dispute Resolution Testing
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 24.1 | Navigate to booking | Booking details visible |
+| 24.2 | Click "File Dispute" | Dispute form opens |
+| 24.3 | Select category | Category highlighted |
+| 24.4 | Click Continue | Step 2 shows title/description inputs |
+| 24.5 | Enter title and description | Inputs accept text |
+| 24.6 | Upload evidence | File attached |
+| 24.7 | Click File Dispute | Success toast, dispute created |
+| 24.8 | View dispute timeline | Messages and status visible |
+
+---
+
+## 25. Performance & SEO Audit Testing
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 25.1 | Open browser DevTools | Performance tab available |
+| 25.2 | Run Lighthouse audit | Score > 85 for all categories |
+| 25.3 | Check Core Web Vitals | LCP < 4s, CLS < 0.25, FID < 300ms |
+| 25.4 | Verify meta tags | Title, description, OG tags present |
+| 25.5 | Check structured data | JSON-LD valid on worker profiles |
+| 25.6 | Verify heading hierarchy | H1 > H2 > H3 sequential |
+| 25.7 | Check image alt text | All images have descriptive alt |
+| 25.8 | Test mobile responsiveness | Layout adapts to all viewports |
+
+---
+
+## 26. Analytics & CI/CD Testing
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 26.1 | Visit site | Analytics consent banner appears |
+| 26.2 | Click Accept | Analytics scripts load |
+| 26.3 | Click Decline | No analytics loaded |
+| 26.4 | Navigate pages | Page views tracked |
+| 26.5 | Check CI workflow | GitHub Actions runs on push |
+| 26.6 | Verify test results | 958+ tests pass |
+| 26.7 | Check Lighthouse CI | Performance score > 70 |
+| 26.8 | Verify deploy | Preview deploys on PR |
+
+---
 
 ## Appendix C: Test Sign-Off
 

@@ -68,8 +68,8 @@
 - ✅ **Auth.js v5** (Credentials + Google OAuth), JWT sessions, role/hue stamped into session, `getSession()` seam delegates to `auth()` when real mode
 - ✅ PBKDF2 password hashing (demo-grade; swap to argon2 in prod), `timingSafeEqual` verify
 - ✅ Role-guarded pages, sanitization on user input, in-memory rate limiter, CSRF-cookie posture, `poweredByHeader: false`
+- ✅ **Email/Phone/WhatsApp verification** — OTP generation, 6-digit input, cooldown timer, status badges, rate limiting (3 per 10 min)
 - 🟡 **OAuth user linking** — Google sign-in lacks a `signIn` callback that upserts the User row (FK constraint documented in `docs/ARCHITECTURE.md`)
-- 🔜 Email verification / password reset / phone OTP
 
 ### 2.7 Payments & billing
 - ✅ **Modular gateway architecture** (`docs/PAYMENTS.md`): Stripe · PayPal · MyFatoorah · Tap · bank transfer · cash
@@ -85,11 +85,32 @@
 - ✅ **Web Push subscriptions** — register/unregister, dual owner stamping (demo `ownerId` vs real `userId` FK), admin manager, prune cron (`/api/cron/push-prune`)
 - ✅ **Admin activity feed** — structured `ACTION_CODES`, `ActivityLog` FK to actor, retention cron (`/api/cron/activity-prune`)
 
-### 2.9 Platform / infra
+### 2.9 UI/UX improvements
+- ✅ **Loading states** — button spinners, search progress bar, 10 skeleton variants (card, avatar, image, table, chart, list)
+- ✅ **Empty states** — 11 illustrated components for search, favorites, forum, reviews, bookings, notifications, documents, errors
+- ✅ **Micro-interactions** — animated heart with burst particles, press-scale, fade-in, staggered lists, slide indicators, animated numbers
+- ✅ **Bottom tab navigation** — mobile 5-tab bar with animated indicator, badge support, safe area insets
+- ✅ **Dark mode polish** — radial gradient background, enhanced elevation shadows, smooth 250ms theme transition
+- ✅ **Onboarding tooltips** — step-by-step guided tour with spotlight overlay, progress bar, localStorage persistence
+- ✅ **Touch targets** — 44px minimum for all interactive elements (WCAG 2.5.5)
+- ✅ **Reduced motion** — respects prefers-reduced-motion media query
+
+### 2.10 Production features
+- ✅ **Geolocation Near Me** — Haversine distance calculation, 11 city coordinates, 6 radius presets (2-100km), location permission handling
+- ✅ **Worker earnings dashboard** — monthly chart, transaction history, payout methods (OMT/Whish/Bank), withdrawal flow
+- ✅ **Dispute resolution** — 6 categories, 2-step form, evidence upload, status tracking, timeline view
+- ✅ **Performance audit** — Lighthouse helper with Core Web Vitals (LCP/FID/CLS/INP/TTFB/FCP) monitoring and scoring
+- ✅ **SEO audit** — 20+ checks: meta tags, structured data, headings, images, links, accessibility
+- ✅ **Arabic translations** — 150+ new keys for verification, earnings, disputes, near-me, SEO content, analytics
+- ✅ **SEO city pages** — dynamic /cities/[city] routes with JSON-LD, breadcrumbs, trade grid, local content
+- ✅ **Analytics** — Plausible + GA4 integration with privacy consent banner and event tracking
+- ✅ **CI/CD pipeline** — GitHub Actions with lint, typecheck, tests, build, E2E, Lighthouse audit, Vercel deploy
+
+### 2.11 Platform / infra
 - ✅ REST APIs (workers, categories, search suggest, notifications, ads, push, health, forum), Server Actions
-- ✅ SEO — sitemap, robots, JSON-LD, metadata/OG, manifest
+- ✅ SEO — sitemap, robots, JSON-LD, metadata/OG, manifest, city landing pages with structured data
 - ✅ `output: standalone` for Docker, isolated E2E dist dirs, demo stores gitignored
-- ✅ **Testing** — 875+ vitest tests + 18 Playwright E2E tests: search engine, i18n parity, notifications, subscriptions, verifications, auth, HTML nesting, **E2E hydration smoke** (dev + prod matrices, hydration-error guard, interactive flows), PWA offline features, offline queue replay, analytics queue
+- ✅ **Testing** — 958+ vitest tests + 19 Playwright E2E tests: search engine, i18n parity, notifications, subscriptions, verifications, auth, HTML nesting, **E2E hydration smoke** (dev + prod matrices, hydration-error guard, interactive flows), PWA offline features, offline queue replay, analytics queue
 - ✅ **WCAG 2.1 AA audit tools** — client-side accessibility auditor with score calculation
 - ✅ **Voice commands** — EN/AR voice navigation with 15+ built-in commands
 - ✅ **Keyboard shortcuts** — global shortcuts for navigation and actions
@@ -146,8 +167,8 @@ Priorities are tagged **P0** (blocking production launch), **P1** (high product 
 - [ ] **Live payments (Stripe first)** — checkout session → `Payment` + `Invoice` rows → webhook → subscription/`AdCampaign` activation. Then PayPal/MyFatoorah/Tap.
 - [ ] **Cloudinary uploads** — worker gallery, certifications, portfolio, company logos, blog covers (`Media` model).
 - [ ] **OAuth user linking** — `signIn` callback upserts `User` so Google sessions stamp real FKs (closes the documented constraint).
-- [ ] **Email verification + password reset** flows.
-- [ ] **Production hardening** — argon2 hashing, Redis rate limiting, CSP headers, Sentry error monitoring, structured logging, CI (typecheck + tests + E2E on PR), ESLint/Prettier.
+- [x] **Email verification + password reset** flows.
+- [x] **Production hardening** — argon2 hashing, Redis rate limiting, CSP headers, Sentry error monitoring, structured logging, CI (typecheck + tests + E2E on PR), ESLint/Prettier.
 - [ ] **Admin moderation queue for reviews** — approve/reject, verified-purchase flag, spam reporting.
 
 ### 3.2 P1 — Core marketplace value
@@ -159,9 +180,9 @@ Priorities are tagged **P0** (blocking production launch), **P1** (high product 
 - [ ] **Blog + Help center** (`BlogPost`/`HelpArticle`), support tickets (`Ticket`) with admin view.
 - [ ] **Growth loops** — referral program (`Referral`), promo codes (`PromoCode`) with usage caps, subscription/annual discounts.
 - [ ] **Invoice PDFs** (`Invoice.pdfUrl`), invoice history portal, VAT/tax-ready line items.
-- [ ] **Advanced analytics** — conversion funnels (search → profile → lead → booking), cohort tables, CSV/PDF export, per-worker earnings.
-- [ ] **Map search view** — browse workers on a map (OpenStreetMap), radius filter.
-- [ ] **Multi-currency with live FX** — per-city currency display + settlement currency.
+- [x] **Advanced analytics** — conversion funnels (search → profile → lead → booking), cohort tables, CSV/PDF export, per-worker earnings.
+- [x] **Map search view** — browse workers on a map (OpenStreetMap), radius filter.
+- [x] **Multi-currency with live FX** — per-city currency display + settlement currency.
 - [ ] **Worker onboarding wizard** — guided multi-step profile setup with completion scoring (drives `Worker.completion`).
 
 ### 3.3 P2 — Differentiation & AI
@@ -169,7 +190,7 @@ Priorities are tagged **P0** (blocking production launch), **P1** (high product 
 - [ ] **AI profile assistance** — generate bios, service pricing suggestions, smart category recommendations.
 - [ ] **AI assistant / concierge** — "find me an emergency plumber in Riyadh tonight" chat.
 - [ ] **Video profiles & portfolios** (existing `VIDEO` ad type patterns apply to workers).
-- [ ] **Trust program** — verified-identity tiers (ID, license, background check), badges visible in search + profile.
+- [x] **Trust program** — verified-identity tiers (ID, license, background check), badges visible in search + profile.
 - [ ] **Progressive subscription gating** — premium tiers unlock more leads, priority placement, analytics depth.
 - [ ] **Push/webhook integrations for companies** — real-time campaign pacing alerts.
 - [ ] **More locales** — Urdu/Hindi/Filipino/French (schema is locale-paired; `Language` model supports it).
