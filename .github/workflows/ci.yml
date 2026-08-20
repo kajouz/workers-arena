@@ -48,8 +48,13 @@ jobs:
 
       - run: npm ci
 
+      - name: Setup environment
+        run: |
+          cp .env.example .env
+          echo 'DEMO_MODE=true' >> .env
+
       - name: Generate Prisma Client
-        run: npx prisma generate || true
+        run: npx prisma generate
 
       - name: Run tests
         run: npx vitest run --reporter=verbose --exclude '**/e2e-smoke.test.ts' --exclude '**/e2e-critical-flows.test.ts'
@@ -69,11 +74,17 @@ jobs:
 
       - run: npm ci
 
+      - name: Setup environment
+        run: |
+          cp .env.example .env
+          echo 'DEMO_MODE=true' >> .env
+          echo 'NEXT_PUBLIC_APP_URL=https://workersarena.com' >> .env
+
       - name: Generate Prisma Client
-        run: npx prisma generate || true
+        run: npx prisma generate
 
       - name: Build
-        run: npm run build || true
+        run: npm run build
         env:
           NEXT_PUBLIC_APP_URL: https://workersarena.com
 
