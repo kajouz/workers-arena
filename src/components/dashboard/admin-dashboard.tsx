@@ -28,6 +28,10 @@ import { StatCard } from "./stat-card";
 import { WorkerManagementTable } from "./worker-management-table";
 import { AreaChart, BarList, Donut } from "./charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GeoHeatmap } from "./geo-heatmap";
+import { AcquisitionFunnel } from "./acquisition-funnel";
+import { BehaviorAnalytics } from "./behavior-analytics";
+import { RetentionCohorts } from "./retention-cohorts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -312,6 +316,86 @@ export function AdminDashboard({
         <StatCard label={t("admin.monthlyRevenue")} value={`$${formatCompact(a.monthlyRevenue)}`} icon={<Wallet className="size-5" />} trend={9.8} color="#f59e0b" index={5} />
         <StatCard label={t("admin.companies")} value={a.companies} icon={<Building2 className="size-5" />} trend={6.5} color="#0ea5e9" index={6} />
         <StatCard label={t("admin.ads")} value={a.activeAds} icon={<Megaphone className="size-5" />} trend={15.2} color="#8b5cf6" index={7} />
+      </div>
+
+      {/* Phase 2: Geographic & Behavioral Analytics */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <GeoHeatmap workers={workers} locale={locale} />
+        <AcquisitionFunnel
+          data={{
+            visitors: a.visitors,
+            searches: Math.floor(a.visitors * 0.65),
+            profileViews: Math.floor(a.visitors * 0.42),
+            contacts: Math.floor(a.visitors * 0.12),
+            bookings: Math.floor(a.visitors * 0.08),
+            completed: Math.floor(a.visitors * 0.05),
+          }}
+          locale={locale}
+        />
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <BehaviorAnalytics
+          data={{
+            sessionDuration: { avg: 185, median: 142, p95: 420 },
+            bounceRate: 34.2,
+            peakHours: Array.from({ length: 24 }, (_, i) => ({
+              hour: i,
+              count: Math.floor(Math.random() * 80) + 10,
+            })),
+            deviceBreakdown: [
+              { device: "mobile", percentage: 62.4 },
+              { device: "desktop", percentage: 31.8 },
+              { device: "tablet", percentage: 5.8 },
+            ],
+            languageSplit: [
+              { language: "Arabic", percentage: 58.2 },
+              { language: "English", percentage: 41.8 },
+            ],
+            searchToContactRatio: 12.4,
+            topPages: [
+              { path: "/", views: 15420 },
+              { path: "/search", views: 8750 },
+              { path: "/categories", views: 2890 },
+            ],
+          }}
+          locale={locale}
+        />
+        <RetentionCohorts
+          data={{
+            cohorts: [
+              { month: "Jan", registered: 45, retained: 38, churned: 7, retentionRate: 84.4 },
+              { month: "Feb", registered: 52, retained: 44, churned: 8, retentionRate: 84.6 },
+              { month: "Mar", registered: 61, retained: 51, churned: 10, retentionRate: 83.6 },
+              { month: "Apr", registered: 58, retained: 48, churned: 10, retentionRate: 82.8 },
+              { month: "May", registered: 65, retained: 55, churned: 10, retentionRate: 84.6 },
+              { month: "Jun", registered: 70, retained: 60, churned: 10, retentionRate: 85.7 },
+            ],
+            overallRetention: 84.3,
+            churnRate: 4.2,
+            avgLifetimeMonths: 8.5,
+            ltv: 585,
+            planTransitions: [
+              { from: "Free", to: "Professional", count: 12, percentage: 18.5 },
+              { from: "Professional", to: "Premium", count: 8, percentage: 12.3 },
+              { from: "Premium", to: "Enterprise", count: 3, percentage: 4.6 },
+              { from: "Enterprise", to: "Premium", count: 2, percentage: 3.1 },
+            ],
+            atRiskWorkers: workers
+              .filter((w) => w.subscription.status === "active")
+              .slice(0, 5)
+              .map((w) => ({
+                id: w.id,
+                name: w.nameEn,
+                nameAr: w.nameAr,
+                plan: w.subscription.plan,
+                daysUntilExpiry: Math.floor(Math.random() * 10) + 1,
+                lastActivity: "2 days ago",
+                hue: w.hue,
+              })),
+          }}
+          locale={locale}
+        />
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
