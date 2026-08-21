@@ -158,3 +158,4 @@ npm run db:smoke        # live-Postgres booking/campaign smoke (needs the seed)
 - The E2E pre-run check fails fast on crash artifacts and full disks: use `npm run test:e2e:autoclean` (or `E2E_AUTOCLEAN=1`) to have it clean up and re-run instead.
 - The live-DB suites (`npm run db:smoke`, the prisma chain tests) must run **serially**, never concurrently — they share one `DATABASE_URL` (details in `.freebuff/run.md`).
 - Docs live in `docs/` (product plan, booking, payments, mobile, architecture…); update the relevant one when a feature changes behavior.
+\n<!-- test -->
