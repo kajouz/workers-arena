@@ -311,10 +311,16 @@ export function AdminDashboard({
       {/* Quick Navigation */}
       <div className="mt-4 flex flex-wrap gap-2">
         <Link href="/admin/revenue" className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400">
-          <DollarSign className="size-3" /> Revenue Dashboard
+          <DollarSign className="size-3" /> Revenue
         </Link>
         <Link href="/admin/invoices" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-500/20 dark:text-blue-400">
           <FileText className="size-3" /> Invoices
+        </Link>
+        <Link href="/admin/customers" className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-500/20 dark:text-violet-400">
+          <Users className="size-3" /> Customers
+        </Link>
+        <Link href="/admin/categories" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400">
+          <Building2 className="size-3" /> Categories
         </Link>
       </div>
 
