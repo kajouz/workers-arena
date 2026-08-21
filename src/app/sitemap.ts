@@ -25,6 +25,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
+      url: `${BASE_URL}/about`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/faq`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
       url: `${BASE_URL}/auth/login`,
       lastModified: new Date(),
       changeFrequency: "monthly",
@@ -66,6 +78,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("Failed to generate category sitemap:", error);
   }
 
+  // Trade landing pages (SEO-optimized)
+  let tradePages: MetadataRoute.Sitemap = [];
+  try {
+    const categories = await getCategories();
+    tradePages = categories.map((cat) => ({
+      url: `${BASE_URL}/trades/${cat.slug}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }));
+  } catch (error) {
+    console.error("Failed to generate trade sitemap:", error);
+  }
+
   // Dynamic city pages
   let cityPages: MetadataRoute.Sitemap = [];
   try {
@@ -80,5 +106,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("Failed to generate city sitemap:", error);
   }
 
-  return [...staticPages, ...workerPages, ...categoryPages, ...cityPages];
+  return [...staticPages, ...workerPages, ...categoryPages, ...tradePages, ...cityPages];
 }
