@@ -11,7 +11,8 @@ const nextConfig: NextConfig = {
   // this entry. Dev-only: production builds are unaffected.
   allowedDevOrigins: ["localhost", "127.0.0.1"],
   // Standalone output enables a slim Docker image (see Dockerfile).
-  output: "standalone",
+  // Disabled on Vercel — Turbopack doesn't generate .nft.json for standalone.
+  ...(process.env.VERCEL ? {} : { output: "standalone" }),
   images: {
     // Demo mode: the app ships fully offline-safe visuals (no remote images).
     // For production with Cloudinary/S3, remove this and configure remotePatterns.

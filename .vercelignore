@@ -1,0 +1,33 @@
+# Dependencies & build artifacts
+node_modules
+.next
+out
+build
+
+# Data & backups
+.data
+backups
+freebuff
+
+# Dev/cache
+.freebuff
+.vercel
+coverage
+test-results
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.github
+
+# Documentation (except README)
+docs
+*.md
+!README.md
+
+# OS
+.DS_Store
