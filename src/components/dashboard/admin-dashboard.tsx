@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   CalendarDays,
   Loader2,
+  DollarSign,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -304,6 +306,16 @@ export function AdminDashboard({
             <Bell className="size-3" /> {a.alerts.reduce((s, x) => s + x.count, 0)}
           </Badge>
         </div>
+      </div>
+
+      {/* Quick Navigation */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link href="/admin/revenue" className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400">
+          <DollarSign className="size-3" /> Revenue Dashboard
+        </Link>
+        <Link href="/admin/invoices" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-500/20 dark:text-blue-400">
+          <FileText className="size-3" /> Invoices
+        </Link>
       </div>
 
       {/* KPIs */}
