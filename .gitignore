@@ -42,3 +42,6 @@ next-env.d.ts
 # freebuff runtime (keep run.md + daemonize.mjs)
 .freebuff/*.log
 .freebuff/desktop-v2.db*
+
+# Backup files
+backups/

@@ -82,19 +82,18 @@ export function withErrorTracking<T extends (...args: any[]) => Promise<any>>(
   fn: T,
   name: string
 ): T {
-  return (async (...args: any[]) => {
-  const spanPromise = startTransaction(name, "function");
-  try {
-    const result = await fn(...args);
-    const span = await spanPromise;
-    span.finish();
-    return result;
-  } catch (error) {
-    const span = await spanPromise;
-    span.finish();
-      captureError(error as Error, { function: name, args: args.slice(0, 3) });
-      throw error;
-    }
+  return ((...args: any[]) => {
+    const span = startTransaction(name, "function");
+    return fn(...args)
+      .then((result) => {
+        span.finish();
+        return result;
+      })
+      .catch((error) => {
+        span.finish();
+        captureError(error as Error, { function: name, args: args.slice(0, 3) });
+        throw error;
+      });
   }) as T;
 }
 

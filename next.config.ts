@@ -20,4 +20,30 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 };
 
-export default nextConfig;
+// Wrap with Sentry if DSN is configured.
+// Uses dynamic import to avoid type-resolution issues with the optional dep.
+function withSentry(nextCfg: NextConfig): NextConfig {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("@sentry/nextjs") as {
+      withSentryConfig: (cfg: NextConfig, opts?: Record<string, unknown>) => NextConfig;
+    };
+    if (mod.withSentryConfig) {
+      return mod.withSentryConfig(nextCfg, {
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        silent: true,
+        widenClientFileUpload: true,
+        hideSourceMaps: true,
+        disableLogger: true,
+        tunnelRoute: "/api/sentry-tunnel",
+        automaticVercelMonitors: true,
+      });
+    }
+  } catch {
+    // @sentry/nextjs not available — proceed without it
+  }
+  return nextCfg;
+}
+
+export default withSentry(nextConfig);

@@ -88,6 +88,15 @@ jobs:
         env:
           NEXT_PUBLIC_APP_URL: https://workersarena.com
 
+      - name: Upload Sentry source maps
+        if: success()
+        run: node scripts/sentry-upload.mjs
+        env:
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        continue-on-error: true
+
       - name: Upload build artifacts
         if: success()
         uses: actions/upload-artifact@v4
