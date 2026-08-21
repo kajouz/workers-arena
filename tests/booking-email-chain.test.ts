@@ -53,12 +53,9 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     if (!worker) throw new Error("demo worker missing");
 
     // Request → accept on a fresh AVAILABLE slot (09:00–10:00).
-    const slot = demoAddSlot(
-      worker.id,
-      "2026-08-20T09:00:00.000Z",
-      "2026-08-20T10:00:00.000Z",
-      "available"
-    );
+    const start1 = new Date(Date.now() + 48 * 3600_000).toISOString();
+    const end1 = new Date(Date.now() + 49 * 3600_000).toISOString();
+    const slot = demoAddSlot(worker.id, start1, end1, "available");
     const created = await demoCreateBookingRequest({
       workerId: worker.id,
       slotId: slot.id,
@@ -116,12 +113,9 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
 
-    const slot = demoAddSlot(
-      worker.id,
-      "2026-08-24T09:00:00.000Z",
-      "2026-08-24T10:00:00.000Z",
-      "available"
-    );
+    const start2 = new Date(Date.now() + 72 * 3600_000).toISOString();
+    const end2 = new Date(Date.now() + 73 * 3600_000).toISOString();
+    const slot = demoAddSlot(worker.id, start2, end2, "available");
     const created = await demoCreateBookingRequest({
       workerId: worker.id,
       slotId: slot.id,
@@ -155,12 +149,9 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       worker.subscription.plan = "enterprise";
 
       // Request → accept on a fresh AVAILABLE slot; exempt plan → fee 0.
-      const slot = demoAddSlot(
-        worker.id,
-        "2026-08-23T09:00:00.000Z",
-        "2026-08-23T10:00:00.000Z",
-        "available"
-      );
+      const start3 = new Date(Date.now() + 60 * 3600_000).toISOString();
+      const end3 = new Date(Date.now() + 61 * 3600_000).toISOString();
+      const slot = demoAddSlot(worker.id, start3, end3, "available");
       const created = await demoCreateBookingRequest({
         workerId: worker.id,
         slotId: slot.id,
@@ -229,12 +220,9 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     if (!worker) throw new Error("demo worker missing");
 
     // Request → accept → customer cancel on a fresh AVAILABLE slot.
-    const slot = demoAddSlot(
-      worker.id,
-      "2026-08-22T11:00:00.000Z",
-      "2026-08-22T12:00:00.000Z",
-      "available"
-    );
+    const start4 = new Date(Date.now() + 84 * 3600_000).toISOString();
+    const end4 = new Date(Date.now() + 85 * 3600_000).toISOString();
+    const slot = demoAddSlot(worker.id, start4, end4, "available");
     const created = await demoCreateBookingRequest({
       workerId: worker.id,
       slotId: slot.id,
@@ -436,12 +424,9 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     // accept (1 anchor + RECURRING_OCCURRENCE_COUNT future visits) and — like
     // the prisma generation cron — must notify the customer about the NEXT
     // scheduled visit exactly once, not once per occurrence.
-    const slot = demoAddSlot(
-      worker.id,
-      "2026-08-20T09:00:00.000Z",
-      "2026-08-20T10:00:00.000Z",
-      "available"
-    );
+    const start5 = new Date(Date.now() + 96 * 3600_000).toISOString();
+    const end5 = new Date(Date.now() + 97 * 3600_000).toISOString();
+    const slot = demoAddSlot(worker.id, start5, end5, "available");
     const created = await demoCreateRecurringRequest({
       workerId: worker.id,
       slotId: slot.id,
