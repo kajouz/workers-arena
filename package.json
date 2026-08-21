@@ -58,6 +58,8 @@
     "@radix-ui/react-tabs": "^1.1.2",
     "@sentry/nextjs": "^10.70.0",
     "@tanstack/react-virtual": "^3.14.10",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.0.0",
@@ -92,6 +94,7 @@
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.3",
+    "vercel": "^59.3.0",
     "vitest": "^3.0.0"
   },
   "prisma": {
