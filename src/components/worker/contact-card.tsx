@@ -42,7 +42,7 @@ export function ContactCard({
       });
       setSending(false);
       setMessage("");
-      toast("info", t("worker.requestQueued") || "Request queued — will send when you're back online.");
+      toast("info", t("worker.requestQueued") || (locale === "ar" ? "تم إضافة الطلب إلى قائمة الانتظار — سيُرسل عند عودة الاتصال." : "Request queued — will send when you're back online."));
       return;
     }
     const res = await requestServiceAction(worker.id);

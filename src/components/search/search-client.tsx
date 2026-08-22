@@ -356,10 +356,10 @@ export function SearchClient({
             >
               <MapPin className="size-4" />
               {geoLoading
-                ? "Locating…"
+                ? (locale === "ar" ? "جارٍ تحديد الموقع…" : "Locating…")
                 : filters.sort === "nearest"
-                ? "Near Me"
-                : "Find Near Me"}
+                ? (locale === "ar" ? "قريب مني" : "Near Me")
+                : (locale === "ar" ? "ابحث القريب مني" : "Find Near Me")}
             </Button>
           )}
 
@@ -631,7 +631,7 @@ function FilterControls({
           <Input
             type="number"
             min={0}
-            placeholder="Min"
+            placeholder={locale === "ar" ? "الحد الأدنى" : "Min"}
             value={filters.priceMin ?? ""}
             onChange={(e) => update("priceMin", e.target.value ? Number(e.target.value) : undefined)}
             className="h-9"
@@ -640,7 +640,7 @@ function FilterControls({
           <Input
             type="number"
             min={0}
-            placeholder="Max"
+            placeholder={locale === "ar" ? "الحد الأقصى" : "Max"}
             value={filters.priceMax ?? ""}
             onChange={(e) => update("priceMax", e.target.value ? Number(e.target.value) : undefined)}
             className="h-9"

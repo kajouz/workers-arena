@@ -24,11 +24,17 @@ interface SearchAutocompleteProps {
 }
 
 // Mock trending searches - in production, this would come from an API
-const TRENDING_SEARCHES: Suggestion[] = [
+const TRENDING_SEARCHES_EN: Suggestion[] = [
   { type: "trending", label: "Emergency plumber", href: "/search?category=plumbing&emergency=1" },
   { type: "trending", label: "AC repair Beirut", href: "/search?q=AC+repair&city=beirut" },
   { type: "trending", label: "Electrician near me", href: "/search?category=electrical&sort=nearest" },
   { type: "trending", label: "Home cleaning", href: "/search?category=cleaning" },
+];
+const TRENDING_SEARCHES_AR: Suggestion[] = [
+  { type: "trending", label: "سباك طوارئ", href: "/search?category=plumbing&emergency=1" },
+  { type: "trending", label: "إصلاح تكييف بيروت", href: "/search?q=AC+repair&city=beirut" },
+  { type: "trending", label: "كهربائي قريب", href: "/search?category=electrical&sort=nearest" },
+  { type: "trending", label: "تنظيف منزلي", href: "/search?category=cleaning" },
 ];
 
 /**
@@ -38,12 +44,16 @@ export function SearchAutocomplete({
   value,
   onChange,
   onSelect,
-  placeholder = "Search workers, services, or categories...",
+  placeholder,
   className,
-}: SearchAutocompleteProps) {
+  locale = "en",
+}: SearchAutocompleteProps & { locale?: string }) {
+  const isAr = locale === "ar";
   const [isOpen, setIsOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const { history, addSearch, clearHistory } = useSearchHistory();
+  const defaultPlaceholder = isAr ? "ابحث عن عمال، خدمات، أو تصنيفات..." : "Search workers, services, or categories...";
+  const effectivePlaceholder = placeholder ?? defaultPlaceholder;
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +70,7 @@ export function SearchAutocomplete({
       icon: <Clock className="size-4" />,
     }));
 
-    const trendingSuggestions: Suggestion[] = TRENDING_SEARCHES.slice(0, 3).map((item) => ({
+    const trendingSuggestions: Suggestion[] = (isAr ? TRENDING_SEARCHES_AR : TRENDING_SEARCHES_EN).slice(0, 3).map((item) => ({
       ...item,
       icon: <TrendingUp className="size-4" />,
     }));
@@ -121,9 +131,9 @@ export function SearchAutocomplete({
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={effectivePlaceholder}
           className="ps-10 pe-10"
-          aria-label={placeholder}
+          aria-label={effectivePlaceholder}
           aria-expanded={isOpen}
           aria-autocomplete="list"
           role="combobox"
@@ -137,7 +147,7 @@ export function SearchAutocomplete({
               onChange("");
               inputRef.current?.focus();
             }}
-            aria-label="Clear search"
+            aria-label={isAr ? "مسح البحث" : "Clear search"}
           >
             <X className="size-4" />
           </Button>
@@ -158,7 +168,7 @@ export function SearchAutocomplete({
               <div className="border-b border-ink-100 px-3 py-2 dark:border-ink-800">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-ink-400">
-                    Recent
+                    {isAr ? "الأخيرة" : "Recent"}
                   </span>
                   <Button
                     variant="ghost"
@@ -169,7 +179,7 @@ export function SearchAutocomplete({
                       setIsOpen(false);
                     }}
                   >
-                    Clear
+                    {isAr ? "مسح" : "Clear"}
                   </Button>
                 </div>
               </div>
@@ -186,7 +196,7 @@ export function SearchAutocomplete({
                   <span className="text-ink-400">{suggestion.icon}</span>
                   <span className="flex-1 truncate">{suggestion.label}</span>
                   {suggestion.type === "trending" && (
-                    <span className="text-[10px] font-bold text-brand-500">Trending</span>
+                    <span className="text-[10px] font-bold text-brand-500">{isAr ? "رائج" : "Trending"}</span>
                   )}
                 </button>
               ))}
@@ -195,9 +205,9 @@ export function SearchAutocomplete({
             {/* Keyboard hint */}
             <div className="border-t border-ink-100 px-3 py-2 dark:border-ink-800">
               <p className="text-[11px] text-ink-400">
-                Press <kbd className="rounded bg-ink-100 px-1 py-0.5 text-[10px] font-mono dark:bg-ink-800">Enter</kbd> to search
-                {" · "}
-                <kbd className="rounded bg-ink-100 px-1 py-0.5 text-[10px] font-mono dark:bg-ink-800">Esc</kbd> to close
+                {isAr
+                  ? <>اضغط <kbd className="rounded bg-ink-100 px-1 py-0.5 text-[10px] font-mono dark:bg-ink-800">Enter</kbd> للبحث · <kbd className="rounded bg-ink-100 px-1 py-0.5 text-[10px] font-mono dark:bg-ink-800">Esc</kbd> للإغلاق</>
+                  : <>Press <kbd className="rounded bg-ink-100 px-1 py-0.5 text-[10px] font-mono dark:bg-ink-800">Enter</kbd> to search · <kbd className="rounded bg-ink-100 px-1 py-0.5 text-[10px] font-mono dark:bg-ink-800">Esc</kbd> to close</>}
               </p>
             </div>
           </motion.div>

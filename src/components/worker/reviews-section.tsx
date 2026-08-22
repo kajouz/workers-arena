@@ -57,7 +57,7 @@ export function ReviewsSection({ worker, onReview }: { worker: Worker; onReview?
         },
       });
       setSubmitting(false);
-      toast("info", t("worker.reviewQueued") || "Review queued — will submit when you're back online.");
+      toast("info", t("worker.reviewQueued") || (locale === "ar" ? "تم إضافة التقييم إلى قائمة الانتظار — سيُرسل عند عودة الاتصال." : "Review queued — will submit when you're back online."));
       return;
     }
     const formData = new FormData();

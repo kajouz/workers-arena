@@ -5,12 +5,6 @@ import { getCategories, getCities, getWorkers } from "@/lib/data/repo";
 import { getI18n } from "@/lib/i18n/server";
 import { searchParamsToFilters } from "@/lib/data/search-params";
 
-export const metadata: Metadata = {
-  title: "Find workers",
-  description:
-    "Search verified professional workers — plumbers, electricians, technicians. Filter by trade, city, rating and budget.",
-};
-
 export default async function SearchPage({
   searchParams,
 }: {

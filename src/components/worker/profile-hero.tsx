@@ -45,7 +45,10 @@ export function ProfileHero({ worker }: { worker: Worker }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const whatsappUrl = `https://wa.me/${worker.whatsapp}?text=${encodeURIComponent(`Hello ${worker.nameEn}, I found you on WorkersArena.`)}`;
+  const whatsappGreeting = locale === "ar"
+    ? `مرحباً ${worker.nameAr}، وجدتك على وركرز أرينا.`
+    : `Hello ${worker.nameEn}, I found you on WorkersArena.`;
+  const whatsappUrl = `https://wa.me/${worker.whatsapp}?text=${encodeURIComponent(whatsappGreeting)}`;
 
   return (
     <section className="overflow-hidden rounded-[1.75rem] border border-ink-200/80 bg-white shadow-soft dark:border-ink-800 dark:bg-ink-900">

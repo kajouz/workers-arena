@@ -121,7 +121,7 @@ export function AvailabilityCalendar({
       <div className="mb-4 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold text-ink-900 dark:text-ink-50">
           <Calendar className="size-4 text-brand-500" />
-          {isArabic ? "أوقات متاحة" : "Available Times"}
+          {isArabic ? "المواعيد المتاحة" : "Available Times"}
         </h3>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon-sm" onClick={prevWeek}>
