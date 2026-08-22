@@ -5,14 +5,15 @@ import { getCategories } from "@/lib/data/repo";
 import { getI18n } from "@/lib/i18n/server";
 import { BreadcrumbStructuredData } from "@/components/seo/structured-data";
 
-export const metadata: Metadata = {
-  title: "Browse Categories",
-  description:
-    "Explore all available trades — from plumbing to electrical, cleaning to painting. Find workers in every category.",
-};
-
 export default async function CategoriesPage() {
   const { locale, t } = await getI18n();
+  const metadata: Metadata = {
+    title: locale === "ar" ? "تصفح التصنيفات" : "Browse Categories",
+    description:
+      locale === "ar"
+        ? "استكشف جميع المهن المتاحة — من السباكة إلى الكهرباء، ومن التنظيف إلى الطلاء. ابحث عن عمال في كل تصنيف."
+        : "Explore all available trades — from plumbing to electrical, cleaning to painting. Find workers in every category.",
+  };
   const categories = await getCategories();
 
   return (

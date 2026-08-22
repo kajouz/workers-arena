@@ -101,7 +101,7 @@ export function Header({
                 size="icon-sm"
                 onClick={() => {
                   logoutAction();
-                  toast("info", "Signed out");
+                  toast("info", t("common.logout"));
                 }}
                 aria-label={t("common.logout")}
                 title={t("common.logout")}

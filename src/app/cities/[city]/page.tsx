@@ -7,6 +7,7 @@ import { CITY_COORDINATES } from "@/lib/geolocation/geo-service";
 import { CategoryIcon } from "@/components/shared/category-icon";
 import { WorkerCardSkeleton } from "@/components/ui/page-skeleton";
 import { notFound } from "next/navigation";
+import { getI18n } from "@/lib/i18n/server";
 
 interface CityPageProps {
   params: Promise<{ city: string }>;
@@ -30,10 +31,15 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
   const { city } = await params;
   const cityData = CITY_NAMES[city];
   if (!cityData) return {};
+  const { locale } = await getI18n();
 
   return {
-    title: `Find trusted professionals in ${cityData.en} — WorkersArena`,
-    description: `Hire verified workers in ${cityData.en}, ${cityData.country}. Plumbers, electricians, carpenters, and 20+ trades. Real reviews, transparent pricing.`,
+    title: locale === "ar"
+      ? `اعثر على محترفين موثوقين في ${cityData.ar} — وركرز أرينا`
+      : `Find trusted professionals in ${cityData.en} — WorkersArena`,
+    description: locale === "ar"
+      ? `استأجر عمالاً موثّقين في ${cityData.ar}، ${cityData.country}. سباكون، كهربائيون، نجارون وأكثر من 20 مهنة. تقييمات حقيقية وأسعار شفافة.`
+      : `Hire verified workers in ${cityData.en}, ${cityData.country}. Plumbers, electricians, carpenters, and 20+ trades. Real reviews, transparent pricing.`,
     openGraph: {
       title: `WorkersArena — ${cityData.en}`,
       description: `Find trusted professionals in ${cityData.en}. Verified workers, real reviews.`,
@@ -46,6 +52,7 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 export default async function CityPage({ params }: CityPageProps) {
   const { city } = await params;
   const cityData = CITY_NAMES[city];
+  const { locale, t } = await getI18n();
 
   if (!cityData) {
     notFound();
@@ -101,11 +108,11 @@ export default async function CityPage({ params }: CityPageProps) {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <nav className="mb-8 text-sm text-ink-400" aria-label="Breadcrumb">
-          <Link href="/" className="hover:text-ink-600">Home</Link>
+          <Link href="/" className="hover:text-ink-600">{locale === "ar" ? "الرئيسية" : "Home"}</Link>
           <span className="mx-2">/</span>
-          <Link href="/cities" className="hover:text-ink-600">Cities</Link>
+          <Link href="/cities" className="hover:text-ink-600">{locale === "ar" ? "المدن" : "Cities"}</Link>
           <span className="mx-2">/</span>
-          <span className="text-ink-700 dark:text-ink-300">{cityData.en}</span>
+          <span className="text-ink-700 dark:text-ink-300">{locale === "ar" ? cityData.ar : cityData.en}</span>
         </nav>
 
         {/* Hero */}
@@ -117,19 +124,20 @@ export default async function CityPage({ params }: CityPageProps) {
             </span>
           </div>
           <h1 className="text-4xl font-black tracking-tight text-ink-900 dark:text-ink-50 sm:text-5xl">
-            Find trusted professionals in{" "}
-            <span className="text-gradient">{cityData.en}</span>
+            {locale === "ar" ? "اعثر على محترفين موثوقين في" : "Find trusted professionals in"}{" "}
+            <span className="text-gradient">{locale === "ar" ? cityData.ar : cityData.en}</span>
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-ink-500 dark:text-ink-400">
-            Browse verified {categories.length}+ trade categories in {cityData.en}.
-            Read real reviews, compare prices, and hire trusted workers in minutes.
+            {locale === "ar"
+              ? `تصفح ${categories.length}+ تصنيفاً مهنياً موثّقاً في ${cityData.ar}. اقرأ التقييمات الحقيقية وقارن الأسعار واستأجر عمالاً موثوقين في دقائق.`
+              : `Browse verified ${categories.length}+ trade categories in ${cityData.en}. Read real reviews, compare prices, and hire trusted workers in minutes.`}
           </p>
         </div>
 
         {/* Trade Categories Grid */}
         <section className="mb-16">
           <h2 className="mb-6 text-2xl font-bold text-ink-900 dark:text-ink-50">
-            Browse trades in {cityData.en}
+            {locale === "ar" ? `تصفح المهن في ${cityData.ar}` : `Browse trades in ${cityData.en}`}
           </h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {categories.map((cat) => (
@@ -143,10 +151,10 @@ export default async function CityPage({ params }: CityPageProps) {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-ink-900 dark:text-ink-50">
-                    {cat.nameEn}
+                    {locale === "ar" ? cat.nameAr : cat.nameEn}
                   </p>
                   <p className="mt-0.5 text-xs text-ink-400">
-                    {cat.workerCount} workers
+                    {cat.workerCount} {locale === "ar" ? "عامل" : "workers"}
                   </p>
                 </div>
               </Link>
@@ -158,42 +166,54 @@ export default async function CityPage({ params }: CityPageProps) {
         <section className="mb-16 grid gap-8 lg:grid-cols-2">
           <div>
             <h2 className="mb-4 text-2xl font-bold text-ink-900 dark:text-ink-50">
-              Why choose WorkersArena in {cityData.en}?
+              {locale === "ar"
+                ? `لماذا تختار وركرز أرينا في ${cityData.ar}؟`
+                : `Why choose WorkersArena in ${cityData.en}?`}
             </h2>
             <ul className="space-y-3 text-ink-600 dark:text-ink-300">
               <li className="flex items-start gap-3">
                 <Star className="mt-0.5 size-5 shrink-0 text-brand-500" />
-                <span>Verified professionals with real customer reviews</span>
+                <span>{locale === "ar" ? "محترفون موثّقون بتقييمات حقيقية من العملاء" : "Verified professionals with real customer reviews"}</span>
               </li>
               <li className="flex items-start gap-3">
                 <Star className="mt-0.5 size-5 shrink-0 text-brand-500" />
-                <span>Transparent pricing — know costs before you hire</span>
+                <span>{locale === "ar" ? "أسعار شفافة — اعرف التكلفة قبل التوظيف" : "Transparent pricing — know costs before you hire"}</span>
               </li>
               <li className="flex items-start gap-3">
                 <Star className="mt-0.5 size-5 shrink-0 text-brand-500" />
-                <span>Instant contact via phone, WhatsApp, or in-app messaging</span>
+                <span>{locale === "ar" ? "تواصل فوري عبر الهاتف أو واتساب أو داخل التطبيق" : "Instant contact via phone, WhatsApp, or in-app messaging"}</span>
               </li>
               <li className="flex items-start gap-3">
                 <Star className="mt-0.5 size-5 shrink-0 text-brand-500" />
-                <span>Background-checked and licensed workers</span>
+                <span>{locale === "ar" ? "عمال مفحوصو الخلفية وحاصلون على رخص" : "Background-checked and licensed workers"}</span>
               </li>
               <li className="flex items-start gap-3">
                 <Star className="mt-0.5 size-5 shrink-0 text-brand-500" />
-                <span>24/7 emergency service available</span>
+                <span>{locale === "ar" ? "خدمة طوارئ متاحة 24/7" : "24/7 emergency service available"}</span>
               </li>
             </ul>
           </div>
           <div>
             <h2 className="mb-4 text-2xl font-bold text-ink-900 dark:text-ink-50">
-              How to hire in {cityData.en}
+              {locale === "ar"
+                ? `كيف توظف في ${cityData.ar}`
+                : `How to hire in ${cityData.en}`}
             </h2>
             <ol className="space-y-4">
-              {[
-                { step: 1, text: `Search for the trade you need in ${cityData.en}` },
-                { step: 2, text: "Compare profiles, ratings, and prices" },
-                { step: 3, text: "Contact the worker directly or book online" },
-                { step: 4, text: "Get the job done and leave a review" },
-              ].map((item) => (
+              {(locale === "ar"
+                ? [
+                    { step: 1, text: `ابحث عن المهنة التي تحتاجها في ${cityData.ar}` },
+                    { step: 2, text: "قارن الملفات والتقييمات والأسعار" },
+                    { step: 3, text: "تواصل مع العامل مباشرة أو احجز عبر الإنترنت" },
+                    { step: 4, text: "أنجز المهمة واكتب تقييماً" },
+                  ]
+                : [
+                    { step: 1, text: `Search for the trade you need in ${cityData.en}` },
+                    { step: 2, text: "Compare profiles, ratings, and prices" },
+                    { step: 3, text: "Contact the worker directly or book online" },
+                    { step: 4, text: "Get the job done and leave a review" },
+                  ]
+              ).map((item) => (
                 <li key={item.step} className="flex items-start gap-4">
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white">
                     {item.step}
@@ -208,16 +228,20 @@ export default async function CityPage({ params }: CityPageProps) {
         {/* CTA */}
         <div className="rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 p-8 text-center text-white sm:p-12">
           <h2 className="text-2xl font-bold sm:text-3xl">
-            Are you a professional worker in {cityData.en}?
+            {locale === "ar"
+              ? `هل أنت عامل محترف في ${cityData.ar}؟`
+              : `Are you a professional worker in ${cityData.en}?`}
           </h2>
           <p className="mt-3 text-brand-100">
-            Join thousands of workers getting new customers every day. List your services for free.
+            {locale === "ar"
+              ? "انضم إلى آلاف العمال الذين يحصلون على عملاء جدد يومياً. سجّل خدماتك مجاناً."
+              : "Join thousands of workers getting new customers every day. List your services for free."}
           </p>
           <Link
             href="/auth/register"
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-brand-600 transition-colors hover:bg-brand-50"
           >
-            Start listing for free
+            {locale === "ar" ? "ابدأ الإدراج مجاناً" : "Start listing for free"}
             <ArrowRight className="size-4" />
           </Link>
         </div>

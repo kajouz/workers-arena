@@ -96,7 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <OnboardingProvider>
           <ThemeProvider>
             <Header session={session} initialTheme={theme} />
-          <main id="main-content" tabIndex={-1} className="focus:outline-none">{children}</main>
+          <main id="main-content" tabIndex={-1} className="focus:outline-none pb-20 lg:pb-0">{children}</main>
           <Footer />
           <LayoutClients />
           <AnalyticsClients>

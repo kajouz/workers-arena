@@ -1179,7 +1179,7 @@ export const ar: Dictionary = {
     howItWorks: "كيف توظف {trade} في {city}",
     pricing: "أسعار {trade} في {city}",
     faq: "الأسئلة الشائعة حول {trade}",
-    relatedTrades: " Trades ذات صلة في {city}",
+    relatedTrades: "مهن ذات صلة في {city}",
   },
   analytics: {
     dashboard: "لوحة التحليلات",

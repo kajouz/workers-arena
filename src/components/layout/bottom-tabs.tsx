@@ -5,43 +5,44 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Home, Search, Calendar, Heart, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 
 interface Tab {
   href: string;
-  label: string;
+  labelKey: string;
   icon: typeof Home;
   match?: (pathname: string) => boolean;
-  badge?: number;
+  badgeKey?: string;
 }
 
 const TABS: Tab[] = [
   {
     href: "/",
-    label: "Home",
+    labelKey: "nav.home",
     icon: Home,
     match: (p) => p === "/",
   },
   {
     href: "/search",
-    label: "Search",
+    labelKey: "nav.findWorkers",
     icon: Search,
     match: (p) => p.startsWith("/search") || p.startsWith("/categories"),
   },
   {
     href: "/bookings",
-    label: "Bookings",
+    labelKey: "booking.myBookings",
     icon: Calendar,
     match: (p) => p.startsWith("/bookings"),
   },
   {
     href: "/favorites",
-    label: "Favorites",
+    labelKey: "nav.favorites",
     icon: Heart,
     match: (p) => p.startsWith("/favorites"),
   },
   {
     href: "/dashboard",
-    label: "Profile",
+    labelKey: "nav.dashboard",
     icon: User,
     match: (p) =>
       p.startsWith("/dashboard") ||
@@ -53,6 +54,7 @@ const TABS: Tab[] = [
 
 export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
   const pathname = usePathname();
+  const { t } = useLocale();
 
   return (
     <nav
@@ -64,7 +66,7 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
         {TABS.map((tab) => {
           const active = tab.match?.(pathname) ?? pathname === tab.href;
           const Icon = tab.icon;
-          const count = badge?.[tab.label];
+          const count = badge?.[tab.badgeKey ?? tab.labelKey];
 
           return (
             <Link
@@ -92,7 +94,7 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
               </div>
 
               <span className="text-[11px] font-medium leading-tight">
-                {tab.label}
+                {t(tab.labelKey)}
               </span>
 
               {/* Active indicator */}
