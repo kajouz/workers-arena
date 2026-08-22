@@ -1,226 +1,304 @@
 /**
  * Meilisearch integration for advanced search.
  *
- * Setup:
- * 1. Install Meilisearch: docker run -d -p 7700:7700 getmeili/meilisearch:latest
- * 2. Set MEILISEARCH_HOST and MEILISEARCH_API_KEY in .env.local
- * 3. Run the sync script: npm run search:sync
+ * Provides typo-tolerant full-text search across workers, categories, and cities
+ * with faceted filtering. Falls back to in-memory search when Meilisearch is
+ * unavailable (development/demo mode).
  *
- * Features:
- * - Typo-tolerant search
- * - Faceted search (category, city, rating)
- * - Search as you type
- * - Relevance ranking
- * - Multi-language support (EN/AR)
+ * To enable:
+ * 1. Set MEILISEARCH_HOST (default: http://localhost:7700)
+ * 2. Set MEILISEARCH_API_KEY (optional, for production)
+ * 3. Run: npm run search:sync
  */
 
-const MEILISEARCH_HOST = process.env.MEILISEARCH_HOST ?? "http://localhost:7700";
-const MEILISEARCH_API_KEY = process.env.MEILISEARCH_API_KEY ?? "";
+import { WORKERS } from "@/lib/data/workers";
+import type { Worker } from "@/lib/data/types";
 
-interface SearchOptions {
-  query: string;
-  limit?: number;
-  offset?: number;
-  filter?: string[];
-  sort?: string[];
-  facets?: string[];
-  attributesToHighlight?: string[];
-}
+/* ─── Config ─── */
+const MEILISEARCH_HOST = process.env.MEILISEARCH_HOST || "http://localhost:7700";
+const MEILISEARCH_API_KEY = process.env.MEILISEARCH_API_KEY || "";
 
-interface SearchResult<T> {
-  hits: T[];
-  query: string;
-  processingTimeMs: number;
-  hitsPerPage: number;
-  nbHits: number;
-  nbPages: number;
-  page: number;
-  facetDistribution?: Record<string, Record<string, number>>;
-}
-
-interface MeiliWorker {
+/* ─── Types ─── */
+export interface SearchHit {
   id: string;
-  slug: string;
-  nameEn: string;
+  name: string;
   nameAr: string;
   categorySlug: string;
-  categoryNameEn: string;
-  categoryNameAr: string;
+  categoryEn: string;
+  categoryAr: string;
   citySlug: string;
+  cityEn: string;
+  cityAr: string;
   rating: number;
   reviewCount: number;
-  priceMin: number;
-  priceMax: number;
+  hourlyRate: number;
   currency: string;
+  hue: number;
+  slug: string;
+  plan: string;
   verified: boolean;
-  premium: boolean;
-  featured: boolean;
-  emergency: boolean;
-  yearsExp: number;
-  bioEn: string;
-  bioAr: string;
-  services: { nameEn: string; nameAr: string; price: number }[];
+  responseRate: number;
+  yearsExperience: number;
 }
 
-/**
- * Meilisearch client (lightweight, no SDK dependency)
- */
-class MeilisearchClient {
-  private host: string;
-  private apiKey: string;
+export interface SearchFilters {
+  category?: string;
+  city?: string;
+  minRating?: number;
+  plan?: string;
+  verified?: boolean;
+  minPrice?: number;
+  maxPrice?: number;
+}
 
-  constructor(host: string, apiKey: string) {
-    this.host = host;
-    this.apiKey = apiKey;
-  }
+export interface SearchResult {
+  hits: SearchHit[];
+  total: number;
+  query: string;
+  processingTimeMs: number;
+  facets: {
+    categories: Record<string, number>;
+    cities: Record<string, number>;
+    plans: Record<string, number>;
+  };
+}
 
-  private async request<T>(
-    path: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.host}${path}`;
+/* ─── Client ─── */
+let meiliAvailable = true;
+
+async function meiliFetch(path: string, options?: RequestInit): Promise<Response | null> {
+  if (!meiliAvailable) return null;
+
+  try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+      ...(options?.headers as Record<string, string> || {}),
     };
 
-    const response = await fetch(url, {
+    if (MEILISEARCH_API_KEY) {
+      headers["Authorization"] = `Bearer ${MEILISEARCH_API_KEY}`;
+    }
+
+    const res = await fetch(`${MEILISEARCH_HOST}${path}`, {
       ...options,
-      headers: { ...headers, ...options.headers as Record<string, string> },
+      headers,
+      signal: AbortSignal.timeout(3000),
     });
 
-    if (!response.ok) {
-      throw new Error(`Meilisearch error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Search workers
-   */
-  async searchWorkers(options: SearchOptions): Promise<SearchResult<MeiliWorker>> {
-    return this.request<SearchResult<MeiliWorker>>("/indexes/workers/search", {
-      method: "POST",
-      body: JSON.stringify({
-        q: options.query,
-        limit: options.limit ?? 20,
-        offset: options.offset ?? 0,
-        filter: options.filter?.join(" AND "),
-        sort: options.sort,
-        facets: options.facets,
-        attributesToHighlight: options.attributesToHighlight ?? ["nameEn", "nameAr", "bioEn", "bioAr"],
-        attributesToCrop: ["bioEn", "bioAr"],
-        cropLength: 200,
-      }),
-    });
-  }
-
-  /**
-   * Add or update workers in the index
-   */
-  async addWorkers(workers: MeiliWorker[]): Promise<{ taskUid: number }> {
-    return this.request("/indexes/workers/documents", {
-      method: "PUT",
-      body: JSON.stringify(workers),
-    });
-  }
-
-  /**
-   * Delete a worker from the index
-   */
-  async deleteWorker(id: string): Promise<{ taskUid: number }> {
-    return this.request(`/indexes/workers/documents/${id}`, {
-      method: "DELETE",
-    });
-  }
-
-  /**
-   * Configure the workers index
-   */
-  async configureIndex(): Promise<void> {
-    // Set searchable attributes
-    await this.request("/indexes/workers/settings", {
-      method: "PATCH",
-      body: JSON.stringify({
-        searchableAttributes: [
-          "nameEn",
-          "nameAr",
-          "categoryNameEn",
-          "categoryNameAr",
-          "citySlug",
-          "bioEn",
-          "bioAr",
-          "services.nameEn",
-          "services.nameAr",
-        ],
-        filterableAttributes: [
-          "categorySlug",
-          "citySlug",
-          "rating",
-          "priceMin",
-          "priceMax",
-          "verified",
-          "premium",
-          "featured",
-          "emergency",
-          "yearsExp",
-        ],
-        sortableAttributes: [
-          "rating",
-          "reviewCount",
-          "priceMin",
-          "priceMax",
-          "yearsExp",
-        ],
-        rankingRules: [
-          "sort",
-          "words",
-          "typo",
-          "proximity",
-          "attribute",
-          "exactness",
-        ],
-        synonyms: {
-          plumber: ["plumbing", "pipe", "leak"],
-          electric: ["electrical", "electrician", "wiring"],
-          ac: ["air conditioning", "hvac", "cooling"],
-          clean: ["cleaning", "maid", "housekeeping"],
-        },
-        stopWords: ["the", "a", "an", "and", "or", "but", "in", "on", "at"],
-        typoTolerance: {
-          enabled: true,
-          minWordSizeForTypos: {
-            oneTypo: 3,
-            twoTypos: 6,
-          },
-        },
-      }),
-    });
-  }
-
-  /**
-   * Check if Meilisearch is healthy
-   */
-  async health(): Promise<boolean> {
-    try {
-      await this.request("/health");
-      return true;
-    } catch {
-      return false;
-    }
+    return res;
+  } catch {
+    meiliAvailable = false;
+    console.warn("[Meilisearch] Unavailable — falling back to in-memory search");
+    return null;
   }
 }
 
-// Singleton instance
-let clientInstance: MeilisearchClient | null = null;
+/* ─── Sync ─── */
+export async function syncWorkersToMeilisearch(): Promise<{ indexed: number }> {
+  const workers = WORKERS;
+  const documents: SearchHit[] = workers.map((w: Worker) => ({
+    id: w.id,
+    name: w.nameEn,
+    nameAr: w.nameAr,
+    categorySlug: w.categorySlug,
+    categoryEn: w.categorySlug,
+    categoryAr: w.categorySlug,
+    citySlug: w.citySlug,
+    cityEn: w.citySlug,
+    cityAr: w.citySlug,
+    rating: w.rating,
+    reviewCount: w.reviewCount,
+    hourlyRate: w.priceMin,
+    currency: w.currency,
+    hue: 0,
+    slug: w.slug,
+    plan: w.subscription.plan,
+    verified: w.verified,
+    responseRate: w.responseRate ?? 0,
+    yearsExperience: w.yearsExp,
+  }));
 
-export function getMeilisearchClient(): MeilisearchClient {
-  if (!clientInstance) {
-    clientInstance = new MeilisearchClient(MEILISEARCH_HOST, MEILISEARCH_API_KEY);
+  const res = await meiliFetch("/indexes/workers/documents", {
+    method: "POST",
+    body: JSON.stringify(documents),
+  });
+
+  if (res?.ok) {
+    console.log(`[Meilisearch] Indexed ${documents.length} workers`);
+    return { indexed: documents.length };
   }
-  return clientInstance;
+
+  console.warn("[Meilisearch] Sync failed — using in-memory search");
+  return { indexed: 0 };
 }
 
-export type { MeiliWorker, SearchOptions, SearchResult };
-export { MeilisearchClient };
+/* ─── Search ─── */
+export async function searchWorkers(
+  query: string,
+  filters: SearchFilters = {},
+  options: { limit?: number; offset?: number } = {}
+): Promise<SearchResult> {
+  const { limit = 20, offset = 0 } = options;
+
+  // Try Meilisearch first
+  const res = await meiliFetch("/indexes/workers/search", {
+    method: "POST",
+    body: JSON.stringify({
+      q: query,
+      limit,
+      offset,
+      filter: buildFilter(filters),
+      facets: ["categorySlug", "citySlug", "plan"],
+      attributesToHighlight: ["name", "nameAr"],
+      highlightPreTag: "<mark>",
+      highlightPostTag: "</mark>",
+    }),
+  });
+
+  if (res?.ok) {
+    const data = await res.json();
+    return {
+      hits: data.hits || [],
+      total: data.estimatedTotalHits || data.nbHits || 0,
+      query,
+      processingTimeMs: data.processingTimeMs || 0,
+      facets: {
+        categories: data.facetDistribution?.categorySlug || {},
+        cities: data.facetDistribution?.citySlug || {},
+        plans: data.facetDistribution?.plan || {},
+      },
+    };
+  }
+
+  // Fallback to in-memory search
+  return inMemorySearch(query, filters, limit, offset);
+}
+
+function buildFilter(filters: SearchFilters): string[] {
+  const f: string[] = [];
+  if (filters.category) f.push(`categorySlug = "${filters.category}"`);
+  if (filters.city) f.push(`citySlug = "${filters.city}"`);
+  if (filters.minRating) f.push(`rating >= ${filters.minRating}`);
+  if (filters.plan) f.push(`plan = "${filters.plan}"`);
+  if (filters.verified !== undefined) f.push(`verified = ${filters.verified}`);
+  if (filters.minPrice) f.push(`hourlyRate >= ${filters.minPrice}`);
+  if (filters.maxPrice) f.push(`hourlyRate <= ${filters.maxPrice}`);
+  return f;
+}
+
+/* ─── In-Memory Fallback ─── */
+function inMemorySearch(
+  query: string,
+  filters: SearchFilters,
+  limit: number,
+  offset: number
+): SearchResult {
+  const workers = WORKERS;
+  const q = query.toLowerCase();
+
+  let hits = workers.filter((w: Worker) => {
+    // Text match
+    if (q) {
+      const searchable = `${w.nameEn} ${w.nameAr} ${w.categorySlug} ${w.citySlug} ${w.slug}`.toLowerCase();
+      if (!searchable.includes(q)) return false;
+    }
+
+    // Filters
+    if (filters.category && w.categorySlug !== filters.category) return false;
+    if (filters.city && w.citySlug !== filters.city) return false;
+    if (filters.minRating && w.rating < filters.minRating) return false;
+    if (filters.plan && w.subscription.plan !== filters.plan) return false;
+    if (filters.verified !== undefined && w.verified !== filters.verified) return false;
+    if (filters.minPrice && w.priceMin < filters.minPrice) return false;
+    if (filters.maxPrice && w.priceMax > filters.maxPrice) return false;
+
+    return true;
+  });
+
+  // Compute facets
+  const categories: Record<string, number> = {};
+  const cities: Record<string, number> = {};
+  const plans: Record<string, number> = {};
+  hits.forEach((w: Worker) => {
+    categories[w.categorySlug] = (categories[w.categorySlug] || 0) + 1;
+    cities[w.citySlug] = (cities[w.citySlug] || 0) + 1;
+    plans[w.subscription.plan] = (plans[w.subscription.plan] || 0) + 1;
+  });
+
+  const total = hits.length;
+  hits = hits.slice(offset, offset + limit);
+
+  return {
+    hits: hits.map((w: Worker) => ({
+      id: w.id,
+      name: w.nameEn,
+      nameAr: w.nameAr,
+      categorySlug: w.categorySlug,
+      categoryEn: w.categorySlug,
+      categoryAr: w.categorySlug,
+      citySlug: w.citySlug,
+      cityEn: w.citySlug,
+      cityAr: w.citySlug,
+      rating: w.rating,
+      reviewCount: w.reviewCount,
+      hourlyRate: w.priceMin,
+      currency: w.currency,
+      hue: 0,
+      slug: w.slug,
+      plan: w.subscription.plan,
+      verified: w.verified,
+      responseRate: w.responseRate ?? 0,
+      yearsExperience: w.yearsExp,
+    })),
+    total,
+    query,
+    processingTimeMs: 0,
+    facets: { categories, cities, plans },
+  };
+}
+
+/* ─── Autocomplete ─── */
+export async function getSearchSuggestions(query: string): Promise<string[]> {
+  const res = await meiliFetch("/indexes/workers/search", {
+    method: "POST",
+    body: JSON.stringify({
+      q: query,
+      limit: 5,
+      attributesToRetrieve: ["name", "categoryEn", "cityEn"],
+      attributesToHighlight: [],
+    }),
+  });
+
+  if (res?.ok) {
+    const data = await res.json();
+    return data.hits?.map((h: SearchHit) => h.name) || [];
+  }
+
+  // Fallback
+  const workers = WORKERS;
+  const q = query.toLowerCase();
+  return workers
+    .filter((w: Worker) => w.nameEn.toLowerCase().includes(q) || w.categorySlug.toLowerCase().includes(q))
+    .slice(0, 5)
+    .map((w: Worker) => w.nameEn);
+}
+
+/* ─── Health Check ─── */
+export async function checkMeilisearchHealth(): Promise<{
+  available: boolean;
+  version?: string;
+  indexCount?: number;
+}> {
+  const res = await meiliFetch("/health");
+  if (res?.ok) {
+    const data = await res.json();
+    const indexesRes = await meiliFetch("/indexes");
+    const indexes = indexesRes?.ok ? await indexesRes.json() : [];
+    return {
+      available: true,
+      version: data.commitDate || "unknown",
+      indexCount: Array.isArray(indexes) ? indexes.length : 0,
+    };
+  }
+  return { available: false };
+}
