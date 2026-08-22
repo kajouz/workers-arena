@@ -54,6 +54,15 @@ import type { BookingStatus } from "@/lib/data/types";
 import { formatCompact, formatDate, formatNumber, formatPrice } from "@/lib/utils";
 import { decideVerificationAction } from "@/app/actions/business";
 import { decidePayoutAction } from "@/app/actions/payouts";
+import { GlobalSearch } from "@/components/admin/search/global-search";
+import { ActivityFeed } from "@/components/admin/activity/activity-feed";
+import { QuickActionsPanel } from "@/components/admin/actions/quick-actions";
+import { MobileSidebar } from "@/components/admin/layout/mobile-sidebar";
+import { WidgetManager } from "@/components/admin/customization/widget-manager";
+import { DateRangePicker } from "@/components/admin/filters/date-range-picker";
+import { VerificationWorkflow } from "@/components/admin/verification/verification-workflow";
+import { SLAMonitor } from "@/components/admin/sla/sla-monitor";
+import { AnomalyDetection } from "@/components/admin/anomaly/anomaly-detection";
 
 /**
  * Verification workflow codes — kept in sync with ACTION_CODES in
@@ -367,6 +376,30 @@ export function AdminDashboard({
         <StatCard label={t("admin.monthlyRevenue")} value={`$${formatCompact(a.monthlyRevenue)}`} icon={<Wallet className="size-5" />} trend={9.8} color="#f59e0b" index={5} />
         <StatCard label={t("admin.companies")} value={a.companies} icon={<Building2 className="size-5" />} trend={6.5} color="#0ea5e9" index={6} />
         <StatCard label={t("admin.ads")} value={a.activeAds} icon={<Megaphone className="size-5" />} trend={15.2} color="#8b5cf6" index={7} />
+      </div>
+
+      {/* Global Search & Quick Actions */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <GlobalSearch />
+        </div>
+        <DateRangePicker />
+      </div>
+
+      {/* Activity Feed & Quick Actions */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <ActivityFeed maxItems={10} />
+        <QuickActionsPanel />
+      </div>
+
+      {/* SLA Monitoring & Anomaly Detection */}
+      <div className="mt-8">
+        <SLAMonitor />
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <AnomalyDetection />
+        <VerificationWorkflow />
       </div>
 
       {/* Phase 2: Geographic & Behavioral Analytics */}
