@@ -7,6 +7,7 @@ import { ReviewsSection } from "@/components/worker/reviews-section";
 import { MapEmbed } from "@/components/worker/map-embed";
 import { RelatedWorkers } from "@/components/worker/related-workers";
 import { FloatingWhatsApp } from "@/components/worker/whatsapp-contact";
+import { WorkerPortfolio } from "@/components/worker/worker-portfolio";
 import { getRelated, getWorkerBySlug, getWorkerSlots } from "@/lib/data/repo";
 import { categoryBySlug } from "@/lib/data/categories";
 
@@ -90,6 +91,7 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
         <div className="space-y-6 lg:col-span-2">
           <ProfileTabs worker={worker} />
           <ReviewsSection worker={worker} />
+          <WorkerPortfolio worker={worker} />
           <MapEmbed worker={worker} />
         </div>
         <div>

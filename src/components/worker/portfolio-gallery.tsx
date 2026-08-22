@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 
 interface PortfolioImage {
-  id: string;
-  url: string;
+  id?: string;
+  url?: string;
   thumbnail?: string;
   title: string;
   titleAr?: string;
@@ -60,8 +60,8 @@ export function PortfolioGallery({
   const displayImages = showAll ? images : images.slice(0, maxDisplay);
   const hasMore = images.length > maxDisplay;
 
-  const handleImageClick = (image: PortfolioImage) => {
-    setSelectedImage(image);
+  const handleImageClick = (image: PortfolioImage, index: number) => {
+    setSelectedImage({ ...image, id: image.id || `img-${index}` });
     setCompareMode(!!image.beforeUrl && !!image.afterUrl);
   };
 
@@ -118,7 +118,7 @@ export function PortfolioGallery({
           {displayImages.map((image) => (
             <div
               key={image.id}
-              onClick={() => handleImageClick(image)}
+              onClick={() => handleImageClick(image, displayImages.indexOf(image))}
               className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer shadow-sm hover:shadow-lg transition-all"
             >
               {/* Main image */}
@@ -179,7 +179,7 @@ export function PortfolioGallery({
           {displayImages.map((image) => (
             <div
               key={image.id}
-              onClick={() => handleImageClick(image)}
+              onClick={() => handleImageClick(image, displayImages.indexOf(image))}
               className="flex items-center gap-4 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
             >
               <div
