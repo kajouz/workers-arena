@@ -1,314 +1,391 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronLeft, ChevronRight, Grid, List } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useLocale } from "@/components/providers/locale-provider";
 import { cn } from "@/lib/utils";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  Camera,
+  Star,
+  Grid,
+  List,
+} from "lucide-react";
 
-interface PortfolioItem {
+interface PortfolioImage {
   id: string;
-  titleEn: string;
-  titleAr: string;
-  descriptionEn?: string;
+  url: string;
+  thumbnail?: string;
+  title: string;
+  titleAr?: string;
+  description?: string;
   descriptionAr?: string;
-  imageUrl: string;
-  beforeImageUrl?: string;
   category?: string;
-  tags?: string[];
+  beforeUrl?: string;
+  afterUrl?: string;
+  hue: number;
+  rating?: number;
+  createdAt?: string;
 }
 
 interface PortfolioGalleryProps {
-  items: PortfolioItem[];
+  images: PortfolioImage[];
   workerName: string;
+  workerNameAr?: string;
+  locale?: "en" | "ar";
+  maxDisplay?: number;
+  showBeforeAfter?: boolean;
+  className?: string;
 }
 
 /**
- * Worker portfolio gallery with before/after photos and lightbox.
+ * Worker portfolio gallery with lightbox and before/after comparison
  */
-export function PortfolioGallery({ items, workerName }: PortfolioGalleryProps) {
-  const { locale } = useLocale();
-  const [selectedItem, setSelectedItem] = useState<PortfolioItem | null>(null);
+export function PortfolioGallery({
+  images,
+  workerName,
+  workerNameAr,
+  locale = "en",
+  maxDisplay = 6,
+  showBeforeAfter = true,
+  className,
+}: PortfolioGalleryProps) {
+  const [selectedImage, setSelectedImage] = useState<PortfolioImage | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [filter, setFilter] = useState<string>("all");
+  const [compareMode, setCompareMode] = useState(false);
+  const [sliderPosition, setSliderPosition] = useState(50);
 
-  // Get unique categories
-  const categories = ["all", ...new Set(items.map((item) => item.category).filter(Boolean))];
+  const displayImages = showAll ? images : images.slice(0, maxDisplay);
+  const hasMore = images.length > maxDisplay;
 
-  // Filter items
-  const filteredItems = filter === "all"
-    ? items
-    : items.filter((item) => item.category === filter);
+  const handleImageClick = (image: PortfolioImage) => {
+    setSelectedImage(image);
+    setCompareMode(!!image.beforeUrl && !!image.afterUrl);
+  };
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSliderPosition(Number(e.target.value));
+  };
+
+  const navigateImage = (direction: "prev" | "next") => {
+    if (!selectedImage) return;
+    const currentIndex = images.findIndex((img) => img.id === selectedImage.id);
+    const newIndex = direction === "next" 
+      ? (currentIndex + 1) % images.length 
+      : (currentIndex - 1 + images.length) % images.length;
+    setSelectedImage(images[newIndex]);
+    setCompareMode(!!images[newIndex].beforeUrl && !!images[newIndex].afterUrl);
+  };
 
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-ink-900 dark:text-ink-50">
-          {locale === "ar" ? "معرض الأعمال" : "Portfolio"}
-        </h3>
         <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === "grid" ? "default" : "ghost"}
-            size="icon-sm"
+          <Camera className="w-5 h-5 text-gray-600" />
+          <h3 className="text-lg font-semibold text-gray-900">
+            {locale === "ar" ? "معرض الأعمال" : "Portfolio"}
+          </h3>
+          <span className="text-sm text-gray-500">({images.length})</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
             onClick={() => setViewMode("grid")}
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              viewMode === "grid" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50"
+            )}
           >
-            <Grid className="size-4" />
-          </Button>
-          <Button
-            variant={viewMode === "list" ? "default" : "ghost"}
-            size="icon-sm"
+            <Grid className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => setViewMode("list")}
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              viewMode === "list" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50"
+            )}
           >
-            <List className="size-4" />
-          </Button>
+            <List className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Category filter */}
-      {categories.length > 2 && (
-        <div className="flex flex-wrap gap-2">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat ?? "all")}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-xs font-bold transition-colors",
-                filter === cat
-                  ? "bg-brand-500 text-white"
-                  : "bg-ink-100 text-ink-600 hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300"
+      {/* Gallery Grid */}
+      {viewMode === "grid" ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {displayImages.map((image) => (
+            <div
+              key={image.id}
+              onClick={() => handleImageClick(image)}
+              className="group relative aspect-square rounded-xl overflow-hidden cursor-pointer shadow-sm hover:shadow-lg transition-all"
+            >
+              {/* Main image */}
+              <div
+                className="absolute inset-0 bg-gradient-to-br"
+                style={{
+                  background: `linear-gradient(135deg, hsl(${image.hue}, 70%, 90%) 0%, hsl(${image.hue}, 60%, 80%) 100%)`,
+                }}
+              >
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Camera className="w-12 h-12 text-white/50" />
+                </div>
+              </div>
+
+              {/* Before/After indicator */}
+              {showBeforeAfter && image.beforeUrl && image.afterUrl && (
+                <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
+                  Before/After
+                </div>
               )}
+
+              {/* Rating badge */}
+              {image.rating && (
+                <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-yellow-500 text-white text-xs rounded-full">
+                  <Star className="w-3 h-3 fill-current" />
+                  {image.rating}
+                </div>
+              )}
+
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+
+              {/* Title */}
+              <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
+                <p className="text-white text-sm font-medium truncate">
+                  {locale === "ar" ? image.titleAr || image.title : image.title}
+                </p>
+              </div>
+            </div>
+          ))}
+
+          {/* Show More button */}
+          {hasMore && !showAll && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
             >
-              {cat === "all" ? (locale === "ar" ? "الكل" : "All") : cat}
+              <span className="text-2xl font-bold">+{images.length - maxDisplay}</span>
+              <span className="text-sm">more</span>
             </button>
-          ))}
+          )}
         </div>
-      )}
-
-      {/* Grid view */}
-      {viewMode === "grid" && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {filteredItems.map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, delay: i * 0.05 }}
-            >
-              <button
-                onClick={() => setSelectedItem(item)}
-                className="group relative aspect-square w-full overflow-hidden rounded-xl"
-              >
-                <img
-                  src={item.imageUrl}
-                  alt={locale === "ar" ? item.titleAr : item.titleEn}
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-                {item.beforeImageUrl && (
-                  <Badge
-                    variant="glass"
-                    className="absolute start-2 top-2"
-                  >
-                    Before/After
-                  </Badge>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                <div className="absolute bottom-0 start-0 end-0 p-3 text-start opacity-0 transition-opacity group-hover:opacity-100">
-                  <p className="text-sm font-bold text-white">
-                    {locale === "ar" ? item.titleAr : item.titleEn}
-                  </p>
-                </div>
-              </button>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* List view */}
-      {viewMode === "list" && (
+      ) : (
+        /* List view */
         <div className="space-y-3">
-          {filteredItems.map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: i * 0.05 }}
+          {displayImages.map((image) => (
+            <div
+              key={image.id}
+              onClick={() => handleImageClick(image)}
+              className="flex items-center gap-4 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
             >
-              <button
-                onClick={() => setSelectedItem(item)}
-                className="flex w-full gap-4 rounded-xl border border-ink-200/80 bg-white p-3 text-start transition-all hover:border-brand-500/40 hover:shadow-lift dark:border-ink-800 dark:bg-ink-900"
+              <div
+                className="w-20 h-20 rounded-lg flex-shrink-0 flex items-center justify-center"
+                style={{
+                  background: `linear-gradient(135deg, hsl(${image.hue}, 70%, 90%) 0%, hsl(${image.hue}, 60%, 80%) 100%)`,
+                }}
               >
-                <img
-                  src={item.imageUrl}
-                  alt={locale === "ar" ? item.titleAr : item.titleEn}
-                  className="size-20 rounded-lg object-cover"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-ink-900 dark:text-ink-50">
-                    {locale === "ar" ? item.titleAr : item.titleEn}
+                <Camera className="w-8 h-8 text-white/50" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 truncate">
+                  {locale === "ar" ? image.titleAr || image.title : image.title}
+                </p>
+                {image.description && (
+                  <p className="text-sm text-gray-500 truncate">
+                    {locale === "ar" ? image.descriptionAr || image.description : image.description}
                   </p>
-                  {item.descriptionEn && (
-                    <p className="mt-1 text-sm text-ink-500 dark:text-ink-400 line-clamp-2">
-                      {locale === "ar" ? item.descriptionAr : item.descriptionEn}
-                    </p>
-                  )}
-                  {item.tags && item.tags.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {item.tags.slice(0, 3).map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-bold text-ink-600 dark:bg-ink-800 dark:text-ink-300"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                )}
+                {image.category && (
+                  <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+                    {image.category}
+                  </span>
+                )}
+              </div>
+              {image.rating && (
+                <div className="flex items-center gap-1 text-yellow-600">
+                  <Star className="w-4 h-4 fill-current" />
+                  <span className="text-sm font-medium">{image.rating}</span>
                 </div>
-              </button>
-            </motion.div>
+              )}
+            </div>
           ))}
         </div>
       )}
 
-      {/* Empty state */}
-      {filteredItems.length === 0 && (
-        <div className="flex flex-col items-center rounded-2xl border border-dashed border-ink-300 bg-white/60 px-6 py-12 text-center dark:border-ink-700 dark:bg-ink-900/40">
-          <Grid className="size-12 text-ink-300" />
-          <p className="mt-4 text-sm text-ink-500 dark:text-ink-400">
-            {locale === "ar" ? "لا توجد أعمال في المعرض" : "No portfolio items yet"}
-          </p>
+      {/* Lightbox Modal */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
+          {/* Close button */}
+          <button
+            onClick={() => setSelectedImage(null)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+          >
+            <X className="w-8 h-8" />
+          </button>
+
+          {/* Navigation */}
+          <button
+            onClick={() => navigateImage("prev")}
+            className="absolute left-4 text-white hover:text-gray-300 z-10"
+          >
+            <ChevronLeft className="w-12 h-12" />
+          </button>
+          <button
+            onClick={() => navigateImage("next")}
+            className="absolute right-4 text-white hover:text-gray-300 z-10"
+          >
+            <ChevronRight className="w-12 h-12" />
+          </button>
+
+          {/* Image content */}
+          <div className="max-w-4xl max-h-[80vh] mx-4">
+            {compareMode && selectedImage.beforeUrl && selectedImage.afterUrl ? (
+              /* Before/After comparison */
+              <div className="relative">
+                <div className="relative overflow-hidden rounded-xl">
+                  {/* After image (background) */}
+                  <div className="w-full h-[60vh] flex items-center justify-center bg-gray-800">
+                    <Camera className="w-24 h-24 text-gray-600" />
+                  </div>
+                  
+                  {/* Before image (overlay with clip) */}
+                  <div
+                    className="absolute inset-0 flex items-center justify-center bg-gray-700"
+                    style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+                  >
+                    <Camera className="w-24 h-24 text-gray-500" />
+                  </div>
+
+                  {/* Slider line */}
+                  <div
+                    className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize"
+                    style={{ left: `${sliderPosition}%` }}
+                  >
+                    <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg">
+                      <ChevronLeft className="w-4 h-4 text-gray-800" />
+                      <ChevronRight className="w-4 h-4 text-gray-800" />
+                    </div>
+                  </div>
+
+                  {/* Labels */}
+                  <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
+                    Before
+                  </div>
+                  <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
+                    After
+                  </div>
+                </div>
+
+                {/* Slider control */}
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={sliderPosition}
+                  onChange={handleSliderChange}
+                  className="w-full mt-4"
+                />
+              </div>
+            ) : (
+              /* Single image view */
+              <div className="rounded-xl overflow-hidden">
+                <div className="w-full h-[60vh] flex items-center justify-center bg-gray-800">
+                  <Camera className="w-24 h-24 text-gray-600" />
+                </div>
+              </div>
+            )}
+
+            {/* Image info */}
+            <div className="mt-4 text-center">
+              <h3 className="text-xl font-semibold text-white">
+                {locale === "ar" ? selectedImage.titleAr || selectedImage.title : selectedImage.title}
+              </h3>
+              {(selectedImage.description || selectedImage.descriptionAr) && (
+                <p className="mt-2 text-gray-300">
+                  {locale === "ar" 
+                    ? selectedImage.descriptionAr || selectedImage.description 
+                    : selectedImage.description || selectedImage.descriptionAr}
+                </p>
+              )}
+              {selectedImage.rating && (
+                <div className="flex items-center justify-center gap-1 mt-2 text-yellow-400">
+                  <Star className="w-5 h-5 fill-current" />
+                  <span className="font-medium">{selectedImage.rating}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Lightbox */}
-      <AnimatePresence>
-        {selectedItem && (
-          <Lightbox
-            item={selectedItem}
-            onClose={() => setSelectedItem(null)}
-            onPrev={() => {
-              const currentIndex = filteredItems.findIndex((i) => i.id === selectedItem.id);
-              const prevIndex = (currentIndex - 1 + filteredItems.length) % filteredItems.length;
-              setSelectedItem(filteredItems[prevIndex]);
-            }}
-            onNext={() => {
-              const currentIndex = filteredItems.findIndex((i) => i.id === selectedItem.id);
-              const nextIndex = (currentIndex + 1) % filteredItems.length;
-              setSelectedItem(filteredItems[nextIndex]);
-            }}
-            locale={locale}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }
 
 /**
- * Lightbox component for viewing portfolio items
+ * Before/After comparison slider component
  */
-function Lightbox({
-  item,
-  onClose,
-  onPrev,
-  onNext,
-  locale,
+export function BeforeAfterSlider({
+  beforeUrl,
+  afterUrl,
+  beforeLabel = "Before",
+  afterLabel = "After",
+  className,
 }: {
-  item: PortfolioItem;
-  onClose: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-  locale: "en" | "ar";
+  beforeUrl: string;
+  afterUrl: string;
+  beforeLabel?: string;
+  afterLabel?: string;
+  className?: string;
 }) {
-  const [showBefore, setShowBefore] = useState(false);
+  const [position, setPosition] = useState(50);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4"
-      onClick={onClose}
-    >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute end-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
-      >
-        <X className="size-6" />
-      </button>
+    <div className={cn("relative overflow-hidden rounded-xl", className)}>
+      {/* After image (background) */}
+      <div className="w-full h-64 md:h-96 flex items-center justify-center bg-gray-200">
+        <Camera className="w-16 h-16 text-gray-400" />
+      </div>
 
-      {/* Navigation */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onPrev();
-        }}
-        className="absolute start-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
-      >
-        <ChevronLeft className="size-6" />
-      </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onNext();
-        }}
-        className="absolute end-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
-      >
-        <ChevronRight className="size-6" />
-      </button>
-
-      {/* Content */}
+      {/* Before image (overlay) */}
       <div
-        className="flex max-h-[90vh] max-w-4xl flex-col items-center gap-4"
-        onClick={(e) => e.stopPropagation()}
+        className="absolute inset-0 flex items-center justify-center bg-gray-300"
+        style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
       >
-        {/* Before/After toggle */}
-        {item.beforeImageUrl && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowBefore(false)}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm font-bold transition-colors",
-                !showBefore ? "bg-white text-black" : "bg-white/20 text-white"
-              )}
-            >
-              After
-            </button>
-            <button
-              onClick={() => setShowBefore(true)}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm font-bold transition-colors",
-                showBefore ? "bg-white text-black" : "bg-white/20 text-white"
-              )}
-            >
-              Before
-            </button>
-          </div>
-        )}
+        <Camera className="w-16 h-16 text-gray-500" />
+      </div>
 
-        {/* Image */}
-        <img
-          src={showBefore && item.beforeImageUrl ? item.beforeImageUrl : item.imageUrl}
-          alt={locale === "ar" ? item.titleAr : item.titleEn}
-          className="max-h-[70vh] rounded-lg object-contain"
-        />
-
-        {/* Info */}
-        <div className="text-center">
-          <h3 className="text-xl font-bold text-white">
-            {locale === "ar" ? item.titleAr : item.titleEn}
-          </h3>
-          {item.descriptionEn && (
-            <p className="mt-2 max-w-lg text-sm text-white/70">
-              {locale === "ar" ? item.descriptionAr : item.descriptionEn}
-            </p>
-          )}
+      {/* Slider line */}
+      <div
+        className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-10"
+        style={{ left: `${position}%` }}
+      >
+        <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg">
+          <ChevronLeft className="w-5 h-5 text-gray-800" />
+          <ChevronRight className="w-5 h-5 text-gray-800" />
         </div>
       </div>
-    </motion.div>
+
+      {/* Labels */}
+      <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
+        {beforeLabel}
+      </div>
+      <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
+        {afterLabel}
+      </div>
+
+      {/* Slider control */}
+      <input
+        type="range"
+        min="0"
+        max="100"
+        value={position}
+        onChange={(e) => setPosition(Number(e.target.value))}
+        className="absolute bottom-4 left-4 right-4 z-20"
+      />
+    </div>
   );
 }
