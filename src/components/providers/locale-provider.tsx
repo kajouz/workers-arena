@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 import type { Locale } from "@/lib/i18n/config";
 import { dictionaries, translate, type Dictionary } from "@/lib/i18n/dictionaries";
 
@@ -14,6 +14,17 @@ interface LocaleContextValue {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
+const LOCALE_LS_KEY = "wa_locale";
+
+function readLocaleFromLS(): Locale | null {
+  try {
+    const v = localStorage.getItem(LOCALE_LS_KEY);
+    return v === "en" || v === "ar" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 export function LocaleProvider({
   locale,
   dir,
@@ -25,8 +36,23 @@ export function LocaleProvider({
 }) {
   const dict = dictionaries[locale];
 
+  // On first client render, if localStorage has a saved locale that differs
+  // from the server-rendered one (cookie was lost / cleared), sync the cookie
+  // and reload so the page renders with the correct locale.
+  useEffect(() => {
+    try {
+      const saved = readLocaleFromLS();
+      if (saved && saved !== locale) {
+        document.cookie = `wa_locale=${saved};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
+        window.location.reload();
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const setLocale = useCallback((next: Locale) => {
+    // Persist to both cookie (SSR source of truth) and localStorage (client fallback)
     document.cookie = `wa_locale=${next};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
+    try { localStorage.setItem(LOCALE_LS_KEY, next); } catch { /* ignore */ }
     window.location.reload();
   }, []);
 
