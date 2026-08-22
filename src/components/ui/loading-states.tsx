@@ -14,7 +14,8 @@ export function ButtonSpinner({ className }: { className?: string }) {
 }
 
 /* ─── Inline Loading ─── */
-export function InlineLoading({ text = "Loading..." }: { text?: string }) {
+export function InlineLoading({ text }: { text?: string }) {
+  // If no text provided, the caller should pass a translated string.
   return (
     <div className="flex items-center gap-3 py-4 text-sm text-ink-500 dark:text-ink-400">
       <div className="size-5 animate-spin rounded-full border-2 border-ink-200 border-t-brand-500 dark:border-ink-700 dark:border-t-brand-400" />

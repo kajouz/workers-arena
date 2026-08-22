@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   Search,
   Heart,
@@ -66,64 +67,108 @@ export function EmptyState({
 
 /* ─── Search Empty ─── */
 export function SearchEmpty({ query }: { query?: string }) {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
   return (
     <EmptyState
       icon={Search}
-      title={query ? `No results for "${query}"` : "No workers found"}
-      description="Try adjusting your filters or search for a different trade or location."
+      title={query
+        ? isAr
+          ? `لا توجد نتائج لـ «${query}»`
+          : `No results for "${query}"`
+        : isAr
+          ? "لم يتم العثور على عمال"
+          : "No workers found"}
+      description={
+        isAr
+          ? "جرّب تعديل الفلاتر أو البحث عن مهنة أو موقع مختلف."
+          : "Try adjusting your filters or search for a different trade or location."
+      }
     />
   );
 }
 
 /* ─── Favorites Empty ─── */
 export function FavoritesEmpty() {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
   return (
     <EmptyState
       icon={Heart}
-      title="No favorites yet"
-      description="Tap the heart icon on any worker to save them here for quick access later."
+      title={isAr ? "لا توجد مفضلة بعد" : "No favorites yet"}
+      description={
+        isAr
+          ? "اضغط على أيقونة القلب على أي عامل لحفظه هنا للوصول السريع لاحقاً."
+          : "Tap the heart icon on any worker to save them here for quick access later."
+      }
     />
   );
 }
 
 /* ─── Forum Empty ─── */
 export function ForumEmpty() {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
   return (
     <EmptyState
       icon={MessageSquare}
-      title="No discussions yet"
-      description="Be the first to ask a question or share advice with the community."
-      action={{ label: "Start a discussion", onClick: () => {} }}
+      title={isAr ? "لا توجد مناقشات بعد" : "No discussions yet"}
+      description={
+        isAr
+          ? "كن أول من يطرح سؤالاً أو يشارك نصيحة مع المجتمع."
+          : "Be the first to ask a question or share advice with the community."
+      }
+      action={{ label: isAr ? "ابدأ مناقشة" : "Start a discussion", onClick: () => {} }}
     />
   );
 }
 
 /* ─── Reviews Empty ─── */
 export function ReviewsEmpty() {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
   return (
     <EmptyState
       icon={Star}
-      title="No reviews yet"
-      description="Be the first to leave a review and help others find great workers."
-      action={{ label: "Write a review", onClick: () => {} }}
+      title={isAr ? "لا توجد تقييمات بعد" : "No reviews yet"}
+      description={
+        isAr
+          ? "كن أول من يكتب تقييماً ويساعد الآخرين في العثور على عمال ممتازين."
+          : "Be the first to leave a review and help others find great workers."
+      }
+      action={{ label: isAr ? "اكتب تقييماً" : "Write a review", onClick: () => {} }}
     />
   );
 }
 
 /* ─── Bookings Empty ─── */
 export function BookingsEmpty({ role = "customer" }: { role?: "customer" | "worker" }) {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
   return (
     <EmptyState
       icon={Calendar}
-      title={role === "worker" ? "No incoming bookings" : "No bookings yet"}
+      title={
+        role === "worker"
+          ? isAr
+            ? "لا توجد حجوزات واردة"
+            : "No incoming bookings"
+          : isAr
+            ? "لا توجد حجوزات بعد"
+            : "No bookings yet"
+      }
       description={
         role === "worker"
-          ? "When customers book you, their requests will appear here."
-          : "Find a worker and book a service to get started."
+          ? isAr
+            ? "ستظهر طلبات الحجز من العملاء هنا."
+            : "When customers book you, their requests will appear here."
+          : isAr
+            ? "ابحث عن عامل واحجز خدمة للبدء."
+            : "Find a worker and book a service to get started."
       }
       action={
         role === "customer"
-          ? { label: "Find workers", onClick: () => {} }
+          ? { label: isAr ? "ابحث عن عمال" : "Find workers", onClick: () => {} }
           : undefined
       }
     />
@@ -132,74 +177,104 @@ export function BookingsEmpty({ role = "customer" }: { role?: "customer" | "work
 
 /* ─── Notifications Empty ─── */
 export function NotificationsEmpty() {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
   return (
     <EmptyState
       icon={Bell}
-      title="You're all caught up!"
-      description="No new notifications. We'll let you know when something needs your attention."
+      title={isAr ? "أنت محدّث بالكامل!" : "You're all caught up!"}
+      description={
+        isAr
+          ? "لا توجد إشعارات جديدة. سنخطرك عندما يحتاج شيء إلى اهتمامك."
+          : "No new notifications. We'll let you know when something needs your attention."
+      }
     />
   );
 }
 
 /* ─── Saved Items Empty ─── */
 export function SavedEmpty() {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
   return (
     <EmptyState
       icon={Bookmark}
-      title="Nothing saved yet"
-      description="Bookmark workers, articles, or search results to find them quickly later."
+      title={isAr ? "لا شيء محفوظ بعد" : "Nothing saved yet"}
+      description={
+        isAr
+          ? "احفظ العمال أو المقالات أو نتائج البحث للوصول إليها بسرعة لاحقاً."
+          : "Bookmark workers, articles, or search results to find them quickly later."
+      }
     />
   );
 }
 
 /* ─── Documents Empty ─── */
 export function DocumentsEmpty() {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
   return (
     <EmptyState
       icon={FileText}
-      title="No documents uploaded"
-      description="Upload certificates, licenses, or IDs to verify your profile."
-      action={{ label: "Upload document", onClick: () => {} }}
+      title={isAr ? "لا توجد مستندات مرفوعة" : "No documents uploaded"}
+      description={
+        isAr
+          ? "ارفع الشهادات أو الرخص أو الهوية للتحقق من ملفك."
+          : "Upload certificates, licenses, or IDs to verify your profile."
+      }
+      action={{ label: isAr ? "رفع مستند" : "Upload document", onClick: () => {} }}
     />
   );
 }
 
 /* ─── Team Empty ─── */
 export function TeamEmpty() {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
   return (
     <EmptyState
       icon={Users}
-      title="No team members yet"
-      description="Invite workers to join your company team and manage them from here."
-      action={{ label: "Invite member", onClick: () => {} }}
+      title={isAr ? "لا يوجد أعضاء فريق بعد" : "No team members yet"}
+      description={
+        isAr
+          ? "ادعُ العمال للانضمام إلى فريق شركتك وأدرهم من هنا."
+          : "Invite workers to join your company team and manage them from here."
+      }
+      action={{ label: isAr ? "دعوة عضو" : "Invite member", onClick: () => {} }}
     />
   );
 }
 
 /* ─── Error State ─── */
 export function ErrorState({
-  title = "Something went wrong",
-  description = "An unexpected error occurred. Please try again.",
+  title,
+  description,
   onRetry,
 }: {
   title?: string;
   description?: string;
   onRetry?: () => void;
 }) {
+  const { locale } = useLocale();
+  const isAr = locale === "ar";
+  const defaultTitle = isAr ? "حدث خطأ ما" : "Something went wrong";
+  const defaultDesc = isAr
+    ? "حدث خطأ غير متوقع. حاول مرة أخرى."
+    : "An unexpected error occurred. Please try again.";
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
       <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/30">
         <AlertCircle className="size-10 text-red-400" />
       </div>
       <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-50">
-        {title}
+        {title ?? defaultTitle}
       </h3>
       <p className="mt-2 max-w-sm text-sm text-ink-500 dark:text-ink-400">
-        {description}
+        {description ?? defaultDesc}
       </p>
       {onRetry && (
         <Button onClick={onRetry} variant="outline" className="mt-6">
-          Try again
+          {isAr ? "حاول مرة أخرى" : "Try again"}
         </Button>
       )}
     </div>

@@ -128,15 +128,24 @@ export function useStateAnnouncement({
 export function SearchResultsAnnouncement({
   count,
   isLoading,
+  locale = "en",
 }: {
   count: number;
   isLoading: boolean;
+  locale?: string;
 }) {
+  const isAr = locale === "ar";
   const message = isLoading
-    ? "Searching..."
+    ? isAr
+      ? "جارٍ البحث..."
+      : "Searching..."
     : count === 0
-    ? "No results found"
-    : `${count} ${count === 1 ? "result" : "results"} found`;
+    ? isAr
+      ? "لم يتم العثور على نتائج"
+      : "No results found"
+    : isAr
+      ? `${count} ${count === 1 ? "نتيجة" : "نتائج"}`
+      : `${count} ${count === 1 ? "result" : "results"} found`;
 
   return <AriaLiveRegion message={message} />;
 }

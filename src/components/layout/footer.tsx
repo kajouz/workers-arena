@@ -58,7 +58,7 @@ export function Footer() {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 border-b border-ink-200/60 px-4 py-3 text-xs text-ink-500 dark:border-ink-800 dark:text-ink-400 sm:px-6 lg:px-8">
         <span className="flex items-center gap-2">
           <Badge variant="outline">{t("featured.sponsored")}</Badge>
-          <span className="hidden sm:inline">BuildCo Ltd — trusted construction partner · {t("company.adLearnMore")}</span>
+          <span className="hidden sm:inline">{locale === "ar" ? "بايلدكو — شريك موثوق في البناء" : "BuildCo Ltd — trusted construction partner"} · {t("company.adLearnMore")}</span>
         </span>
         <Link href="/company" className="font-semibold text-brand-600 hover:underline dark:text-brand-400">
           {t("company.createCampaign")} →
