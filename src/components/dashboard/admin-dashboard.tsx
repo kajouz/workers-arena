@@ -18,6 +18,9 @@ import {
   Loader2,
   DollarSign,
   FileText,
+  Mail,
+  Shield,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -321,6 +324,15 @@ export function AdminDashboard({
         </Link>
         <Link href="/admin/categories" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400">
           <Building2 className="size-3" /> Categories
+        </Link>
+        <Link href="/admin/communications" className="inline-flex items-center gap-1.5 rounded-lg bg-pink-500/10 px-3 py-1.5 text-xs font-semibold text-pink-600 transition-colors hover:bg-pink-500/20 dark:text-pink-400">
+          <Mail className="size-3" /> Communications
+        </Link>
+        <Link href="/admin/security" className="inline-flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-500/20 dark:text-red-400">
+          <Shield className="size-3" /> Security
+        </Link>
+        <Link href="/admin/automation" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-500/20 dark:text-indigo-400">
+          <Zap className="size-3" /> Automation
         </Link>
       </div>
 
