@@ -13,6 +13,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Banknote } from "lucide-react";
+import { OMTIconCompact } from "@/components/payments/icons/omt-icon";
+import { WishIconCompact } from "@/components/payments/icons/wish-icon";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { PendingManualPayment } from "@/lib/data/types";
 import { confirmManualPaymentAction } from "@/app/actions/business";
@@ -67,7 +69,12 @@ export function ManualPaymentsCard({ payments }: { payments: PendingManualPaymen
                     {locale === "ar" ? p.labelAr : p.labelEn}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-400">
-                    <Badge className={METHOD_STYLE[p.method]}>{t(`payments.method${p.method[0].toUpperCase()}${p.method.slice(1)}`)}</Badge>
+                    <Badge className={METHOD_STYLE[p.method]}>
+                      <span className="mr-1 inline-flex">
+                        {p.method === "omt" ? <OMTIconCompact className="size-3" /> : <WishIconCompact className="size-3" />}
+                      </span>
+                      {t(`payments.method${p.method[0].toUpperCase()}${p.method.slice(1)}`)}
+                    </Badge>
                     <span className="font-mono">{p.reference}</span>
                   </p>
                 </div>

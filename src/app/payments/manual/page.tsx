@@ -3,6 +3,8 @@ import { getPaymentProvider } from "@/lib/payments/registry";
 import { getI18n } from "@/lib/i18n/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { OMTIcon } from "@/components/payments/icons/omt-icon";
+import { WishIcon } from "@/components/payments/icons/wish-icon";
 
 export const metadata = { title: "Payment instructions" };
 
@@ -69,11 +71,12 @@ export default async function ManualPaymentPage({
   return (
     <main className="mx-auto max-w-lg px-4 py-10">
       <div className="mb-5 flex items-center gap-3">
-        <div
-          className="flex size-12 items-center justify-center rounded-2xl text-lg font-black text-white"
-          style={{ background: provider === "OMT" ? "#0f766e" : "#7c3aed" }}
-        >
-          {provider === "OMT" ? "OMT" : "Wh"}
+        <div className="flex size-12 items-center justify-center rounded-2xl">
+          {provider === "OMT" ? (
+            <OMTIcon className="size-12" />
+          ) : (
+            <WishIcon className="size-12" />
+          )}
         </div>
         <div>
           <h1 className="text-lg font-black text-ink-900 dark:text-ink-50">

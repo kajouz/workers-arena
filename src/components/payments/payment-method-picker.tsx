@@ -1,15 +1,23 @@
 "use client";
 
-import { CreditCard, Landmark, Wallet } from "lucide-react";
+import { CreditCard } from "lucide-react";
+import { OMTIconCompact } from "@/components/payments/icons/omt-icon";
+import { WishIconCompact } from "@/components/payments/icons/wish-icon";
 import { useLocale } from "@/components/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
 export type CheckoutMethod = "stripe" | "omt" | "whish";
 
-const ALL_METHODS: { key: CheckoutMethod; icon: typeof CreditCard; accent: string }[] = [
+type MethodConfig = {
+  key: CheckoutMethod;
+  icon: React.ComponentType<{ className?: string }>;
+  accent: string;
+};
+
+const ALL_METHODS: MethodConfig[] = [
   { key: "stripe", icon: CreditCard, accent: "text-sky-600 dark:text-sky-400" },
-  { key: "omt", icon: Landmark, accent: "text-teal-600 dark:text-teal-400" },
-  { key: "whish", icon: Wallet, accent: "text-violet-600 dark:text-violet-400" },
+  { key: "omt", icon: OMTIconCompact, accent: "text-orange-600 dark:text-orange-400" },
+  { key: "whish", icon: WishIconCompact, accent: "text-violet-600 dark:text-violet-400" },
 ];
 
 /**
@@ -54,7 +62,7 @@ export function PaymentMethodPicker({
                 : "border-ink-200 hover:border-brand-500/40 dark:border-ink-700"
             )}
           >
-            <Icon className={cn("size-4", accent)} />
+            <Icon className={cn("size-5", accent)} />
             <span className="text-xs font-black text-ink-900 dark:text-ink-50">
               {t(`payments.method${key[0].toUpperCase()}${key.slice(1)}`)}
             </span>
