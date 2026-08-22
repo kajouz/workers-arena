@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useActionState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Users,
@@ -15,11 +15,15 @@ import {
   Mail,
   Phone,
   Calendar,
+  Plus,
+  X,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
+import { addCustomerAction, type AddCustomerState } from "@/app/actions/admin";
 
 interface Customer {
   id: string;
@@ -55,6 +59,14 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addState, addFormAction, addPending] = useActionState<AddCustomerState, FormData>(addCustomerAction, {});
+
+  // Close modal on success
+  const prevSuccess = addState.success;
+  if (prevSuccess && showAddModal) {
+    setTimeout(() => setShowAddModal(false), 1500);
+  }
 
   const filteredCustomers = useMemo(() => {
     return DEMO_CUSTOMERS.filter((c) => {
@@ -110,10 +122,16 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
             View and manage all customers
           </p>
         </div>
-        <Button onClick={exportCSV} variant="outline" size="sm">
-          <Download className="size-4 mr-2" />
-          Export CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowAddModal(true)} size="sm">
+            <Plus className="size-4 mr-2" />
+            Add Customer
+          </Button>
+          <Button onClick={exportCSV} variant="outline" size="sm">
+            <Download className="size-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -252,6 +270,122 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
           </CardContent>
         </Card>
       )}
+
+      {/* Add Customer Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setShowAddModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-ink-900"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">Add New Customer</h2>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="rounded-lg p-1 text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+
+              <form action={addFormAction} className="mt-4 space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-700 dark:text-ink-300">Name *</label>
+                  <input
+                    name="name"
+                    type="text"
+                    required
+                    minLength={2}
+                    placeholder="Ahmed Ali"
+                    className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-700 dark:text-ink-300">Email *</label>
+                  <input
+                    name="email"
+                    type="email"
+                    required
+                    placeholder="ahmed@example.com"
+                    className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-700 dark:text-ink-300">Password *</label>
+                  <input
+                    name="password"
+                    type="password"
+                    required
+                    minLength={8}
+                    placeholder="••••••••"
+                    className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-700 dark:text-ink-300">Phone</label>
+                  <input
+                    name="phone"
+                    type="tel"
+                    placeholder="+961 71 123 456"
+                    className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-700 dark:text-ink-300">Role</label>
+                  <select
+                    name="role"
+                    defaultValue="customer"
+                    className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
+                  >
+                    <option value="customer">Customer</option>
+                    <option value="worker">Worker</option>
+                    <option value="company">Company</option>
+                  </select>
+                </div>
+
+                {/* Success/Error Messages */}
+                {addState.error && (
+                  <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                    {addState.error}
+                  </div>
+                )}
+                {addState.success && addState.customer && (
+                  <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
+                    ✓ Customer "{addState.customer.name}" created successfully!
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <Button type="submit" disabled={addPending} className="flex-1">
+                    {addPending ? (
+                      <><Loader2 className="size-4 mr-2 animate-spin" /> Creating...</>
+                    ) : (
+                      <><Plus className="size-4 mr-2" /> Add Customer</>
+                    )}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
