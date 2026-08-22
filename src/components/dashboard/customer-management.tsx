@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useActionState } from "react";
+import { useState, useMemo, useEffect, useActionState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -63,10 +63,12 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
   const [addState, addFormAction, addPending] = useActionState<AddCustomerState, FormData>(addCustomerAction, {});
 
   // Close modal on success
-  const prevSuccess = addState.success;
-  if (prevSuccess && showAddModal) {
-    setTimeout(() => setShowAddModal(false), 1500);
-  }
+  useEffect(() => {
+    if (addState.success && showAddModal) {
+      const timer = setTimeout(() => setShowAddModal(false), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [addState.success, showAddModal]);
 
   const filteredCustomers = useMemo(() => {
     return DEMO_CUSTOMERS.filter((c) => {
