@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useActionState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -12,7 +12,6 @@ import {
   Ban,
   CheckCircle2,
   XCircle,
-  Mail,
   Phone,
   Calendar,
   Plus,
@@ -23,7 +22,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils";
-import { addCustomerAction, type AddCustomerState } from "@/app/actions/admin";
 
 interface Customer {
   id: string;
@@ -59,16 +57,12 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [addState, addFormAction, addPending] = useActionState<AddCustomerState, FormData>(addCustomerAction, {});
 
-  // Close modal on success
-  useEffect(() => {
-    if (addState.success && showAddModal) {
-      const timer = setTimeout(() => setShowAddModal(false), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [addState.success, showAddModal]);
+  // Add customer modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addSuccess, setAddSuccess] = useState<{ name: string; email: string } | null>(null);
 
   const filteredCustomers = useMemo(() => {
     return DEMO_CUSTOMERS.filter((c) => {
@@ -105,6 +99,48 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleAddCustomer = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setAddLoading(true);
+    setAddError(null);
+    setAddSuccess(null);
+
+    const form = new FormData(e.currentTarget);
+    const data = {
+      name: form.get("name") as string,
+      email: form.get("email") as string,
+      password: form.get("password") as string,
+      phone: form.get("phone") as string || undefined,
+      role: form.get("role") as string || "customer",
+    };
+
+    try {
+      const res = await fetch("/api/admin/add-customer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        setAddError(result.error || "Failed to create customer");
+        return;
+      }
+
+      setAddSuccess(result.customer);
+      // Auto-close after 1.5s
+      setTimeout(() => {
+        setShowAddModal(false);
+        setAddSuccess(null);
+      }, 1500);
+    } catch {
+      setAddError("Network error. Please try again.");
+    } finally {
+      setAddLoading(false);
+    }
+  }, []);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -281,7 +317,7 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            onClick={() => setShowAddModal(false)}
+            onClick={() => { setShowAddModal(false); setAddError(null); setAddSuccess(null); }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -293,14 +329,14 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">Add New Customer</h2>
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => { setShowAddModal(false); setAddError(null); setAddSuccess(null); }}
                   className="rounded-lg p-1 text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800"
                 >
                   <X className="size-5" />
                 </button>
               </div>
 
-              <form action={addFormAction} className="mt-4 space-y-4">
+              <form onSubmit={handleAddCustomer} className="mt-4 space-y-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-ink-700 dark:text-ink-300">Name *</label>
                   <input
@@ -360,26 +396,26 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
                 </div>
 
                 {/* Success/Error Messages */}
-                {addState.error && (
+                {addError && (
                   <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                    {addState.error}
+                    {addError}
                   </div>
                 )}
-                {addState.success && addState.customer && (
+                {addSuccess && (
                   <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
-                    ✓ Customer "{addState.customer.name}" created successfully!
+                    ✓ Customer &quot;{addSuccess.name}&quot; created successfully!
                   </div>
                 )}
 
                 <div className="flex gap-2 pt-2">
-                  <Button type="submit" disabled={addPending} className="flex-1">
-                    {addPending ? (
+                  <Button type="submit" disabled={addLoading} className="flex-1">
+                    {addLoading ? (
                       <><Loader2 className="size-4 mr-2 animate-spin" /> Creating...</>
                     ) : (
                       <><Plus className="size-4 mr-2" /> Add Customer</>
                     )}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>
+                  <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setAddError(null); setAddSuccess(null); }}>
                     Cancel
                   </Button>
                 </div>
