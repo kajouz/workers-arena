@@ -21,6 +21,9 @@ import {
   Mail,
   Shield,
   Zap,
+  Headphones,
+  Scale,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -333,6 +336,24 @@ export function AdminDashboard({
         </Link>
         <Link href="/admin/automation" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-500/20 dark:text-indigo-400">
           <Zap className="size-3" /> Automation
+        </Link>
+        <Link href="/admin/support" className="inline-flex items-center gap-1.5 rounded-lg bg-teal-500/10 px-3 py-1.5 text-xs font-semibold text-teal-600 transition-colors hover:bg-teal-500/20 dark:text-teal-400">
+          <Headphones className="size-3" /> Support
+        </Link>
+        <Link href="/admin/disputes" className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-500/20 dark:text-rose-400">
+          <Scale className="size-3" /> Disputes
+        </Link>
+        <Link href="/admin/settings" className="inline-flex items-center gap-1.5 rounded-lg bg-gray-500/10 px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-500/20 dark:text-gray-400">
+          <Settings className="size-3" /> Settings
+        </Link>
+        <Link href="/admin/earnings" className="inline-flex items-center gap-1.5 rounded-lg bg-lime-500/10 px-3 py-1.5 text-xs font-semibold text-lime-600 transition-colors hover:bg-lime-500/20 dark:text-lime-400">
+          <Wallet className="size-3" /> Earnings
+        </Link>
+        <Link href="/admin/logs" className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-500/20 dark:text-cyan-400">
+          <FileText className="size-3" /> Logs
+        </Link>
+        <Link href="/admin/settings" className="inline-flex items-center gap-1.5 rounded-lg bg-gray-500/10 px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-500/20 dark:text-gray-400">
+          <Settings className="size-3" /> Settings
         </Link>
       </div>
 
