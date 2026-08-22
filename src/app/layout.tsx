@@ -19,6 +19,7 @@ import { LayoutClients } from "@/components/layout/layout-clients";
 import { AnalyticsClients } from "@/components/layout/analytics-clients";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { CurrencyProvider } from "@/components/providers/currency-provider";
 
 export const metadata: Metadata = {
   title: {
@@ -91,6 +92,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-dvh antialiased">
         <SkipNav />
         <LocaleProvider locale={locale} dir={dir}>
+          <CurrencyProvider>
           <OnboardingProvider>
           <ThemeProvider>
             <Header session={session} initialTheme={theme} />
@@ -108,6 +110,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <HelpButton />
           </ThemeProvider>
           </OnboardingProvider>
+          </CurrencyProvider>
         </LocaleProvider>
       </body>
     </html>

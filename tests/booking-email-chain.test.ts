@@ -52,9 +52,11 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
 
-    // Request → accept on a fresh AVAILABLE slot (09:00–10:00).
-    const start1 = new Date(Date.now() + 48 * 3600_000).toISOString();
-    const end1 = new Date(Date.now() + 49 * 3600_000).toISOString();
+    // Request → accept on a fresh AVAILABLE slot, far outside the seed
+    // window (seed covers today+1 through today+5) to avoid any collision
+    // across timezones or CI runtimes.
+    const start1 = new Date(Date.now() + 30 * 24 * 3600_000).toISOString();
+    const end1 = new Date(Date.now() + 30 * 24 * 3600_000 + 3600_000).toISOString();
     const slot = demoAddSlot(worker.id, start1, end1, "available");
     const created = await demoCreateBookingRequest({
       workerId: worker.id,
@@ -113,8 +115,8 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
 
-    const start2 = new Date(Date.now() + 72 * 3600_000).toISOString();
-    const end2 = new Date(Date.now() + 73 * 3600_000).toISOString();
+    const start2 = new Date(Date.now() + 31 * 24 * 3600_000).toISOString();
+    const end2 = new Date(Date.now() + 31 * 24 * 3600_000 + 3600_000).toISOString();
     const slot = demoAddSlot(worker.id, start2, end2, "available");
     const created = await demoCreateBookingRequest({
       workerId: worker.id,
@@ -149,8 +151,8 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       worker.subscription.plan = "enterprise";
 
       // Request → accept on a fresh AVAILABLE slot; exempt plan → fee 0.
-      const start3 = new Date(Date.now() + 60 * 3600_000).toISOString();
-      const end3 = new Date(Date.now() + 61 * 3600_000).toISOString();
+      const start3 = new Date(Date.now() + 32 * 24 * 3600_000).toISOString();
+      const end3 = new Date(Date.now() + 32 * 24 * 3600_000 + 3600_000).toISOString();
       const slot = demoAddSlot(worker.id, start3, end3, "available");
       const created = await demoCreateBookingRequest({
         workerId: worker.id,
@@ -184,10 +186,9 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
 
-    // Use a dynamic date far enough from seed slots (tomorrow ± days) to avoid
-    // any overlap — the seed creates reserved/blocked slots for "tomorrow" at
-    // hours 9-16 via slotAt(), which uses local time then toISOString().
-    const startAt = new Date(Date.now() + 96 * 60 * 60 * 1000).toISOString();
+    // Dynamic date far enough from seed slots (which cover today+1..today+5)
+    // to avoid any collision across timezones or CI runtimes.
+    const startAt = new Date(Date.now() + 33 * 24 * 3600_000).toISOString();
     const slot = demoAddSlot(
       worker.id,
       startAt,
@@ -219,9 +220,10 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
 
-    // Request → accept → customer cancel on a fresh AVAILABLE slot.
-    const start4 = new Date(Date.now() + 84 * 3600_000).toISOString();
-    const end4 = new Date(Date.now() + 85 * 3600_000).toISOString();
+    // Request → accept → customer cancel on a fresh AVAILABLE slot,
+    // far outside the seed window.
+    const start4 = new Date(Date.now() + 34 * 24 * 3600_000).toISOString();
+    const end4 = new Date(Date.now() + 34 * 24 * 3600_000 + 3600_000).toISOString();
     const slot = demoAddSlot(worker.id, start4, end4, "available");
     const created = await demoCreateBookingRequest({
       workerId: worker.id,
@@ -275,11 +277,11 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     if (!worker) throw new Error("demo worker missing");
 
     // Deposit accept → PENDING_PAYMENT → paid → CONFIRMED (M3 deposit path).
-    // The slot is 72h out — DYNAMIC, not a fixed date: the refund assertion
-    // below is time-sensitive (worker cancel > 24h before start refunds), so a
-    // fixed date would silently flip to the keep-deposit branch after it
-    // passes (same convention as tests/payments.test.ts's FAR()).
-    const startAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+    // The slot is far out (>24h) so worker cancel triggers the refund branch.
+    // DYNAMIC, not a fixed date: the refund assertion is time-sensitive
+    // (worker cancel > 24h before start refunds), so a fixed date would
+    // silently flip to the keep-deposit branch after it passes.
+    const startAt = new Date(Date.now() + 35 * 24 * 3600_000).toISOString();
     const slot = demoAddSlot(
       worker.id,
       startAt,
@@ -356,10 +358,8 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
 
-    // Deposit accept → paid → CONFIRMED. The slot sits 2h out — INSIDE the
-    // 24h cancellation-policy window, so this exercises the KEEP branch. The
-    // offset is dynamic (mirroring payments.test.ts's NEAR()) — a fixed date
-    // would silently flip branches once it passes.
+    // Deposit accept → paid → CONFIRMED. The slot sits <24h out — INSIDE the
+    // cancellation-policy window, so this exercises the KEEP branch.
     const startAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
     const slot = demoAddSlot(
       worker.id,
@@ -424,8 +424,8 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     // accept (1 anchor + RECURRING_OCCURRENCE_COUNT future visits) and — like
     // the prisma generation cron — must notify the customer about the NEXT
     // scheduled visit exactly once, not once per occurrence.
-    const start5 = new Date(Date.now() + 96 * 3600_000).toISOString();
-    const end5 = new Date(Date.now() + 97 * 3600_000).toISOString();
+    const start5 = new Date(Date.now() + 36 * 24 * 3600_000).toISOString();
+    const end5 = new Date(Date.now() + 36 * 24 * 3600_000 + 3600_000).toISOString();
     const slot = demoAddSlot(worker.id, start5, end5, "available");
     const created = await demoCreateRecurringRequest({
       workerId: worker.id,

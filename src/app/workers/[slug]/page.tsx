@@ -6,6 +6,7 @@ import { ProfileTabs } from "@/components/worker/profile-tabs";
 import { ReviewsSection } from "@/components/worker/reviews-section";
 import { MapEmbed } from "@/components/worker/map-embed";
 import { RelatedWorkers } from "@/components/worker/related-workers";
+import { FloatingWhatsApp } from "@/components/worker/whatsapp-contact";
 import { getRelated, getWorkerBySlug, getWorkerSlots } from "@/lib/data/repo";
 import { categoryBySlug } from "@/lib/data/categories";
 
@@ -103,6 +104,14 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
       </div>
 
       <RelatedWorkers workers={related} />
+
+      {/* Floating WhatsApp button for quick contact */}
+      {worker.phone && (
+        <FloatingWhatsApp
+          whatsapp={worker.phone}
+          workerName={worker.nameEn}
+        />
+      )}
     </div>
   );
 }
