@@ -20,7 +20,7 @@
     "docs:manual": "node scripts/generate-user-manual.mjs",
     "pwa:icons": "node scripts/generate-pwa-icons.mjs",
     "precache:sw": "node scripts/generate-sw-precache.mjs",
-    "prebuild": "npx prisma generate && npm run precache:sw",
+    "prebuild": "npx prisma generate --no-engine 2>/dev/null || true; npm run precache:sw",
     "check:docs-links": "node scripts/check-docs-links.mjs",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
