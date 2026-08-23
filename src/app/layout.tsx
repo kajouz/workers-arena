@@ -16,6 +16,7 @@ import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
 import { HelpButton } from "@/components/onboarding/help-button";
 import { MobileBannerAd } from "@/components/ads/mobile-banner-ad";
+import { RetargetingAd } from "@/components/ads/retargeting-ad";
 import { LayoutClients } from "@/components/layout/layout-clients";
 import { AnalyticsClients } from "@/components/layout/analytics-clients";
 import { Analytics } from "@vercel/analytics/react";
@@ -110,6 +111,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <OnboardingOverlay />
           <HelpButton />
           <MobileBannerAd />
+          <RetargetingAd />
           </ThemeProvider>
           </OnboardingProvider>
           </CurrencyProvider>

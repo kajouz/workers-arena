@@ -26,6 +26,7 @@ import { useVoiceSearch } from "@/hooks/use-voice-search";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useSearchHistory } from "@/hooks/use-search-history";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { useRetargeting } from "@/hooks/use-retargeting";
 import { SearchHistory } from "@/components/search/search-history";
 import { cn, formatNumber } from "@/lib/utils";
 import { SearchResultsAnnouncement } from "@/components/ui/aria-live-region";
@@ -100,6 +101,7 @@ export function SearchClient({
   const debouncedQuery = useDebounce(query, 220);
   const searchSeq = useRef(0);
   const { addSearch } = useSearchHistory();
+  const { trackCategory, trackCity } = useRetargeting();
   const {
     latitude,
     longitude,
@@ -183,6 +185,9 @@ export function SearchClient({
         city: filters.city,
       });
     }
+    // Track retargeting interests
+    if (filters.category) trackCategory(filters.category);
+    if (filters.city) trackCity(filters.city);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 

@@ -3,13 +3,14 @@
 import { QRCodeSVG } from "qrcode.react";
 import { motion } from "framer-motion";
 import { Heart, Share2, QrCode, MapPin, CalendarDays, Link2, Check, MessageCircle, Zap, CalendarCheck2, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Worker } from "@/lib/data/types";
 import { categoryBySlug } from "@/lib/data/categories";
 import { cityBySlug } from "@/lib/data/cities";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useFavoritesStore } from "@/lib/store";
+import { useRetargeting } from "@/hooks/use-retargeting";
 import { cn, formatNumber } from "@/lib/utils";
 import { WorkerCover } from "@/components/shared/worker-cover";
 import { GradientAvatar } from "@/components/ui/avatar";
@@ -28,6 +29,14 @@ export function ProfileHero({ worker }: { worker: Worker }) {
   const favIds = useFavoritesStore((s) => s.ids);
   const toggle = useFavoritesStore((s) => s.toggle);
   const isFav = favIds.includes(worker.id);
+  const { trackWorkerView } = useRetargeting();
+
+  // Track worker view for retargeting
+  useEffect(() => {
+    if (worker.categorySlug && worker.citySlug) {
+      trackWorkerView(worker.id, worker.categorySlug, worker.citySlug);
+    }
+  }, [worker.id, worker.categorySlug, worker.citySlug, trackWorkerView]);
   const [shareOpen, setShareOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [copied, setCopied] = useState(false);
