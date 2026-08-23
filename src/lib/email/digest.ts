@@ -53,6 +53,16 @@ interface DigestRecipient {
   locale: "en" | "ar";
 }
 
+interface SponsoredContent {
+  id: string;
+  nameEn: string;
+  nameAr: string;
+  descriptionEn?: string;
+  descriptionAr?: string;
+  ctaUrl?: string;
+  imageUrl?: string;
+}
+
 interface BookingSummary {
   totalBookings: number;
   completedBookings: number;
@@ -109,7 +119,34 @@ type DigestData = WorkerDigestData | CustomerDigestData;
 /**
  * Generate weekly digest email HTML for a worker
  */
-export function generateWorkerDigestHTML(data: WorkerDigestData): string {
+function generateSponsoredSection(content: SponsoredContent, locale: "en" | "ar"): string {
+  const name = locale === "ar" ? content.nameAr : content.nameEn;
+  const desc = locale === "ar" ? (content.descriptionAr ?? "عرض خاص لك") : (content.descriptionEn ?? "Special offer for you");
+  const cta = locale === "ar" ? "المزيد" : "Learn More";
+  const url = content.ctaUrl ?? "https://workersarena.com/company";
+
+  return `
+  <div style="margin: 24px 0; border: 2px dashed #d946ef; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #fdf4ff, #faf5ff);">
+    <div style="padding: 12px 16px; background: linear-gradient(90deg, #d946ef, #a855f7); color: white; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+      <span style="font-size: 14px;">✦</span>
+      ${locale === "ar" ? "إعلان ممول" : "Sponsored"}
+    </div>
+    <div style="padding: 20px; text-align: center;">
+      <div style="font-size: 18px; font-weight: 800; color: #1a1a2e; margin-bottom: 8px;">${name}</div>
+      <div style="font-size: 13px; color: #64748b; margin-bottom: 16px;">${desc}</div>
+      <a href="${url}" style="display: inline-block; background: linear-gradient(90deg, #d946ef, #a855f7); color: white; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+        ${cta} →
+      </a>
+    </div>
+  </div>
+  `;
+}
+
+function generateTrackingPixel(adId: string): string {
+  return `<img src="https://workersarena.com/api/ads/${adId}/impression" width="1" height="1" style="display:none" alt="" />`;
+}
+
+export function generateWorkerDigestHTML(data: WorkerDigestData, sponsoredContent?: SponsoredContent[]): string {
   const weekStart = format(startOfWeek(new Date()), "MMM d");
   const weekEnd = format(endOfWeek(new Date()), "MMM d, yyyy");
 
@@ -202,6 +239,15 @@ export function generateWorkerDigestHTML(data: WorkerDigestData): string {
       </div>
       ` : ""}
 
+      ${sponsoredContent && sponsoredContent.length > 0 ? `
+      <div class="section">
+        <h2 class="section-title" style="font-size: 14px; color: #94a3b8; border-bottom: 1px dashed #e2e8f0;">
+          ${data.locale === "ar" ? "عروض ممولة" : "Sponsored Offers"}
+        </h2>
+        ${sponsoredContent.map((ad) => generateSponsoredSection(ad, data.locale)).join("")}
+      </div>
+      ` : ""}
+
       <div style="text-align: center; margin-top: 24px;">
         <a href="https://workersarena.com/dashboard" class="cta-button">
           ${data.locale === "ar" ? "عرض لوحة التحكم" : "View Dashboard"}
@@ -224,7 +270,7 @@ export function generateWorkerDigestHTML(data: WorkerDigestData): string {
 /**
  * Generate weekly digest email HTML for a customer
  */
-export function generateCustomerDigestHTML(data: CustomerDigestData): string {
+export function generateCustomerDigestHTML(data: CustomerDigestData, sponsoredContent?: SponsoredContent[]): string {
   const weekStart = format(startOfWeek(new Date()), "MMM d");
   const weekEnd = format(endOfWeek(new Date()), "MMM d, yyyy");
 
@@ -317,6 +363,15 @@ export function generateCustomerDigestHTML(data: CustomerDigestData): string {
       </div>
       ` : ""}
 
+      ${sponsoredContent && sponsoredContent.length > 0 ? `
+      <div class="section">
+        <h2 class="section-title" style="font-size: 14px; color: #94a3b8; border-bottom: 1px dashed #e2e8f0;">
+          ${data.locale === "ar" ? "عروض ممولة" : "Sponsored Offers"}
+        </h2>
+        ${sponsoredContent.map((ad) => generateSponsoredSection(ad, data.locale)).join("")}
+      </div>
+      ` : ""}
+
       <div style="text-align: center; margin-top: 24px;">
         <a href="https://workersarena.com/bookings" class="cta-button">
           ${data.locale === "ar" ? "عرض الحجوزات" : "View Bookings"}
@@ -339,6 +394,37 @@ export function generateCustomerDigestHTML(data: CustomerDigestData): string {
 /**
  * Send digest email (placeholder - integrate with your email provider)
  */
+export async function fetchSponsoredContentForEmail(
+  placement: string,
+  locale: "en" | "ar"
+): Promise<SponsoredContent[]> {
+  try {
+    // In production, fetch from /api/ads or database
+    // For now, return sample sponsored content
+    const sampleAds: SponsoredContent[] = [
+      {
+        id: "email-sponsor-1",
+        nameEn: "Premium Tools Sale - 30% Off",
+        nameAr: "تخفيض على الأدوات المتميزة - 30%",
+        descriptionEn: "Professional-grade tools at wholesale prices. Limited time offer.",
+        descriptionAr: "أدوات احترافية بأسعار الجملة. عرض لفترة محدودة.",
+        ctaUrl: "https://workersarena.com/company",
+      },
+      {
+        id: "email-sponsor-2",
+        nameEn: "WorkersArena Pro - Boost Your Profile",
+        nameAr: "وركرز أرينا برو - عزز ملفك الشخصي",
+        descriptionEn: "Get 3x more leads with a Pro subscription.",
+        descriptionAr: "احصل على 3 أضعاف المزيد من العملاء مع اشتراك برو.",
+        ctaUrl: "https://workersarena.com/company",
+      },
+    ];
+    return sampleAds.slice(0, 1); // Return 1 ad per email
+  } catch {
+    return [];
+  }
+}
+
 export async function sendDigestEmail(
   to: string,
   subject: string,
