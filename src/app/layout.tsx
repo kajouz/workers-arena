@@ -15,6 +15,7 @@ import { initMonitoring } from "@/lib/monitoring";
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
 import { HelpButton } from "@/components/onboarding/help-button";
+import { MobileBannerAd } from "@/components/ads/mobile-banner-ad";
 import { LayoutClients } from "@/components/layout/layout-clients";
 import { AnalyticsClients } from "@/components/layout/analytics-clients";
 import { Analytics } from "@vercel/analytics/react";
@@ -108,6 +109,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <ServiceWorkerRegistrar />
           <OnboardingOverlay />
           <HelpButton />
+          <MobileBannerAd />
           </ThemeProvider>
           </OnboardingProvider>
           </CurrencyProvider>
