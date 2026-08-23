@@ -3,12 +3,13 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowUpRight, ChevronDown } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Sparkles } from "lucide-react";
 import type { Category } from "@/lib/data/types";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { CategoryIcon } from "@/components/shared/category-icon";
 import { formatNumber } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const ITEMS_PER_PAGE = 14; // Show 2 rows initially on xl (7 cols × 2)
 
@@ -34,6 +35,30 @@ export function CategoriesClient({ categories, locale }: CategoriesClientProps) 
 
   return (
     <div>
+      {/* Category Sponsored Banner */}
+      <div className="mb-6 overflow-hidden rounded-2xl border border-violet-400/30 bg-gradient-to-r from-violet-50 to-fuchsia-50 p-4 dark:from-violet-950/30 dark:to-fuchsia-950/30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white">
+              <Sparkles className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-ink-900 dark:text-white">{locale === "ar" ? "عرض مميز" : "Featured Campaign"}</span>
+                <Badge className="bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white text-xs">{t("featured.sponsored")}</Badge>
+              </div>
+              <p className="text-sm text-ink-500 dark:text-ink-400">{locale === "ar" ? "أضف حملتك الإعلانية هنا" : "Place your campaign here"}</p>
+            </div>
+          </div>
+          <a
+            href="/company"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-600 px-4 py-2 text-sm font-bold text-white shadow-lg transition-all hover:from-violet-600 hover:to-fuchsia-700"
+          >
+            {t("company.createCampaign")}
+          </a>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-7">
         {visibleCategories.map((cat, i) => (
           <motion.div

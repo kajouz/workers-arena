@@ -30,6 +30,7 @@ import { SearchHistory } from "@/components/search/search-history";
 import { cn, formatNumber } from "@/lib/utils";
 import { SearchResultsAnnouncement } from "@/components/ui/aria-live-region";
 import { filtersToSearchParams } from "@/lib/data/search-params";
+import { SponsoredSearchResults } from "@/components/search/sponsored-result";
 
 interface Labels {
   category: string;
@@ -433,6 +434,15 @@ export function SearchClient({
 
         {/* Screen reader announcement for search results */}
         <SearchResultsAnnouncement count={results.total} isLoading={debouncedLoading} />
+
+        {/* Sponsored search results */}
+        {results.items.length > 0 && (
+          <SponsoredSearchResults
+            placement="search"
+            category={filters.category}
+            city={filters.city}
+          />
+        )}
 
         {/* results */}
         <div className="mt-6">

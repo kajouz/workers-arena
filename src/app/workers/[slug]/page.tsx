@@ -8,8 +8,10 @@ import { MapEmbed } from "@/components/worker/map-embed";
 import { RelatedWorkers } from "@/components/worker/related-workers";
 import { FloatingWhatsApp } from "@/components/worker/whatsapp-contact";
 import { WorkerPortfolio } from "@/components/worker/worker-portfolio";
+import { WorkerSponsor } from "@/components/worker/worker-sponsor";
 import { getRelated, getWorkerBySlug, getWorkerSlots } from "@/lib/data/repo";
 import { categoryBySlug } from "@/lib/data/categories";
+import { cityBySlug } from "@/lib/data/cities";
 
 export async function generateMetadata({
   params,
@@ -43,6 +45,7 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
     getWorkerSlots(worker.id, { from: from.toISOString(), to: to.toISOString() }),
   ]);
   const cat = categoryBySlug(worker.categorySlug);
+  const city = cityBySlug(worker.citySlug);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -101,6 +104,12 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
             worker={worker}
             slots={slots}
             candidates={[worker, ...related.filter((r) => r.id !== worker.id)]}
+          />
+          
+          {/* Sponsored Ad */}
+          <WorkerSponsor
+            workerCategory={cat?.nameEn}
+            workerCity={city?.nameEn}
           />
         </div>
       </div>
