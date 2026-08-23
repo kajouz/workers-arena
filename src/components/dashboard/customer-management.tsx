@@ -53,7 +53,7 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; bg: 
   banned: { icon: <Ban className="size-3" />, color: "text-red-600", bg: "bg-red-500/10" },
 };
 
-export function CustomerManagement({ locale = "en" }: { locale?: string }) {
+export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -157,7 +157,7 @@ export function CustomerManagement({ locale = "en" }: { locale?: string }) {
             <Users className="size-6 text-brand-500" /> Customer Management
           </h1>
           <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">
-            View and manage all customers
+            {locale === "ar" ? "عرض وإدارة جميع العملاء" : "View and manage all customers"}
           </p>
         </div>
         <div className="flex gap-2">

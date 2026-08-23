@@ -1,59 +1,44 @@
-# Preview run doc — WorkersArena
+# How to Run
 
-## Reproduce the uncommitted artifacts
+## Reproduce Artifacts
 
-- This thread's workspace **is** the main checkout (`/Users/ka/Documents/WorkersArena-freebuff`), so there is no separate worktree to copy from.
-- `.env.local` does not exist; the app reads **`.env`** (already present, gitignored). On a fresh checkout, copy `.env` from a working checkout — it must include at least `DEMO_MODE="true"`, `NEXT_PUBLIC_APP_URL`, `AUTH_SECRET`, and (for real Web Push) the `VAPID_*` keys. Never commit `.env`.
-- Demo runtime stores (admin activity feed, push subscriptions) default to gitignored `.data/` files in demo mode.
-- Install dependencies: `npm install` (Next 16 / Turbopack).
+No special artifacts needed — the project builds cleanly from source.
 
-## Run the dev server (demo preview, port 3001)
+## Start the Dev Server
 
-- From the project root: `npx next dev -p 3001` (i.e. `npm run dev`). `DEMO_MODE=true` is read from `.env`.
-- **Detached start (tool shells reap children):** the demo server is started the same way as real mode — `node .freebuff/daemonize.mjs /bin/sh -c "cd <repo> && exec <abs node> node_modules/next/dist/bin/next dev -p 3001 > <abs log> 2>&1"` — the double-fork survives the shell. Do NOT use a `launchctl submit` fallback from a tool shell: launchd jobs run outside the app's TCC context and macOS **System Policy denies writes inside ~/Documents** (kernel log: `Sandbox: bash deny(1) file-write-data …/Documents/…`), so any redirect into the repo fails with exit 1; `/tmp` works but the server also needs to write `.next`/`.data` in the repo, which the daemonize launcher (child of the app) can do.
-- **If the page 500s with `Failed to write app endpoint /page … spawning node pooled process … No such file or directory`:** a killed server left a corrupt `.next` — `rm -rf .next` and restart (the run doc's real-mode restart note above; the server recreates it on boot).
-- **`allowedDevOrigins` (Next 16) is required for the 127.0.0.1 preview:** `next.config.ts` carries `allowedDevOrigins: ["localhost", "127.0.0.1"]`. Without the `127.0.0.1` entry, Next blocks cross-origin dev resources from the preview origin — on a cold start (fresh `.next`) the first-compile JS chunks 403, the entry module load aborts, and the page renders SSR HTML but **never hydrates** (every button silently no-ops, no hydration error is logged). Symptom: theme toggle / dialogs / tabs dead while the page looks fully rendered; the server log repeats `⚠ Blocked cross-origin request to Next.js dev resource … from "127.0.0.1"`. A warm `.next` masks it (cached chunks serve 200), so it only bites after `rm -rf .next` or a fresh clone — keep the config entry and the `next.config.ts` comment together.
-- Wait for `✓ Ready` and HTTP 200 on `http://localhost:3001/` before registering the preview.
-- The app is bilingual — the header menu switches EN↔AR (cookie `wa_locale`, SSR `dir`/`lang`), and the theme toggle persists via the `wa_theme` cookie.
-- Demo accounts are set via the `wa_session` cookie (JSON): admin (Platform Admin), worker (Khaled Al-Harbi), company (BuildCo Ltd).
-- Server log: `.freebuff/preview-<thread>.log`.
+```bash
+cd /Users/ka/Documents/WorkersArena-freebuff
+npx next dev -p 3001
+```
 
-## Run the dev server (real mode, port 3001, Postgres-backed)
+The server will be available at `http://localhost:3001`.
 
-- Real mode flips the repo to Prisma and auth to Auth.js. Requires `DATABASE_URL` (Postgres, migrated + seeded via `npm run db:seed`), a real `AUTH_SECRET`, and `AUTH_URL=http://localhost:3001` — all already in `.env`. The env override MUST be passed on the command line because `.env` sets `DEMO_MODE="true"`:
-  ```bash
-  DEMO_MODE=false npx next dev -p 3001
-  ```
-- The tool shell kills background children, so start it detached: `DEMO_MODE=false node .freebuff/daemonize.mjs npx next dev -p 3001` (double-fork launcher in this dir), log at `.freebuff/real-mode-3001.log`.
-- ⚠️ **Restart after seam changes:** after landing new exports in `src/lib/data/prisma-repo.ts` (or any module loaded via the lazy `import()` in `repo.ts`), the real-mode dev server MUST be restarted. Turbopack keeps stale dynamic-import chunks in `.next/`, so the UI 500s with `TypeError: X is not a function` even though typecheck and `db:smoke` pass — restart with the same `DEMO_MODE=false` command above (delete `.next/dev` + `.next/cache` first if disk space is tight; the server recreates them on boot).
-- Sign-in uses the seeded users (prisma/seed.ts) with password `Password123!`: `sara@example.com` (customer), `khaled@plumbfix.sa` (worker), `ads@buildco.sa` (company), `admin@workersarena.com` (admin). The demo one-click role buttons also work (they call the real credentials path).
-- Booking slots for Khaled (`khaled-al-harbi-plumbing`) are seeded: tomorrow 09:00 AVAILABLE, 10:00 RESERVED (BK-1001), 14:00 BLOCKED, plus **fresh AVAILABLE slots at +3 days (16:00) and +5 days (11:00)** so the booking dialog always has bookable chips in its 14-day window — even after the 09:00 slot is consumed by a demo request. Slots are recreated relative to "now" on every `npm run db:seed`, so re-seed to refresh them for the booking-dialog walkthrough (service → slot → details → SLA countdown). The M2 availability editor (generate/block) warns + no-ops in real mode until its Prisma wave lands.
-- Sanity: `npm run db:smoke` exercises the W2 booking transaction against the live DB (create → RESERVED, double-book rejected, overlap guard, accept → BOOKED, cleanup) — plus M4's booking lifecycle activity-feed logging (REQUESTED/CONFIRMED/CANCELLED with the booking number, the dispute-view deep link) and the admin funnel; the W2 recurring section (request → duplicate rejected → accept + take-rate → cadence materialized → generation cron: nothing due, +14d after availability, re-run 0 → decline frees the slot → customer cancel frees all slots); and the W2 campaign purchase circle (prismaCreateCampaign → confirm → refund: campaign ENDED, payment REFUNDED, minted invoice VOID, company notifications + rendered refund email, feed entry). The §Lebanon manual section drives the OMT deposit lifecycle through the prisma adapters: accept-with-deposit → `prismaCreateBookingCheckout(id, "OMT")` mints the signed /payments/manual URL + stamps method=OMT/providerRef → the row appears in `prismaGetPendingManualPayments` → `prismaConfirmBookingPayment` (the admin confirm's twin) → CONFIRMED + PAID and off the queue → the M4 customer cancel (slot outside the 24h window) refunds **through the OMT provider** (method-aware refund → `omt_refund_*` on the row) and frees the slot. It requires the seed's BuildCo Ltd Company row (re-run `npm run db:seed` after pulling that seed change). On exit it restores the seed exactly, including an ActivityLog orphan sweep (any BOOKING_* feed entry whose booking number no longer resolves is removed) so the live admin feed never accumulates smoke entries.
-- ⚠️ **Run live-DB suites serially:** `npm run db:smoke` and the vitest prisma chain tests (`tests/booking-email-chain-prisma.test.ts`, `tests/campaign-email-chain-prisma.test.ts`) all mutate the same `DATABASE_URL` and must never run concurrently (each assumes the DB is in the seed state). Parallel runs interleave count-derived booking numbers and slot claims → spurious `Unique constraint failed on (number)` / `slot-taken` failures. If that happens, re-run `npm run db:smoke` once alone — its self-heal sweeps every leftover test booking (`smoke@`/`accept@`/`reminder@`/`ops@`/`deposit@`/`reschedule@`/`depositu@`/`activity@`) and restores the seed — then the chain test passes alone again.
-- **Stale-seed symptom:** if db:smoke fails at "recurring request created" with the DB looking otherwise clean (sweeps ran, `✅ Seed complete` is old), the demo slots are past-dated — the seed's "tomorrow 09:00 AVAILABLE" slots drifted into the past, so later sections' `pickFreeSlotHour` picks collide with the recurring anchor's hardcoded **+48h** window. Fix: `npm run db:seed` (refreshes slots relative to now) then re-run `npm run db:smoke` once.
-- **E2E pre-run check:** `tests/e2e-smoke.test.ts` rejects fast (before spawning anything) if a crashed run left artifacts — the doubled-path tree (`<root>/Users` or `<root>/home`, the 43G disk-filler from an absolute `NEXT_DIST_DIR`), leftover `.data/.next-e2e-*` isolated dist dirs (incl. the `dev/dev`·`prod/prod` doubling signature), stale `.data/.next-e2e` entries in `tsconfig.json`'s include array, or free disk below the **5 GiB floor** (`E2E_MIN_FREE_GB` overrides, `0` disables — a near-full disk is caught before the build starts, not mid-write). Set **`E2E_AUTOCLEAN=1`** to have the check print and then remove the crash artifacts itself (leftover dist dirs, the doubled tree, stale include lines — which are now dropped cleanly, restoring strict JSON) instead of rejecting, then re-check the workspace and log a **freed-space summary tied to the artifacts** ("autoclean removed 1 dir + 1 stale tsconfig line, freed 0.020 GiB (47.50 → 47.52 GiB free)") plus a parseable `E2E_AUTOCLEAN_RESULT=<freed>|<before>|<after>|<dirs>|<tsconfig lines>` GiB line so CI shows exactly what was recovered; the disk floor still rejects when nothing can free space. Unit-tested in `tests/e2e-smoke.test.ts` (`assertCleanWorkspace` describe). If a run refuses, delete the named paths (`rm -rf "<path>"` — build artifacts, not source); the teardown is now finally-like (allSettled cleanup + guaranteed tsconfig restore) with a process-exit/SIGINT/SIGTERM guard (shared `tests/helpers/signal-guard.mjs`) so even a hard kill restores `tsconfig.json` — covered by the `assertCleanWorkspace` unit tests in the same file and `tests/signal-guard.test.ts`, which spawns a real child, SIGTERMs it, and proves the file is restored before exit (both run without Chrome). The structured `E2E_AUTOCLEAN_RESULT` line is emitted on **every** autoclean run — even when freed is `0.000` (empty-dir or tsconfig-only fixes) — so CI dashboards always see a record per run and can distinguish "cleaned nothing" from "no autoclean ran".
+## Run Playwright Tests
 
-## CI — test script ladder (timeout budgets for pipeline planning)
+```bash
+cd /Users/ka/Documents/WorkersArena-freebuff
+npx playwright test tests/playwright/admin-customers.spec.ts
+```
 
-**The pipeline is codified in `.github/workflows/ci.yml`** — four jobs on separate runners: ① `typecheck-unit` (typecheck + `vitest run --exclude tests/e2e-smoke.test.ts`, no browser/DB) on every push/PR; ② `e2e-quick` (dev matrix) on every push/PR; ③ `e2e-full` (dev + prod-build matrix) on every push/PR; ④ `db-smoke` (Postgres service → `migrate deploy` → `db:seed` → `db:smoke` → the two prisma chain tests serially) on the nightly `0 2 * * *` cron + `workflow_dispatch`. Every job writes its own demo-mode `.env`; the E2E jobs set `E2E_AUTOCLEAN=1` + the 5 GiB floor; Chrome is the runner-preinstalled `/usr/bin/google-chrome`.
+The Playwright config automatically starts a dev server on port 3001 if needed.
 
-**Cron endpoints (deployed scheduler, same `CRON_SECRET` header):** `GET /api/cron/reminders` (daily — subscription expiry nudges + the booking "job starts tomorrow" reminders), `GET /api/cron/recurring` (daily — recurring-generation: materializes the next batch of maintenance-contract occurrences, idempotent; demo mode no-ops), `GET /api/cron/requests` (request-SLA: nudges the worker at 24h, auto-cancels at 48h and frees the slot; idempotent via the `Booking.lastSlaNudgeAt` CAS) and `GET /api/cron/completions` (completion auto-confirm: staged completions past the 72h grace flip to COMPLETED, crediting the worker's ledger; idempotent via the COMPLETION_PENDING CAS). All four are covered by the nightly `db-smoke` job below — the smoke runs `runBookingReminderEngine` directly, the W2 recurring section calls `prismaGenerateRecurringOccurrences` (nothing due → 0, after availability → 1, re-run → 0), the W2 request-SLA section backdates a booking past the expire window and runs `prismaRunRequestSla` (nudge + auto-expire → slot freed → both notifications → feed entry → idempotent re-run), and the M4 §2.3 section backdates `completionPendingAt` past the grace window and runs `runCompletionAutoConfirmEngine` (COMPLETED + receipt + ledger, re-run no-op), so the runner proves the engines that production cron hits.
+## Detached Launch (macOS)
 
-Measured on the dev machine, Aug 2026 (local wall time; CI budgets are safe ceilings — double them on 2-core runners):
+Use `node -e` with `spawn(..., { detached: true })` to survive thread exit:
 
-| Stage | Command | Local | CI budget |
-|---|---|---|---|
-| Typecheck | `npm run typecheck` | ~2s | 30s |
-| Unit suite (no browser, no DB) | `npx vitest run --exclude tests/e2e-smoke.test.ts` | ~5s · 417 tests / 25 files | 1 min |
-| E2E quick — dev matrix | `npm run test:e2e:quick` | ~77s · 18 tests | 4 min |
-| E2E full — dev + prod matrix | `npm run test:e2e` | ~137s · 20 tests (prod `next build`+`next start` ≈ 62s) | 8 min |
-| Everything serial | `npm run test:all` | typecheck + unit + E2E full | 10 min |
-| Self-healing E2E | `npm run test:e2e:autoclean` | E2E + ~5s | stage + 1 min |
-| Live-DB smoke | `npm run db:smoke` | ~30s | 2 min |
+```bash
+node -e "
+const { spawn } = require('child_process');
+const fs = require('fs');
+const log = fs.openSync('.freebuff/preview.log', 'a');
+const child = spawn('node', ['node_modules/next/dist/bin/next', 'dev', '-p', '3001'], {
+  cwd: '/Users/ka/Documents/WorkersArena-freebuff',
+  detached: true,
+  stdio: ['ignore', log, log]
+});
+child.unref();
+console.log('pid=' + child.pid);
+"
+```
 
-Sharding guidance for parallel pipelines:
-
-- **Parallel shards need separate checkouts.** The E2E rewrites `tsconfig.json`'s include array for the duration of its run (isolated dist-types paths, restored in `afterAll`) and boots servers on dynamic free ports with pid-scoped `.data/.next-e2e-*` dist dirs. A concurrent typecheck/unit run in the same checkout reads the transient tsconfig rewrite, and a crash mid-run is exactly the artifact situation the pre-run check exists for. Give each parallel shard its own worktree.
-- **Never run the live-DB suites concurrently** — `npm run db:smoke` and the prisma chain tests (`tests/booking-email-chain-prisma.test.ts`, `tests/campaign-email-chain-prisma.test.ts`) all mutate the same `DATABASE_URL`; interleaved runs collide on count-derived booking numbers and slot claims (`Unique constraint failed on (number)` / slot-taken). Serialize them or give each its own DB; a solo `db:smoke` re-run self-heals leftovers.
-- **Suggested pipeline:** ① fast gate — `npm run typecheck` + the unit suite (~1 min, no browser, no DB); ② browser gate — `npm run test:e2e:quick` (~4 min) for fast feedback; ③ full gate — `npm run test:e2e` (or `npm run test:all` for one command) covering the production-build matrix; ④ nightly — `npm run db:smoke` against the seeded Postgres.
-- **CI hygiene:** run the E2E with `E2E_AUTOCLEAN=1` (the `test:e2e:autoclean` script) and the `E2E_MIN_FREE_GB` floor (default 5 GiB) so crashed-run artifacts self-heal and a near-full disk fails before the build; parse `E2E_AUTOCLEAN_RESULT=<freed>|<before>|<after>|<dirs>|<tsconfig lines>` — always emitted per autoclean run — for the recovery dashboard.
+To stop: `kill <pid>`
