@@ -23,6 +23,7 @@ import { GradientAvatar } from "@/components/ui/avatar";
 import { formatCompact, formatDate } from "@/lib/utils";
 import { payCampaignAction } from "@/app/actions/business";
 import { CampaignBuilder } from "./campaign-builder";
+import Link from "next/link";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -95,7 +96,15 @@ export function CompanyDashboard({
             <p className="text-sm text-ink-500 dark:text-ink-400">{t("company.subtitle")}</p>
           </div>
         </div>
-        <CampaignBuilder />
+        <div className="flex items-center gap-3">
+          <Link href="/company?view=analytics">
+            <Button variant="outline">
+              <BarChart3 className="size-4 mr-2" />
+              {locale === "ar" ? "تحليلات" : "Analytics"}
+            </Button>
+          </Link>
+          <CampaignBuilder />
+        </div>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
