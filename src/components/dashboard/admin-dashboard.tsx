@@ -358,6 +358,9 @@ export function AdminDashboard({
         <Link href="/admin/earnings" className="inline-flex items-center gap-1.5 rounded-lg bg-lime-500/10 px-3 py-1.5 text-xs font-semibold text-lime-600 transition-colors hover:bg-lime-500/20 dark:text-lime-400">
           <Wallet className="size-3" /> Earnings
         </Link>
+        <Link href="/company" className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-500/20 dark:text-violet-400">
+          <Megaphone className="size-3" /> Advertise
+        </Link>
         <Link href="/admin/logs" className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-500/20 dark:text-cyan-400">
           <FileText className="size-3" /> Logs
         </Link>
