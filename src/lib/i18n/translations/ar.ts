@@ -85,6 +85,7 @@ export const ar: Dictionary = {
     dashboard: "لوحتي",
     admin: "الإدارة",
     company: "الشركات",
+    advertise: "إعلان",
     listService: "سجّل خدمتك",
     browse: "تصفح",
   },

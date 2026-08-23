@@ -32,6 +32,7 @@ export function Header({
     { href: "/search", label: t("nav.findWorkers") },
     { href: "/categories", label: t("nav.categories") },
     { href: "/favorites", label: t("nav.favorites"), tour: "favorites" },
+    { href: "/company", label: t("nav.advertise") ?? "Advertise" },
   ];
 
   const isActive = (href: string) =>

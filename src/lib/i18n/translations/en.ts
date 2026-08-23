@@ -83,6 +83,7 @@ export const en = {
     dashboard: "My dashboard",
     admin: "Admin",
     company: "Company",
+    advertise: "Advertise",
     listService: "List your service",
     browse: "Browse",
   },
