@@ -154,7 +154,7 @@ export function AnalyticsConsentBanner() {
           </button>
           <button
             onClick={() => { setConsent(true); setVisible(false); }}
-            className="rounded-xl bg-brand-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-600"
+            className="rounded-xl bg-brand-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-brand-800"
           >
             Accept
           </button>

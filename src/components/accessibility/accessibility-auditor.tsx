@@ -181,7 +181,7 @@ export function AccessibilityAuditor() {
                   className={cn(
                     "rounded-full px-4 py-2 text-sm font-bold transition-colors",
                     filter === item.key
-                      ? "bg-brand-500 text-white"
+                      ? "bg-brand-700 text-white"
                       : "bg-ink-100 text-ink-600 hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300"
                   )}
                 >

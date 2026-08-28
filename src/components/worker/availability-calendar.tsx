@@ -152,7 +152,7 @@ export function AvailabilityCalendar({
             <div>{days[i]}</div>
             <div className={cn(
               "mt-1 text-[10px]",
-              isToday(day) && "flex size-6 mx-auto items-center justify-center rounded-full bg-brand-500 text-white"
+              isToday(day) && "flex size-6 mx-auto items-center justify-center rounded-full bg-brand-700 text-white"
             )}>
               {day.getDate()}
             </div>

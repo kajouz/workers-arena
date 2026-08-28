@@ -225,7 +225,7 @@ export function GeoHeatmap({
               onClick={() => setViewMode("map")}
               className={`rounded-l-lg px-2 py-1 text-[10px] transition-colors ${
                 viewMode === "map"
-                  ? "bg-brand-500 text-white"
+                  ? "bg-brand-700 text-white"
                   : "text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-800"
               }`}
             >
@@ -235,7 +235,7 @@ export function GeoHeatmap({
               onClick={() => setViewMode("list")}
               className={`rounded-r-lg px-2 py-1 text-[10px] transition-colors ${
                 viewMode === "list"
-                  ? "bg-brand-500 text-white"
+                  ? "bg-brand-700 text-white"
                   : "text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-800"
               }`}
             >

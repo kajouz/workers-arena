@@ -70,7 +70,7 @@ export function SlotPicker({
                       selectable &&
                         !selected &&
                         "border-ink-200 bg-white text-ink-800 hover:border-brand-500 hover:text-brand-600 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-100 dark:hover:border-brand-400",
-                      selected && "border-brand-500 bg-brand-500 text-white shadow-[0_4px_14px_-4px_rgb(249_115_22/0.5)]",
+                      selected && "border-brand-700 bg-brand-700 text-white shadow-[0_4px_14px_-4px_rgb(194_65_12/0.5)]",
                       !selectable && "cursor-not-allowed border-ink-100 bg-ink-50 text-ink-300 dark:border-ink-800 dark:bg-ink-800/40 dark:text-ink-600"
                     )}
                     aria-pressed={selected}

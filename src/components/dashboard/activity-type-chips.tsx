@@ -46,7 +46,7 @@ function Chip({
       className={cn(
         "inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98]",
         active
-          ? "bg-brand-500 text-white shadow-[0_8px_24px_-6px_rgb(249_115_22/0.5)]"
+          ? "bg-brand-700 text-white shadow-[0_8px_24px_-6px_rgb(194_65_12/0.5)]"
           : "border border-ink-200 bg-transparent text-ink-800 hover:border-ink-300 hover:bg-ink-100 dark:border-ink-700 dark:text-ink-100 dark:hover:bg-ink-800"
       )}
     >

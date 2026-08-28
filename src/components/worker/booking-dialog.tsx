@@ -206,7 +206,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                       i < stepIndex
                         ? "bg-emerald-500 text-white"
                         : i === stepIndex
-                          ? "bg-brand-500 text-white"
+                          ? "bg-brand-700 text-white"
                           : "bg-ink-100 text-ink-400 dark:bg-ink-800"
                     )}
                   >

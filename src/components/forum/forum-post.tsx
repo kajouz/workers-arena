@@ -196,7 +196,7 @@ export function ForumCategoryFilter({
         className={cn(
           "rounded-full px-3 py-1.5 text-xs font-bold transition-colors",
           selected === "all"
-            ? "bg-brand-500 text-white"
+            ? "bg-brand-700 text-white"
             : "bg-ink-100 text-ink-600 hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700"
         )}
       >
@@ -209,7 +209,7 @@ export function ForumCategoryFilter({
           className={cn(
             "rounded-full px-3 py-1.5 text-xs font-bold transition-colors",
             selected === key
-              ? "bg-brand-500 text-white"
+              ? "bg-brand-700 text-white"
               : "bg-ink-100 text-ink-600 hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300 dark:hover:bg-ink-700"
           )}
         >

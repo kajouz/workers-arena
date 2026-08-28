@@ -23,7 +23,7 @@ export function HelpButton() {
       onClick={startOnboarding}
       aria-label={t("common.help") ?? "Take a tour"}
       title={t("common.help") ?? "Take a tour"}
-      className="fixed bottom-24 end-6 z-50 size-12 rounded-full bg-brand-500 text-white shadow-lg hover:bg-brand-600 hover:shadow-xl"
+      className="fixed bottom-24 end-6 z-50 size-12 rounded-full bg-brand-700 text-white shadow-lg hover:bg-brand-800 hover:shadow-xl"
     >
       <HelpCircle className="size-6" />
     </Button>

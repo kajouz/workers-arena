@@ -123,7 +123,7 @@ export function RenewDialog({ worker }: { worker: Worker }) {
                 <span
                   className={cn(
                     "flex size-5 items-center justify-center rounded-full border",
-                    plan === key ? "border-brand-500 bg-brand-500 text-white" : "border-ink-300 dark:border-ink-600"
+                    plan === key ? "border-brand-700 bg-brand-700 text-white" : "border-ink-300 dark:border-ink-600"
                   )}
                 >
                   {plan === key && <Check className="size-3" />}

@@ -44,7 +44,7 @@ export function ServicePicker({
               <span
                 className={cn(
                   "flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors",
-                  selected ? "bg-brand-500 text-white" : "bg-ink-100 text-ink-500 dark:bg-ink-800 dark:text-ink-300"
+                  selected ? "bg-brand-700 text-white" : "bg-ink-100 text-ink-500 dark:bg-ink-800 dark:text-ink-300"
                 )}
               >
                 <Check className={cn("size-4", !selected && "opacity-0")} />
@@ -77,7 +77,7 @@ export function ServicePicker({
         <span
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors",
-            value === null ? "bg-brand-500 text-white" : "bg-ink-100 text-ink-500 dark:bg-ink-800 dark:text-ink-300"
+            value === null ? "bg-brand-700 text-white" : "bg-ink-100 text-ink-500 dark:bg-ink-800 dark:text-ink-300"
           )}
         >
           <Wrench className="size-4" />

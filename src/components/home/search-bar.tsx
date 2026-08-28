@@ -103,7 +103,7 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
         )}
         <button
           type="submit"
-          className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand-500 px-5 text-sm font-bold text-white transition-all hover:bg-brand-600 active:scale-95"
+          className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand-700 px-5 text-sm font-bold text-white transition-all hover:bg-brand-800 active:scale-95"
         >
           {t("common.search")}
           <Search className="size-4" />

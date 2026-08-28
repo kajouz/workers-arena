@@ -32,7 +32,7 @@ export function SectionHeading({
     >
       <div className={cn("max-w-2xl", align === "center" && "mx-auto")}>
         {eyebrow && (
-          <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+          <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-700 dark:text-brand-400">
             {eyebrow}
           </p>
         )}

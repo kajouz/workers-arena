@@ -9,17 +9,17 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-brand-500 text-white shadow-[0_8px_24px_-6px_rgb(249_115_22/0.5)] hover:bg-brand-600",
+          "bg-brand-700 text-white shadow-[0_8px_24px_-6px_rgb(194_65_12/0.5)] hover:bg-brand-800",
         secondary:
           "bg-ink-900 text-white hover:bg-ink-800 dark:bg-ink-50 dark:text-ink-900 dark:hover:bg-ink-100",
         outline:
           "border border-ink-200 bg-transparent text-ink-800 hover:bg-ink-100 hover:border-ink-300 dark:border-ink-700 dark:text-ink-100 dark:hover:bg-ink-800",
         ghost: "text-ink-700 hover:bg-ink-100 hover:text-ink-900 dark:text-ink-200 dark:hover:bg-ink-800",
         destructive: "bg-red-500 text-white hover:bg-red-600",
-        link: "text-brand-600 underline-offset-4 hover:underline dark:text-brand-400",
+        link: "text-brand-700 underline-offset-4 hover:underline dark:text-brand-400",
         glass:
           "glass text-ink-900 hover:bg-white/90 dark:text-ink-50 dark:hover:bg-ink-800/80",
-        success: "bg-emerald-500 text-white hover:bg-emerald-600",
+        success: "bg-emerald-600 text-white hover:bg-emerald-700",
       },
       size: {
         default: "h-10 px-4 py-2",
