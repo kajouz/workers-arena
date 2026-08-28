@@ -60,7 +60,7 @@ export function Footer() {
           <Badge variant="outline">{t("featured.sponsored")}</Badge>
           <span className="hidden sm:inline">{locale === "ar" ? "بايلدكو — شريك موثوق في البناء" : "BuildCo Ltd — trusted construction partner"} · {t("company.adLearnMore")}</span>
         </span>
-        <Link href="/company" className="font-semibold text-brand-600 hover:underline dark:text-brand-400">
+        <Link href="/company" className="font-semibold text-brand-700 hover:underline dark:text-brand-400">
           {t("company.createCampaign")} →
         </Link>
       </div>
