@@ -21,13 +21,13 @@
   --color-brand-900: #7c2d12;
   --color-brand-950: #431407;
 
-  /* Ink — warm neutral scale */
+  /* Ink — warm neutral scale (darkened at 400/500 for WCAG AA contrast) */
   --color-ink-50: #f7f6f4;
   --color-ink-100: #efede9;
   --color-ink-200: #dbd8d1;
   --color-ink-300: #bdb8ae;
-  --color-ink-400: #9a948a;
-  --color-ink-500: #7a746b;
+  --color-ink-400: #6d6760;
+  --color-ink-500: #5a554e;
   --color-ink-600: #5f5a53;
   --color-ink-700: #4b4742;
   --color-ink-800: #35322e;
@@ -273,6 +273,11 @@ body {
 }
 
 /* ─── Dark Mode Polish ─── */
+/* Override ink-400/500 to lighter values in dark mode (WCAG AA: 4.5:1 on dark bg) */
+.dark {
+  --color-ink-400: #b0aaa0;
+  --color-ink-500: #9a948a;
+}
 /* Subtle radial gradient on dark background for depth */
 .dark body {
   background: radial-gradient(ellipse at top, rgb(33 31 28 / 1) 0%, var(--color-ink-950) 50%);

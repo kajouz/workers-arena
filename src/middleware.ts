@@ -95,6 +95,14 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Allow bfcache for page routes by setting proper cache-control
+  if (!pathname.startsWith("/api/") && !pathname.startsWith("/_next/")) {
+    response.headers.set(
+      "Cache-Control",
+      "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
+    );
+  }
+
   return response;
 }
 
