@@ -22,18 +22,32 @@ src/app/api/saas/tools/route.ts    ← SaaS marketplace API
 src/app/api/promoted/*/route.ts    ← Promoted profiles API
 src/app/api/payouts/tiers/route.ts ← Payout tier API
 src/app/api/background-checks/*/route.ts  ← Background check API
+src/app/api/worker/analytics/route.ts  ← Worker analytics API
+src/app/api/worker/notifications/route.ts  ← Smart notifications API
+src/app/api/worker/promoted-enhanced/route.ts  ← Enhanced promotion API
+src/app/api/worker/referrals/route.ts  ← Referral program API
+src/app/api/worker/payment-options/route.ts  ← Flexible payments API
+src/app/api/worker/gamification/route.ts  ← Gamification API
+src/app/api/worker/mobile-features/route.ts  ← Mobile features API
 ```
 
 ### UI Layer
 
 ```
 src/components/admin/revenue-settings.tsx    ← Admin dashboard (12 streams)
-src/components/dashboard/worker-revenue-tools.tsx  ← Worker dashboard (6 tabs)
+src/components/dashboard/worker-revenue-tools.tsx  ← Worker dashboard (13 tabs)
 src/components/dashboard/credit-balance.tsx  ← Lead credits card
 src/components/dashboard/token-wallet.tsx    ← Application tokens card
 src/components/dashboard/commission-tier.tsx ← Commission tier card
 src/components/dashboard/promoted-campaign.tsx  ← Promoted profiles card
 src/components/dashboard/saas-marketplace.tsx  ← SaaS tools card
+src/components/dashboard/revenue-analytics.tsx  ← Revenue analytics card
+src/components/dashboard/smart-notifications.tsx  ← Smart notifications card
+src/components/dashboard/promoted-enhanced.tsx  ← Enhanced promotion card
+src/components/dashboard/referral-revenue.tsx  ← Referral revenue card
+src/components/dashboard/flexible-payments.tsx  ← Flexible payments card
+src/components/dashboard/gamification-achievements.tsx  ← Gamification card
+src/components/dashboard/mobile-features.tsx  ← Mobile features card
 ```
 
 ### API Endpoints
@@ -52,6 +66,13 @@ src/components/dashboard/saas-marketplace.tsx  ← SaaS tools card
 | `/api/promoted/click` | POST | Track ad click for promoted profiles |
 | `/api/payouts/tiers` | GET | Payout tier thresholds |
 | `/api/background-checks/types` | GET | Available background check types |
+| `/api/worker/analytics` | GET | Worker revenue analytics |
+| `/api/worker/notifications` | GET | Smart notifications |
+| `/api/worker/promoted-enhanced` | GET | Enhanced promotion data |
+| `/api/worker/referrals` | GET | Referral program data |
+| `/api/worker/payment-options` | GET | Flexible payment options |
+| `/api/worker/gamification` | GET | Gamification data |
+| `/api/worker/mobile-features` | GET | Mobile-exclusive features |
 
 ---
 
@@ -508,6 +529,258 @@ Workers access revenue tools from their dashboard at `/dashboard`.
 
 ---
 
+## Revenue System Enhancements (7 New Features)
+
+### Enhancement 1: Revenue Analytics for Workers 📊
+
+**What it is:** Comprehensive spending analytics, ROI calculations, and conversion tracking for workers.
+
+**Features:**
+- **Spending History:** 12-month trend showing credits, tokens, and promoted spend
+- **ROI by Tool:** Calculate return on investment for each revenue tool
+- **Conversion Tracking:** Leads → Bookings conversion rate
+- **Smart Recommendations:** AI-powered suggestions to optimize spending
+
+**Worker Dashboard Tab:** "Analytics" (BarChart3 icon)
+
+**API Endpoint:** `GET /api/worker/analytics`
+
+**Usage Guide:**
+1. Navigate to Worker Dashboard → Analytics tab
+2. View Overview for monthly spending trend and conversion rate
+3. Check Spending tab for detailed month-by-month breakdown
+4. Review ROI tab to see which tools provide best return
+5. Read Recommendations tab for personalized optimization tips
+
+---
+
+### Enhancement 2: Smart Notifications & Alerts 🔔
+
+**What it is:** Proactive notifications for low balance, token expiry, tier changes, and achievements.
+
+**Notification Types:**
+- **Low Balance:** Warns when credits/tokens are running low
+- **Token Expiry:** Alerts before tokens expire (30-day warning)
+- **Tier Change:** Celebrates tier upgrades, warns of downgrades
+- **Achievement:** Unlocked badge notifications
+- **Campaign:** Promoted profile status updates
+- **Promo:** Special offers and bonus opportunities
+
+**Severity Levels:**
+- **Urgent (Red):** Requires immediate action
+- **Warning (Amber):** Should be addressed soon
+- **Success (Green):** Positive achievements
+- **Info (Blue):** General information
+
+**Worker Dashboard Tab:** "Alerts" (Bell icon)
+
+**API Endpoint:** `GET /api/worker/notifications`
+
+**Usage Guide:**
+1. Navigate to Worker Dashboard → Alerts tab
+2. View urgent alerts banner at top (red background)
+3. Review warning alerts (amber background)
+4. Click action buttons to resolve issues
+5. Mark notifications as read or dismiss them
+
+---
+
+### Enhancement 3: Enhanced Promoted Profiles 🎯
+
+**What it is:** Advanced targeting, A/B testing, and quality score for promoted profiles.
+
+**Features:**
+- **Geographic Targeting:** Target by neighborhood (Beirut, Hamra, Achrafieh)
+- **Category Targeting:** Target specific service categories
+- **Time Targeting:** Peak hours vs evening scheduling
+- **Device Targeting:** Mobile-only campaigns
+- **A/B Testing:** Test different ad creatives with CTR comparison
+- **Quality Score:** Profile completeness, response time, reviews, bookings
+- **Competitor Insights:** Bid analysis and position tracking
+
+**Worker Dashboard Tab:** "Enhanced Promo" (Target icon)
+
+**API Endpoint:** `GET /api/worker/promoted-enhanced`
+
+**Usage Guide:**
+1. Navigate to Worker Dashboard → Enhanced Promo tab
+2. Configure targeting in Targeting section (toggle neighborhoods, categories)
+3. Create A/B test variants in A/B Test section
+4. Check Quality Score to identify improvement areas
+5. Review Competitors section for bid recommendations
+
+---
+
+### Enhancement 4: Referral Revenue Sharing 🤝
+
+**What it is:** Earn credits by referring other workers to the platform.
+
+**Earning Rules:**
+- **Referral signs up:** +5 credits
+- **Referral makes first purchase:** +25 credits
+- **Referral completes 5 bookings:** +50 credits
+- **Monthly streak bonus:** +20 credits per consecutive month
+
+**Tier Benefits:**
+| Tier | Referrals | Bonus Multiplier | Perks |
+|------|-----------|------------------|-------|
+| Bronze | 0+ | 1x | Base rewards |
+| Silver | 5+ | 1.25x | 25% bonus, priority support |
+| Gold | 15+ | 1.5x | 50% bonus, exclusive promos |
+| Platinum | 30+ | 2x | 100% bonus, VIP support |
+
+**Worker Dashboard Tab:** "Referrals" (Users icon)
+
+**API Endpoint:** `GET /api/worker/referrals`
+
+**Usage Guide:**
+1. Navigate to Worker Dashboard → Referrals tab
+2. Copy your unique referral code or share referral link
+3. Track referred workers in Overview section
+4. Check earnings summary and history
+5. View leaderboard to see your ranking
+6. Review tier benefits and progress to next tier
+
+---
+
+### Enhancement 5: Flexible Payment Options 💳
+
+**What it is:** Multiple payment methods including installment plans, wallet top-up, and business accounts.
+
+**Wallet Top-Up Methods:**
+| Method | Bonus | Processing Time |
+|--------|-------|------------------|
+| Wish | +5% | Instant |
+| OMT | +3% | 1-2 hours |
+| Credit Card | 0% | Instant |
+| Bank Transfer | +2% | 1-3 days |
+
+**Installment Plans:**
+| Plan | Months | Interest | Eligible Products |
+|------|--------|----------|-------------------|
+| 3-Month | 3 | 0% | Premium, Large Credit Packs |
+| 6-Month | 6 | 10% | Premium, Credits, Background Check |
+| 12-Month | 12 | 20% | All Products |
+
+**Business Accounts:**
+| Tier | Monthly Fee | Bulk Discount | Credit Limit |
+|------|-------------|---------------|--------------|
+| Startup | $49 | 10% | $1,000 |
+| Business | $149 | 20% | $5,000 |
+| Enterprise | $499 | 30% | $20,000 |
+
+**Worker Dashboard Tab:** "Payments" (CreditCard icon)
+
+**API Endpoint:** `GET /api/worker/payment-options`
+
+**Usage Guide:**
+1. Navigate to Worker Dashboard → Payments tab
+2. Top up wallet using preferred method (Wish/OMT/Card/Bank)
+3. Select installment plan for large purchases
+4. Explore business accounts for company management
+5. Manage saved payment methods in My Cards section
+
+---
+
+### Enhancement 6: Gamification & Achievements 🏆
+
+**What it is:** Badges, streaks, challenges, and XP levels to drive engagement.
+
+**Badge Categories:**
+- **Quick Respond:** Respond to 90% of leads within 1 hour
+- **5-Star Worker:** Maintain 5-star rating for 30 days
+- **Booking Master:** Complete 50/100 bookings
+- **Streak King:** 30-day activity streak
+- **Referral Champion:** Refer 10 workers
+- **Top Rated:** Top 10% in category
+- **Early Bird:** 5 bookings before 9 AM
+- **Social Butterfly:** 20 customer reviews
+
+**Streak Types:**
+- **Daily:** Consecutive days with activity
+- **Weekly:** Consecutive weeks with activity
+- **Monthly:** Consecutive months with activity
+
+**XP System:**
+- Complete booking: +50 XP
+- Get 5-star review: +25 XP
+- Maintain daily streak: +10 XP/day
+- Complete challenge: +100 XP
+
+**Worker Dashboard Tab:** "Rewards" (Trophy icon)
+
+**API Endpoint:** `GET /api/worker/gamification`
+
+**Usage Guide:**
+1. Navigate to Worker Dashboard → Rewards tab
+2. View earned badges and progress on unearned badges
+3. Check daily/weekly/monthly streaks
+4. Complete active challenges for bonus rewards
+5. Track XP progress and level benefits
+
+---
+
+### Enhancement 7: Mobile-Exclusive Features 📱
+
+**What it is:** Features only available on the mobile app to drive app adoption.
+
+**Push Notification Preferences:**
+- New Lead Alert
+- Booking Request
+- Payment Received
+- Promotional Offers
+- Achievement Unlocked
+
+**Quick Respond Templates:**
+- Standard Accept
+- Emergency Accept
+- Polite Decline
+- Reschedule Request
+- Follow Up
+
+**Offline Balance:**
+- Cached credits/tokens for offline access
+- Last synced timestamp
+- Stale data warning
+
+**Mobile-Only Bonuses:**
+- First mobile booking: +10 credits
+- Push notification response: +5 tokens
+- App install bonus: +25 credits
+
+**Worker Dashboard Tab:** "Mobile" (Smartphone icon)
+
+**API Endpoint:** `GET /api/worker/mobile-features`
+
+**Usage Guide:**
+1. Navigate to Worker Dashboard → Mobile tab
+2. Configure push notification preferences
+3. Set up quick respond templates for fast replies
+4. Check offline balance cache status
+5. Claim mobile-only bonus rewards
+
+---
+
+## Worker Dashboard Tabs (13 Total)
+
+| Tab | Icon | Content |
+|-----|------|---------|
+| Overview | TrendingUp | 2×2 grid of main cards |
+| Lead Credits | Coins | Buy credits, packages |
+| Tokens | Zap | Token wallet, earn/buy |
+| Commission | Percent | Tier progress, all tiers |
+| Analytics | BarChart3 | Spending history, ROI, conversion |
+| Alerts | Bell | Urgent/warning/success notifications |
+| Enhanced Promo | Target | Targeting, A/B test, Quality Score |
+| Referrals | Users | Code, earnings, leaderboard, tiers |
+| Payments | CreditCard | Wallet, installments, business |
+| Rewards | Trophy | Badges, streaks, challenges, XP |
+| Mobile | Smartphone | Push, quick-reply, offline, bonuses |
+| Premium Tools | Package | SaaS marketplace |
+| Promote | Megaphone | CPC campaigns |
+
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -546,4 +819,5 @@ For technical support or questions about the revenue system:
 ---
 
 *Last updated: August 2026*
-*Version: 1.0.0*
+*Version: 2.0.0*
+*Enhancements: 7 new features added (Analytics, Notifications, Enhanced Promotion, Referrals, Payments, Gamification, Mobile)*
