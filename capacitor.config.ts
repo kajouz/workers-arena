@@ -3,46 +3,43 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "com.workersarena.app",
   appName: "WorkersArena",
-  webDir: ".next",
+  // In production builds, webDir points to the static export output.
+  // For development with `cap run`, use the server.url option below.
+  webDir: "out",
   server: {
-    // In production, point to deployed URL
-    // url: "https://workersarena.com",
-    // cleartext: false,
-    
-    // In development, use local server
-    url: "http://localhost:3001",
-    cleartext: true,
+    // Production: load from the deployed site (no CORS issues)
+    url: "https://workersarena.com",
+    cleartext: false,
     androidScheme: "https",
+    // For local development, uncomment below and comment production URL:
+    // url: "http://localhost:3001",
+    // cleartext: true,
   },
-  
+
   // iOS specific
   ios: {
     contentInset: "automatic",
     backgroundColor: "#14120f",
     scheme: "WorkersArena",
-    // bundleId is set in Xcode project
   },
-  
+
   // Android specific
   android: {
     backgroundColor: "#14120f",
-    allowMixedContent: true,
+    allowMixedContent: false,
     captureInput: true,
-    // packageName is set in build.gradle
   },
-  
-  // Deep linking
+
+  // Plugins
   plugins: {
     // Push Notifications
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
     },
-    
-    // App deeplinks
-    App: {
 
-    },
-    
+    // App deeplinks
+    App: {},
+
     // Splash Screen
     SplashScreen: {
       launchAutoHide: true,
@@ -53,38 +50,26 @@ const config: CapacitorConfig = {
       splashFullScreen: true,
       splashImmersive: true,
     },
-    
+
     // Status Bar
     StatusBar: {
       style: "DARK",
       backgroundColor: "#14120f",
       overlaysWebView: true,
     },
-    
+
     // Keyboard
     Keyboard: {
-      resize: "body",
+      resize: "body" as any,
       resizeOnFullScreen: true,
     },
-    
-    // Haptics
-    Haptics: {
-      // Default haptic feedback
-    },
-    
+
     // Local Notifications
     LocalNotifications: {
       smallIcon: "ic_stat_icon_config_sample",
       iconColor: "#f97316",
     },
-    
-    // Biometrics
-    BiometricAuth: {
-      reason: "Authenticate to access your account",
-      cancelTitle: "Cancel",
-    },
   },
-  
 };
 
 export default config;

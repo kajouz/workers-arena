@@ -50,5 +50,10 @@ meili_data/
 .freebuff/*.plist
 .freebuff/com.workersarena.*
 
+# Capacitor native platforms (regenerate with npx cap add + npx cap sync)
+/ios/
+/android/
+/out/
+
 # Backup files
 backups/
