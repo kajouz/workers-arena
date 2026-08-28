@@ -43,5 +43,12 @@ next-env.d.ts
 .freebuff/*.log
 .freebuff/desktop-v2.db*
 
+# meilisearch runtime data
+meili_data/
+
+# launchd plists (local dev only)
+.freebuff/*.plist
+.freebuff/com.workersarena.*
+
 # Backup files
 backups/
