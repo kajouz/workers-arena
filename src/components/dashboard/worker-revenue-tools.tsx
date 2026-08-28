@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Coins, Zap, TrendingUp, Package, Megaphone, ChevronDown, ChevronRight } from "lucide-react";
+import { Coins, Zap, TrendingUp, Package, Megaphone, ChevronDown, ChevronRight, Award, Percent } from "lucide-react";
 import { CreditBalanceCard } from "./credit-balance";
 import { TokenWalletCard } from "./token-wallet";
 import { CommissionTierCard } from "./commission-tier";
@@ -15,7 +15,7 @@ const TABS: { id: Tab; label: string; labelAr: string; icon: React.ElementType }
   { id: "overview", label: "Overview", labelAr: "نظرة عامة", icon: TrendingUp },
   { id: "credits", label: "Lead Credits", labelAr: "رصيد العملاء", icon: Coins },
   { id: "tokens", label: "Tokens", labelAr: "الرموز", icon: Zap },
-  { id: "commission", label: "Commission", labelAr: " العمولة", icon: TrendingUp },
+  { id: "commission", label: "Commission", labelAr: " العمولة", icon: Percent },
   { id: "tools", label: "Premium Tools", labelAr: "الأدوات المتقدمة", icon: Package },
   { id: "promoted", label: "Promote", labelAr: "الترويج", icon: Megaphone },
 ];

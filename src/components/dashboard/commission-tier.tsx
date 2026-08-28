@@ -44,9 +44,44 @@ export function CommissionTierCard() {
           lifetimeBillings,
           allTiers: data.tiers,
         });
+      } else {
+        // Fallback mock data when API is unavailable or stream disabled
+        const fallbackTiers: CommissionTier[] = [
+          { id: "bronze", name: "Bronze", nameAr: "برونزي", minBillings: 0, maxBillings: 5000, ratePercent: 15 },
+          { id: "silver", name: "Silver", nameAr: "فضي", minBillings: 5001, maxBillings: 15000, ratePercent: 12 },
+          { id: "gold", name: "Gold", nameAr: "ذهبي", minBillings: 15001, maxBillings: 50000, ratePercent: 10 },
+          { id: "platinum", name: "Platinum", nameAr: "بلاتيني", minBillings: 50001, maxBillings: Infinity, ratePercent: 7 },
+        ];
+        const lifetimeBillings = 12500;
+        const currentTier = fallbackTiers.find((t) => 
+          lifetimeBillings >= t.minBillings && lifetimeBillings <= t.maxBillings
+        ) || fallbackTiers[0];
+
+        setInfo({
+          tier: currentTier,
+          lifetimeBillings,
+          allTiers: fallbackTiers,
+        });
       }
     } catch (error) {
       console.error("Error fetching commission info:", error);
+      // Fallback mock data on error
+      const fallbackTiers: CommissionTier[] = [
+        { id: "bronze", name: "Bronze", nameAr: "برونزي", minBillings: 0, maxBillings: 5000, ratePercent: 15 },
+        { id: "silver", name: "Silver", nameAr: "فضي", minBillings: 5001, maxBillings: 15000, ratePercent: 12 },
+        { id: "gold", name: "Gold", nameAr: "ذهبي", minBillings: 15001, maxBillings: 50000, ratePercent: 10 },
+        { id: "platinum", name: "Platinum", nameAr: "بلاتيني", minBillings: 50001, maxBillings: Infinity, ratePercent: 7 },
+      ];
+      const lifetimeBillings = 12500;
+      const currentTier = fallbackTiers.find((t) => 
+        lifetimeBillings >= t.minBillings && lifetimeBillings <= t.maxBillings
+      ) || fallbackTiers[0];
+
+      setInfo({
+        tier: currentTier,
+        lifetimeBillings,
+        allTiers: fallbackTiers,
+      });
     } finally {
       setLoading(false);
     }

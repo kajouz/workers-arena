@@ -662,7 +662,7 @@ function getStore(): RevenueSettingsStore {
       id: 'sliding_commissions',
       name: 'Sliding Commissions',
       nameAr: 'العمولات المتدرجة',
-      enabled: false,
+      enabled: true,
       description: 'Fee decreases as lifetime billings grow',
       descriptionAr: 'تخفيض الرسوم مع نمو الفواتير الإجمالية',
       settings: {
