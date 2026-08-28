@@ -2,20 +2,34 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Coins, Zap, TrendingUp, Package, Megaphone, ChevronDown, ChevronRight, Award, Percent } from "lucide-react";
+import { Coins, Zap, TrendingUp, Package, Megaphone, ChevronDown, ChevronRight, Award, Percent, BarChart3, Bell, Target, Users, CreditCard, Trophy, Smartphone } from "lucide-react";
 import { CreditBalanceCard } from "./credit-balance";
 import { TokenWalletCard } from "./token-wallet";
 import { CommissionTierCard } from "./commission-tier";
 import { SaasMarketplace } from "./saas-marketplace";
 import { PromotedCampaignCard } from "./promoted-campaign";
+import { RevenueAnalyticsCard } from "./revenue-analytics";
+import { SmartNotificationsCard } from "./smart-notifications";
+import { PromotedEnhancedCard } from "./promoted-enhanced";
+import { ReferralRevenueCard } from "./referral-revenue";
+import { FlexiblePaymentsCard } from "./flexible-payments";
+import { GamificationCard } from "./gamification-achievements";
+import { MobileFeaturesCard } from "./mobile-features";
 
-type Tab = "overview" | "credits" | "tokens" | "commission" | "tools" | "promoted";
+type Tab = "overview" | "credits" | "tokens" | "commission" | "tools" | "promoted" | "analytics" | "notifications" | "enhanced-promo" | "referrals" | "payments" | "gamification" | "mobile";
 
 const TABS: { id: Tab; label: string; labelAr: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Overview", labelAr: "نظرة عامة", icon: TrendingUp },
   { id: "credits", label: "Lead Credits", labelAr: "رصيد العملاء", icon: Coins },
   { id: "tokens", label: "Tokens", labelAr: "الرموز", icon: Zap },
   { id: "commission", label: "Commission", labelAr: " العمولة", icon: Percent },
+  { id: "analytics", label: "Analytics", labelAr: "التحليلات", icon: BarChart3 },
+  { id: "notifications", label: "Alerts", labelAr: "التنبيهات", icon: Bell },
+  { id: "enhanced-promo", label: "Enhanced Promo", labelAr: "ترويج متقدم", icon: Target },
+  { id: "referrals", label: "Referrals", labelAr: "الإحالات", icon: Users },
+  { id: "payments", label: "Payments", labelAr: "المدفوعات", icon: CreditCard },
+  { id: "gamification", label: "Rewards", labelAr: "المكافآت", icon: Trophy },
+  { id: "mobile", label: "Mobile", labelAr: "الهاتف", icon: Smartphone },
   { id: "tools", label: "Premium Tools", labelAr: "الأدوات المتقدمة", icon: Package },
   { id: "promoted", label: "Promote", labelAr: "الترويج", icon: Megaphone },
 ];
@@ -65,6 +79,20 @@ export function WorkerRevenueTools() {
         {activeTab === "tokens" && <TokenWalletCard />}
 
         {activeTab === "commission" && <CommissionTierCard />}
+
+        {activeTab === "analytics" && <RevenueAnalyticsCard />}
+
+        {activeTab === "notifications" && <SmartNotificationsCard />}
+
+        {activeTab === "enhanced-promo" && <PromotedEnhancedCard />}
+
+        {activeTab === "referrals" && <ReferralRevenueCard />}
+
+        {activeTab === "payments" && <FlexiblePaymentsCard />}
+
+        {activeTab === "gamification" && <GamificationCard />}
+
+        {activeTab === "mobile" && <MobileFeaturesCard />}
 
         {activeTab === "tools" && <SaasMarketplace />}
 
