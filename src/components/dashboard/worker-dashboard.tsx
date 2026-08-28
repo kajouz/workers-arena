@@ -39,6 +39,7 @@ import { Price } from "@/components/shared/price";
 import { RenewDialog } from "./renew-dialog";
 import { UpgradeDialog } from "./upgrade-dialog";
 import { VerificationBanner } from "./verification-banner";
+import { WorkerRevenueTools } from "./worker-revenue-tools";
 
 export function WorkerDashboard({
   session,
@@ -140,6 +141,11 @@ export function WorkerDashboard({
             </CardContent>
           </Card>
         )}
+      </div>
+
+      {/* Revenue Tools — credits, tokens, commission, promoted profiles */}
+      <div className="mt-8">
+        <WorkerRevenueTools />
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
