@@ -78,7 +78,7 @@ export function ReviewsSection({ worker, onReview }: { worker: Worker; onReview?
     <div className="grid gap-6 lg:grid-cols-3">
       {/* summary */}
       <Card className="p-6 lg:sticky lg:top-24 lg:self-start">
-        <h3 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.reviews")}</h3>
+        <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.reviews")}</h2>
         <div className="mt-4 flex items-center gap-4">
           <p className="text-5xl font-black text-ink-900 dark:text-ink-50">{worker.rating.toFixed(1)}</p>
           <div>

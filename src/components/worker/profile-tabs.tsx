@@ -41,7 +41,7 @@ export function ProfileTabs({ worker }: { worker: Worker }) {
       {/* About */}
       <TabsContent value="about">
         <Card className="p-6">
-          <h3 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.about")}</h3>
+          <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.about")}</h2>
           <p className="mt-3 whitespace-pre-line leading-relaxed text-ink-600 dark:text-ink-300">
             {locale === "ar" ? worker.bioAr : worker.bioEn}
           </p>
@@ -71,7 +71,7 @@ export function ProfileTabs({ worker }: { worker: Worker }) {
         <Card className="overflow-hidden">
           <div className="flex items-center justify-between border-b border-ink-100 p-6 pb-4 dark:border-ink-800">
             <div>
-              <h3 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.services")}</h3>
+              <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.services")}</h2>
               <p className="text-sm text-ink-400">{cat ? (locale === "ar" ? cat.nameAr : cat.nameEn) : ""}</p>
             </div>
             <Price amount={worker.priceMin} currency={worker.currency} locale={locale} className="text-lg font-black text-brand-600 dark:text-brand-400" />
@@ -121,7 +121,7 @@ export function ProfileTabs({ worker }: { worker: Worker }) {
       {/* Certifications */}
       <TabsContent value="certifications">
         <Card className="p-6">
-          <h3 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.certifications")}</h3>
+          <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.certifications")}</h2>
           <ul className="mt-4 space-y-3">
             {worker.certifications.map((c, i) => (
               <li key={i} className="flex items-start gap-3 rounded-xl border border-ink-100 p-4 transition-colors hover:border-brand-500/30 dark:border-ink-800">
@@ -147,7 +147,7 @@ export function ProfileTabs({ worker }: { worker: Worker }) {
       <TabsContent value="hours">
         <Card className="p-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.workingDays")}</h3>
+            <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">{t("worker.workingDays")}</h2>
             <Badge variant={worker.emergency ? "danger" : "success"}>
               <Clock className="size-3" />
               {worker.emergency ? t("common.emergency") : t("search.open")}

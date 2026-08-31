@@ -462,7 +462,7 @@ export function SearchClient({
               <span className="flex size-16 items-center justify-center rounded-2xl bg-ink-100 text-ink-400 dark:bg-ink-800">
                 <Search className="size-8" />
               </span>
-              <h3 className="mt-5 text-lg font-bold text-ink-900 dark:text-ink-50">{L.emptyTitle}</h3>
+              <h2 className="mt-5 text-lg font-bold text-ink-900 dark:text-ink-50">{L.emptyTitle}</h2>
               <p className="mt-1.5 max-w-sm text-sm text-ink-500 dark:text-ink-400">{L.emptyBody}</p>
               <Button variant="outline" className="mt-6" onClick={clearAll}>
                 {L.emptyCta}

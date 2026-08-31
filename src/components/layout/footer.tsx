@@ -89,9 +89,9 @@ export function Footer() {
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-4 lg:col-span-5">
             {groups.map((group) => (
               <div key={group.title}>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-ink-800 dark:text-ink-100">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-ink-800 dark:text-ink-100">
                   {group.title}
-                </h3>
+                </h2>
                 <ul className="mt-4 space-y-2.5">
                   {group.links.map((link) => (
                     <li key={link.label}>
@@ -109,9 +109,9 @@ export function Footer() {
           </div>
 
           <div className="lg:col-span-3">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-ink-800 dark:text-ink-100">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-ink-800 dark:text-ink-100">
               {t("footer.news")}
-            </h3>
+            </h2>
             <form
               className="mt-4 flex gap-2"
               onSubmit={(e) => {

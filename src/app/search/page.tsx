@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { SearchClient } from "@/components/search/search-client";
+import { SearchErrorBoundary } from "@/components/search/search-error-boundary";
 import { getCategories, getCities, getWorkers } from "@/lib/data/repo";
 import { getI18n } from "@/lib/i18n/server";
 import { searchParamsToFilters } from "@/lib/data/search-params";
@@ -21,12 +22,15 @@ export default async function SearchPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      {/* Accessible live region for search result announcements */}
+      <div aria-live="polite" aria-atomic="true" role="status" className="sr-only" />
       <div className="mb-8">
         <h1 className="text-3xl font-black tracking-tight text-ink-900 dark:text-ink-50 sm:text-4xl">
           {t("search.title")}
         </h1>
         <p className="mt-2 text-ink-500 dark:text-ink-400">{t("search.subtitle")}</p>
       </div>
+      <SearchErrorBoundary>
       <Suspense fallback={null}>
         <SearchClient
           locale={locale}
@@ -75,6 +79,7 @@ export default async function SearchPage({
           }}
         />
       </Suspense>
+      </SearchErrorBoundary>
     </div>
   );
 }
