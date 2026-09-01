@@ -36,8 +36,11 @@ export function Hero({ popular }: { popular: { en: string; ar: string; href: str
             </Badge>
           </motion.div>
 
+          {/* h1 renders immediately (no opacity:0) for optimal LCP — only y-slide animates */}
           <motion.h1
-            {...fadeUp(0.08)}
+            initial={{ opacity: 1, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.08, ease: [0.22, 1, 0.36, 1] as const }}
             className="text-4xl font-black leading-[1.08] tracking-tight text-ink-900 dark:text-ink-50 sm:text-5xl lg:text-6xl"
           >
             {locale === "ar" ? (
