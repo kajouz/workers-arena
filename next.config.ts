@@ -36,9 +36,10 @@ function withSentry(nextCfg: NextConfig): NextConfig {
         silent: true,
         widenClientFileUpload: true,
         hideSourceMaps: true,
-        disableLogger: true,
+        // disableLogger is deprecated in Sentry v10 — use logger.enabled instead
         tunnelRoute: "/api/sentry-tunnel",
-        automaticVercelMonitors: true,
+        // automaticVercelMonitors removed — not supported with Turbopack
+        // (Vercel uses Turbopack for builds)
       });
     }
   } catch {
