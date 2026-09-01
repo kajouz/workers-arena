@@ -93,7 +93,7 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
                 )}
               </div>
 
-              <span className="text-[11px] font-medium leading-tight">
+              <span className="text-[11px] font-medium leading-tight text-ink-700 dark:text-ink-300">
                 {t(tab.labelKey)}
               </span>
 

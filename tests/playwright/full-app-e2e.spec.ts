@@ -423,9 +423,12 @@ test.describe("Customer Role", () => {
         .catch(() => false);
 
       // Either autocomplete suggestions appeared OR the body contains our search text
-      const bodyHasPlumb = await page
-        .locator("body")
-        .toContainText(/[Pp]lumb/, { timeout: 2000 })
+      const bodyHasPlumb = await expect
+        .poll(async () => {
+          const text = await page.locator("body").textContent();
+          return /[Pp]lumb/.test(text || "");
+        }, { timeout: 3000 })
+        .toBeTruthy()
         .then(() => true)
         .catch(() => false);
 

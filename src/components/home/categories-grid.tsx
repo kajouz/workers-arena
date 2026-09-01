@@ -13,7 +13,7 @@ export function CategoriesGrid({ categories }: { categories: Category[] }) {
   const { locale, t, dir } = useLocale();
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8" data-tour="categories">
+    <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8" data-tour="categories" style={{ contentVisibility: 'auto' }}>
       <SectionHeading
         eyebrow={t("categories.title")}
         title={t("categories.subtitle")}

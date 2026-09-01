@@ -68,7 +68,7 @@ export function Hero({ popular }: { popular: { en: string; ar: string; href: str
           <motion.ul {...fadeUp(0.32)} className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 lg:justify-start">
             {[t("hero.trustPoint1"), t("hero.trustPoint2"), t("hero.trustPoint3")].map((point) => (
               <li key={point} className="flex items-center gap-1.5 text-sm font-medium text-ink-600 dark:text-ink-300">
-                <span className="flex size-4 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <span className="flex size-4 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-200">
                   <svg viewBox="0 0 12 12" className="size-2.5 fill-current">
                     <path d="M4.5 9.5 1.5 6.5l1-1 2 2 5-5 1 1-6 6z" />
                   </svg>
@@ -134,7 +134,7 @@ export function Hero({ popular }: { popular: { en: string; ar: string; href: str
               transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
             >
               <div className="flex items-center gap-2.5">
-                <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-200">
                   <Clock3 className="size-4" />
                 </span>
                 <div>
