@@ -88,28 +88,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Preload critical Inter font files for LCP — avoids FOUT and render delay */}
-        <link
-          rel="preload"
-          as="font"
-          type="font/woff2"
-          href="https://fonts.gstatic.com/s/inter/v19/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuBWYAZ9hiJ-Ek-_EeAmM.woff2"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="preload"
-          as="font"
-          type="font/woff2"
-          href="https://fonts.gstatic.com/s/inter/v19/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fAZ9hiJ-Ek-_EeAmM.woff2"
-          crossOrigin="anonymous"
-        />
-        {/* Load font CSS without render-blocking by using media trick */}
+        {/* Load font CSS — preconnects above speed up font delivery */}
         <link
           href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
-          media="print"
         />
-        <script dangerouslySetInnerHTML={{ __html: "document.querySelectorAll('link[media=print]').forEach(l=>l.media='all')" }} />
       </head>
       <body className="min-h-dvh antialiased">
         <SkipNav />

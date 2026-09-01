@@ -310,11 +310,6 @@ body {
   color: #34d399; /* emerald-400 */
 }
 
-/* ─── Content Visibility ─── */
-/* Use CSS class instead of inline style to avoid hydration mismatches. */
-.content-visibility-auto {
-  content-visibility: auto;
-}
 
 /* ─── Dark Mode Polish ─── */
 /* Override ink-400/500 to lighter values in dark mode (WCAG AA: 4.5:1 on dark bg) */
