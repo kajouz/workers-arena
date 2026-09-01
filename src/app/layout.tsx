@@ -23,6 +23,7 @@ import { AnalyticsClients } from "@/components/layout/analytics-clients";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { CurrencyProvider } from "@/components/providers/currency-provider";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export const metadata: Metadata = {
   title: {
@@ -99,7 +100,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <OnboardingProvider>
           <ThemeProvider>
             <Header session={session} initialTheme={theme} />
-          <main id="main-content" tabIndex={-1} className="focus:outline-none pb-20 lg:pb-0">{children}</main>
+          <main id="main-content" tabIndex={-1} className="focus:outline-none pb-20 lg:pb-0">
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </main>
           <Footer />
           <LayoutClients />
           <AnalyticsClients>
