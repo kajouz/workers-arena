@@ -53,7 +53,7 @@ export function Footer() {
   ];
 
   return (
-    <footer className="content-visibility-auto relative mt-24 border-t border-ink-200/80 bg-white dark:border-ink-800 dark:bg-ink-950">
+    <footer className="relative mt-24 border-t border-ink-200/80 bg-white dark:border-ink-800 dark:bg-ink-950">
       {/* sponsored placement slot */}
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 border-b border-ink-200/60 px-4 py-3 text-xs text-ink-500 dark:border-ink-800 dark:text-ink-400 sm:px-6 lg:px-8">
         <span className="flex items-center gap-2">
