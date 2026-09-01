@@ -14,6 +14,7 @@ import {
   BookOpen,
   Package,
   Building2,
+  Palette,
   Save,
   RefreshCw,
   ToggleLeft,
@@ -62,6 +63,7 @@ const STREAM_ICONS: Record<string, React.ElementType> = {
   training: BookOpen,
   equipment_marketplace: Package,
   whitelabel: Building2,
+  branding: Palette,
 };
 
 export function RevenueSettingsDashboard() {

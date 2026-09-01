@@ -20,6 +20,7 @@ export type RevenueStreamId =
   | 'saas_tools'
   | 'promoted_profiles'
   | 'premium_support'
+  | 'branding'
   | 'insurance'
   | 'training'
   | 'equipment_marketplace'
@@ -748,6 +749,36 @@ function getStore(): RevenueSettingsStore {
       description: 'Priority support tiers',
       descriptionAr: 'مستويات دعم ذات أولوية',
       settings: {},
+      pricing: { type: 'fixed', currency: 'USD' },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'branding',
+      name: 'Worker Branding Package',
+      nameAr: 'حزمة العلامة التجارية للعمال',
+      enabled: false,
+      description: 'Profile customization, business cards, social media kit, and verified badges',
+      descriptionAr: 'تخصيص الملف الشخصي، بطاقات العمل، أدوات التواصل الاجتماعي، وشارات التحقق',
+      settings: {
+        customUrlPrice: 10,
+        businessCardPrice: 15,
+        socialKitPrice: 15,
+        profileThemePrice: 3,
+        videoIntroPrice: 20,
+        verifiedBusinessPrice: 5,
+        bundleStarterPrice: 20,
+        bundleSocialProPrice: 35,
+        bundleFullBrandingSetupPrice: 50,
+        bundleFullBrandingMonthlyPrice: 5,
+        freePortfolioPhotos: 5,
+        paidPortfolioPhotos: -1,
+        maxVideoLengthSeconds: 30,
+        customUrlPrefix: '/',
+        availableCardDesigns: ['classic', 'modern', 'bold'],
+        availableFrameStyles: ['none', 'gold', 'silver', 'bronze'],
+        maxSocialKitDownloads: 10,
+      },
       pricing: { type: 'fixed', currency: 'USD' },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
