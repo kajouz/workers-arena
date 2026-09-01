@@ -77,7 +77,7 @@ export function Plans() {
               )}
             >
               {t("plans.annual")}
-              <span className="ms-1.5 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
+              <span className="ms-1.5 rounded-full emerald-badge-md px-1.5 py-0.5 text-[10px] font-black">
                 {t("plans.saveTwoMonths")}
               </span>
             </button>
@@ -114,7 +114,7 @@ export function Plans() {
                 <span className="text-4xl font-black tracking-tight text-ink-900 dark:text-ink-50">${annual ? plan.price * ANNUAL_PAID_MONTHS : plan.price}</span>
                 <span className="text-sm font-medium text-ink-400">{annual ? t("plans.perYear") : t("plans.perMonth")}</span>
                 {annual && (
-                  <span className="ms-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-800 dark:text-emerald-200">
+                  <span className="ms-1 rounded-full emerald-badge-lg px-2 py-0.5 text-[10px] font-black">
                     {t("plans.save")} ${plan.price * (12 - ANNUAL_PAID_MONTHS)}
                   </span>
                 )}
@@ -122,7 +122,7 @@ export function Plans() {
               <ul className="mt-6 flex-1 space-y-2.5">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-ink-600 dark:text-ink-300">
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-800 dark:text-emerald-200">
+                    <span className="emerald-icon flex size-5 shrink-0 items-center justify-center rounded-full emerald-badge-sm">
                       <Check className="size-3" />
                     </span>
                     {t(`plans.features.${f}`)}

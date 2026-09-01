@@ -272,6 +272,50 @@ body {
   scrollbar-width: none;
 }
 
+/* ─── Emerald Badge Utilities ─── */
+/* Stable CSS classes for emerald badges that avoid Tailwind v4 hydration
+   mismatches caused by bg-emerald-500/15 generating different class strings
+   on server vs client builds. */
+.emerald-badge-sm {
+  background-color: color-mix(in srgb, #10b981 15%, transparent);
+  color: #166534; /* emerald-800 */
+}
+.dark .emerald-badge-sm {
+  color: #d1fae5; /* emerald-100 */
+}
+.emerald-badge-md {
+  background-color: color-mix(in srgb, #10b981 15%, transparent);
+  color: #15803d; /* emerald-700 */
+}
+.dark .emerald-badge-md {
+  color: #d1fae5; /* emerald-100 */
+}
+.emerald-badge-lg {
+  background-color: color-mix(in srgb, #10b981 15%, transparent);
+  color: #166534; /* emerald-800 */
+}
+.dark .emerald-badge-lg {
+  color: #d1fae5; /* emerald-100 */
+}
+.emerald-icon {
+  color: #166534; /* emerald-800 */
+}
+.dark .emerald-icon {
+  color: #d1fae5; /* emerald-100 */
+}
+.emerald-text {
+  color: #059669; /* emerald-600 */
+}
+.dark .emerald-text {
+  color: #34d399; /* emerald-400 */
+}
+
+/* ─── Content Visibility ─── */
+/* Use CSS class instead of inline style to avoid hydration mismatches. */
+.content-visibility-auto {
+  content-visibility: auto;
+}
+
 /* ─── Dark Mode Polish ─── */
 /* Override ink-400/500 to lighter values in dark mode (WCAG AA: 4.5:1 on dark bg) */
 .dark {

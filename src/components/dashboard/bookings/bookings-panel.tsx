@@ -193,7 +193,7 @@ export function BookingsPanel({
             </TabsTrigger>
             <TabsTrigger value="upcoming">
               {t("booking.upcoming")}
-              <span className="ms-1 rounded-full bg-emerald-500/15 px-1.5 text-[11px] font-black text-emerald-800 dark:text-emerald-200">
+              <span className="ms-1 rounded-full emerald-badge-sm px-1.5 text-[11px] font-black">
                 {upcoming.length}
               </span>
             </TabsTrigger>
