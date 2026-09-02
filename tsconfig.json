@@ -69,6 +69,7 @@
     "/Users/ka/Documents/WorkersArena-freebuff/.data/repro-prod-dist/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "src/lib/mobile/offline-cache.ts"
   ]
 }
