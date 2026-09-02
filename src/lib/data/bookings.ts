@@ -975,6 +975,13 @@ export async function demoConfirmBookingCompletion(bookingId: string): Promise<B
   if (!booking || booking.status !== "completionPending") return null;
 
   booking.status = "completed";
+  // Release masked numbers for this booking
+  try {
+    const { releaseMaskedNumbers } = await import("@/lib/calling/masked-number-service");
+    await releaseMaskedNumbers(booking.id);
+  } catch (e) {
+    console.error("[booking] Failed to release masked numbers:", e);
+  }
   booking.events.push({ status: "completed", actorType: "customer", time: new Date().toISOString() });
   // Payouts (docs/payouts.md) — net earnings (quote − platform fee) credit the
   // ledger on the CONFIRMED flip (mirrors the prisma adapter's in-tx credit).
@@ -996,6 +1003,13 @@ export async function demoAutoConfirmCompletions(now = new Date()): Promise<numb
     const stagedMs = Date.parse(staged?.time ?? "");
     if (Number.isNaN(stagedMs) || !completionGraceElapsed(stagedMs, nowMs)) continue;
     booking.status = "completed";
+  // Release masked numbers for this booking
+  try {
+    const { releaseMaskedNumbers } = await import("@/lib/calling/masked-number-service");
+    await releaseMaskedNumbers(booking.id);
+  } catch (e) {
+    console.error("[booking] Failed to release masked numbers:", e);
+  }
     booking.events.push({ status: "completed", actorType: "system", time: now.toISOString() });
     creditEarnings(booking);
     await notifyCustomer(booking, "customer-completed");

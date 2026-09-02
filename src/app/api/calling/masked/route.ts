@@ -1,12 +1,42 @@
 /**
- * API Route: POST /api/calling/masked
+ * API Route: GET/POST /api/calling/masked
  *
- * Create masked numbers for a booking (worker and customer).
- * Only accessible by the booking's worker or customer.
+ * GET: Fetch masked numbers for a booking (worker or customer view)
+ * POST: Create masked numbers for a booking
  */
 
 import { NextResponse } from "next/server";
-import { createMaskedNumbers } from "@/lib/calling/masked-number-service";
+import { createMaskedNumbers, getMaskedNumbersForBooking } from "@/lib/calling/masked-number-service";
+
+export async function GET(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const bookingId = url.searchParams.get("bookingId");
+    const partyType = url.searchParams.get("partyType") as "worker" | "customer" | null;
+
+    if (!bookingId) {
+      return NextResponse.json({ error: "bookingId is required" }, { status: 400 });
+    }
+
+    if (partyType) {
+      // Get specific party's masked number
+      const { getMaskedNumberForBooking } = await import("@/lib/calling/masked-number-service");
+      const masked = await getMaskedNumberForBooking(bookingId, partyType);
+      return NextResponse.json({ success: true, maskedNumber: masked });
+    }
+
+    // Get both masked numbers for the booking
+    const result = await getMaskedNumbersForBooking(bookingId);
+    return NextResponse.json({
+      success: true,
+      worker: result.worker,
+      customer: result.customer,
+    });
+  } catch (error) {
+    console.error("[API] Error fetching masked numbers:", error);
+    return NextResponse.json({ error: "Failed to fetch masked numbers" }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {
