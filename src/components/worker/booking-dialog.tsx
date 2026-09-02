@@ -63,6 +63,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
   const [frequency, setFrequency] = useState<RecurringFrequency | null>(null);
+  const [isEmergency, setIsEmergency] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState(false);
@@ -106,6 +107,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
     setEmail("");
     setNote("");
     setFrequency(null);
+    setIsEmergency(false);
     setConflict(false);
     setDone(false);
     setSlaExpiryAt(null);
@@ -145,6 +147,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
     fd.set("note", note.trim());
     fd.set("serviceItemName", serviceName ?? "");
     if (frequency) fd.set("frequency", frequency);
+    if (isEmergency) fd.set("isEmergency", "true");
 
     // A repeat cadence routes to the recurring action — same first-occurrence
     // claim, plus the contract the worker accepts once (§7 #1).
@@ -181,6 +184,16 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
               <CheckCircle2 className="size-9 text-emerald-500" />
             </span>
             <h3 className="mt-5 text-xl font-black text-ink-900 dark:text-ink-50">{t("booking.success")}</h3>
+            {isEmergency && (
+              <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2">
+                <p className="text-sm font-bold text-red-700 dark:text-red-300">
+                  🚨 {t("calling.emergency") || "Emergency"} — {t("calling.emergencyCallImmediate") || "Call Now — Emergency Mode"}
+                </p>
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  {t("calling.emergencyCallDescription") || "Your masked number is ready. Call immediately."}
+                </p>
+              </div>
+            )}
             <p className="mt-2 max-w-sm text-sm text-ink-500 dark:text-ink-400">{t("booking.successBody")}</p>
             <Link href="/bookings" className="mt-6">
               <Button>
@@ -312,6 +325,60 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                   </div>
                   {frequency && <p className="mt-1 text-[11px] text-ink-400">{t("booking.repeatHint")}</p>}
                 </div>
+
+                {/* Emergency toggle — when enabled, masked calling is
+                    enabled immediately after request submission instead of
+                    waiting for the booking to reach inProgress. */}
+                {worker.emergency && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setIsEmergency(!isEmergency)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                        isEmergency
+                          ? "border-red-500/40 bg-red-500/10"
+                          : "border-ink-100 bg-white hover:border-red-300 dark:border-ink-800 dark:bg-ink-900 dark:hover:border-red-700"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex size-8 shrink-0 items-center justify-center rounded-lg text-lg",
+                          isEmergency ? "bg-red-500/20" : "bg-ink-100 dark:bg-ink-800"
+                        )}
+                      >
+                        🚨
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className={cn("text-sm font-bold", isEmergency ? "text-red-700 dark:text-red-300" : "text-ink-900 dark:text-ink-50")}>
+                          {t("calling.emergency") || "Emergency"}
+                        </p>
+                        <p className="text-[11px] text-ink-400">
+                          {t("calling.emergencyDescription") || "For urgent 24/7 services — masked calling is enabled immediately."}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "size-5 shrink-0 rounded-full border-2 transition-colors",
+                          isEmergency
+                            ? "border-red-500 bg-red-500"
+                            : "border-ink-300 dark:border-ink-600"
+                        )}
+                      >
+                        {isEmergency && (
+                          <svg viewBox="0 0 12 12" className="size-full text-white p-0.5">
+                            <path d="M4.5 9.5 1.5 6.5l1-1 2 2 5-5 1 1-6 6z" fill="currentColor" />
+                          </svg>
+                        )}
+                      </span>
+                    </button>
+                    {isEmergency && (
+                      <p className="mt-1.5 text-[11px] font-semibold text-red-600 dark:text-red-400">
+                        ⚡ {t("calling.emergencyCallDescription") || "Your masked number is ready. Call immediately — this is an emergency service request."}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* M5 — fee-waiver note on the summary step, so the perk copy at
                     checkout is the SAME line the booking row shows afterwards
