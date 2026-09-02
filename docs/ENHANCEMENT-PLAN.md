@@ -142,3 +142,21 @@ Ideas surfaced after the waves above were written. **Priority** — 🔥 start n
 ---
 
 **Related docs:** [PRODUCT.md](PRODUCT.md) · [selection-workflow.md](selection-workflow.md) · [booking-scheduling.md](booking-scheduling.md) · [booking-take-rate.md](booking-take-rate.md) · [BUSINESS-MODEL.md](BUSINESS-MODEL.md) · [PAYMENTS.md](PAYMENTS.md) · [mobile-architecture.md](mobile-architecture.md)
+
+
+### 2.5 Privacy-preserving communication — ✅ shipped
+
+- [x] **Masked phone numbers for worker-customer communication** — ✅ shipped. Both workers and customers see only platform-provided temporary numbers (e.g., +1-800-555-0101) throughout the booking lifecycle. Real phone numbers are never displayed in the UI. The `CallButton` component initiates privacy-protected calls through the masked number system. See [PRIVACY-COMMUNICATION-FLOW.md](PRIVACY-COMMUNICATION-FLOW.md) for full details.
+
+- [x] **Emergency bypass with immediate masked calling** — ✅ shipped. For 24/7 emergency services, masked numbers are created immediately on request submission. Workers receive urgent notifications with masked numbers ready for immediate contact. The emergency toggle is available in the booking dialog for workers with the emergency badge.
+
+- [x] **SMS fallback for emergency notifications** — ✅ shipped. When push notifications fail for emergency bookings, the system automatically falls back to SMS. Emergency SMS bypasses the `NOTIFY_SMS_ENABLED` config — safety takes priority. Bilingual templates (EN/AR) with urgent action-oriented messaging.
+
+- [x] **Admin emergency dashboard** — ✅ shipped. Real-time monitoring of emergency requests with summary cards, response time metrics, privacy status, and auto-refresh. Available at `/admin/emergency` for admin-only access.
+
+- [x] **Contact details release on arrival/completion** — ✅ shipped. Real contact details are only released when the booking reaches `inProgress` (worker arrives) or `completionPending`/`completed` (job done). The `contactDetailsReleasedAt` timestamp tracks when details are released.
+
+- [x] **Admin masked numbers management** — ✅ shipped. Admins can view all masked numbers, reveal real phone numbers (with audit logging), and manage the privacy system. Available at `/admin/masked-numbers`.
+
+- [x] **Playwright E2E tests for privacy flow** — ✅ shipped. 35 comprehensive tests covering all 7 steps of the communication flow, emergency bypass, privacy enforcement, admin oversight, and API endpoints.
+

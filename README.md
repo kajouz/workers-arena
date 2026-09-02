@@ -24,6 +24,8 @@ Built on **Next.js 16 (App Router) · React 19 · TypeScript · TailwindCSS 4 ·
 | **Auth** | Demo cookie sessions with 4 roles (customer / worker / company / admin); Auth.js (NextAuth v5) integration ready in `src/auth.ts` |
 | **Payments** | Modular gateway architecture: Stripe · PayPal · MyFatoorah · Tap · bank transfer · cash (docs/PAYMENTS.md) |
 | **DB** | 30+ model Prisma schema — users, workers, subscriptions, payments, invoices, ads, reviews (moderated), favorites, leads, notifications, analytics, audit logs (docs in `prisma/schema.prisma`) |
+| **Privacy** | Masked phone numbers for worker-customer communication, emergency bypass with immediate calling, SMS fallback for emergency notifications, admin audit logging |
+| **Emergency** | 24/7 emergency badge, instant masked calling, emergency dashboard, response time metrics |
 | **Platform** | REST APIs, Server Actions, SEO (sitemap/robots/JSON-LD), PWA manifest, dark mode, toasts, responsive & accessible |
 
 ---
@@ -42,6 +44,8 @@ Then explore:
 - `/workers/khaled-al-harbi-plumbing` — a worker profile (QR, reviews, map…)
 - `/auth/login` — **demo accounts** (Customer / Worker / Company / Admin) — one click signs you in
 - `/dashboard` · `/admin` · `/company` — role-based dashboards
+- `/admin/emergency` — emergency dashboard (admin only)
+- `/admin/masked-numbers` — masked numbers management (admin only)
 - Toggle 🌙 dark mode and the **العربية** language switcher (full RTL)
 
 ## 🗄️ Full stack (PostgreSQL + Docker)
