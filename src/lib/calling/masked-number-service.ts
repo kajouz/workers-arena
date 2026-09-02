@@ -313,7 +313,7 @@ export async function expireOldMaskedNumbers(): Promise<number> {
   const now = new Date();
 
   for (const mn of maskedNumbersStore.values()) {
-    if (mn.isActive && now > mn.expiresAt) {
+    if (mn.isActive && now >= mn.expiresAt) {
       mn.isActive = false;
       expiredCount++;
     }
@@ -334,11 +334,20 @@ async function getBookingForMaskedNumber(bookingId: string): Promise<{
   customerPhone: string;
 } | null> {
   // In demo mode, return mock data; in production, query the database
-  const mockBookings: Record<string, { workerPhone: string; customerPhone: string }> = {
-    "BK-1001": { workerPhone: "+961 71 123 456", customerPhone: "+961 70 987 654" },
-    "BK-1002": { workerPhone: "+961 76 234 567", customerPhone: "+961 71 876 543" },
-    "BK-1003": { workerPhone: "+961 70 345 678", customerPhone: "+961 78 765 432" },
-  };
+  
+  // For any test/demo booking ID, return default mock data
+  if (bookingId.startsWith("BK-")) {
+    return { workerPhone: "+961 71 123 456", customerPhone: "+961 70 123 456" };
+  }
+  
+  return null;
+}
 
-  return mockBookings[bookingId] || null;
+/**
+ * Reset all stores (for testing only).
+ */
+export function resetStores(): void {
+  maskedNumbersStore.clear();
+  callRecordsStore.clear();
+  platformNumberIndex = 0;
 }
