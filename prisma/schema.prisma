@@ -1071,6 +1071,10 @@ model Booking {
   // staged time is past BOOKING_COMPLETION_CONFIRM_GRACE_HOURS.
   completionPendingAt DateTime?
 
+  // Privacy-preserving communication (masked calling system).
+  isEmergency          Boolean   @default(false)  // 24/7 emergency — enables immediate masked calling
+  contactDetailsReleasedAt DateTime?  // When real contact details were released (null = still masked)
+
   paymentId String?  @unique
   payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 

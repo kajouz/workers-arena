@@ -1720,6 +1720,7 @@ async function createBookingRequestTx(
       endAt: slot.endAt,
       status: "REQUESTED",
       currency: worker.city?.currency ?? "USD",
+      isEmergency: input.isEmergency ?? false,
     },
   });
   // Rule 5 — audit event (same tx as the claim + create).
@@ -1780,6 +1781,22 @@ export async function prismaCreateBookingRequest(
         locale: workerLocale,
       }
     );
+
+    // Emergency requests: auto-create masked numbers immediately
+    if (input.isEmergency) {
+      const { createMaskedNumbers } = await import("@/lib/calling/masked-number-service");
+      try {
+        await createMaskedNumbers({
+          workerId: input.workerId,
+          customerPhone: input.customerPhone,
+          bookingId: created.booking.id,
+          expirationDays: 3,
+        });
+      } catch {
+        // Non-fatal — masked numbers can be created later
+      }
+    }
+
     return toDomainBooking(created.booking);
   }
   return { error: "invalid" };

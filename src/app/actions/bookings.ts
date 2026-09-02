@@ -63,6 +63,7 @@ const requestSchema = z.object({
   jobTitle: z.string().min(3),
   note: z.string().optional(),
   serviceItemName: z.string().optional(),
+  isEmergency: z.enum(["true", "false"]).optional(),
 });
 
 /** Customer side: request a booking on a specific slot of a worker's profile. */
@@ -104,6 +105,7 @@ export async function requestBookingAction(
     jobTitle: parsed.data.jobTitle,
     note: parsed.data.note || undefined,
     serviceItem,
+    isEmergency: parsed.data.isEmergency === "true",
   });
 
   if ("error" in result) return { ok: false, error: result.error };
@@ -526,6 +528,7 @@ const quoteRequestSchema = z.object({
   jobTitle: z.string().min(3),
   note: z.string().optional(),
   serviceItemName: z.string().optional(),
+  isEmergency: z.enum(["true", "false"]).optional(),
 });
 
 /**

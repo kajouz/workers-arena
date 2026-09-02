@@ -61,7 +61,7 @@ export function BookingRow({
   const [bidQuote, setBidQuote] = useState(String(worker.priceMin));
   const [bidDeposit, setBidDeposit] = useState("");
   const [bidding, setBidding] = useState(false);
-  const phoneHref = `tel:${booking.customerPhone.replace(/[\s\-()]/g, "")}`;
+  // Phone access is via masked calling only — real customer number is never shown directly.
 
   const submitBid = async () => {
     if (bidding) return;

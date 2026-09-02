@@ -1435,10 +1435,26 @@ export async function demoCreateBookingRequest(
     endAt: slot.endAt,
     status: "requested",
     currency: worker.currency,
+    isEmergency: input.isEmergency,
     events: [{ status: "requested", actorType: "customer", time: new Date().toISOString() }],
   };
   slot.bookingId = booking.id;
   STORE.bookings.push(booking);
+
+  // Emergency requests: auto-create masked numbers immediately for privacy-preserving calling
+  if (input.isEmergency) {
+    const { createMaskedNumbers } = await import("@/lib/calling/masked-number-service");
+    try {
+      await createMaskedNumbers({
+        workerId: input.workerId,
+        customerPhone: input.customerPhone,
+        bookingId: booking.id,
+        expirationDays: 3,
+      });
+    } catch {
+      // Non-fatal — masked numbers can be created later by either party
+    }
+  }
 
   await notifyWorker(booking, "worker-request");
   return booking;

@@ -163,6 +163,8 @@ export interface QuoteRequest {
   jobTitle: string;
   note?: string;
   serviceItem?: ServiceItem;
+  /** True for 24/7 emergency service requests — enables immediate masked calling. */
+  isEmergency?: boolean;
   categorySlug: string;
   citySlug: string;
   status: QuoteStatus;
@@ -183,6 +185,8 @@ export interface QuoteRequestInput {
   jobTitle: string;
   note?: string;
   serviceItem?: ServiceItem;
+  /** True for 24/7 emergency service requests — enables immediate masked calling. */
+  isEmergency?: boolean;
   categorySlug: string;
   citySlug: string;
 }
@@ -395,6 +399,8 @@ export interface Booking {
   jobTitle: string;
   note?: string;
   serviceItem?: ServiceItem;
+  /** True for 24/7 emergency service requests — enables immediate masked calling. */
+  isEmergency?: boolean;
   /**
    * ISO start/end of the slot. UNDEFINED for slot-less multi-candidate quote
    * bids (status quoting/quoted — docs/multi-candidate-quotes.md): the winner
@@ -434,6 +440,8 @@ export interface Booking {
    * unanswered request (demo reads the per-process nudge set; prisma reads
    * Booking.lastSlaNudgeAt). Surfaces on the worker dashboard + customer rows. */
   slaNudgeSent?: boolean;
+  /** When real contact details were released to the other party (ISO). null = still masked. */
+  contactDetailsReleasedAt?: string;
   events: BookingEvent[];
 }
 
@@ -460,6 +468,7 @@ export interface RecurringBooking {
   customerPhone: string;
   customerEmail?: string;
   serviceItem?: ServiceItem;
+  /** True for 24/7 emergency service requests — enables immediate masked calling. */
   jobTitle: string;
   note?: string;
   frequency: RecurringFrequency;
@@ -510,6 +519,7 @@ export interface BookingEmailContext {
    * languages (the campaign campaignName/nameAr fix, mirrored for bookings).
    */
   serviceItem?: ServiceItem;
+  /** True for 24/7 emergency service requests — enables immediate masked calling. */
   /**
    * M5 — the platform-fee snapshot at accept-with-quote (minor units), so the
    * confirmation email can show the fee (or "fee waived" when 0 — the exempt
@@ -569,6 +579,8 @@ export interface BookingRequestInput {
   jobTitle: string;
   note?: string;
   serviceItem?: ServiceItem;
+  /** True for 24/7 emergency service requests — enables immediate masked calling. */
+  isEmergency?: boolean;
 }
 
 /** Worker-side decision on a REQUESTED booking. */

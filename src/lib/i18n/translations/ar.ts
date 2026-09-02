@@ -1230,5 +1230,23 @@ export const ar: Dictionary = {
     failedToFetch: "فشل في جلب الأرقام المخفية",
     worker: "العامل",
     customer: "العميل",
+
+    // Emergency services
+    emergency: "طوارئ",
+    emergencyDescription: "للخدمات العاجلة على مدار الساعة — يتم تمكين الاتصال المخفي فورًا بعد تقديم الطلب.",
+    emergencyBadge: "طوارئ 24/7",
+    emergencyCallImmediate: "اتصل الآن — وضع الطوارئ",
+    emergencyCallDescription: "رقمك المخفٍ جاهز. اتصل فورًا — هذا طلب خدمة طوارئ.",
+
+    // Privacy flow
+    privacyFlowTitle: "الاتصال المحمي بالخصوصية",
+    privacyFlowDescription: "رقم هاتفك الحقيقي محمي. يمر الاتصال عبر المنصة حتى تبدأ العمل.",
+    contactDetailsAvailable: "بيانات الاتصال متاحة",
+    contactDetailsNotYet: "ستكون بيانات الاتصال متاحة عند بدء العمل.",
+    contactDetailsNotice: "يتم الإفصاح عن بيانات الاتصال الحقيقية عند وصول العامل أو إكمال العمل.",
+
+    // Emergency notification
+    emergencyNotificationTitle: "طلب طوارئ — اتصل فورًا",
+    emergencyNotificationBody: "قام عميل بتقديم طلب خدمة طوارئ. رقمك المخفٍ جاهز للاتصال الفوري.",
   },
 };

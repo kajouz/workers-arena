@@ -1232,6 +1232,24 @@ export const en = {
     failedToFetch: "Failed to fetch masked numbers",
     worker: "Worker",
     customer: "Customer",
+
+    // Emergency services
+    emergency: "Emergency",
+    emergencyDescription: "For urgent 24/7 services — masked calling is enabled immediately after request submission.",
+    emergencyBadge: "24/7 Emergency",
+    emergencyCallImmediate: "Call Now — Emergency Mode",
+    emergencyCallDescription: "Your masked number is ready. Call immediately — this is an emergency service request.",
+
+    // Privacy flow
+    privacyFlowTitle: "Privacy-Protected Communication",
+    privacyFlowDescription: "Your real phone number is protected. Communication goes through the platform until the job starts.",
+    contactDetailsAvailable: "Contact Details Available",
+    contactDetailsNotYet: "Contact details will be available when the job starts.",
+    contactDetailsNotice: "Real contact details are released when the worker arrives or the job enters completion phase.",
+
+    // Emergency notification
+    emergencyNotificationTitle: "Emergency Request — Call Immediately",
+    emergencyNotificationBody: "A customer has submitted an emergency service request. Your masked number is ready for immediate contact.",
   },
 };
 
