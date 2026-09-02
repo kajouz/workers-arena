@@ -38,7 +38,11 @@
     "cap:run:ios": "cap run ios",
     "cap:run:android": "cap run android",
     "cap:build:ios": "npm run cap:assets && npm run cap:sync && cap run ios",
-    "cap:build:android": "npm run cap:assets && npm run cap:sync && cap run android"
+    "cap:build:android": "npm run cap:assets && npm run cap:sync && cap run android",
+    "mobile:build": "bash scripts/build-mobile.sh all",
+    "mobile:build:ios": "bash scripts/build-mobile.sh ios",
+    "mobile:build:android": "bash scripts/build-mobile.sh android",
+    "mobile:sync": "bash scripts/build-mobile.sh sync"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

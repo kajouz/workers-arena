@@ -1258,6 +1258,20 @@ export const en = {
     emergencySmsCustomerBody: "Your emergency request has been received. A worker has been notified. Your masked number is ready.",
     emergencySmsFallbackNote: "SMS sent as fallback — push notification was unavailable",
   },
+
+  // Mobile-specific
+  mobile: {
+    pushBannerTitle: "Stay updated on your jobs",
+    pushBannerBody: "Get instant notifications for new bookings and messages",
+    pushBannerAllow: "Enable Notifications",
+    pushBannerDismiss: "Not now",
+    offlineMode: "You're offline",
+    offlineBody: "Some features may be limited. Your data will sync when you're back online.",
+    pullToRefresh: "Pull to refresh",
+    swipeToDelete: "Swipe left to delete",
+    tapToCall: "Tap to call",
+    tapToMessage: "Tap to message",
+  },
 };
 
 export type Dictionary = typeof en;

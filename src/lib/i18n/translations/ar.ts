@@ -1256,4 +1256,18 @@ export const ar: Dictionary = {
     emergencySmsCustomerBody: "تم استلام طلب الطوارئ الخاص بك. تم إخطار العامل. رقمك المخفٍ جاهز.",
     emergencySmsFallbackNote: "تم إرسال الرسالة النصية كبديل — إشعار الدفع غير متاح",
   },
+
+  // Mobile-specific
+  mobile: {
+    pushBannerTitle: "ابقَ على اطلاع بحجوزاتك",
+    pushBannerBody: "احصل على إشعارات فورية للحجوزات والرسائل الجديدة",
+    pushBannerAllow: "تفعيل الإشعارات",
+    pushBannerDismiss: "ليس الآن",
+    offlineMode: "أنت غير متصل بالإنترنت",
+    offlineBody: "قد تكون بعض الميزات محدودة. ستتم مزامنة بياناتك عند عودة الاتصال.",
+    pullToRefresh: "اسحب للتحديث",
+    swipeToDelete: "اسحب لليسار للحذف",
+    tapToCall: "اضغط للاتصال",
+    tapToMessage: "اضغط للرسالة",
+  },
 };

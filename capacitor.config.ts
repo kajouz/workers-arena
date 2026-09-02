@@ -30,6 +30,7 @@ const config: CapacitorConfig = {
     captureInput: true,
   },
 
+  // Deep linking
   // Plugins
   plugins: {
     // Push Notifications
