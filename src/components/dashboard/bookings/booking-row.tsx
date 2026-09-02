@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Loader2, Phone, Send } from "lucide-react";
+import { CalendarClock, Loader2, Phone, Send, Shield } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { formatDate, cn } from "@/lib/utils";
 import { formatSlotRange } from "@/lib/data/booking-ui";
 import { BookingSlaCountdown } from "@/components/bookings/booking-sla-countdown";
 import { RespondDialog } from "./respond-dialog";
+import { CallButton } from "@/components/calling/call-button";
 import { BookingActions } from "./booking-actions";
 import { submitQuoteAction } from "@/app/actions/bookings";
 import type { Booking, BookingMessage, Worker } from "@/lib/data/types";
@@ -112,10 +113,12 @@ export function BookingRow({
                   {formatDate(booking.startAt, locale)} · {formatSlotRange(booking, locale)}
                 </span>
               )}
-              <a href={phoneHref} className="flex items-center gap-1.5 font-bold text-brand-600 hover:underline dark:text-brand-400">
-                <Phone className="size-3.5" />
-                {booking.customerPhone}
-              </a>
+              <CallButton
+                bookingId={booking.id}
+                partyType="worker"
+                partyName={booking.customerName}
+                className="text-xs"
+              />
             </div>
           </div>
 
