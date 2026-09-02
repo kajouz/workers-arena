@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Phone, PhoneCall, PhoneOff, Shield, Clock, Copy, Check } from "lucide-react";
+import { Phone, PhoneCall, PhoneOff, Shield, Clock, Copy, Check, Info } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { MaskedNumberPublic } from "@/lib/calling/masked-number-service";
@@ -38,22 +38,35 @@ export function CallButton({ bookingId, partyType, partyName, className }: CallB
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
 
-  // Fetch existing masked number on mount
+  const [contactReleased, setContactReleased] = useState(false);
+  const [contactDetails, setContactDetails] = useState<{ name?: string; phone?: string } | null>(null);
+
+  // Fetch existing masked number + contact details status on mount
   useEffect(() => {
-    async function fetchMaskedNumber() {
+    async function fetchData() {
       try {
-        const res = await fetch(`/api/calling/masked?bookingId=${bookingId}&partyType=${partyType}`);
-        if (res.ok) {
-          const data = await res.json();
+        const [maskedRes, contactRes] = await Promise.all([
+          fetch(`/api/calling/masked?bookingId=${bookingId}&partyType=${partyType}`),
+          fetch(`/api/calling/contact-details?bookingId=${bookingId}`),
+        ]);
+        if (maskedRes.ok) {
+          const data = await maskedRes.json();
           if (data.maskedNumber) {
             setMaskedNumber(data.maskedNumber);
           }
         }
+        if (contactRes.ok) {
+          const data = await contactRes.json();
+          if (data.released) {
+            setContactReleased(true);
+            setContactDetails(data.contact);
+          }
+        }
       } catch (err) {
-        console.error("Failed to fetch masked number:", err);
+        console.error("Failed to fetch calling data:", err);
       }
     }
-    fetchMaskedNumber();
+    fetchData();
   }, [bookingId, partyType]);
 
   const handleCreateMaskedNumbers = async () => {
@@ -190,6 +203,25 @@ export function CallButton({ bookingId, partyType, partyName, className }: CallB
                   {t("calling.privacyNotice") || "Your real phone number is never shared. Both parties see only platform-provided numbers."}
                 </p>
               </div>
+
+              {/* Contact Details Release Notice */}
+              {contactReleased && contactDetails && (
+                <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Info className="size-4 text-amber-600" />
+                    <p className="text-xs font-bold text-amber-800 dark:text-amber-200">
+                      {t("calling.contactDetailsAvailable") || "Contact Details Available"}
+                    </p>
+                  </div>
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    {contactDetails.name && <span>{contactDetails.name} · </span>}
+                    {contactDetails.phone && <span className="font-mono">{contactDetails.phone}</span>}
+                  </p>
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                    {t("calling.contactDetailsNotice") || "Real contact details are released when the worker arrives or the job enters completion phase."}
+                  </p>
+                </div>
+              )}
 
               {/* Call Button */}
               <Button onClick={handleCall} className="w-full" size="lg">
