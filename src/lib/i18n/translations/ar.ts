@@ -1248,5 +1248,12 @@ export const ar: Dictionary = {
     // Emergency notification
     emergencyNotificationTitle: "طلب طوارئ — اتصل فورًا",
     emergencyNotificationBody: "قام عميل بتقديم طلب خدمة طوارئ. رقمك المخفٍ جاهز للاتصال الفوري.",
+
+    // Emergency SMS
+    emergencySmsWorkerTitle: "طوارئ — طلب خدمة عاجل",
+    emergencySmsWorkerBody: "رقمك المخفٍ جاهز — اتصل بالعميل فوراً",
+    emergencySmsCustomerTitle: "تم استلام طلب الطوارئ",
+    emergencySmsCustomerBody: "تم استلام طلب الطوارئ الخاص بك. تم إخطار العامل. رقمك المخفٍ جاهز.",
+    emergencySmsFallbackNote: "تم إرسال الرسالة النصية كبديل — إشعار الدفع غير متاح",
   },
 };

@@ -4,6 +4,7 @@ import { createPushChannel } from "./providers/push";
 import { createSmsChannel } from "./providers/sms";
 import { createWhatsAppChannel } from "./providers/whatsapp";
 import type { ChannelPayload, DispatchResult, NotificationChannel } from "./types";
+import { sendEmergencySmsFallback } from "./emergency-sms-fallback";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ export async function dispatch(payload: ChannelPayload): Promise<DispatchResult[
   if (channels.length === 0) return [];
 
   const settled = await Promise.allSettled(channels.map((c) => c.send(payload)));
-  return settled.map((r, i) =>
+  const results = settled.map((r, i) =>
     r.status === "fulfilled"
       ? r.value
       : {
@@ -57,4 +58,15 @@ export async function dispatch(payload: ChannelPayload): Promise<DispatchResult[
           error: r.reason instanceof Error ? r.reason.message : String(r.reason),
         }
   );
+
+  // Emergency SMS fallback: if push failed for an emergency booking,
+  // send an SMS to ensure the worker receives the urgent alert
+  if (payload.recipient?.phone) {
+    const smsFallback = await sendEmergencySmsFallback(payload, payload.recipient, results);
+    if (smsFallback) {
+      results.push(smsFallback);
+    }
+  }
+
+  return results;
 }

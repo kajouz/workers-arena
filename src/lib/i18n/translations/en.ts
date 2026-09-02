@@ -1250,6 +1250,13 @@ export const en = {
     // Emergency notification
     emergencyNotificationTitle: "Emergency Request — Call Immediately",
     emergencyNotificationBody: "A customer has submitted an emergency service request. Your masked number is ready for immediate contact.",
+
+    // Emergency SMS
+    emergencySmsWorkerTitle: "EMERGENCY — Urgent Service Request",
+    emergencySmsWorkerBody: "Your masked number is ready — call the customer NOW",
+    emergencySmsCustomerTitle: "Emergency Request Received",
+    emergencySmsCustomerBody: "Your emergency request has been received. A worker has been notified. Your masked number is ready.",
+    emergencySmsFallbackNote: "SMS sent as fallback — push notification was unavailable",
   },
 };
 
