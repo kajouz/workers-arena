@@ -20,6 +20,7 @@ import {
   X,
   Search,
   LogOut,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlobalSearch } from "../search/global-search";
@@ -41,6 +42,7 @@ const navigation: NavItem[] = [
   { label: "Analytics", href: "/admin/analytics", icon: <BarChart3 className="w-5 h-5" /> },
   { label: "Security", href: "/admin/security", icon: <Shield className="w-5 h-5" /> },
   { label: "Communications", href: "/admin/communications", icon: <MessageSquare className="w-5 h-5" /> },
+  { label: "Emergency", href: "/admin/emergency", icon: <AlertTriangle className="w-5 h-5" /> },
   { label: "Settings", href: "/admin/settings", icon: <Settings className="w-5 h-5" /> },
 ];
 
