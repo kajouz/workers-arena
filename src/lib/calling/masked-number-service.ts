@@ -5,7 +5,11 @@
  * Both parties see a masked number; the system routes calls without
  * revealing real phone numbers. Numbers expire after job completion
  * or a defined period (default: 7 days after booking ends).
+ *
+ * Uses Prisma for persistence in production, in-memory store for demo mode.
  */
+
+import { getPrisma } from "@/lib/server/prisma";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -122,10 +126,48 @@ export async function createMaskedNumbers(
 
   const workerRealNumber = bookingInfo.workerPhone;
   const customerRealNumber = customerPhone || bookingInfo.customerPhone;
-
   const now = new Date();
+  const expiresAt = new Date(now.getTime() + expirationDays * 24 * 60 * 60 * 1000);
 
-  // Generate worker's masked number (customer will call this to reach worker)
+  // In production, use Prisma; in demo mode, use in-memory store
+  if (process.env.DEMO_MODE === "false") {
+    // Create worker's masked number
+    const workerMasked = await getPrisma().maskedNumber.create({
+      data: {
+        maskedNumber: getAvailablePlatformNumber(),
+        realNumber: workerRealNumber,
+        partyType: "worker",
+        bookingId,
+        workerRealNumber,
+        customerRealNumber,
+        expiresAt,
+        isActive: true,
+        callCount: 0,
+      },
+    });
+
+    // Create customer's masked number
+    const customerMasked = await getPrisma().maskedNumber.create({
+      data: {
+        maskedNumber: getAvailablePlatformNumber(),
+        realNumber: customerRealNumber,
+        partyType: "customer",
+        bookingId,
+        workerRealNumber,
+        customerRealNumber,
+        expiresAt,
+        isActive: true,
+        callCount: 0,
+      },
+    });
+
+    return {
+      workerMasked: mapPrismaToMaskedNumber(workerMasked),
+      customerMasked: mapPrismaToMaskedNumber(customerMasked),
+    };
+  }
+
+  // Demo mode: use in-memory store
   const workerMaskedNumber: MaskedNumber = {
     id: generateMaskedId(),
     maskedNumber: getAvailablePlatformNumber(),
@@ -135,12 +177,11 @@ export async function createMaskedNumbers(
     workerRealNumber,
     customerRealNumber,
     createdAt: now,
-    expiresAt: new Date(now.getTime() + expirationDays * 24 * 60 * 60 * 1000),
+    expiresAt,
     isActive: true,
     callCount: 0,
   };
 
-  // Generate customer's masked number (worker will call this to reach customer)
   const customerMaskedNumber: MaskedNumber = {
     id: generateMaskedId(),
     maskedNumber: getAvailablePlatformNumber(),
@@ -150,7 +191,7 @@ export async function createMaskedNumbers(
     workerRealNumber,
     customerRealNumber,
     createdAt: now,
-    expiresAt: new Date(now.getTime() + expirationDays * 24 * 60 * 60 * 1000),
+    expiresAt,
     isActive: true,
     callCount: 0,
   };
@@ -168,9 +209,24 @@ export async function getMaskedNumberForBooking(
   bookingId: string,
   partyType: "worker" | "customer"
 ): Promise<MaskedNumberPublic | null> {
+  if (process.env.DEMO_MODE === "false") {
+    const masked = await getPrisma().maskedNumber.findFirst({
+      where: {
+        bookingId,
+        partyType,
+        isActive: true,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!masked) return null;
+    return stripSensitiveFields(mapPrismaToMaskedNumber(masked));
+  }
+
+  // Demo mode
   for (const mn of maskedNumbersStore.values()) {
     if (mn.bookingId === bookingId && mn.partyType === partyType && mn.isActive) {
-      if (new Date() > mn.expiresAt) {
+      if (new Date() >= mn.expiresAt) {
         mn.isActive = false;
         return null;
       }
@@ -186,6 +242,19 @@ export async function getMaskedNumberForBooking(
 export async function getRealNumberForMasked(
   maskedNumberId: string
 ): Promise<{ realNumber: string; partyType: string; bookingId: string } | null> {
+  if (process.env.DEMO_MODE === "false") {
+    const masked = await getPrisma().maskedNumber.findUnique({
+      where: { id: maskedNumberId },
+    });
+    if (!masked) return null;
+    return {
+      realNumber: masked.realNumber,
+      partyType: masked.partyType,
+      bookingId: masked.bookingId,
+    };
+  }
+
+  // Demo mode
   const masked = maskedNumbersStore.get(maskedNumberId);
   if (!masked) return null;
   return {
@@ -202,9 +271,46 @@ export async function getRealNumberForMasked(
 export async function routeIncomingCall(
   maskedNumber: string
 ): Promise<{ forwardTo: string; callId: string } | null> {
+  if (process.env.DEMO_MODE === "false") {
+    const masked = await getPrisma().maskedNumber.findFirst({
+      where: {
+        maskedNumber,
+        isActive: true,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!masked) return null;
+
+    // Create call record
+    const callRecord = await getPrisma().callRecord.create({
+      data: {
+        maskedNumberId: masked.id,
+        callerPartyType: masked.partyType === "worker" ? "customer" : "worker",
+        durationSeconds: 0,
+        wasAnswered: false,
+        startedAt: new Date(),
+        endedAt: new Date(),
+      },
+    });
+
+    // Update usage stats
+    await getPrisma().maskedNumber.update({
+      where: { id: masked.id },
+      data: {
+        callCount: { increment: 1 },
+        lastUsedAt: new Date(),
+      },
+    });
+
+    const forwardTo = masked.partyType === "worker" ? masked.workerRealNumber : masked.customerRealNumber;
+    return { forwardTo, callId: callRecord.id };
+  }
+
+  // Demo mode
   for (const mn of maskedNumbersStore.values()) {
     if (mn.maskedNumber === maskedNumber && mn.isActive) {
-      if (new Date() > mn.expiresAt) {
+      if (new Date() >= mn.expiresAt) {
         mn.isActive = false;
         return null;
       }
@@ -239,6 +345,19 @@ export async function endCall(
   durationSeconds: number,
   wasAnswered: boolean
 ): Promise<void> {
+  if (process.env.DEMO_MODE === "false") {
+    await getPrisma().callRecord.update({
+      where: { id: callId },
+      data: {
+        durationSeconds,
+        wasAnswered,
+        endedAt: new Date(),
+      },
+    });
+    return;
+  }
+
+  // Demo mode
   const call = callRecordsStore.get(callId);
   if (call) {
     call.durationSeconds = durationSeconds;
@@ -252,6 +371,15 @@ export async function endCall(
  * Called when booking is completed or cancelled.
  */
 export async function releaseMaskedNumbers(bookingId: string): Promise<void> {
+  if (process.env.DEMO_MODE === "false") {
+    await getPrisma().maskedNumber.updateMany({
+      where: { bookingId },
+      data: { isActive: false },
+    });
+    return;
+  }
+
+  // Demo mode
   for (const mn of maskedNumbersStore.values()) {
     if (mn.bookingId === bookingId) {
       mn.isActive = false;
@@ -263,6 +391,14 @@ export async function releaseMaskedNumbers(bookingId: string): Promise<void> {
  * Get all masked numbers for admin management (with real numbers).
  */
 export async function getAllMaskedNumbers(): Promise<MaskedNumber[]> {
+  if (process.env.DEMO_MODE === "false") {
+    const maskedNumbers = await getPrisma().maskedNumber.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    return maskedNumbers.map(mapPrismaToMaskedNumber);
+  }
+
+  // Demo mode
   return Array.from(maskedNumbersStore.values()).sort(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
   );
@@ -288,13 +424,32 @@ export async function getCallStatsForBooking(bookingId: string): Promise<{
   totalDurationSeconds: number;
   averageCallDuration: number;
 }> {
+  if (process.env.DEMO_MODE === "false") {
+    const calls = await getPrisma().callRecord.findMany({
+      where: {
+        maskedNumber: { bookingId },
+      },
+    });
+
+    const answeredCalls = calls.filter((c) => c.wasAnswered);
+    const totalDuration = calls.reduce((sum: number, c: { durationSeconds: number }) => sum + c.durationSeconds, 0);
+
+    return {
+      totalCalls: calls.length,
+      answeredCalls: answeredCalls.length,
+      totalDurationSeconds: totalDuration,
+      averageCallDuration: calls.length > 0 ? Math.round(totalDuration / calls.length) : 0,
+    };
+  }
+
+  // Demo mode
   const calls = Array.from(callRecordsStore.values()).filter((c) => {
     const masked = maskedNumbersStore.get(c.maskedNumberId);
     return masked?.bookingId === bookingId;
   });
 
   const answeredCalls = calls.filter((c) => c.wasAnswered);
-  const totalDuration = calls.reduce((sum, c) => sum + c.durationSeconds, 0);
+  const totalDuration = calls.reduce((sum: number, c: { durationSeconds: number }) => sum + c.durationSeconds, 0);
 
   return {
     totalCalls: calls.length,
@@ -309,6 +464,18 @@ export async function getCallStatsForBooking(bookingId: string): Promise<{
  * Should be called periodically (e.g., via cron).
  */
 export async function expireOldMaskedNumbers(): Promise<number> {
+  if (process.env.DEMO_MODE === "false") {
+    const result = await getPrisma().maskedNumber.updateMany({
+      where: {
+        isActive: true,
+        expiresAt: { lte: new Date() },
+      },
+      data: { isActive: false },
+    });
+    return result.count;
+  }
+
+  // Demo mode
   let expiredCount = 0;
   const now = new Date();
 
@@ -322,27 +489,6 @@ export async function expireOldMaskedNumbers(): Promise<number> {
   return expiredCount;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-function stripSensitiveFields(mn: MaskedNumber): MaskedNumberPublic {
-  const { realNumber: _, workerRealNumber: __, customerRealNumber: ___, ...publicFields } = mn;
-  return publicFields;
-}
-
-async function getBookingForMaskedNumber(bookingId: string): Promise<{
-  workerPhone: string;
-  customerPhone: string;
-} | null> {
-  // In demo mode, return mock data; in production, query the database
-  
-  // For any test/demo booking ID, return default mock data
-  if (bookingId.startsWith("BK-")) {
-    return { workerPhone: "+961 71 123 456", customerPhone: "+961 70 123 456" };
-  }
-  
-  return null;
-}
-
 /**
  * Reset all stores (for testing only).
  */
@@ -350,4 +496,39 @@ export function resetStores(): void {
   maskedNumbersStore.clear();
   callRecordsStore.clear();
   platformNumberIndex = 0;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+function stripSensitiveFields(mn: MaskedNumber): MaskedNumberPublic {
+  const { realNumber: _, workerRealNumber: __, customerRealNumber: ___, ...publicFields } = mn;
+  return publicFields;
+}
+
+function mapPrismaToMaskedNumber(prismaMasked: any): MaskedNumber {
+  return {
+    id: prismaMasked.id,
+    maskedNumber: prismaMasked.maskedNumber,
+    realNumber: prismaMasked.realNumber,
+    partyType: prismaMasked.partyType as "worker" | "customer",
+    bookingId: prismaMasked.bookingId,
+    workerRealNumber: prismaMasked.workerRealNumber,
+    customerRealNumber: prismaMasked.customerRealNumber,
+    createdAt: prismaMasked.createdAt,
+    expiresAt: prismaMasked.expiresAt,
+    isActive: prismaMasked.isActive,
+    callCount: prismaMasked.callCount,
+    lastUsedAt: prismaMasked.lastUsedAt,
+  };
+}
+
+async function getBookingForMaskedNumber(bookingId: string): Promise<{
+  workerPhone: string;
+  customerPhone: string;
+} | null> {
+  // In demo mode, return mock data; in production, query the database
+  if (bookingId.startsWith("BK-")) {
+    return { workerPhone: "+961 71 123 456", customerPhone: "+961 70 123 456" };
+  }
+  return null;
 }

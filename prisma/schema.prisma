@@ -1227,3 +1227,41 @@ model WorkerLedgerEntry {
   @@index([workerId, createdAt])
   @@index([status])
 }
+
+// ───────────────────────── Masked Calling ─────────────────────────
+
+model MaskedNumber {
+  id               String   @id @default(cuid())
+  maskedNumber     String   @unique // The temporary platform number
+  realNumber       String   // Encrypted in production (the actual phone number)
+  partyType        String   // "worker" | "customer"
+  bookingId        String
+  workerRealNumber String   // Worker's real number for routing
+  customerRealNumber String // Customer's real number for routing
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime // When this number becomes inactive
+  isActive         Boolean  @default(true)
+  callCount        Int      @default(0)
+  lastUsedAt       DateTime?
+
+  // Relationships
+  calls            CallRecord[]
+
+  @@index([bookingId, partyType])
+  @@index([maskedNumber])
+  @@index([isActive, expiresAt])
+}
+
+model CallRecord {
+  id              String   @id @default(cuid())
+  maskedNumberId  String
+  maskedNumber    MaskedNumber @relation(fields: [maskedNumberId], references: [id], onDelete: Cascade)
+  callerPartyType String   // "worker" | "customer" — who initiated the call
+  durationSeconds Int      @default(0)
+  wasAnswered     Boolean  @default(false)
+  startedAt       DateTime @default(now())
+  endedAt         DateTime @default(now())
+
+  @@index([maskedNumberId])
+  @@index([startedAt])
+}
