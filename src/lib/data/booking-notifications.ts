@@ -91,12 +91,17 @@ export function bookingNotification(
       : "";
   switch (kind) {
     case "worker-request":
+      const isEmergency = (booking as { isEmergency?: boolean }).isEmergency;
       return {
         type: "bookingRequest",
-        titleEn: "New booking request",
-        titleAr: "طلب حجز جديد",
-        bodyEn: `${booking.customerName} requested ${timeFor("en")} — review and respond.`,
-        bodyAr: `${booking.customerName} طلب حجزاً في ${timeFor("ar")} — راجِع الطلب وردّ.`,
+        titleEn: isEmergency ? "🚨 EMERGENCY — New booking request" : "New booking request",
+        titleAr: isEmergency ? "🚨 طوارئ — طلب حجز جديد" : "طلب حجز جديد",
+        bodyEn: isEmergency
+          ? `${booking.customerName} submitted an EMERGENCY request ${timeFor("en")} — masked numbers are ready. Call immediately.`
+          : `${booking.customerName} requested ${timeFor("en")} — review and respond.`,
+        bodyAr: isEmergency
+          ? `${booking.customerName} قدم طلب طوارئ في ${timeFor("ar")} — الأرقام المخفية جاهزة. اتصل فوراً.`
+          : `${booking.customerName} طلب حجزاً في ${timeFor("ar")} — راجِع الطلب وردّ.`,
         href: "/dashboard",
         booking: ctx,
       };
