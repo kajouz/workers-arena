@@ -17,6 +17,7 @@ import { RescheduleDialog } from "./reschedule-dialog";
 import { BookingTimeline } from "./booking-timeline";
 import { BookingChat } from "./booking-chat";
 import { BookingPrintButton } from "./booking-print-button";
+import { CallButton } from "@/components/calling/call-button";
 import { BookingEmailButton } from "./booking-email-button";
 import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
@@ -80,6 +81,15 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <BookingPrintButton booking={booking} workerName={name} />
               <BookingEmailButton booking={booking} workerName={name} workerEmail={worker?.email} />
+              {/* Privacy call button — customer calls worker via masked number */}
+              {booking.status !== "cancelled" && booking.status !== "declined" && worker && (
+                <CallButton
+                  bookingId={booking.id}
+                  partyType="customer"
+                  partyName={name ?? ""}
+                  className="text-xs"
+                />
+              )}
               {/* "What I received" — the bilingual preview of the customer email
                   the booking's state implies, rendered with the SAME builder
                   the adapters dispatch (mirroring the admin dispute view).
