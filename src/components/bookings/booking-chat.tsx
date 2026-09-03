@@ -66,31 +66,92 @@ export function BookingChat({
     readAt: {},
   });
   const typingIdle = useRef<number | null>(null);
+  const sseRef = useRef<EventSource | null>(null);
 
   // Who wrote this message — the bubble alignment flips by sender.
   const ownRole = viewerRole;
 
-  // §2.3 presence — while the thread is open (customer/worker only; the admin
-  // dispute view is read-only), mark the counterpart's messages read and poll
-  // the presence snapshot every 3s: typing indicators + the readAt map. The
-  // mark-read is idempotent, so polling it repeatedly is harmless.
+  // §2.3 presence — SSE real-time connection with polling fallback.
+  // When SSE connects, presence updates (typing, read receipts) arrive
+  // instantly. If SSE fails, we fall back to 3s polling.
   useEffect(() => {
     if (!expanded || bare || viewerRole === "admin") return;
     let stopped = false;
-    const tick = async () => {
-      const res = await getChatPresenceAction(booking.id);
-      if (!stopped && res.ok && "presence" in res && res.presence) {
-        setPresence({ typingRole: res.presence.typingRole, readAt: res.presence.readAt });
-      }
-    };
+    let useSSE = false;
+    let pollIv: number | null = null;
+
+    // Polling fallback (3s interval) — defined before SSE so the closure is ready
+    function startPolling() {
+      if (pollIv) return;
+      const tick = async () => {
+        const res = await getChatPresenceAction(booking.id);
+        if (!stopped && res.ok && "presence" in res && res.presence) {
+          setPresence({ typingRole: res.presence.typingRole, readAt: res.presence.readAt });
+        }
+      };
+      void tick();
+      pollIv = window.setInterval(() => void tick(), 3000);
+    }
+
+    // Mark messages as read on open
     void markChatReadAction(booking.id);
-    void tick();
-    const iv = window.setInterval(() => void tick(), 3000);
+
+    // Try SSE first, fall back to polling
+    try {
+      const params = new URLSearchParams({
+        bookingId: booking.id,
+        role: viewerRole,
+        userId: "current",
+      });
+      const es = new EventSource(`/api/messaging/stream?${params}`);
+      sseRef.current = es;
+
+      es.onopen = () => { useSSE = true; };
+
+      es.onmessage = (event) => {
+        if (stopped) return;
+        try {
+          const data = JSON.parse(event.data);
+          switch (data.type) {
+            case "typing":
+              if (data.data.role !== ownRole) {
+                setPresence((prev) => ({
+                  ...prev,
+                  typingRole: data.data.active ? data.data.role : null,
+                }));
+              }
+              break;
+            case "read":
+              if (data.data.readerRole !== ownRole) {
+                setPresence((prev) => {
+                  const readAt = { ...prev.readAt };
+                  for (const id of data.data.messageIds) readAt[id] = data.data.time;
+                  return { ...prev, readAt };
+                });
+              }
+              break;
+            case "message":
+              router.refresh();
+              break;
+          }
+        } catch { /* ignore malformed events */ }
+      };
+
+      es.onerror = () => {
+        es.close();
+        sseRef.current = null;
+        if (!stopped && !useSSE) startPolling();
+      };
+    } catch {
+      startPolling();
+    }
+
     return () => {
       stopped = true;
-      window.clearInterval(iv);
+      if (sseRef.current) { sseRef.current.close(); sseRef.current = null; }
+      if (pollIv) window.clearInterval(pollIv);
     };
-  }, [expanded, bare, booking.id, viewerRole]);
+  }, [expanded, bare, booking.id, viewerRole, ownRole, router]);
 
   // §2.3 typing indicator — set the flag on the first keystroke of a burst,
   // clear it after 2.5s of inactivity (or when the message is sent). The flag

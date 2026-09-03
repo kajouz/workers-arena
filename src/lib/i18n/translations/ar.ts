@@ -1270,4 +1270,27 @@ export const ar: Dictionary = {
     tapToCall: "اضغط للاتصال",
     tapToMessage: "اضغط للرسالة",
   },
+
+  // Chat / Messaging
+  chat: {
+    thread: "المحادثة",
+    connected: "متصل",
+    disconnected: "غير متصل",
+    noMessages: "لا توجد رسائل بعد. ابدأ المحادثة!",
+    noConversations: "لا توجد محادثات بعد.",
+    placeholder: "اكتب رسالة...",
+    send: "إرسال",
+    all: "الكل",
+    unread: "غير مقروء",
+    active: "نشط",
+    justNow: "الآن",
+    quote: "عرض السعر",
+    acceptQuote: "قبول",
+    quoteAccepted: "تم قبول العرض!",
+    typing: "{name} يكتب...",
+    messageDelivered: "تم التسليم",
+    messageRead: "تمت القراءة",
+    startChat: "بدء المحادثة",
+    viewChat: "عرض المحادثة",
+  },
 };

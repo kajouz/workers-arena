@@ -39,6 +39,25 @@ vi.mock("@/app/actions/bookings", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: refreshMock }) }));
 
+// Mock EventSource for SSE connection in BookingChat.
+// In jsdom, SSE doesn't really work, so we simulate an immediate error
+// to trigger the polling fallback (which the tests verify).
+const mockEventSourceInstances: Array<{ close: ReturnType<typeof vi.fn>; onerror: (() => void) | null }> = [];
+const mockEventSource = vi.fn(() => {
+  const instance = {
+    onopen: null as (() => void) | null,
+    onmessage: null as ((event: MessageEvent) => void) | null,
+    onerror: null as (() => void) | null,
+    close: vi.fn(),
+  };
+  mockEventSourceInstances.push(instance);
+  // Fire onerror on next microtask so the component falls back to polling
+  queueMicrotask(() => instance.onerror?.());
+  return instance;
+});
+// @ts-expect-error — jsdom doesn't define EventSource
+globalThis.EventSource = mockEventSource as unknown as typeof EventSource;
+
 beforeEach(() => {
   markChatReadActionMock.mockResolvedValue({ ok: true, count: 0 });
   setChatTypingActionMock.mockResolvedValue({ ok: true });

@@ -1272,6 +1272,29 @@ export const en = {
     tapToCall: "Tap to call",
     tapToMessage: "Tap to message",
   },
+
+  // Chat / Messaging
+  chat: {
+    thread: "Chat",
+    connected: "Online",
+    disconnected: "Offline",
+    noMessages: "No messages yet. Start the conversation!",
+    noConversations: "No conversations yet.",
+    placeholder: "Type a message...",
+    send: "Send",
+    all: "All",
+    unread: "Unread",
+    active: "Active",
+    justNow: "now",
+    quote: "Quote",
+    acceptQuote: "Accept",
+    quoteAccepted: "Quote accepted!",
+    typing: "{name} is typing...",
+    messageDelivered: "Delivered",
+    messageRead: "Read",
+    startChat: "Start Chat",
+    viewChat: "View Chat",
+  },
 };
 
 export type Dictionary = typeof en;
