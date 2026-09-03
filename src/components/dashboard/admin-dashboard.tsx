@@ -25,6 +25,7 @@ import {
   Scale,
   Settings,
   Calculator,
+  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -324,56 +325,77 @@ export function AdminDashboard({
         </div>
       </div>
 
-      {/* Quick Navigation */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link href="/admin/revenue" className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400">
-          <DollarSign className="size-3" /> Revenue
-        </Link>
-        <Link href="/admin/revenue-settings" className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400">
-          <DollarSign className="size-3" /> Revenue Streams
-        </Link>
-        <Link href="/admin/financial" className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-500/20 dark:text-cyan-400">
-          <Calculator className="size-3" /> Financial Analysis
-        </Link>
-        <Link href="/admin/invoices" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-500/20 dark:text-blue-400">
-          <FileText className="size-3" /> Invoices
-        </Link>
-        <Link href="/admin/customers" className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-500/20 dark:text-violet-400">
-          <Users className="size-3" /> Customers
-        </Link>
-        <Link href="/admin/categories" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400">
-          <Building2 className="size-3" /> Categories
-        </Link>
-        <Link href="/admin/communications" className="inline-flex items-center gap-1.5 rounded-lg bg-pink-500/10 px-3 py-1.5 text-xs font-semibold text-pink-600 transition-colors hover:bg-pink-500/20 dark:text-pink-400">
-          <Mail className="size-3" /> Communications
-        </Link>
-        <Link href="/admin/security" className="inline-flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-500/20 dark:text-red-400">
-          <Shield className="size-3" /> Security
-        </Link>
-        <Link href="/admin/automation" className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-500/20 dark:text-indigo-400">
-          <Zap className="size-3" /> Automation
-        </Link>
-        <Link href="/admin/support" className="inline-flex items-center gap-1.5 rounded-lg bg-teal-500/10 px-3 py-1.5 text-xs font-semibold text-teal-600 transition-colors hover:bg-teal-500/20 dark:text-teal-400">
-          <Headphones className="size-3" /> Support
-        </Link>
-        <Link href="/admin/disputes" className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-500/20 dark:text-rose-400">
-          <Scale className="size-3" /> Disputes
-        </Link>
-        <Link href="/admin/settings" className="inline-flex items-center gap-1.5 rounded-lg bg-gray-500/10 px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-500/20 dark:text-gray-400">
-          <Settings className="size-3" /> Settings
-        </Link>
-        <Link href="/admin/earnings" className="inline-flex items-center gap-1.5 rounded-lg bg-lime-500/10 px-3 py-1.5 text-xs font-semibold text-lime-600 transition-colors hover:bg-lime-500/20 dark:text-lime-400">
-          <Wallet className="size-3" /> Earnings
-        </Link>
-        <Link href="/company" className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-500/20 dark:text-violet-400">
-          <Megaphone className="size-3" /> Advertise
-        </Link>
-        <Link href="/admin/logs" className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-500/20 dark:text-cyan-400">
-          <FileText className="size-3" /> Logs
-        </Link>
-        <Link href="/admin/settings" className="inline-flex items-center gap-1.5 rounded-lg bg-gray-500/10 px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-500/20 dark:text-gray-400">
-          <Settings className="size-3" /> Settings
-        </Link>
+      {/* Quick Navigation — Grouped */}
+      <div className="mt-6 space-y-4">
+        {/* Finance & Revenue */}
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-400 dark:text-ink-500">Finance & Revenue</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/revenue" className="group inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs font-semibold text-emerald-700 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:shadow-sm dark:text-emerald-300">
+              <DollarSign className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Revenue
+            </Link>
+            <Link href="/admin/revenue-settings" className="group inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs font-semibold text-emerald-700 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:shadow-sm dark:text-emerald-300">
+              <TrendingUp className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Revenue Streams
+            </Link>
+            <Link href="/admin/financial" className="group inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-xs font-semibold text-cyan-700 transition-all hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:shadow-sm dark:text-cyan-300">
+              <Calculator className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Financial Analysis
+            </Link>
+            <Link href="/admin/invoices" className="group inline-flex items-center gap-1.5 rounded-xl border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs font-semibold text-blue-700 transition-all hover:border-blue-500/40 hover:bg-blue-500/10 hover:shadow-sm dark:text-blue-300">
+              <FileText className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Invoices
+            </Link>
+            <Link href="/admin/earnings" className="group inline-flex items-center gap-1.5 rounded-xl border border-lime-500/20 bg-lime-500/5 px-3 py-2 text-xs font-semibold text-lime-700 transition-all hover:border-lime-500/40 hover:bg-lime-500/10 hover:shadow-sm dark:text-lime-300">
+              <Wallet className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Earnings
+            </Link>
+          </div>
+        </div>
+
+        {/* Users & Operations */}
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-400 dark:text-ink-500">Users & Operations</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/customers" className="group inline-flex items-center gap-1.5 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs font-semibold text-violet-700 transition-all hover:border-violet-500/40 hover:bg-violet-500/10 hover:shadow-sm dark:text-violet-300">
+              <Users className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Customers
+            </Link>
+            <Link href="/admin/categories" className="group inline-flex items-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs font-semibold text-amber-700 transition-all hover:border-amber-500/40 hover:bg-amber-500/10 hover:shadow-sm dark:text-amber-300">
+              <Building2 className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Categories
+            </Link>
+            <Link href="/admin/disputes" className="group inline-flex items-center gap-1.5 rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-xs font-semibold text-rose-700 transition-all hover:border-rose-500/40 hover:bg-rose-500/10 hover:shadow-sm dark:text-rose-300">
+              <Scale className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Disputes
+            </Link>
+            <Link href="/admin/support" className="group inline-flex items-center gap-1.5 rounded-xl border border-teal-500/20 bg-teal-500/5 px-3 py-2 text-xs font-semibold text-teal-700 transition-all hover:border-teal-500/40 hover:bg-teal-500/10 hover:shadow-sm dark:text-teal-300">
+              <Headphones className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Support
+            </Link>
+          </div>
+        </div>
+
+        {/* Communications & Engagement */}
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-400 dark:text-ink-500">Communications & Engagement</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/communications" className="group inline-flex items-center gap-1.5 rounded-xl border border-pink-500/20 bg-pink-500/5 px-3 py-2 text-xs font-semibold text-pink-700 transition-all hover:border-pink-500/40 hover:bg-pink-500/10 hover:shadow-sm dark:text-pink-300">
+              <Mail className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Communications
+            </Link>
+            <Link href="/company" className="group inline-flex items-center gap-1.5 rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs font-semibold text-violet-700 transition-all hover:border-violet-500/40 hover:bg-violet-500/10 hover:shadow-sm dark:text-violet-300">
+              <Megaphone className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Advertise
+            </Link>
+          </div>
+        </div>
+
+        {/* System & Security */}
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-400 dark:text-ink-500">System & Security</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/security" className="group inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs font-semibold text-red-700 transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-sm dark:text-red-300">
+              <Shield className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Security
+            </Link>
+            <Link href="/admin/automation" className="group inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-3 py-2 text-xs font-semibold text-indigo-700 transition-all hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:shadow-sm dark:text-indigo-300">
+              <Zap className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Automation
+            </Link>
+            <Link href="/admin/logs" className="group inline-flex items-center gap-1.5 rounded-xl border border-gray-500/20 bg-gray-500/5 px-3 py-2 text-xs font-semibold text-gray-700 transition-all hover:border-gray-500/40 hover:bg-gray-500/10 hover:shadow-sm dark:text-gray-300">
+              <FileText className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Logs
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* KPIs */}
