@@ -5,10 +5,10 @@
  * Uses Capacitor's Biometric plugin for native biometric support.
  * 
  * Note: This module requires the following Capacitor plugins to be installed:
- * - @capawesome/capacitor-biometric-auth
- * - @capacitor/secure-storage-plugin
+ * - capacitor-native-biometric
+ * - capacitor-secure-storage-plugin
  * 
- * Install with: npm install @capawesome/capacitor-biometric-auth @capacitor/secure-storage-plugin
+ * Install with: npm install capacitor-native-biometric capacitor-secure-storage-plugin
  */
 
 import { Capacitor } from "@capacitor/core";
@@ -47,9 +47,9 @@ async function loadPlugins(): Promise<boolean> {
   
   try {
     // @ts-ignore - These are optional Capacitor plugins
-    biometricPlugin = await import(/* webpackIgnore: true */ "@capawesome/capacitor-biometric-auth").catch(() => null);
+    biometricPlugin = await import(/* webpackIgnore: true */ "capacitor-native-biometric").catch(() => null);
     // @ts-ignore - These are optional Capacitor plugins
-    secureStoragePlugin = await import(/* webpackIgnore: true */ "@capacitor/secure-storage-plugin").catch(() => null);
+    secureStoragePlugin = await import(/* webpackIgnore: true */ "capacitor-secure-storage-plugin").catch(() => null);
     pluginsLoaded = true;
     return true;
   } catch {
@@ -82,7 +82,7 @@ export async function isBiometricAvailable(): Promise<{
     return {
       available: false,
       biometricType: "none",
-      error: "Biometric plugin not installed. Run: npm install @capawesome/capacitor-biometric-auth",
+      error: "Biometric plugin not installed. Run: npm install capacitor-native-biometric",
     };
   }
 
