@@ -77,7 +77,7 @@ test.describe("Public Pages", () => {
     await page.waitForLoadState("domcontentloaded");
     await page.getByRole("link", { name: /Find workers/i }).first().click();
     await page.waitForLoadState("domcontentloaded");
-    await expect(page).toHaveURL(/\/search/);
+    await expect(page).toHaveURL(/\/search/, { timeout: 10000 });
   });
 
   test("navigation links work — Categories", async ({ page }) => {

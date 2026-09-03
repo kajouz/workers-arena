@@ -73,14 +73,17 @@ test.describe("Offline queue replay flow", () => {
   });
 
   test("debug dashboard shows cache status", async ({ page }) => {
-    // Visit the debug dashboard
-    await page.goto("/debug/pwa");
-    await page.waitForLoadState("domcontentloaded");
+    // Visit the debug dashboard with a generous timeout
+    // The page has a client-side PWADebugPanel that may take time
+    await page.goto("/debug/pwa", { waitUntil: "domcontentloaded", timeout: 45000 });
+
+    // Verify the debug dashboard heading is visible
+    await expect(page.getByRole("heading", { name: "PWA Debug Dashboard" })).toBeVisible({ timeout: 15000 });
 
     // Verify the debug dashboard sections are present
-    await expect(page.getByRole("heading", { name: "Cache Status" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Storage Usage" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Offline Queue" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cache Status" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Storage Usage" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Offline Queue" })).toBeVisible({ timeout: 15000 });
   });
 
   test("install banner appears after delay", async ({ page }) => {

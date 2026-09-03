@@ -295,10 +295,20 @@ test.describe("WCAG 2.1 AA Accessibility", () => {
 
           if (bg === "rgba(0, 0, 0, 0)" || bg === "transparent") return;
 
-          const fgMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-          const bgMatch = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+          const fgMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+          let bgMatch = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
 
           if (!fgMatch || !bgMatch) return;
+
+          // Handle semi-transparent backgrounds (e.g. color-mix with transparent)
+          // Composite against white (#fff) to get the effective background color
+          let bgR = +bgMatch[1], bgG = +bgMatch[2], bgB = +bgMatch[3];
+          const bgA = bgMatch[4] !== undefined ? parseFloat(bgMatch[4]) : 1;
+          if (bgA < 1) {
+            bgR = Math.round(bgR * bgA + 255 * (1 - bgA));
+            bgG = Math.round(bgG * bgA + 255 * (1 - bgA));
+            bgB = Math.round(bgB * bgA + 255 * (1 - bgA));
+          }
 
           // Simple luminance calculation
           const toLinear = (c: number) => {
@@ -311,9 +321,9 @@ test.describe("WCAG 2.1 AA Accessibility", () => {
             0.7152 * toLinear(+fgMatch[2]) +
             0.0722 * toLinear(+fgMatch[3]);
           const l2 =
-            0.2126 * toLinear(+bgMatch[1]) +
-            0.7152 * toLinear(+bgMatch[2]) +
-            0.0722 * toLinear(+bgMatch[3]);
+            0.2126 * toLinear(bgR) +
+            0.7152 * toLinear(bgG) +
+            0.0722 * toLinear(bgB);
 
           const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
           const fontSize = parseFloat(style.fontSize);
