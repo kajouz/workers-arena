@@ -24,6 +24,7 @@ import {
   Headphones,
   Scale,
   Settings,
+  Calculator,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -330,6 +331,9 @@ export function AdminDashboard({
         </Link>
         <Link href="/admin/revenue-settings" className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20 dark:text-emerald-400">
           <DollarSign className="size-3" /> Revenue Streams
+        </Link>
+        <Link href="/admin/financial" className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-600 transition-colors hover:bg-cyan-500/20 dark:text-cyan-400">
+          <Calculator className="size-3" /> Financial Analysis
         </Link>
         <Link href="/admin/invoices" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-500/20 dark:text-blue-400">
           <FileText className="size-3" /> Invoices
