@@ -98,6 +98,10 @@ export function SearchClient({
   const [debouncedLoading, setDebouncedLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestOpen, setSuggestOpen] = useState(false);
+  // Gates navigator-dependent UI (Find Near Me) until after hydration — see
+  // the comment at its render site.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const debouncedQuery = useDebounce(query, 220);
   const searchSeq = useRef(0);
   const { addSearch } = useSearchHistory();
@@ -344,7 +348,11 @@ export function SearchClient({
           </div>
 
           {/* location-based search */}
-          {geoSupported && (
+          {/* Mounted gate: useGeolocation().isSupported reads `navigator`,
+              which is undefined during SSR — without the gate the server HTML
+              omits this button while the client's first render includes it,
+              failing hydration (CI e2e failure, 2026-09-10). */}
+          {mounted && geoSupported && (
             <Button
               variant="outline"
               size="sm"

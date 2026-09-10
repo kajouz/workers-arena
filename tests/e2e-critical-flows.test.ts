@@ -62,6 +62,9 @@ describeServer("Critical User Flows - E2E", () => {
   });
 
   describe("Worker Profile Flow", () => {
+    // 20s: this renders the full profile page server-side against the real
+    // DB — a cold CI runner (fresh page compile + DB round-trips) can exceed
+    // vitest's 5s default (observed in the 2026-09-10 nightly run).
     it("should get worker by slug", async () => {
       const response = await fetch(url("/api/workers?limit=1"));
       const data = await response.json();
@@ -70,7 +73,7 @@ describeServer("Critical User Flows - E2E", () => {
         const profileResponse = await fetch(url("/workers/" + slug));
         expect(profileResponse.ok).toBe(true);
       }
-    });
+    }, 20_000);
   });
 
   describe("Booking Flow", () => {

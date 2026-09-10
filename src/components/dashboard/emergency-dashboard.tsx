@@ -103,7 +103,10 @@ export function EmergencyDashboard() {
   const { locale, t } = useLocale();
   const [data, setData] = useState<EmergencyData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  // null during SSR/first render (the timestamp only exists client-side after
+  // the first fetch) — a `new Date()` initial state renders different text on
+  // server and client and fails hydration (CI e2e failure, 2026-09-10).
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   const fetchData = async () => {
@@ -150,7 +153,7 @@ export function EmergencyDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-xs text-ink-400">
-            Last updated: {lastRefresh.toLocaleTimeString()}
+            Last updated: {lastRefresh ? lastRefresh.toLocaleTimeString() : "—"}
           </div>
           <Button
             variant="outline"
