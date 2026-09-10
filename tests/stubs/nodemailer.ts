@@ -5,6 +5,8 @@
  * mirroring the webpackIgnore comment the Next.js build relies on for the
  * same import.
  */
-export default {
+const nodemailerStub = {
   createTransport: () => ({ sendMail: async () => ({}) }),
 };
+
+export default nodemailerStub;

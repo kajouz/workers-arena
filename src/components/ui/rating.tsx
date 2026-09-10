@@ -25,7 +25,10 @@ export function Rating({
 }) {
   return (
     <span className={cn("inline-flex items-center gap-1", className)} dir="ltr">
-      <span className="inline-flex items-center" aria-label={`${value} out of 5`}>
+      {/* role="img" + aria-label: a plain span carrying aria-label violates
+          aria-prohibited-attr — the role makes the label meaningful (the
+          accessible name for the star graphic). */}
+      <span className="inline-flex items-center" role="img" aria-label={`${value} out of 5`}>
         {starStates(value).map((state, i) =>
           state === "half" ? (
             <span key={i} className="relative inline-flex" style={{ width: size, height: size }}>
@@ -66,6 +69,7 @@ export function StarInput({
           type="button"
           role="radio"
           aria-checked={value === n}
+          aria-label={`${n} star${n === 1 ? "" : "s"}`}
           onClick={() => onChange(n)}
           className="transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-sm"
         >

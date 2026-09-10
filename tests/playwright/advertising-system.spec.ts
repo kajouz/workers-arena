@@ -267,13 +267,20 @@ test.describe("Sponsored Search Results", () => {
   test("search page renders sponsored results section", async ({ page }) => {
     await page.goto("/search?category=plumbing");
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(3000);
 
-    // The search page should have a sponsored results section
-    // It may or may not render depending on whether campaigns exist
-    const hasSponsored = await page.getByText(/sponsored|Sponsored|promoted/i).first().isVisible().catch(() => false);
-    // Soft check — sponsored results may not always be present
-    expect(typeof hasSponsored).toBe("boolean");
+    // The sponsored badge renders only when an active campaign targets this
+    // placement — absence is a valid state, but the page must still render
+    // its SSR shell either way.
+    await expect(page.getByRole("heading", { name: /Find your professional/i })).toBeVisible({ timeout: 15000 });
+    await expect
+      .poll(async () => {
+        return page
+          .getByText(/sponsored|promoted/i)
+          .first()
+          .isVisible()
+          .catch(() => false);
+      }, { timeout: 10000 })
+      .toBe(true);
   });
 
   test("sponsored result card has correct structure", async ({ page }) => {

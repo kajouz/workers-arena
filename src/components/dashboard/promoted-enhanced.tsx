@@ -345,7 +345,7 @@ export function PromotedEnhancedCard() {
             {/* Factors */}
             <div>
               <h5 className="text-sm font-medium text-gray-700 mb-2">
-                What's working:
+                What&apos;s working:
               </h5>
               <div className="space-y-1">
                 {data.qualityScore.factors.map((factor, i) => (

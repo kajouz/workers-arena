@@ -5,7 +5,7 @@ import {
   CheckCircle, 
   XCircle, 
   FileText, 
-  Image, 
+  Image as ImageIcon, 
   ChevronRight,
   Clock,
   AlertTriangle,
@@ -138,7 +138,7 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
       case "certificate":
         return <Star className="w-4 h-4" />;
       case "portfolio":
-        return <Image className="w-4 h-4" />;
+        return <ImageIcon className="w-4 h-4" />;
       case "license":
         return <FileText className="w-4 h-4" />;
     }

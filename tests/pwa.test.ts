@@ -100,6 +100,16 @@ describe("Service worker (public/sw.js)", () => {
     expect(sw).toContain('caches.match("/offline.html")');
   });
 
+  it("installs tolerantly: one failed precache fetch must not abort the whole install", () => {
+    // cache.addAll is all-or-nothing — a single failed URL (dev server
+    // compiling on demand, flaky network) used to leave the SW stuck in
+    // "installing" forever, so new visitors had NO offline support. The
+    // per-URL tolerant install keeps whatever succeeded.
+    expect(sw).not.toMatch(/cache\.addAll\(PRECACHE_URLS\)/);
+    expect(sw).toContain("precacheAll");
+    expect(sw).toContain("Promise.allSettled");
+  });
+
   it("never caches /api data requests", () => {
     expect(sw).toContain('url.pathname.startsWith("/api/")');
   });

@@ -457,19 +457,21 @@ test.describe("Enhancement API Endpoints", () => {
     const response = await request.get("/api/worker/notifications");
     const data = await response.json();
 
+    expect(response.status()).toBe(200);
     expect(Array.isArray(data.notifications)).toBeTruthy();
-    expect(typeof data.unreadCount).toBe("number");
+    expect(data.unreadCount).toBeGreaterThanOrEqual(0);
     expect(typeof data.hasUrgent).toBe("boolean");
 
-    // Each notification should have required fields
-    if (data.notifications.length > 0) {
-      const n = data.notifications[0];
-      expect(n).toHaveProperty("id");
-      expect(n).toHaveProperty("type");
-      expect(n).toHaveProperty("severity");
-      expect(n).toHaveProperty("title");
-      expect(n).toHaveProperty("message");
-      expect(typeof n.read).toBe("boolean");
+    // Each notification must carry the full contract shape (not just presence)
+    for (const n of data.notifications.slice(0, 5)) {
+      expect(n).toMatchObject({
+        id: expect.any(String),
+        type: expect.any(String),
+        severity: expect.any(String),
+        title: expect.any(String),
+        message: expect.any(String),
+        read: expect.any(Boolean),
+      });
     }
   });
 

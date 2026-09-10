@@ -463,24 +463,25 @@ test.describe("Admin Oversight", () => {
     await loginAs(page, "customer");
     await page.goto("/admin/emergency");
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(1000);
 
-    // Should be redirected away from admin pages
-    const url = page.url();
-    expect(url).not.toContain("/admin/emergency");
+    // Wait for the redirect away (server-side redirect resolves during goto;
+    // a client-side redirect flips the URL after hydration). Auto-retries
+    // until the URL no longer matches — no fixed sleep to race against.
+    await expect(page).not.toHaveURL(/\/admin\/emergency/, { timeout: 10000 });
   });
 
-  test("admin can reveal real phone numbers (audit logged)", async ({ page }) => {
+  test("admin can view masked numbers management (audit-gated reveals)", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/admin/masked-numbers");
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(2000);
 
-    // Look for reveal buttons
-    const revealButtons = page.locator("button:has-text('Reveal'), button:has-text('reveal')");
-    const count = await revealButtons.count();
-    // Reveal buttons may or may not be present depending on data
-    expect(count).toBeGreaterThanOrEqual(0);
+    // The management page must render for admins. Reveal buttons are data-
+    // dependent and individually audit-logged, so the falsifiable assertion
+    // here is that the admin view itself loads (a bare count >= 0 check can
+    // never fail and proved nothing).
+    await expect(
+      page.getByRole("heading", { name: /Masked Numbers Management/i })
+    ).toBeVisible({ timeout: 10000 });
   });
 });
 

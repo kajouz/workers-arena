@@ -216,6 +216,7 @@ export function SearchClient({
 
   // Virtual scrolling for large result lists
   const parentRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line react-hooks/incompatible-library -- @tanstack/react-virtual isn't React-Compiler aware; the rule can't analyze it and rendering is unaffected
   const rowVirtualizer = useVirtualizer({
     count: results.items.length,
     getScrollElement: () => parentRef.current,
@@ -371,7 +372,7 @@ export function SearchClient({
 
           {/* sort */}
           <Select value={filters.sort ?? "relevance"} onValueChange={(v) => update("sort", v as SearchFilters["sort"])}>
-            <SelectTrigger className="sm:w-52">
+            <SelectTrigger aria-label={L.sortBy} className="sm:w-52">
               <SelectValue placeholder={L.sortBy} />
             </SelectTrigger>
             <SelectContent>
@@ -570,7 +571,9 @@ function FilterControls({
           value={filters.category ?? "all"}
           onValueChange={(v) => update("category", v === "all" ? undefined : v)}
         >
-          <SelectTrigger>
+          {/* aria-label: the trigger renders the SELECTED value, which changes
+              — the semantic name must stay "Category" (axe button-name). */}
+          <SelectTrigger aria-label={L.category}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -587,7 +590,7 @@ function FilterControls({
       <div className="space-y-2">
         <Label>{L.city}</Label>
         <Select value={filters.city ?? "all"} onValueChange={(v) => update("city", v === "all" ? undefined : v)}>
-          <SelectTrigger>
+          <SelectTrigger aria-label={L.city}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -608,7 +611,7 @@ function FilterControls({
         <div className="space-y-2">
           <Label>{L.area}</Label>
           <Select value={filters.area ?? "all"} onValueChange={(v) => update("area", v === "all" ? undefined : v)}>
-            <SelectTrigger>
+            <SelectTrigger aria-label={L.area}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -626,7 +629,7 @@ function FilterControls({
       <div className="space-y-2">
         <Label>{L.rating}</Label>
         <Select value={String(filters.minRating ?? "0")} onValueChange={(v) => update("minRating", v === "0" ? undefined : Number(v))}>
-          <SelectTrigger>
+          <SelectTrigger aria-label={L.rating}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -646,6 +649,7 @@ function FilterControls({
           <Input
             type="number"
             min={0}
+            aria-label={locale === "ar" ? "الحد الأدنى للسعر" : "Minimum price"}
             placeholder={locale === "ar" ? "الحد الأدنى" : "Min"}
             value={filters.priceMin ?? ""}
             onChange={(e) => update("priceMin", e.target.value ? Number(e.target.value) : undefined)}
@@ -655,6 +659,7 @@ function FilterControls({
           <Input
             type="number"
             min={0}
+            aria-label={locale === "ar" ? "الحد الأقصى للسعر" : "Maximum price"}
             placeholder={locale === "ar" ? "الحد الأقصى" : "Max"}
             value={filters.priceMax ?? ""}
             onChange={(e) => update("priceMax", e.target.value ? Number(e.target.value) : undefined)}
@@ -669,7 +674,7 @@ function FilterControls({
           value={String(filters.minExp ?? "0")}
           onValueChange={(v) => update("minExp", v === "0" ? undefined : Number(v))}
         >
-          <SelectTrigger>
+          <SelectTrigger aria-label={L.experience}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

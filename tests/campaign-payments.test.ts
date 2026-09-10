@@ -452,16 +452,52 @@ describe("payment webhook + simulated callback routes", () => {
     expect(list.find((c) => c.id === campaign.id)?.status).toBe("active");
   });
 
-  it("GET /api/payments/simulate confirms the campaign and redirects to /company?paid=1", async () => {
+  it("POST /api/payments/simulate confirms the campaign and redirects to /company?paid=1", async () => {
     const { campaign, checkoutUrl } = await created();
     const parsed = new URL(checkoutUrl, "http://localhost");
-    const { GET } = await import("../src/app/api/payments/simulate/route");
-    const res = await GET(new Request(`http://localhost${parsed.pathname}${parsed.search}`));
+    const { POST } = await import("../src/app/api/payments/simulate/route");
+    // The interstitial form resubmits the signed params via the query string.
+    const res = await POST(
+      new Request(`http://localhost${parsed.pathname}${parsed.search}`, { method: "POST" })
+    );
     expect(res.status).toBe(302);
     const location = res.headers.get("location") ?? "";
     expect(location).toContain("/company?paid=1");
     const list = await getCampaigns();
     expect(list.find((c) => c.id === campaign.id)?.status).toBe("active");
+  });
+
+  it("GET /api/payments/simulate is side-effect-free — it renders the POST interstitial instead of confirming", async () => {
+    // Audit-point #7: link prefetchers and crawlers issue plain GETs; a GET
+    // must never confirm a payment. The landing verifies the signature
+    // (read-only) and hands off to an auto-submitting form.
+    const { campaign, checkoutUrl } = await created();
+    const parsed = new URL(checkoutUrl, "http://localhost");
+    const { GET } = await import("../src/app/api/payments/simulate/route");
+    const res = await GET(new Request(`http://localhost${parsed.pathname}${parsed.search}`));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(res.headers.get("cache-control")).toContain("no-store");
+    const html = await res.text();
+    expect(html).toContain('method="POST"');
+    expect(html).toContain(parsed.search);
+    // The GET itself must NOT have confirmed anything.
+    const list = await getCampaigns();
+    expect(list.find((c) => c.id === campaign.id)?.status).toBe("pending");
+  });
+
+  it("the simulate redirect target is confined to same-origin paths (no open redirect via ?success=)", async () => {
+    const { checkoutUrl } = await created();
+    const parsed = new URL(checkoutUrl, "http://localhost");
+    const { POST } = await import("../src/app/api/payments/simulate/route");
+    // Append an absolute success URL — the HMAC does not cover `success`, so
+    // the route itself must refuse to redirect off-origin.
+    const attack = `${parsed.pathname}${parsed.search}&success=${encodeURIComponent("https://evil.example/steal")}`;
+    const res = await POST(new Request(`http://localhost${attack}`, { method: "POST" }));
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") ?? "";
+    expect(location).not.toContain("evil.example");
+    expect(location).toContain("/company?paid=1");
   });
 
   it("the webhook rejects a tampered campaign body", async () => {

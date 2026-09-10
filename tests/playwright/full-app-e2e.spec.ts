@@ -434,12 +434,25 @@ test.describe("Customer Role", () => {
 
       expect(suggestionsVisible || bodyHasPlumb).toBeTruthy();
     } else {
-      // SearchClient crashed — error boundary shows fallback
-      const errorFallback = await page
-        .getByText(/Search encountered an issue/i)
-        .isVisible()
-        .catch(() => false);
-      expect(errorFallback || true).toBeTruthy();
+      // SearchClient did not mount — the SSR shell assertion above (body
+      // contains "find.*professional") already validated the page. The error
+      // boundary must be visible in this branch; "neither" is the only failure.
+      await expect
+        .poll(async () => {
+          const errorFallback = await page
+            .getByText(/Search encountered an issue/i)
+            .isVisible()
+            .catch(() => false);
+          const shellVisible = await page
+            .getByText(/find.*professional/i)
+            .first()
+            .isVisible()
+            .catch(() => false);
+          if (errorFallback) return "fallback";
+          if (shellVisible) return "shell";
+          return "none";
+        }, { timeout: 5000 })
+        .not.toBe("none");
     }
   });
 
@@ -540,8 +553,10 @@ test.describe("API Endpoints", () => {
   });
 
   test("search sync endpoint requires auth", async ({ request }) => {
+    // The sync route is admin/CRON_SECRET-guarded like the other operational
+    // endpoints — an anonymous POST must NOT succeed (audit point #4).
     const response = await request.post("/api/search/sync");
-    expect([200, 401, 403]).toContain(response.status());
+    expect([401, 403]).toContain(response.status());
   });
 
   test("referral API requires auth", async ({ request }) => {

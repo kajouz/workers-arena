@@ -43,6 +43,9 @@ next-env.d.ts
 .freebuff/*.log
 .freebuff/desktop-v2.db*
 
+# local scratch (e.g. isolated NEXT_DIST_DIR build dirs — see next.config.ts)
+/tmp/
+
 # meilisearch runtime data
 meili_data/
 
@@ -57,3 +60,7 @@ meili_data/
 
 # Backup files
 backups/
+
+# Playwright artifacts
+test-results/
+playwright-report/

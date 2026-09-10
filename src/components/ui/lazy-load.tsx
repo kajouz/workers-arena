@@ -118,6 +118,7 @@ export function LazyImage({
 
       {/* Image */}
       {isVisible && (
+        // eslint-disable-next-line @next/next/no-img-element -- generic lazy loader with onLoad/onError; src may be a blob/data URL
         <img
           src={src}
           alt={alt}

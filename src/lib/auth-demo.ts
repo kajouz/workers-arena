@@ -1,4 +1,9 @@
 import { cookies } from "next/headers";
+import { demoSessionAllowed } from "@/lib/security";
+
+// The cookie NAMES live in the dependency-free module so middleware/proxy can
+// share them (next/headers can't be imported there).
+import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
 
 export type SessionRole = "customer" | "worker" | "company" | "admin";
 
@@ -10,7 +15,7 @@ export interface SessionUser {
   hue: number;
 }
 
-export const SESSION_COOKIE = "wa_session";
+export const SESSION_COOKIE = SESSION_COOKIE_NAME;
 
 export const DEMO_USERS: Record<SessionRole, SessionUser> = {
   customer: { id: "u-customer", name: "Sara Customer", email: "sara@example.com", role: "customer", hue: 200 },
@@ -56,6 +61,17 @@ export async function getSession(): Promise<SessionUser | null> {
   }
 
   // Demo/dev: cookie-based session (no database required).
+  // Production guard: the demo cookie is an unsigned JSON blob that grants any
+  // role (including admin). A production deploy must not trust it unless demo
+  // mode was EXPLICITLY requested (DEMO_MODE=true — the documented E2E
+  // contract; see demoSessionAllowed). Unset or "false" in production →
+  // refuse it loudly instead of silently granting a forgeable admin session.
+  if (!demoSessionAllowed()) {
+    console.error(
+      "[auth] Demo cookie session rejected in production. Set DEMO_MODE=false with a real DATABASE_URL + AUTH_SECRET, or the app will sign everyone out."
+    );
+    return null;
+  }
   try {
     const store = await cookies();
     const raw = store.get(SESSION_COOKIE)?.value;

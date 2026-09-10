@@ -139,9 +139,8 @@ export function SponsoredSearchResults({
       .finally(() => setLoading(false));
   }, [placement, category, city]);
 
-  if (loading || ads.length === 0) return null;
-
-  // Track impression when ads load
+  // Track impression when ads load — declared before the early return below
+  // (hooks must never be called conditionally).
   useEffect(() => {
     if (ads.length > 0 && variant) {
       ads.forEach((ad) => {
@@ -149,6 +148,8 @@ export function SponsoredSearchResults({
       });
     }
   }, [ads, variant, trackImpression]);
+
+  if (loading || ads.length === 0) return null;
 
   const handleAdClick = (adId: string) => {
     if (variant) {

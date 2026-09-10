@@ -73,7 +73,10 @@ export function useRetargeting() {
   // Track page view on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
+
+    // Snapshot the load time so the cleanup below reads a stable value (the
+    // ref may be stale by the time the cleanup runs).
+    const loadTime = pageLoadTime.current;
     const profile = getProfile() ?? initProfile();
     profile.lastVisit = Date.now();
     profile.visitCount += 1;
@@ -91,7 +94,7 @@ export function useRetargeting() {
 
     // Track bounce on unmount if user left quickly
     return () => {
-      const timeOnPage = Date.now() - pageLoadTime.current;
+      const timeOnPage = Date.now() - loadTime;
       if (timeOnPage < BOUNCE_THRESHOLD_MS) {
         const p = getProfile();
         if (p) {

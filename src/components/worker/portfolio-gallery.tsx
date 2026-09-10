@@ -93,6 +93,8 @@ export function PortfolioGallery({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setViewMode("grid")}
+            aria-label="Grid view"
+            aria-pressed={viewMode === "grid"}
             className={cn(
               "p-2 rounded-lg transition-colors",
               viewMode === "grid" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50"
@@ -102,6 +104,8 @@ export function PortfolioGallery({
           </button>
           <button
             onClick={() => setViewMode("list")}
+            aria-label="List view"
+            aria-pressed={viewMode === "list"}
             className={cn(
               "p-2 rounded-lg transition-colors",
               viewMode === "list" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50"

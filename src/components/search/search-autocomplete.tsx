@@ -81,7 +81,7 @@ export function SearchAutocomplete({
     );
 
     setSuggestions(filtered.slice(0, 6));
-  }, [value, history]);
+  }, [value, history, isAr]);
 
   // Close on click outside
   useEffect(() => {
@@ -191,7 +191,6 @@ export function SearchAutocomplete({
                   key={`${suggestion.type}-${i}`}
                   onClick={() => handleSelect(suggestion)}
                   className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-ink-700 hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-800"
-                  role="option"
                 >
                   <span className="text-ink-400">{suggestion.icon}</span>
                   <span className="flex-1 truncate">{suggestion.label}</span>

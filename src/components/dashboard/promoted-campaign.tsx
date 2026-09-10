@@ -90,6 +90,7 @@ export function PromotedCampaignCard() {
                 ...campaign,
                 status: campaign.status === "active" ? "paused" : "active",
               })}
+              aria-label={campaign.status === "active" ? "Pause campaign" : "Resume campaign"}
               className="p-1 hover:bg-white/20 rounded-lg transition-colors"
             >
               {campaign.status === "active" ? (

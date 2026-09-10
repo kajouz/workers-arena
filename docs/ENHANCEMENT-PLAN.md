@@ -69,7 +69,7 @@ Improvements to how customers, workers, and admins *move through* the product. O
 - [ ] **🟡 W2 rest of the repo seam** — suggestions, analytics, and all mutations (reviews, leads, subscriptions, notifications, activity, verification) still run on the demo dataset; add the trigram search index + Redis for hot queries.
 - [ ] **🟡 OAuth user linking + email verification + password reset** — Google sign-in lacks the `signIn` upsert; the FK constraint is documented in ARCHITECTURE.md.
 - [ ] **🟡 Cloudinary uploads** — gallery/certifications/portfolio/company logos/blog covers via the `Media` model (currently placeholder data).
-- [ ] **🟡 Production hardening** — argon2, Redis rate limiting, CSP, Sentry, structured logging, CI (typecheck + tests + E2E on PR), ESLint/Prettier.
+- [ ] **🟡 Production hardening** — scrypt hashing ✅ (was PBKDF2/SHA-256; legacy rows re-hash on login), Redis rate limiting, CSP, Sentry, structured logging, CI (typecheck + tests + E2E on PR), ESLint/Prettier.
 - [ ] **🟡 Admin review-moderation queue** — approve/reject + `verifiedPurchase` + spam reporting (P0 checklist item; also feeds §2.1's weighted reviews).
 
 ### 3.3 Growth & retention

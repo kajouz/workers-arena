@@ -109,7 +109,7 @@ export function DropZone({
         onFilesSelected(selectedFiles);
       }
     },
-    [files.length, maxFiles, accept, maxSize, isArabic, onFilesSelected]
+    [files.length, maxFiles, isArabic, onFilesSelected, validateFile]
   );
 
   const handleDragOver = (e: React.DragEvent) => {

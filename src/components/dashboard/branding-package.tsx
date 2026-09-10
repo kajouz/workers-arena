@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import {
   Palette,
@@ -130,35 +130,37 @@ export function BrandingPackage() {
   const [selectedDesign, setSelectedDesign] = useState("modern");
   const [selectedFrame, setSelectedFrame] = useState("none");
 
-  useEffect(() => {
-    fetchBrandingConfig();
-  }, []);
-
-  const fetchBrandingConfig = async () => {
+  const fetchBrandingConfig = useCallback(async () => {
     try {
       const response = await fetch("/api/worker/branding");
       if (response.ok) {
         const data = await response.json();
-        setConfig(data.config || config);
-        setCustomUrl(data.config?.customUrl || "");
-        setAccentColor(data.config?.accentColor || "#f97316");
-        setSelectedDesign(data.config?.cardDesign || "modern");
-        setSelectedFrame(data.config?.frameStyle || "none");
+        const cfg = data.config;
+        if (cfg) {
+          setConfig(cfg);
+          setCustomUrl(cfg.customUrl || "");
+          setAccentColor(cfg.accentColor || "#f97316");
+          setSelectedDesign(cfg.cardDesign || "modern");
+          setSelectedFrame(cfg.frameStyle || "none");
+          // Map config to features
+          setFeatures(
+            BRANDING_FEATURES.map((f) => ({
+              ...f,
+              enabled: cfg[`${f.id}Enabled` as keyof BrandingConfig] as boolean,
+            }))
+          );
+        }
       }
     } catch (error) {
       console.error("Error fetching branding config:", error);
     } finally {
       setLoading(false);
     }
+  }, []);
 
-    // Map config to features
-    setFeatures(
-      BRANDING_FEATURES.map((f) => ({
-        ...f,
-        enabled: config[`${f.id}Enabled` as keyof BrandingConfig] as boolean,
-      }))
-    );
-  };
+  useEffect(() => {
+    fetchBrandingConfig();
+  }, [fetchBrandingConfig]);
 
   const handleToggleFeature = async (featureId: string) => {
     const feature = features.find((f) => f.id === featureId);

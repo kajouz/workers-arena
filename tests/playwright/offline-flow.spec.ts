@@ -25,15 +25,16 @@ test.describe("Offline queue replay flow", () => {
   });
 
   test("service worker is registered and active", async ({ page }) => {
-    // Check that the service worker is registered
-    // Note: In headless mode, SW registration may take time
-    const swRegistered = await page.evaluate(async () => {
-      if (!("serviceWorker" in navigator)) return false;
-      const reg = await navigator.serviceWorker.getRegistration();
-      return !!reg?.active || !!reg?.installing || !!reg?.waiting;
-    });
-    // Soft check - SW may not be fully active in headless mode
-    expect(typeof swRegistered).toBe("boolean");
+    // The registrar registers on mount; poll until a registration exists.
+    await expect
+      .poll(async () => {
+        return page.evaluate(async () => {
+          if (!("serviceWorker" in navigator)) return false;
+          const reg = await navigator.serviceWorker.getRegistration();
+          return Boolean(reg?.active || reg?.installing || reg?.waiting);
+        });
+      }, { timeout: 10000 })
+      .toBe(true);
   });
 
   test("precached pages are available offline", async ({ page }) => {
@@ -91,17 +92,16 @@ test.describe("Offline queue replay flow", () => {
     await page.goto("/");
     await page.waitForLoadState("domcontentloaded");
 
-    // Wait for the install banner to appear (it has a 2s delay)
-    // Note: The banner may not appear if the app is already installed
-    // or if the user dismissed it recently, so we just verify the
-    // component exists in the DOM
-    const hasInstallBanner = await page.evaluate(() => {
-      // Check if the install banner component is in the DOM
-      return document.querySelector("[data-testid='install-banner']") !== null ||
-             document.body.innerHTML.includes("Install WorkersArena");
-    });
-    // This is a soft check - the banner may not appear in all conditions
-    expect(typeof hasInstallBanner).toBe("boolean");
+    // The banner only renders when the browser exposes an install prompt
+    // (canInstall) — headless Chromium never fires beforeinstallprompt, so the
+    // banner (h3 "Install WorkersArena") must stay hidden even after its 2s
+    // show-delay. A visible banner in headless is a gating regression.
+    await page.waitForTimeout(2500); // banner delay is 2s
+    const bannerVisible = await page
+      .getByRole("heading", { name: "Install WorkersArena" })
+      .isVisible()
+      .catch(() => false);
+    expect(bannerVisible).toBe(false);
   });
 
   test("notification actions are configured in service worker", async ({ page }) => {
@@ -212,10 +212,11 @@ test.describe("Offline queue API contract", () => {
         payload: { workerId: "khaled-al-harbi-plumbing" },
       },
     });
-    // Should succeed (200) or return null worker (still 200 with ok: false)
     expect(response.status()).toBe(200);
+    // The route contract is { ok: boolean } — ok:false (unknown worker) is a
+    // valid outcome, a missing `ok` key is not.
     const body = await response.json();
-    expect(typeof body.ok).toBe("boolean");
+    expect(body).toHaveProperty("ok");
   });
 
   test("replay endpoint processes valid review", async ({ request }) => {
@@ -232,7 +233,7 @@ test.describe("Offline queue API contract", () => {
     });
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(typeof body.ok).toBe("boolean");
+    expect(body).toHaveProperty("ok");
   });
 });
 

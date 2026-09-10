@@ -66,7 +66,13 @@
     ".data/.next-repro-24514/types/**/*.ts",
     ".data/.next-repro-24514/dev/types/**/*.ts",
     "/Users/ka/Documents/WorkersArena-freebuff/.data/repro-prod-dist/types/**/*.ts",
-    "/Users/ka/Documents/WorkersArena-freebuff/.data/repro-prod-dist/dev/types/**/*.ts"
+    "/Users/ka/Documents/WorkersArena-freebuff/.data/repro-prod-dist/dev/types/**/*.ts",
+    ".next-cachetest/types/**/*.ts",
+    ".next-cachetest/dev/types/**/*.ts",
+    ".data/.next-nightly-rehearsal/types/**/*.ts",
+    ".data/.next-nightly-rehearsal/dev/types/**/*.ts",
+    "/tmp/nightly-pwa-dist/types/**/*.ts",
+    "/tmp/nightly-pwa-dist/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

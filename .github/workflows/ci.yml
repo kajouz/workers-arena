@@ -5,9 +5,19 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual runs execute the nightly jobs (on-demand live-DB + PWA rehearsal).
+  workflow_dispatch:
+  # 02:30 UTC nightly — nightly-live-db (live-Postgres suites + e2e-smoke) and
+  # nightly-pwa (device matrix) run in parallel; lint/unit/e2e/build skip on
+  # schedule via their event gates.
+  schedule:
+    - cron: "30 2 * * *"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Lane per event type: the nightly (schedule/dispatch) must never cancel an
+  # in-progress push run (which ends in a production deploy) or vice versa.
+  # Push/PR behavior is unchanged — their refs already differed.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:
@@ -15,9 +25,12 @@ env:
 
 jobs:
   # ─── Lint & Typecheck ───
+  # Gated to push/PR so a scheduled nightly runs ONLY the live-Postgres job
+  # (no duplicated lint/unit/e2e/build cost on the 02:30 UTC main run).
   lint:
-    name: Lint & Typecheck
+    name: Lint & Typecheck (enforced)
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -29,15 +42,16 @@ jobs:
       - run: npm ci
 
       - name: ESLint
-        run: npx eslint . --max-warnings 0 || true
+        run: npm run lint
 
       - name: TypeScript
-        run: npx tsc --noEmit || true
+        run: npm run typecheck
 
   # ─── Unit Tests ───
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -59,11 +73,227 @@ jobs:
       - name: Run tests
         run: npx vitest run --reporter=verbose --exclude '**/e2e-smoke.test.ts' --exclude '**/e2e-critical-flows.test.ts' --exclude '**/*-prisma.test.ts'
 
+  # ─── Playwright E2E (production build) ───
+  e2e:
+    name: E2E (Playwright, production build)
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Setup environment
+        run: |
+          cp .env.example .env
+          # DEMO_MODE=true is the explicit demo-session opt-in (see
+          # demoSessionAllowed): the production server the webServer boots
+          # signs Playwright's wa_session cookies in — keyless, database-free.
+          echo 'DEMO_MODE=true' >> .env
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run Playwright tests against a production build
+        # NEXT_DISABLE_STANDALONE lets `next start` serve the build (standalone
+        # output refuses it); PW_PORT must match the config's webServer port.
+        # --workers=4 pins the config's CI default explicitly: 4 headless
+        # Chromiums + the production Next server fit ubuntu-latest's 2 vCPU /
+        # 7 GB with headroom — more workers there means CPU/RAM contention and
+        # flaky timing-sensitive assertions, not speed. Change the config's
+        # `workers` default AND this pin together.
+        run: npx playwright test --workers=4
+        env:
+          CI: "true"
+          PW_PORT: "3001"
+          NEXT_DISABLE_STANDALONE: "1"
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # ─── Nightly Live-Postgres (scheduled + manual) ───
+  # Runs the suites the PR CI excludes (tests/*-prisma.test.ts + the e2e-smoke
+  # matrix) against a REAL database: Postgres service container → migrate →
+  # seed → db:smoke → prisma vitest suites → e2e-critical-flows (real-data dev
+  # server) → e2e-smoke (its own dev+prod matrix; spawnServer force-sets
+  # DEMO_MODE=true, so the job-level real-mode env cannot break its cookie
+  # auth). Sequenced serially on one runner: the suites mutate shared seeded
+  # rows, so parallel jobs would collide.
+  nightly-live-db:
+    name: Nightly Live-Postgres (prisma + e2e-smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: workers_arena_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Setup environment (real mode)
+        run: |
+          cp .env.example .env
+          # Real-data contract (see realAuthEnabled / realDataEnabled):
+          # DEMO_MODE=false + DATABASE_URL + a non-placeholder AUTH_SECRET.
+          sed -i 's|DATABASE_URL=.*|DATABASE_URL="postgresql://postgres:postgres@localhost:5432/workers_arena_test?schema=public"|' .env
+          sed -i 's|DEMO_MODE=.*|DEMO_MODE="false"|' .env
+          sed -i 's|AUTH_SECRET=.*|AUTH_SECRET="nightly-ci-live-db-secret-0123456789abcdef"|' .env
+          sed -i 's|AUTH_URL=.*|AUTH_URL="http://localhost:3001"|' .env
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed database
+        run: npm run db:seed
+
+      - name: Data-layer smoke (db:smoke)
+        run: npm run db:smoke
+
+      - name: Run live-Postgres prisma suites
+        run: npx vitest run tests/prisma-repo.test.ts tests/booking-email-chain-prisma.test.ts tests/campaign-email-chain-prisma.test.ts
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/workers_arena_test?schema=public
+          DEMO_MODE: "false"
+          AUTH_SECRET: nightly-ci-live-db-secret-0123456789abcdef
+
+      - name: Start real-data dev server (for e2e-critical-flows)
+        run: |
+          npx next dev -p 3001 > /tmp/next-dev-nightly.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3001/api/health > /dev/null 2>&1; then
+              echo "dev server ready (attempt $i)"; break
+            fi
+            sleep 2
+          done
+          curl -fsS http://localhost:3001/api/health
+        env:
+          DEMO_MODE: "false"
+
+      - name: Critical flows against real data
+        run: npx vitest run tests/e2e-critical-flows.test.ts
+        env:
+          DEMO_MODE: "false"
+
+      - name: E2E hydration smoke (dev + prod matrix)
+        # Runs its own Chrome-driven dev+prod matrix against isolated servers.
+        # Needs Chrome on the runner: ubuntu-latest ships Google Chrome.
+        run: npx vitest run tests/e2e-smoke.test.ts
+        env:
+          E2E_AUTOCLEAN: "1"
+          E2E_DUMP_NOTES: "1"
+
+      - name: Upload smoke logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-live-db-logs
+          path: /tmp/next-dev-nightly.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ─── Nightly PWA Device Matrix (scheduled + manual) ───
+  # The push/PR e2e job already runs pwa-device-matrix.spec.ts on every PR,
+  # but scheduled runs execute ONLY nightly-live-db — so viewport/offline
+  # regressions never surfaced on schedule. This job closes that gap (hence
+  # the schedule/dispatch gate — unlike the live-DB suites, the matrix needs
+  # no PR-side coverage from a dedicated job). It runs in parallel with
+  # nightly-live-db: the spec exercises public pages only and writes nothing
+  # to the database, so it shares no state with the DB job, and the two fit
+  # a night on free runners side by side.
+  # Production build (PW_PROD), not dev: the 35-URL SW precache compiles
+  # on demand under `next dev` (cold installs take minutes), while static
+  # prod assets precache in seconds — and CI's e2e already validates against
+  # prod, so this matches the mode where offline behavior actually ships.
+  nightly-pwa:
+    name: Nightly PWA Device Matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Setup environment
+        run: |
+          cp .env.example .env
+          # The webServer's production server signs Playwright's demo cookies
+          # (see demoSessionAllowed) — same contract as the push/PR e2e job.
+          echo 'DEMO_MODE=true' >> .env
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run PWA device matrix against a production build
+        # --workers=4: same sizing contract as the push/PR e2e job above —
+        # ubuntu-latest (2 vCPU / 7 GB) tops out at 4 parallel Chromiums plus
+        # the production server; the config's CI default mirrors it, but the
+        # workflow pins it so runner sizing stays explicit and predictable.
+        run: npx playwright test tests/playwright/pwa-device-matrix.spec.ts --workers=4
+        env:
+          CI: "true"
+          PW_PORT: "3001"
+          PW_PROD: "1"
+          NEXT_DISABLE_STANDALONE: "1"
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-pwa-report
+          path: playwright-report/
+          retention-days: 7
+
   # ─── Build ───
   build:
     name: Build
     runs-on: ubuntu-latest
     needs: [lint, test]
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -109,7 +339,7 @@ jobs:
   deploy-preview:
     name: Deploy Preview
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, e2e]
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
@@ -122,13 +352,12 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: --pre
-        continue-on-error: true
 
   # ─── Deploy Production (main branch only) ───
   deploy-production:
     name: Deploy Production
     runs-on: ubuntu-latest
-    needs: [lint, test, build]
+    needs: [lint, test, e2e, build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
@@ -143,4 +372,3 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: --prod
-        continue-on-error: true

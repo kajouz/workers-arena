@@ -187,11 +187,9 @@ export class PrefetchManager {
  */
 export function usePrefetchManager() {
   const router = useRouter();
-  const managerRef = useRef<PrefetchManager | null>(null);
-
-  if (!managerRef.current) {
-    managerRef.current = new PrefetchManager(router);
-  }
-
-  return managerRef.current;
+  // Lazy-init via useState so the manager is created once, without touching a
+  // ref during render (react-hooks/refs). The router instance captured here is
+  // stable for the component's lifetime.
+  const [manager] = useState(() => new PrefetchManager(router));
+  return manager;
 }

@@ -90,10 +90,29 @@ const PRECACHE_URLS = [
 const SEARCH_URLS = PRECACHE_URLS.filter((u) => u.startsWith("/search?"));
 
 /* ── install / activate ─────────────────────────────────────────────────── */
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)).then(() => self.skipWaiting())
+/** Precache each URL independently — `cache.addAll` is all-or-nothing, so a
+ * single failed fetch (a dev server compiling on demand, a flaky network, a
+ * temporarily 500ing route) aborted the WHOLE install and the SW never
+ * activated: brand-new visitors had NO offline support at all. A tolerant
+ * install keeps whatever succeeded, so the shell degrades gracefully — the
+ * property the offline fallback exists to provide. Anything missed is
+ * fetched lazily by the runtime handlers on later visits. */
+async function precacheAll() {
+  const cache = await caches.open(SHELL_CACHE);
+  const results = await Promise.allSettled(
+    PRECACHE_URLS.map((url) =>
+      cache.add(url).catch((err) => {
+        console.warn(`[SW] precache missed ${url}:`, String(err).slice(0, 80));
+        return null;
+      })
+    )
   );
+  const missed = results.filter((r) => r.status === "rejected").length;
+  if (missed > 0) console.warn(`[SW] precache: ${missed}/${PRECACHE_URLS.length} URLs failed (will retry on next visit)`);
+}
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(precacheAll().then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {

@@ -715,6 +715,10 @@
 | 16.1.2 | Click "Install" | App installed |
 | 16.1.3 | Open installed app | Standalone mode |
 
+### 16.0 Automated Device Matrix (CI)
+
+`tests/playwright/pwa-device-matrix.spec.ts` runs the responsive + PWA suite across six device profiles (iPhone SE, iPhone 14 Pro Max, iPad portrait/landscape, 1280/1920 desktop): horizontal-overflow checks on the three highest-traffic routes per device, mobile bottom-nav tap-target checks (≥ 40px), phone search-CTA checks, and one patient offline pass (SW activation → cached navigation serves → unknown route serves the bilingual offline page). Note: on a cold dev server the SW install takes minutes (precache URLs compile on demand); the tolerant installer (`precacheAll` in `public/sw.js`) keeps partial precache so a single failed URL can no longer disable offline support for new visitors.
+
 ### 16.2 Offline Functionality
 
 | Step | Action | Expected Result |
@@ -766,6 +770,14 @@
 ---
 
 ## 18. Accessibility Testing
+
+### 18.0 Automated axe-core Audits (CI)
+
+Every push runs automated WCAG 2.0/2.1 A+AA audits via `@axe-core/playwright` against a production build (the "axe audit passes" tests in `tests/playwright/accessibility.spec.ts`), covering the homepage, search, worker profile, categories, and login pages. Audits run on the hydrated DOM and fail on any new violation of the A/AA rule set.
+
+- **Accepted debt** is tracked in the spec's `ALLOWED_VIOLATIONS` list — each entry must name the rule, impact, page, and reason. Findings are reported as test annotations so they stay visible, and a paid-off entry is surfaced as stale.
+- **New violations fail CI** — fix the component (label, role, aria attribute) rather than extending the allowlist.
+- Known accepted debt (as of 2026-09): low-contrast utility text on the homepage and worker profile — a palette change tracked separately.
 
 ### 18.1 Keyboard Navigation
 
@@ -990,8 +1002,21 @@ When logging bugs, include:
 | 26.4 | Navigate pages | Page views tracked |
 | 26.5 | Check CI workflow | GitHub Actions runs on push |
 | 26.6 | Verify test results | 958+ tests pass |
+| 26.6a | Nightly live-Postgres job (02:30 UTC, manual dispatch available) | prisma suites + db:smoke + critical flows + e2e-smoke run against a real migrated/seeded database and pass |
+| 26.6b | Nightly PWA device-matrix job (runs in parallel with 26.6a) | `pwa-device-matrix.spec.ts` runs against a production build (6 device profiles, offline pass, `--workers=4`) — 20 pass, 12 mobile-only skips, 0 fail |
+| 26.6c | Critical-flows suite gate | Skips with a warning when no server is reachable; runs 19 real HTTP checks against a live one |
 | 26.7 | Check Lighthouse CI | Performance score > 70 |
 | 26.8 | Verify deploy | Preview deploys on PR |
+
+**Playwright worker pin (CI sizing contract):** every CI Playwright run — the
+push/PR e2e job and the nightly PWA device-matrix job — invokes
+`--workers=4` explicitly. Four headless Chromium processes plus the
+production Next server fill a `ubuntu-latest` runner (2 vCPU / 7 GB RAM)
+with headroom; more workers means CPU/RAM contention and flaky
+timing-sensitive assertions, not speed. `playwright.config.ts` mirrors the
+same number as its CI default (`workers: isCI ? 4 : 8`), so a change to the
+pin must be made in **both** the config and the workflow command lines.
+Local runs stay at 8 workers (developer machines vary; not under test).
 
 ---
 

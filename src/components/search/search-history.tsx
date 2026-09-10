@@ -36,10 +36,21 @@ export function SearchHistory({ onSelect, className }: SearchHistoryProps) {
       </div>
       <div className="flex flex-wrap gap-2">
         {history.map((entry, index) => (
-          <button
+          // Wrapper div rather than a <button>: the chip contains a Remove
+          // button, and nesting a <button> inside a <button> is invalid HTML —
+          // the parser splits them and React reports a hydration mismatch.
+          <div
             key={`${entry.timestamp}-${index}`}
+            role="button"
+            tabIndex={0}
             onClick={() => onSelect(entry)}
-            className="group flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 py-1.5 text-sm text-ink-700 transition-colors hover:bg-ink-50 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200 dark:hover:bg-ink-700"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(entry);
+              }
+            }}
+            className="group flex cursor-pointer select-none items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 py-1.5 text-sm text-ink-700 transition-colors hover:bg-ink-50 focus-visible:outline-2 focus-visible:outline-brand-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-200 dark:hover:bg-ink-700"
           >
             <span className="max-w-[150px] truncate">
               {entry.query || entry.category || "—"}
@@ -50,6 +61,7 @@ export function SearchHistory({ onSelect, className }: SearchHistoryProps) {
               </span>
             )}
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 removeSearch(index);
@@ -59,7 +71,7 @@ export function SearchHistory({ onSelect, className }: SearchHistoryProps) {
             >
               <X className="size-3" />
             </button>
-          </button>
+          </div>
         ))}
       </div>
     </div>

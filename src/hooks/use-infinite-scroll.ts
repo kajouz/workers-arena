@@ -5,7 +5,12 @@ import { useEffect, useRef } from "react";
 export function useInfiniteScroll(onLoadMore: () => void, hasMore: boolean, disabled = false) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const callbackRef = useRef(onLoadMore);
-  callbackRef.current = onLoadMore;
+
+  // Keep the latest callback without re-creating the observer — assigned in an
+  // effect (not during render) per react-hooks/refs.
+  useEffect(() => {
+    callbackRef.current = onLoadMore;
+  });
 
   useEffect(() => {
     if (disabled || !hasMore) return;

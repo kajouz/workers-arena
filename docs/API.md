@@ -212,7 +212,15 @@ Track an ad click.
 Stripe webhook endpoint.
 
 #### GET /api/payments/simulate
-Simulated payment completion (demo mode).
+Simulated payment landing (demo mode) — verifies the signed token read-only and
+renders an auto-submitting form; **no side effects** (link prefetchers/crawlers
+issue plain GETs and must never confirm a payment).
+
+#### POST /api/payments/simulate
+Simulated payment confirmation (demo mode) — verifies the signed token and
+confirms the payment, then 302s back to the success target. Signed params ride
+the query string (as the interstitial form resubmits them) or an equivalent JSON
+body. Idempotent — a re-POST is a no-op (CAS).
 
 ---
 

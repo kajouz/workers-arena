@@ -137,4 +137,36 @@ describe("getSession — demo mode (cookie path preserved)", () => {
     await getSession();
     expect(vi.mocked(auth)).not.toHaveBeenCalled();
   });
+
+  it("REFUSES the demo cookie when NODE_ENV=production (production guard)", async () => {
+    // The demo cookie is an unsigned JSON blob granting any role (incl. admin).
+    // In production the app must never honor it unless DEMO_MODE was set
+    // deliberately ("true") — an unset/"false" value on a deploy means the
+    // app must fail loud instead of silently trusting the forgeable session.
+    vi.stubEnv("NODE_ENV", "production");
+    // Pin the misconfigured-deploy case: DEMO_MODE unset or "false". (stubEnv
+    // can't unset, so "" stands in — both take the same refuse branch. The
+    // ambient value must never leak in: a dev .env with DEMO_MODE=true would
+    // otherwise flip this test green while production misconfigures.)
+    vi.stubEnv("DEMO_MODE", "");
+    cookieStore.get.mockReturnValue({
+      value: encodeURIComponent(JSON.stringify(DEMO_USERS.admin)),
+    });
+    const session = await getSession();
+    expect(session).toBeNull();
+    expect(vi.mocked(auth)).not.toHaveBeenCalled(); // guard fires before NextAuth
+  });
+
+  it("HONORS the demo cookie in production when DEMO_MODE=true (explicit opt-in)", async () => {
+    // The e2e prod matrix / CI Playwright job boot production servers with
+    // DEMO_MODE=true — deliberate, documented demo mode, not a misconfiguration.
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "true");
+    cookieStore.get.mockReturnValue({
+      value: encodeURIComponent(JSON.stringify(DEMO_USERS.admin)),
+    });
+    const session = await getSession();
+    expect(session).toMatchObject({ role: "admin" });
+    expect(vi.mocked(auth)).not.toHaveBeenCalled();
+  });
 });

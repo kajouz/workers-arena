@@ -478,7 +478,7 @@ export function GamificationCard() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-amber-500" />
-                  <span>Exclusive "Expert" badge on profile</span>
+                  <span>Exclusive &ldquo;Expert&rdquo; badge on profile</span>
                 </li>
               </ul>
             </div>

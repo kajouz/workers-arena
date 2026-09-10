@@ -44,8 +44,18 @@ async function goToDashboard(page: Page) {
   await loginAsWorker(page);
   await page.goto("/dashboard");
   await page.waitForLoadState("domcontentloaded");
-  // Wait for the dashboard content to render
-  await page.waitForTimeout(2000);
+  // The revenue tools section (and its tab strip) renders after hydration —
+  // wait for the first tab instead of a fixed timeout.
+  await expect(page.getByRole("button", { name: /Overview/i }).first()).toBeVisible({
+    timeout: 15000,
+  });
+}
+
+// Each dashboard card renders a unique gradient header text; the tab strip
+// may carry the same label, so assert on the *card* copy ("... Tier",
+// "... Options", "... Program") rather than the bare tab name.
+function cardHeader(page: Page, text: string | RegExp) {
+  return page.getByText(text).first();
 }
 
 // ====================================================================
@@ -55,18 +65,10 @@ test.describe("Worker Revenue Tools", () => {
   test("overview tab renders all 4 main cards", async ({ page }) => {
     await goToDashboard(page);
 
-    // Verify the Overview tab is active by default
-    // The revenue tools section should show the 4 overview cards
-    // Lead Credits card (use .nth(1) to skip the tab button)
+    // Verify the Overview tab is active by default — the 4 overview cards:
     await expect(page.getByText("Lead Credits").nth(1)).toBeVisible();
-
-    // Token card
     await expect(page.getByText("Application Tokens").first()).toBeVisible();
-
-    // Commission card
     await expect(page.getByText("Commission Tier").first()).toBeVisible();
-
-    // Promoted Profile card
     await expect(page.getByText("Promoted Profile").first()).toBeVisible();
   });
 
@@ -93,12 +95,16 @@ test.describe("Worker Revenue Tools", () => {
     ];
 
     for (const tabName of expectedTabs) {
-      // Find the tab button by text (some tabs are hidden on mobile, use desktop)
-      const tabButton = page.getByRole("button", { name: new RegExp(tabName, "i") }).first();
+      // Anchored match: /Promote/i would also hit the "Enhanced Promo" tab.
+      const tabButton = page
+        .getByRole("button", { name: new RegExp(`^${tabName}$`, "i") })
+        .first();
       await expect(tabButton).toBeVisible();
       await tabButton.click();
-      // Wait for tab content to render
-      await page.waitForTimeout(500);
+      // The tab strip buttons always exist, so wait until the clicked tab is
+      // actually active (aria-pressed flips on the active button) instead of
+      // a fixed sleep.
+      await expect(tabButton).toHaveAttribute("aria-pressed", "true", { timeout: 5000 });
     }
   });
 
@@ -108,15 +114,7 @@ test.describe("Worker Revenue Tools", () => {
   test("lead credits tab shows balance and Buy More button", async ({ page }) => {
     await goToDashboard(page);
 
-    // Click the Lead Credits tab
     await page.getByRole("button", { name: /Lead Credits/i }).first().click();
-    await page.waitForTimeout(2000);
-
-    // Verify balance card renders — wait for API data to load
-    const leadCreditsText = page.getByText("Lead Credits");
-    await expect(leadCreditsText.first()).toBeVisible({ timeout: 10000 });
-
-    // Verify Buy More button exists
     const buyMoreBtn = page.getByRole("button", { name: /Buy More/i }).first();
     await expect(buyMoreBtn).toBeVisible({ timeout: 10000 });
   });
@@ -125,15 +123,13 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Lead Credits/i }).first().click();
-    await page.waitForTimeout(1000);
 
-    // Click Buy More
+    // Click Buy More — the auto-appear assertion replaces the old sleep.
     const buyMoreBtn = page.getByRole("button", { name: /Buy More/i }).first();
     await buyMoreBtn.click();
-    await page.waitForTimeout(500);
 
-    // Verify package options appear (check for package pricing text)
-    await expect(page.getByText(/credits?\s*\(?\+?\d*\s*b?o?n?u?s?\)?/i).first()).toBeVisible();
+    // Package list header renders only after the toggle.
+    await expect(page.getByText("Buy Credit Packages")).toBeVisible({ timeout: 5000 });
   });
 
   // ====================================================================
@@ -143,7 +139,6 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /^Tokens$/i }).first().click();
-    await page.waitForTimeout(1000);
 
     // Verify token balance renders
     await expect(page.getByText("Application Tokens")).toBeVisible();
@@ -157,14 +152,12 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /^Tokens$/i }).first().click();
-    await page.waitForTimeout(1000);
 
     // Click Buy More
     await page.getByRole("button", { name: /Buy More/i }).first().click();
-    await page.waitForTimeout(500);
 
-    // Token packages should appear
-    await expect(page.getByText(/tokens?\s*\(?\+?\d*\s*b?o?n?u?s?\)?/i).first()).toBeVisible();
+    // Token packages header renders only after the toggle.
+    await expect(page.getByText("Buy Token Packages")).toBeVisible({ timeout: 5000 });
   });
 
   // ====================================================================
@@ -174,11 +167,9 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Commission/i }).first().click();
-    await page.waitForTimeout(2000);
 
-    // Verify commission tier card renders — wait for API data
-    const commissionText = page.getByText("Commission Tier");
-    await expect(commissionText.first()).toBeVisible({ timeout: 10000 });
+    // Card header is unique to the commission card.
+    await expect(cardHeader(page, "Commission Tier")).toBeVisible({ timeout: 10000 });
 
     // Verify at least 2 of the 4 tiers are displayed (some may be off-screen)
     const tierNames = ["Bronze", "Silver", "Gold", "Platinum"];
@@ -194,7 +185,6 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Commission/i }).first().click();
-    await page.waitForTimeout(1500);
 
     // Verify lifetime billings text
     await expect(page.getByText(/lifetime billings/i)).toBeVisible();
@@ -206,12 +196,11 @@ test.describe("Worker Revenue Tools", () => {
   test("promoted profile shows campaign status and metrics", async ({ page }) => {
     await goToDashboard(page);
 
-    await page.getByRole("button", { name: /Promote/i }).first().click();
-    await page.waitForTimeout(2000);
+    // Anchored: /Promote/i would also match the "Enhanced Promo" tab button.
+    await page.getByRole("button", { name: /^Promote$/i }).first().click();
 
     // Verify promoted profile card renders
-    const promoText = page.getByText("Promoted Profile");
-    await expect(promoText.first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Promoted Profile").first()).toBeVisible({ timeout: 10000 });
 
     // Verify at least the status badge is visible (Active or Paused)
     const statusVisible =
@@ -223,26 +212,30 @@ test.describe("Worker Revenue Tools", () => {
   test("promoted profile pause/play toggle works", async ({ page }) => {
     await goToDashboard(page);
 
-    await page.getByRole("button", { name: /Promote/i }).first().click();
-    await page.waitForTimeout(2000);
+    // Anchored: /Promote/i would also match the "Enhanced Promo" tab button.
+    await page.getByRole("button", { name: /^Promote$/i }).first().click();
 
     // Wait for the promoted card to render
-    const promoText = page.getByText("Promoted Profile");
-    await expect(promoText.first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Promoted Profile").first()).toBeVisible({ timeout: 10000 });
 
-    // Find the pause/play toggle button within the promoted card
-    // It's a small button with Pause or Play icon near the status
-    const toggleBtn = page.locator("button").filter({ has: page.locator("svg") }).nth(-1);
-    const wasActive = await page.getByText("Active").first().isVisible().catch(() => false);
-    
+    // The toggle now carries an accessible name (see promoted-campaign.tsx)
+    const toggleBtn = page.getByRole("button", { name: /Pause campaign|Resume campaign/i }).first();
+    await expect(toggleBtn).toBeVisible({ timeout: 5000 });
+
+    const wasActive = await page
+      .getByText("Active")
+      .first()
+      .isVisible()
+      .catch(() => false);
+
     await toggleBtn.click();
-    await page.waitForTimeout(500);
 
-    // Status should toggle
-    const isNowPaused = await page.getByText("Paused").first().isVisible().catch(() => false);
-    const isNowActive = await page.getByText("Active").first().isVisible().catch(() => false);
-    expect(isNowPaused || isNowActive).toBeTruthy();
-    expect(isNowPaused).not.toBe(wasActive);
+    // Status should toggle to the opposite badge.
+    if (wasActive) {
+      await expect(page.getByText("Paused").first()).toBeVisible({ timeout: 5000 });
+    } else {
+      await expect(page.getByText("Active").first()).toBeVisible({ timeout: 5000 });
+    }
   });
 
   // ====================================================================
@@ -252,10 +245,8 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Analytics/i }).first().click();
-    await page.waitForTimeout(1500);
 
-    // Verify analytics content renders
-    await expect(page.getByText(/spending|analytics|revenue/i).first()).toBeVisible();
+    await expect(cardHeader(page, "Revenue Analytics")).toBeVisible({ timeout: 10000 });
   });
 
   // ====================================================================
@@ -265,10 +256,8 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Alerts/i }).first().click();
-    await page.waitForTimeout(1500);
 
-    // Verify alerts content renders
-    await expect(page.getByText(/notification|alert|warning|urgent/i).first()).toBeVisible();
+    await expect(page.getByText("Smart Alerts").first()).toBeVisible({ timeout: 10000 });
   });
 
   // ====================================================================
@@ -278,10 +267,8 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Enhanced Promo/i }).first().click();
-    await page.waitForTimeout(1500);
 
-    // Verify enhanced promo content renders
-    await expect(page.getByText(/target|geographic|quality score/i).first()).toBeVisible();
+    await expect(page.getByText("Enhanced Promotion").first()).toBeVisible({ timeout: 10000 });
   });
 
   // ====================================================================
@@ -291,10 +278,8 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Referrals/i }).first().click();
-    await page.waitForTimeout(1500);
 
-    // Verify referrals content renders
-    await expect(page.getByText(/referral|code|earnings|leaderboard/i).first()).toBeVisible();
+    await expect(page.getByText("Referral Program").first()).toBeVisible({ timeout: 10000 });
   });
 
   // ====================================================================
@@ -304,10 +289,8 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Payments/i }).first().click();
-    await page.waitForTimeout(1500);
 
-    // Verify payments content renders
-    await expect(page.getByText(/wallet|payment|installment|Wish|OMT/i).first()).toBeVisible();
+    await expect(page.getByText("Payment Options").first()).toBeVisible({ timeout: 10000 });
   });
 
   // ====================================================================
@@ -317,10 +300,8 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Rewards/i }).first().click();
-    await page.waitForTimeout(1500);
 
-    // Verify gamification content renders
-    await expect(page.getByText(/badge|streak|challenge|achievement|XP/i).first()).toBeVisible();
+    await expect(page.getByText("Achievements & Rewards").first()).toBeVisible({ timeout: 10000 });
   });
 
   // ====================================================================
@@ -330,10 +311,8 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Mobile/i }).first().click();
-    await page.waitForTimeout(1500);
 
-    // Verify mobile features content renders
-    await expect(page.getByText(/push|notification|quick.?respond|offline/i).first()).toBeVisible();
+    await expect(page.getByText("Mobile Features").first()).toBeVisible({ timeout: 10000 });
   });
 
   // ====================================================================
@@ -343,10 +322,8 @@ test.describe("Worker Revenue Tools", () => {
     await goToDashboard(page);
 
     await page.getByRole("button", { name: /Premium Tools/i }).first().click();
-    await page.waitForTimeout(1500);
 
-    // Verify SaaS marketplace renders
-    await expect(page.getByText(/premium|tool|saas|marketplace/i).first()).toBeVisible();
+    await expect(page.getByText("All Tools").first()).toBeVisible({ timeout: 10000 });
   });
 
   // ====================================================================

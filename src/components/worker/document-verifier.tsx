@@ -307,6 +307,7 @@ export function DocumentVerifier({
             <div className="flex gap-4">
               {/* Preview */}
               <div className="relative size-20 shrink-0 overflow-hidden rounded-lg">
+                {/* eslint-disable-next-line @next/next/no-img-element -- local file-picker blob/object URL; next/image cannot serve it */}
                 <img
                   src={doc.preview}
                   alt={doc.file.name}

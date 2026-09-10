@@ -80,15 +80,35 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const { locale, dir } = await getI18n();
   const session = await getSession();
 
-  // Server-rendered theme (cookie) — no inline scripts, no flash, no hydration warnings.
+  // Server renders from the wa_theme cookie; first-visit clients with no cookie
+  // are handled pre-hydration by the inline script in <head> below.
   const theme = (await cookies()).get("wa_theme")?.value === "dark" ? "dark" : "light";
 
   return (
     <html lang={locale} dir={dir} className={theme === "dark" ? "dark" : ""} suppressHydrationWarning>
       <head>
+        {/* Pre-hydration theme resolution (the next-themes pattern, inlined):
+            the server only knows the wa_theme cookie, but the client theme can
+            also come from localStorage or prefers-color-scheme — so a
+            first-visit dark-preference user used to get light SSR HTML, a
+            light flash, AND a post-hydration class write that React reported
+            as an attribute mismatch. This blocking script runs BEFORE React
+            hydrates: it resolves the theme with the same precedence as
+            getInitialTheme (cookie → localStorage → media query), applies the
+            class + color-scheme, and backfills the cookie so every later SSR
+            render matches. The class/style delta vs the SSR HTML is exactly
+            what suppressHydrationWarning on <html> covers. CSP note: the
+            proxy's script-src already allows 'unsafe-inline' for this. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '(function(){try{var m=document.cookie.match(/(?:^|; )wa_theme=(light|dark)/),t=m?m[1]:null;if(t!=="dark"&&t!=="light"){t=localStorage.getItem("wa_theme")}if(t!=="dark"&&t!=="light"){t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}var r=document.documentElement;r.classList.toggle("dark",t==="dark");r.style.colorScheme=t;if(!m){document.cookie="wa_theme="+t+";path=/;max-age=31536000;samesite=lax"}}catch(e){}})();',
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* Load font CSS — preconnects above speed up font delivery */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router: root-layout <head> is the correct home for fonts (the rule targets Pages Router _document) */}
         <link
           href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"

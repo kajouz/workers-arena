@@ -104,13 +104,19 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setCurrentStep(0);
   }, []);
 
+  const completeOnboarding = useCallback(() => {
+    setIsActive(false);
+    localStorage.setItem(STORAGE_KEY, "completed");
+    setIsCompleted(true);
+  }, []);
+
   const nextStep = useCallback(() => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
       completeOnboarding();
     }
-  }, [currentStep]);
+  }, [currentStep, completeOnboarding]);
 
   const prevStep = useCallback(() => {
     if (currentStep > 0) {
@@ -121,12 +127,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const skipOnboarding = useCallback(() => {
     setIsActive(false);
     localStorage.setItem(STORAGE_KEY, "skipped");
-    setIsCompleted(true);
-  }, []);
-
-  const completeOnboarding = useCallback(() => {
-    setIsActive(false);
-    localStorage.setItem(STORAGE_KEY, "completed");
     setIsCompleted(true);
   }, []);
 

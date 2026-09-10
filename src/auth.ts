@@ -23,7 +23,7 @@ import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { getPrisma } from "@/lib/server/prisma";
-import { verifyPassword } from "@/lib/security";
+import { hashPassword, needsPasswordRehash, verifyPassword } from "@/lib/security";
 import type { SessionRole } from "@/lib/auth-demo";
 
 const providers: NextAuthConfig["providers"] = [
@@ -38,6 +38,14 @@ const providers: NextAuthConfig["providers"] = [
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user?.passwordHash || !user.isActive) return null;
       if (!verifyPassword(password, user.passwordHash)) return null;
+      // Rehash-on-login: rows still holding the legacy SHA-256 hash get upgraded
+      // to scrypt on their next successful sign-in (fire-and-forget — a failed
+      // write must not block the session).
+      if (needsPasswordRehash(user.passwordHash)) {
+        void prisma.user
+          .update({ where: { id: user.id }, data: { passwordHash: hashPassword(password) } })
+          .catch(() => {});
+      }
       return {
         id: user.id,
         name: user.name,

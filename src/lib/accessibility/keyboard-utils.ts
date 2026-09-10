@@ -191,7 +191,12 @@ export interface KeyboardShortcut {
  */
 export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
   const shortcutsRef = useRef(shortcuts);
-  shortcutsRef.current = shortcuts;
+
+  // Keep the latest shortcuts without re-creating the listener — assigned in
+  // an effect (not during render) per react-hooks/refs.
+  useEffect(() => {
+    shortcutsRef.current = shortcuts;
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

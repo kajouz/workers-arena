@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   UserPlus, 
   Briefcase, 
@@ -44,7 +44,7 @@ export function ActivityFeed({
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   // Generate mock activities (in production, this would use WebSocket/SSE)
-  const generateMockActivities = (): ActivityItem[] => {
+  const generateMockActivities = useCallback((): ActivityItem[] => {
     const now = new Date();
     const items: ActivityItem[] = [
       {
@@ -112,24 +112,24 @@ export function ActivityFeed({
       },
     ];
     return items.slice(0, maxItems);
-  };
+  }, [maxItems]);
 
   // Fetch activities
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async () => {
     setLoading(true);
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 500));
     setActivities(generateMockActivities());
     setLastRefresh(new Date());
     setLoading(false);
-  };
+  }, [generateMockActivities]);
 
   // Initial fetch and refresh interval
   useEffect(() => {
     fetchActivities();
     const interval = setInterval(fetchActivities, refreshInterval);
     return () => clearInterval(interval);
-  }, [refreshInterval, maxItems]);
+  }, [fetchActivities, refreshInterval, maxItems]);
 
   const getTypeIcon = (type: ActivityItem["type"]) => {
     switch (type) {

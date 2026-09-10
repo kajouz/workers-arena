@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { hasSessionCookie } from "@/lib/session-cookie";
 
 // Rate limiting in-memory store
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -95,12 +96,24 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // Allow bfcache for page routes by setting proper cache-control
+  // ── Cache policy ──────────────────────────────────────────────────────────
+  // Authenticated requests must NEVER be publicly cached: every page renders
+  // session-aware markup (the header switches Sign in ⇄ avatar, and dashboards
+  // embed per-user data), so a shared cache (CDN edge, corporate proxy) holding
+  // a logged-in HTML response would leak one user's page to another. Detection
+  // is cookie-based — exact name match on the request's Cookie header.
   if (!pathname.startsWith("/api/") && !pathname.startsWith("/_next/")) {
-    response.headers.set(
-      "Cache-Control",
-      "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
-    );
+    if (hasSessionCookie(request.headers.get("cookie"))) {
+      // Signed-in: private to this browser, never stored by any shared cache.
+      // no-store also disables bfcache-safe reuse of authenticated pages.
+      response.headers.set("Cache-Control", "private, no-store");
+    } else {
+      // Anonymous: cacheable at the edge briefly, stale-serve while revalidating.
+      response.headers.set(
+        "Cache-Control",
+        "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
+      );
+    }
   }
 
   return response;

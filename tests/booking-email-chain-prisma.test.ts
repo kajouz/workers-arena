@@ -162,6 +162,9 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     // A signed-in customer who prefers Arabic — the exact row the
     // Booking.customer relation resolves at dispatch (User.locale).
     const arEmail = TEST_AR_EMAIL;
+    // Re-run safety: an earlier run that crashed before cleanup leaves this
+    // fixed-email fixture behind; plain create would collide on `email`.
+    await prisma.user.deleteMany({ where: { email: arEmail } }).catch(() => {});
     const user = await prisma.user.create({
       data: {
         name: "Chain AR Customer",

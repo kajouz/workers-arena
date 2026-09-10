@@ -1,10 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Download, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
 import { cn } from "@/lib/utils";
+
+// Canvas helpers (module scope — pure, no component state).
+function drawFinderPattern(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  cellSize: number,
+  bgColor: string,
+  fgColor: string
+) {
+  // Outer square
+  ctx.fillRect(x, y, 7 * cellSize, 7 * cellSize);
+  // Inner white
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(x + cellSize, y + cellSize, 5 * cellSize, 5 * cellSize);
+  // Center square
+  ctx.fillStyle = fgColor;
+  ctx.fillRect(x + 2 * cellSize, y + 2 * cellSize, 3 * cellSize, 3 * cellSize);
+}
+
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
 
 interface QRCodeProps {
   value: string;
@@ -34,11 +63,7 @@ export function QRCode({
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    generateQR();
-  }, [value, size, bgColor, fgColor, level]);
-
-  const generateQR = async () => {
+  const generateQR = useCallback(async () => {
     // Simple QR code generation (in production, use a library like qrcode.react)
     const canvas = document.createElement("canvas");
     canvas.width = size;
@@ -56,9 +81,9 @@ export function QRCode({
     const cellSize = size / 25;
 
     // Draw finder patterns
-    drawFinderPattern(ctx, 0, 0, cellSize);
-    drawFinderPattern(ctx, size - 7 * cellSize, 0, cellSize);
-    drawFinderPattern(ctx, 0, size - 7 * cellSize, cellSize);
+    drawFinderPattern(ctx, 0, 0, cellSize, bgColor, fgColor);
+    drawFinderPattern(ctx, size - 7 * cellSize, 0, cellSize, bgColor, fgColor);
+    drawFinderPattern(ctx, 0, size - 7 * cellSize, cellSize, bgColor, fgColor);
 
     // Draw data area (simplified pattern based on URL hash)
     const hash = hashString(value);
@@ -80,33 +105,11 @@ export function QRCode({
     }
 
     setQrDataUrl(canvas.toDataURL());
-  };
+  }, [value, size, bgColor, fgColor]);
 
-  const drawFinderPattern = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    cellSize: number
-  ) => {
-    // Outer square
-    ctx.fillRect(x, y, 7 * cellSize, 7 * cellSize);
-    // Inner white
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(x + cellSize, y + cellSize, 5 * cellSize, 5 * cellSize);
-    // Center square
-    ctx.fillStyle = fgColor;
-    ctx.fillRect(x + 2 * cellSize, y + 2 * cellSize, 3 * cellSize, 3 * cellSize);
-  };
-
-  const hashString = (str: string): number => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash);
-  };
+  useEffect(() => {
+    void generateQR();
+  }, [generateQR]);
 
   const handleDownload = () => {
     const link = document.createElement("a");
@@ -124,6 +127,7 @@ export function QRCode({
   return (
     <div className={cn("flex flex-col items-center gap-3", className)}>
       {qrDataUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- canvas data URL; next/image cannot optimize it
         <img
           src={qrDataUrl}
           alt="QR Code"

@@ -7,7 +7,7 @@
  * and manage number expiration.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,11 +51,7 @@ export function AdminMaskedNumbers() {
   const [loading, setLoading] = useState(true);
   const [revealedNumbers, setRevealedNumbers] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    fetchMaskedNumbers();
-  }, []);
-
-  const fetchMaskedNumbers = async () => {
+  const fetchMaskedNumbers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/calling/admin");
@@ -68,7 +64,11 @@ export function AdminMaskedNumbers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    fetchMaskedNumbers();
+  }, [fetchMaskedNumbers]);
 
   const handleRevealRealNumber = (maskedNumberId: string) => {
     setRevealedNumbers((prev) => new Set(prev).add(maskedNumberId));

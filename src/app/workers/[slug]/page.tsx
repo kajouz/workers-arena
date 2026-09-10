@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProfileHero } from "@/components/worker/profile-hero";
 import { ContactCard } from "@/components/worker/contact-card";
@@ -79,7 +80,7 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
 
       {/* breadcrumb */}
       <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-xs font-medium text-ink-400" aria-label="Breadcrumb">
-        <a href="/" className="transition-colors hover:text-brand-600">Home</a>
+        <Link href="/" className="transition-colors hover:text-brand-600">Home</Link>
         <span aria-hidden>/</span>
         <a href={`/search?category=${worker.categorySlug}`} className="transition-colors hover:text-brand-600">
           {cat?.nameEn}

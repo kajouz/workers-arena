@@ -66,7 +66,7 @@
 ### 2.6 Auth & security
 - ✅ Demo cookie sessions (4 roles) — zero-infra navigation
 - ✅ **Auth.js v5** (Credentials + Google OAuth), JWT sessions, role/hue stamped into session, `getSession()` seam delegates to `auth()` when real mode
-- ✅ PBKDF2 password hashing (demo-grade; swap to argon2 in prod), `timingSafeEqual` verify
+- ✅ scrypt password hashing (N=2^14/r=8/p=1, costs in-hash; legacy SHA-256 rows upgrade on login), `timingSafeEqual` verify
 - ✅ Role-guarded pages, sanitization on user input, in-memory rate limiter, CSRF-cookie posture, `poweredByHeader: false`
 - ✅ **Email/Phone/WhatsApp verification** — OTP generation, 6-digit input, cooldown timer, status badges, rate limiting (3 per 10 min)
 - 🟡 **OAuth user linking** — Google sign-in lacks a `signIn` callback that upserts the User row (FK constraint documented in `docs/ARCHITECTURE.md`)
@@ -168,7 +168,7 @@ Priorities are tagged **P0** (blocking production launch), **P1** (high product 
 - [ ] **Cloudinary uploads** — worker gallery, certifications, portfolio, company logos, blog covers (`Media` model).
 - [ ] **OAuth user linking** — `signIn` callback upserts `User` so Google sessions stamp real FKs (closes the documented constraint).
 - [x] **Email verification + password reset** flows.
-- [x] **Production hardening** — argon2 hashing, Redis rate limiting, CSP headers, Sentry error monitoring, structured logging, CI (typecheck + tests + E2E on PR), ESLint/Prettier.
+- [x] **Production hardening** — scrypt password hashing (argon2-class), Redis rate limiting, CSP headers, Sentry error monitoring, structured logging, CI (typecheck + tests + E2E on PR), ESLint/Prettier.
 - [ ] **Admin moderation queue for reviews** — approve/reject, verified-purchase flag, spam reporting.
 
 ### 3.2 P1 — Core marketplace value

@@ -28,9 +28,10 @@ async function waitForSearchPage(page: import("@playwright/test").Page) {
 // ====================================================================
 test.describe("Search History", () => {
   test.beforeEach(async ({ page }) => {
-    // Clear search history before each test
-    await page.goto("/");
-    await page.evaluate(() => {
+    // Clear search history before each test. addInitScript runs before any
+    // app script on every navigation, so it cannot race the hook's mount-time
+    // read/write effects the way a mid-page evaluate could.
+    await page.addInitScript(() => {
       localStorage.removeItem("wa-search-history");
     });
   });
@@ -40,26 +41,22 @@ test.describe("Search History", () => {
     await page.goto("/search?category=plumbing");
     await page.waitForLoadState("domcontentloaded");
     // Wait for the SearchClient to hydrate and store history
-    await page.waitForTimeout(3000);
-
-    // Verify search history is stored
-    const history = await page.evaluate(() => {
-      const stored = localStorage.getItem("wa-search-history");
-      return stored ? JSON.parse(stored) : [];
-    });
-
-    expect(history.length).toBeGreaterThan(0);
-    // The history entry should have the plumbing category
-    const hasPlumbing = history.some(
-      (h: { category?: string; query?: string }) => h.category === "plumbing" || (h.query && h.query.includes("plumb"))
-    );
-    expect(hasPlumbing).toBeTruthy();
+    await expect
+      .poll(async () => {
+        const stored = await page.evaluate(() => localStorage.getItem("wa-search-history"));
+        const history = stored ? JSON.parse(stored) : [];
+        return history.some(
+          (h: { category?: string; query?: string }) => h.category === "plumbing" || (h.query && h.query.includes("plumb"))
+        );
+      }, { timeout: 10000 })
+      .toBe(true);
   });
 
   test("search history shows recent searches UI after pre-seeding", async ({ page }) => {
-    // Pre-seed search history via localStorage
-    await page.goto("/");
-    await page.evaluate(() => {
+    // Seed BEFORE any app script runs: the useSearchHistory mount effect
+    // reads localStorage once — a seed written after hydration is never
+    // picked up (and gets overwritten by the save effect).
+    await page.addInitScript(() => {
       localStorage.setItem(
         "wa-search-history",
         JSON.stringify([
@@ -77,33 +74,23 @@ test.describe("Search History", () => {
       );
     });
 
-    // Visit search page — the SearchClient reads from localStorage on mount
     await waitForSearchPage(page);
-    // Give the client component time to hydrate and render history
-    await page.waitForTimeout(2000);
 
-    // The SearchHistory component shows "Recent searches" heading
-    // If the client crashed, the error boundary shows a fallback — both are acceptable
-    const recentVisible = await page.getByText("Recent searches").first().isVisible().catch(() => false);
-    const plumberVisible = await page.getByText("plumber").first().isVisible().catch(() => false);
-    const electricianVisible = await page.getByText("electrician").first().isVisible().catch(() => false);
-
-    // At least the heading should be visible; content may not render if client crashed
-    if (recentVisible) {
-      expect(plumberVisible || electricianVisible).toBeTruthy();
-    }
-    // If none visible, the client crashed — that's an acceptable degradation
-    expect(typeof recentVisible).toBe("boolean");
+    // The history UI must render once the client hydrates with seeded data.
+    await expect(page.getByRole("heading", { name: /Recent searches/i })).toBeVisible({
+      timeout: 10000,
+    });
+    // History chips render the query (or the category when query is empty)
+    const chipWithContent = page
+      .getByRole("button", { name: /plumber|electrician/i })
+      .first();
+    await expect(chipWithContent).toBeVisible({ timeout: 5000 });
   });
 
   test("search history can be cleared", async ({ page }) => {
-    // Pre-seed history with a unique query — seed on the search page itself
-    // so the SearchClient reads it on mount before the write effect runs
+    // Seed BEFORE any app script runs (see note on the pre-seeding test).
     const uniqueQuery = `test-clear-${Date.now()}`;
-    await page.goto("/search");
-    await page.waitForLoadState("domcontentloaded");
-    // Seed after page loads but before SearchClient hydrates
-    await page.evaluate((q) => {
+    await page.addInitScript((q) => {
       localStorage.setItem(
         "wa-search-history",
         JSON.stringify([
@@ -114,35 +101,30 @@ test.describe("Search History", () => {
         ])
       );
     }, uniqueQuery);
-    // Reload to let SearchClient read the seeded data fresh
-    await page.reload();
+
+    await page.goto("/search");
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(3000);
 
-    // Try to click "Clear all" — may not render if client crashed
+    // Wait for the history UI (auto-retries instead of a dead wait; fails
+    // honestly if the client never hydrates rather than silently skipping)
     const clearAllBtn = page.getByRole("button", { name: /Clear all/i }).first();
-    const clearVisible = await clearAllBtn.isVisible().catch(() => false);
+    await expect(clearAllBtn).toBeVisible({ timeout: 10000 });
 
-    if (clearVisible) {
-      await clearAllBtn.click();
-      await page.waitForTimeout(500);
+    await clearAllBtn.click();
 
-      // Verify history is cleared
-      const history = await page.evaluate(() => {
-        const stored = localStorage.getItem("wa-search-history");
-        return stored ? JSON.parse(stored) : [];
-      });
-      expect(history.length).toBe(0);
-    } else {
-      // Client crashed or history not visible — just verify page is accessible
-      await expect(page).toHaveURL(/\/search/);
-    }
+    // Verify history is cleared
+    await expect
+      .poll(async () => {
+        const stored = await page.evaluate(() => localStorage.getItem("wa-search-history"));
+        const history = stored ? JSON.parse(stored) : [];
+        return history.length;
+      }, { timeout: 5000 })
+      .toBe(0);
   });
 
   test("clicking search history entry navigates with category filter", async ({ page }) => {
-    // Pre-seed history with a category
-    await page.goto("/");
-    await page.evaluate(() => {
+    // Seed BEFORE any app script runs (see note on the pre-seeding test).
+    await page.addInitScript(() => {
       localStorage.setItem(
         "wa-search-history",
         JSON.stringify([
@@ -157,21 +139,18 @@ test.describe("Search History", () => {
     });
 
     await waitForSearchPage(page);
-    await page.waitForTimeout(2000);
 
-    // Try to click the plumbing history entry
-    const plumbingEntry = page.getByText("plumbing").first();
-    const entryVisible = await plumbingEntry.isVisible().catch(() => false);
+    // Target the history chip itself (a <button> inside the "Recent searches"
+    // section) — a bare getByText("plumbing") also matches the breadcrumb
+    // "Plumbing" link and navigates to a worker profile instead (the flake).
+    const plumbingEntry = page
+      .getByRole("button", { name: /plumbing/i })
+      .first();
+    await expect(plumbingEntry).toBeVisible({ timeout: 10000 });
+    await plumbingEntry.click();
 
-    if (entryVisible) {
-      await plumbingEntry.click();
-      await page.waitForTimeout(1000);
-      // Verify URL contains the category filter
-      await expect(page).toHaveURL(/category=plumbing/);
-    } else {
-      // Client crashed — just verify the page is accessible
-      await expect(page).toHaveURL(/\/search/);
-    }
+    // Verify URL contains the category filter
+    await expect(page).toHaveURL(/category=plumbing/, { timeout: 5000 });
   });
 });
 
@@ -187,18 +166,21 @@ test.describe("Virtual Scrolling", () => {
     // Verify the SSR shell renders — h1 title is always server-rendered
     await expect(page.getByRole("heading", { name: /Find your professional/i })).toBeVisible({ timeout: 15000 });
 
-    // Wait for client-side rendering to complete
-    await page.waitForTimeout(3000);
-
-    // The worker cards are rendered by the SearchClient component.
-    // They are <a> links to /workers/ with worker card styling.
-    // If the client crashed, the error boundary shows a fallback.
+    // Worker cards are rendered by the SearchClient after hydration; the error
+    // boundary is the acceptable degraded state. Poll until either appears —
+    // "neither" is the only failure.
     const workerLinks = page.locator("a[href*='/workers/']");
-    const linkCount = await workerLinks.count().catch(() => 0);
-
-    // Either we see worker cards OR the error boundary rendered (both acceptable)
-    const errorFallback = await page.getByText(/Search encountered an issue|Something went wrong/i).first().isVisible().catch(() => false);
-    expect(linkCount > 0 || errorFallback).toBeTruthy();
+    await expect
+      .poll(async () => {
+        if ((await workerLinks.count().catch(() => 0)) > 0) return "cards";
+        const errorFallback = await page
+          .getByText(/Search encountered an issue|Something went wrong/i)
+          .first()
+          .isVisible()
+          .catch(() => false);
+        return errorFallback ? "fallback" : "none";
+      }, { timeout: 10000 })
+      .not.toBe("none");
   });
 
   test("search results page handles empty results gracefully", async ({ page }) => {
@@ -206,38 +188,67 @@ test.describe("Virtual Scrolling", () => {
     await page.goto("/search?q=nonexistentworkerxyz123");
     await page.waitForLoadState("domcontentloaded");
 
-    // Wait for client to render
-    await page.waitForTimeout(3000);
-
-    // The empty state shows "No workers found" (from search.empty.title)
-    // Or the page may show the SSR shell with no results
-    const noResults = await page.getByText(/No workers found|No results/i).first().isVisible().catch(() => false);
-
-    // If the client crashed, the error boundary shows a fallback
-    const errorFallback = await page.getByText(/Search encountered an issue|Something went wrong/i).first().isVisible().catch(() => false);
-
-    // Either the empty state or error fallback is acceptable
-    expect(noResults || errorFallback || true).toBeTruthy();
+    // Either the empty state ("No workers found") or the error boundary must
+    // become visible — "neither" is the only failure.
+    await expect
+      .poll(async () => {
+        const noResults = await page
+          .getByText(/No workers found|No results/i)
+          .first()
+          .isVisible()
+          .catch(() => false);
+        if (noResults) return "empty-state";
+        const errorFallback = await page
+          .getByText(/Search encountered an issue|Something went wrong/i)
+          .first()
+          .isVisible()
+          .catch(() => false);
+        return errorFallback ? "fallback" : "none";
+      }, { timeout: 10000 })
+      .not.toBe("none");
   });
 
   test("search results page supports scrolling for multiple results", async ({ page }) => {
     // Visit search page without filters (shows all workers)
     await waitForSearchPage(page);
 
-    // Wait for worker cards to render
-    await page.waitForTimeout(2000);
+    const collectHrefs = () =>
+      page.evaluate(() =>
+        [...new Set([...document.querySelectorAll("a[href*='/workers/']")].map((a) => a.getAttribute("href")))]
+      );
 
-    // Get initial result count
-    const workerLinks = page.locator("a[href*='/workers/']");
-    const initialCount = await workerLinks.count().catch(() => 0);
+    // Cards must render before anything can be asserted about scrolling
+    const initial = await collectHrefs();
+    expect(initial.length).toBeGreaterThan(0);
 
-    // Scroll down
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(1000);
-
-    // Verify at least no error occurred
-    const finalCount = await workerLinks.count().catch(() => 0);
-    expect(finalCount).toBeGreaterThanOrEqual(initialCount);
+    // Unfiltered search PAGINATES (21 total, 9 mounted initially) and the
+    // >12-item branch renders inside an INNER virtualized scroller, so the
+    // instantaneously-mounted count can legitimately DROP when the next page
+    // appends (branch flip) — an instantaneous count comparison is the wrong
+    // contract. The honest one: scrolling must progressively mount workers
+    // that were never mounted before. Accumulate the set of unique slugs seen
+    // across samples; scrolling (page + inner container) must grow it.
+    const seen = new Set(initial);
+    await expect
+      .poll(
+        async () => {
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          // Scroll the inner virtualized scroller too (its own overflow hides
+          // later rows — and the next page's sentinel — from the page scroll).
+          await page.evaluate(() => {
+            const el = [...document.querySelectorAll("div")].find(
+              (d) =>
+                d.scrollHeight > d.clientHeight + 100 &&
+                d.querySelectorAll("a[href*='/workers/']").length > 0
+            );
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+          for (const href of await collectHrefs()) seen.add(href);
+          return seen.size;
+        },
+        { timeout: 20000 }
+      )
+      .toBeGreaterThan(initial.length);
   });
 });
 
@@ -250,62 +261,53 @@ test.describe("Location-Based Search", () => {
     await page.context().grantPermissions(["geolocation"]);
 
     await waitForSearchPage(page);
-    // Give the client component time to render
-    await page.waitForTimeout(2000);
 
-    // Check if the Find Near Me button is visible
-    // In headless mode, geolocation may not be fully supported
-    const nearMeButton = page.getByText(/Near Me|Find Near Me/i).first();
-    const buttonVisible = await nearMeButton.isVisible().catch(() => false);
-
-    // Soft check — the button may not appear in all environments
-    expect(typeof buttonVisible).toBe("boolean");
+    // The button renders in the filter bar once SearchClient hydrates —
+    // "Find Near Me" (or "Near Me" once active).
+    const nearMeButton = page.getByRole("button", { name: /Near Me/i }).first();
+    await expect(nearMeButton).toBeVisible({ timeout: 10000 });
   });
 
   test("sort dropdown includes Nearest option", async ({ page }) => {
     await waitForSearchPage(page);
-    // Give the client component time to render
-    await page.waitForTimeout(3000);
 
-    try {
-      const sortTrigger = page.locator("[role='combobox']").first();
-      await sortTrigger.waitFor({ state: "visible", timeout: 10000 });
-      await sortTrigger.click();
-      await page.waitForTimeout(500);
+    // Target the sort select by its displayed value ("Most relevant") — the
+    // first combobox on the page is the category filter, not the sort select.
+    const sortTrigger = page
+      .locator("button[role='combobox']")
+      .filter({ hasText: /Most relevant/i })
+      .first();
+    await expect(sortTrigger).toBeVisible({ timeout: 10000 });
 
-      // The option text is "Nearest first" (from translations)
-      const nearestOption = await page.getByRole("option", { name: /Nearest/i }).first().isVisible().catch(() => false);
-      expect(nearestOption).toBeTruthy();
-    } catch {
-      // Client component may not have fully hydrated — the search page SSR shell
-      // is still valid. Verify the h1 heading rendered server-side.
-      await expect(page.getByRole("heading", { name: /Find your professional/i })).toBeVisible({ timeout: 5000 });
-    }
+    await sortTrigger.click();
+    // The option text is "Nearest" (from translations)
+    const nearestOption = page.getByRole("option", { name: /Nearest/i }).first();
+    await expect(nearestOption).toBeVisible({ timeout: 5000 });
   });
 
   test("URL updates when sort by nearest is selected", async ({ page }) => {
     await waitForSearchPage(page);
-    await page.waitForTimeout(2000);
 
-    // Try to interact with the sort dropdown
-    try {
-      const sortTrigger = page.locator("[role='combobox']").first();
-      await sortTrigger.waitFor({ state: "visible", timeout: 5000 });
-      await sortTrigger.click();
-      await page.waitForTimeout(500);
+    // Same disambiguation as above — first combobox is the category filter.
+    const sortTrigger = page
+      .locator("button[role='combobox']")
+      .filter({ hasText: /Most relevant/i })
+      .first();
+    await expect(sortTrigger).toBeVisible({ timeout: 10000 });
 
-      // Click the Nearest first option in the dropdown
-      const nearestOption = page.getByRole("option", { name: /Nearest/i }).first();
-      await nearestOption.waitFor({ state: "visible", timeout: 5000 });
-      await nearestOption.click();
-      await page.waitForTimeout(1000);
+    await sortTrigger.click();
+    const nearestOption = page.getByRole("option", { name: /Nearest/i }).first();
+    await nearestOption.click();
 
-      // Verify URL contains sort=nearest
-      await expect(page).toHaveURL(/sort=nearest/);
-    } catch {
-      // Client crashed or dropdown not available — verify page is accessible
-      await expect(page).toHaveURL(/\/search/);
-    }
+    // The trigger's label flips to the new value once state commits (assert
+    // WITHOUT the original text filter — the trigger no longer reads
+    // "Most relevant" after the selection).
+    await expect(
+      page.locator("button[role='combobox']").filter({ hasText: /Nearest/i }).first()
+    ).toBeVisible({ timeout: 15000 });
+    // The URL effect syncs the query string; the first hit may pay a
+    // dev-mode RSC compile for the new route variant.
+    await expect(page).toHaveURL(/sort=nearest/, { timeout: 15000 });
   });
 });
 

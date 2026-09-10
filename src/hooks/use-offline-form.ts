@@ -39,6 +39,15 @@ export function useOfflineForm({
   const [pendingCount, setPendingCount] = useState(0);
   const [error, setError] = useState<Error | null>(null);
 
+  const updatePendingCount = useCallback(async () => {
+    try {
+      const count = await getPendingCount();
+      setPendingCount(count);
+    } catch (err) {
+      console.error("[OfflineForms] Failed to get pending count:", err);
+    }
+  }, []);
+
   // Track online status
   useEffect(() => {
     setOnline(isOnline());
@@ -63,23 +72,14 @@ export function useOfflineForm({
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [updatePendingCount]);
 
   // Update pending count periodically
   useEffect(() => {
     updatePendingCount();
     const interval = setInterval(updatePendingCount, 5000);
     return () => clearInterval(interval);
-  }, []);
-
-  const updatePendingCount = async () => {
-    try {
-      const count = await getPendingCount();
-      setPendingCount(count);
-    } catch (err) {
-      console.error("[OfflineForms] Failed to get pending count:", err);
-    }
-  };
+  }, [updatePendingCount]);
 
   const submit = useCallback(
     async (body: any) => {
@@ -127,7 +127,7 @@ export function useOfflineForm({
         setIsSubmitting(false);
       }
     },
-    [url, method, onSuccess, onError, onQueued]
+    [url, method, onSuccess, onError, onQueued, updatePendingCount]
   );
 
   return {
@@ -146,6 +146,26 @@ export function useOfflineQueue() {
   const [pendingCount, setPendingCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [online, setOnline] = useState(true);
+
+  const updatePendingCount = useCallback(async () => {
+    try {
+      const count = await getPendingCount();
+      setPendingCount(count);
+    } catch (err) {
+      console.error("[OfflineForms] Failed to get pending count:", err);
+    }
+  }, []);
+
+  const processQueue = useCallback(async () => {
+    setIsProcessing(true);
+    try {
+      const result = await processQueuedForms();
+      await updatePendingCount();
+      return result;
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [updatePendingCount]);
 
   useEffect(() => {
     setOnline(isOnline());
@@ -167,27 +187,7 @@ export function useOfflineQueue() {
       window.removeEventListener("offline", handleOffline);
       clearInterval(interval);
     };
-  }, []);
-
-  const updatePendingCount = async () => {
-    try {
-      const count = await getPendingCount();
-      setPendingCount(count);
-    } catch (err) {
-      console.error("[OfflineForms] Failed to get pending count:", err);
-    }
-  };
-
-  const processQueue = async () => {
-    setIsProcessing(true);
-    try {
-      const result = await processQueuedForms();
-      await updatePendingCount();
-      return result;
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  }, [updatePendingCount, processQueue]);
 
   return {
     pendingCount,

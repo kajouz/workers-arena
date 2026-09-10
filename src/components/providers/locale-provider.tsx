@@ -47,7 +47,7 @@ export function LocaleProvider({
         window.location.reload();
       }
     } catch { /* ignore */ }
-  }, []);
+  }, [locale]);
 
   const setLocale = useCallback((next: Locale) => {
     // Persist to both cookie (SSR source of truth) and localStorage (client fallback)

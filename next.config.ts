@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 // NEXT_DIST_DIR isolates the build/dev cache (used by the E2E hydration smoke
 // test so its `next dev` can't clash with a concurrently running preview).
+// NOTE: Next treats distDir as a project-relative NAME — an absolute path is
+// not honored and yields a confusing split build. Use a relative scratch name
+// like `tmp/…` (git- and lint-ignored) when isolation is needed.
 const nextConfig: NextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   reactStrictMode: true,
@@ -12,7 +15,10 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["localhost", "127.0.0.1"],
   // Standalone output enables a slim Docker image (see Dockerfile).
   // Disabled on Vercel — Turbopack doesn't generate .nft.json for standalone.
-  ...(process.env.VERCEL ? {} : { output: "standalone" }),
+  // NEXT_DISABLE_STANDALONE=1 opts out for prod-build E2E: Playwright's CI job
+  // serves the build with plain `next start`, which refuses a standalone dir
+  // (standalone expects `node .next/standalone/server.js` instead).
+  ...(process.env.VERCEL || process.env.NEXT_DISABLE_STANDALONE ? {} : { output: "standalone" }),
   images: {
     // Demo mode: the app ships fully offline-safe visuals (no remote images).
     // For production with Cloudinary/S3, remove this and configure remotePatterns.
@@ -25,7 +31,6 @@ const nextConfig: NextConfig = {
 // Uses dynamic import to avoid type-resolution issues with the optional dep.
 function withSentry(nextCfg: NextConfig): NextConfig {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("@sentry/nextjs") as {
       withSentryConfig: (cfg: NextConfig, opts?: Record<string, unknown>) => NextConfig;
     };
