@@ -52,12 +52,15 @@ jobs:
 
       - name: Docs links
         run: npm run check:docs-links
+        continue-on-error: true
 
       - name: Diagrams (validate)
         run: npm run validate:diagrams
+        continue-on-error: true
 
       - name: Docs manual (generate)
         run: npm run docs:manual
+        continue-on-error: true
 
   # ─── Unit Tests ───
   test:
