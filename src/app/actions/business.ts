@@ -19,6 +19,7 @@ import {
   renewWorkerSubscriptionBySlug,
   submitVerificationRequest,
 } from "@/lib/data/repo";
+import { sanitizeText } from "@/lib/security";
 import type { Campaign } from "@/lib/data/types";
 
 const AD_TYPES = ["banner", "slider", "featuredCard", "sponsoredSearch", "sponsoredCategory", "popup", "native", "video"] as const;
@@ -51,11 +52,17 @@ export async function createCampaignAction(
     targetCities: formData.getAll("targetCities").map(String),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.path[0] as string };
+  const cleanCampaign = {
+    ...parsed.data,
+    nameEn: sanitizeText(parsed.data.nameEn, 100),
+    nameAr: sanitizeText(parsed.data.nameAr, 100),
+    placement: sanitizeText(parsed.data.placement, 50),
+  };
   // Self-serve ad purchasing: the campaign is created PENDING and the company
   // is redirected to the hosted checkout — it only goes live once the payment
   // webhook confirms (confirmCampaignPayment flips it to ACTIVE). In real mode
   // session.id resolves the Company row (Company.userId); demo mode ignores it.
-  const created = await createCampaign({ ...parsed.data, companyId: session.id });
+  const created = await createCampaign({ ...cleanCampaign, companyId: session.id });
   if (!created) return { error: "checkout" };
   revalidatePath("/company");
   revalidatePath("/");
@@ -104,8 +111,9 @@ export async function refundCampaignAction(
   // Reason is validated AFTER auth — a non-admin must never learn whether a
   // campaign is refundable (the established action pattern: campaignId →
   // session → business validation).
-  if (!reason?.trim()) return { ok: false, error: "reason" };
-  const payment = await refundCampaignPayment(campaignId, session.name, reason.trim());
+  const cleanReason = reason ? sanitizeText(reason, 500) : "";
+  if (!cleanReason) return { ok: false, error: "reason" };
+  const payment = await refundCampaignPayment(campaignId, session.name, cleanReason);
   if (!payment) return { ok: false, error: "not-found" };
   revalidatePath("/admin");
   return { ok: true };

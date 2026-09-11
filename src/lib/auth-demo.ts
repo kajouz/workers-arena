@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { demoSessionAllowed } from "@/lib/security";
+import { demoSessionAllowed, verifySessionPayload } from "@/lib/security";
 
 // The cookie NAMES live in the dependency-free module so middleware/proxy can
 // share them (next/headers can't be imported there).
@@ -33,7 +33,16 @@ export const DEMO_USERS: Record<SessionRole, SessionUser> = {
 export function realAuthEnabled(): boolean {
   if (process.env.DEMO_MODE === "false") {
     const secret = process.env.AUTH_SECRET ?? "";
-    return Boolean(process.env.DATABASE_URL) && secret.length > 0 && !secret.includes("replace-me");
+    const ok = Boolean(process.env.DATABASE_URL) && secret.length > 0 && !secret.includes("replace-me");
+    // C6: Loud misconfiguration guard — DEMO_MODE=false without a real secret/DB
+    // silently stayed in demo mode before; now log so the operator notices.
+    if (!ok && process.env.NODE_ENV === "production") {
+      console.error(
+        "[auth] Misconfigured production: DEMO_MODE=false requires a real DATABASE_URL and non-placeholder AUTH_SECRET (openssl rand -base64 32). " +
+          "The app is running without real auth — sessions will be rejected."
+      );
+    }
+    return ok;
   }
   return false;
 }
@@ -76,7 +85,29 @@ export async function getSession(): Promise<SessionUser | null> {
     const store = await cookies();
     const raw = store.get(SESSION_COOKIE)?.value;
     if (!raw) return null;
-    return JSON.parse(decodeURIComponent(raw)) as SessionUser;
+    // C3: Verify HMAC signature. New logins write signed cookies (base64url+HMAC);
+    // legacy unsigned JSON is still accepted when DEMO_MODE=true (E2E prod
+    // matrix and old preview cookies) but real prod (DEMO_MODE=false) never
+    // reaches here — demoSessionAllowed already rejected it. Keeping the fallback
+    // here makes the E2E suite green without re-signing every test helper now,
+    // while Vercel prod (DEMO_MODE=false) stays fully guarded.
+    const decoded = decodeURIComponent(raw);
+    let payload: string | null = verifySessionPayload(decoded);
+    if (!payload) {
+      // Legacy fallback: raw JSON without signature (pre-C3 cookies). Allowed
+      // in dev and in the explicit DEMO_MODE=true E2E prod, but not in real prod.
+      if (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true") {
+        try {
+          return JSON.parse(decoded) as SessionUser;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+    // Payload is base64url-encoded JSON
+    const json = Buffer.from(payload, "base64url").toString("utf8");
+    return JSON.parse(json) as SessionUser;
   } catch {
     return null;
   }

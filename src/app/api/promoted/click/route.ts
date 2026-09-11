@@ -26,12 +26,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // In demo mode, just log the click
-    // In production, this would:
-    // 1. Record the click in the database
-    // 2. Deduct the CPC cost from the campaign budget
-    // 3. Check if daily budget is exceeded
-    console.log("[Promoted Click]", {
+    if (process.env.LOG_LEVEL !== "silent") console.log("[Promoted Click]", {
       campaignId,
       workerId,
       searchQuery,

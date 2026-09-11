@@ -110,6 +110,8 @@ async function main() {
   ];
   const users = new Map<string, string>(); // email → user id
   for (const u of demoUsers) {
+    const existing = await prisma.user.findUnique({ where: { email: u.email } });
+    const passwordHash = existing?.passwordHash ?? hashPassword(DEMO_PASSWORD);
     const row = await prisma.user.upsert({
       where: { email: u.email },
       update: {
@@ -117,7 +119,9 @@ async function main() {
         role: u.role,
         hue: u.hue,
         ...(u.phone ? { phone: u.phone } : {}),
-        passwordHash: hashPassword(DEMO_PASSWORD),
+        // m8 fix: preserve existing hash (deterministic) — re-hashing with random salt each seed churned the row
+        // and broke operator-changed passwords; only set on create or when DEMO_RESET_PASSWORD=1
+        ...(process.env.DEMO_RESET_PASSWORD === "1" ? { passwordHash: hashPassword(DEMO_PASSWORD) } : existing ? {} : { passwordHash }),
       },
       create: {
         name: u.name,
@@ -125,7 +129,7 @@ async function main() {
         role: u.role,
         hue: u.hue,
         ...(u.phone ? { phone: u.phone } : {}),
-        passwordHash: hashPassword(DEMO_PASSWORD),
+        passwordHash,
       },
     });
     users.set(u.email, row.id);

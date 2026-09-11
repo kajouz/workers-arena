@@ -27,8 +27,8 @@ function makeRequest(
   } as unknown as NextRequest;
 }
 
-function cacheControlOf(url: string, opts: { cookie?: string; method?: string } = {}): string | null {
-  const response = proxy(makeRequest(url, opts));
+async function cacheControlOf(url: string, opts: { cookie?: string; method?: string } = {}): Promise<string | null> {
+  const response = await proxy(makeRequest(url, opts));
   return response.headers.get("Cache-Control");
 }
 
@@ -62,42 +62,42 @@ describe("hasSessionCookie", () => {
 });
 
 describe("proxy cache-control policy", () => {
-  it("authenticated dashboard gets private, no-store", () => {
-    expect(cacheControlOf("http://localhost:3000/dashboard", { cookie: "wa_session=x" })).toBe(
+  it("authenticated dashboard gets private, no-store", async () => {
+    expect(await cacheControlOf("http://localhost:3000/dashboard", { cookie: "wa_session=x" })).toBe(
       "private, no-store"
     );
   });
 
-  it("authenticated admin/company/bookings/notifications pages get private, no-store", () => {
+  it("authenticated admin/company/bookings/notifications pages get private, no-store", async () => {
     for (const path of ["/admin", "/company", "/bookings", "/notifications", "/favorites"]) {
-      expect(cacheControlOf(`http://localhost:3000${path}`, { cookie: "wa_session=x" })).toBe(
+      expect(await cacheControlOf(`http://localhost:3000${path}`, { cookie: "wa_session=x" })).toBe(
         "private, no-store"
       );
     }
   });
 
-  it("NextAuth session-token cookies also force private, no-store", () => {
-    expect(cacheControlOf("http://localhost:3000/", { cookie: "__Secure-authjs.session-token=x" })).toBe(
+  it("NextAuth session-token cookies also force private, no-store", async () => {
+    expect(await cacheControlOf("http://localhost:3000/", { cookie: "__Secure-authjs.session-token=x" })).toBe(
       "private, no-store"
     );
   });
 
-  it("anonymous pages keep the public edge-cache policy", () => {
-    expect(cacheControlOf("http://localhost:3000/")).toBe(
+  it("anonymous pages keep the public edge-cache policy", async () => {
+    expect(await cacheControlOf("http://localhost:3000/")).toBe(
       "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
     );
-    expect(cacheControlOf("http://localhost:3000/search", { cookie: "wa_theme=dark; consent=1" })).toBe(
+    expect(await cacheControlOf("http://localhost:3000/search", { cookie: "wa_theme=dark; consent=1" })).toBe(
       "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
     );
   });
 
-  it("API routes are untouched (they set their own cache headers)", () => {
-    expect(cacheControlOf("http://localhost:3000/api/workers")).toBeNull();
-    expect(cacheControlOf("http://localhost:3000/api/workers", { cookie: "wa_session=x" })).toBeNull();
+  it("API routes are untouched (they set their own cache headers)", async () => {
+    expect(await cacheControlOf("http://localhost:3000/api/workers")).toBeNull();
+    expect(await cacheControlOf("http://localhost:3000/api/workers", { cookie: "wa_session=x" })).toBeNull();
   });
 
-  it("other security headers are still stamped on authenticated requests", () => {
-    const response = proxy(makeRequest("http://localhost:3000/dashboard", { cookie: "wa_session=x" }));
+  it("other security headers are still stamped on authenticated requests", async () => {
+    const response = await proxy(makeRequest("http://localhost:3000/dashboard", { cookie: "wa_session=x" }));
     expect(response.headers.get("X-Frame-Options")).toBe("DENY");
     expect(response.headers.get("Content-Security-Policy")).toBeTruthy();
   });

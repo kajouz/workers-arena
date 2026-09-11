@@ -11,10 +11,23 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { CheckoutRequest, CheckoutResult, PaymentProvider, VerifyResult } from "./types";
 
-const SIM_SECRET = process.env.PAYMENT_SIM_SECRET ?? "sim-dev-secret";
+function getSimSecret(): string {
+  const secret = process.env.PAYMENT_SIM_SECRET;
+  if (secret && secret.length >= 16) return secret;
+  // Production must never fall back to a public value — an attacker could forge
+  // any booking/campaign payment sig (C4). Fail closed in prod, dev-only fallback.
+  // Lazy check: only throw when the secret is actually needed (sign/verify), so
+  // importing the module in tests without env doesn't crash boot.
+  if (process.env.NODE_ENV === "production" && process.env.DEMO_MODE !== "true") {
+    throw new Error(
+      "[payments] PAYMENT_SIM_SECRET is required in production (non-demo). Set a random 32+ char secret — e.g. `openssl rand -hex 32`."
+    );
+  }
+  return "sim-dev-secret";
+}
 
 function sign(payload: string): string {
-  return createHmac("sha256", SIM_SECRET).update(payload).digest("hex");
+  return createHmac("sha256", getSimSecret()).update(payload).digest("hex");
 }
 
 function safeEqual(a: string, b: string): boolean {

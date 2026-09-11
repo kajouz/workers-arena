@@ -182,7 +182,6 @@ export async function storeBiometricCredentials(
 
   await loadPlugins();
   if (!secureStoragePlugin) {
-    console.warn("Secure storage plugin not installed");
     return false;
   }
 
@@ -333,8 +332,7 @@ export async function biometricLogin(
     };
   }
 
-  // In production, call your login API with credentials
-  console.log("Biometric login successful for:", username);
+  // In production, call your login API with credentials — no logging of usernames in prod
   
   return {
     success: true,

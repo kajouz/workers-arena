@@ -24,7 +24,7 @@ export async function initCapacitor(): Promise<void> {
     const { Capacitor } = await import("@capacitor/core");
     if (!Capacitor.isNativePlatform()) return;
 
-    console.log("[Capacitor] Running on", Capacitor.getPlatform());
+    if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Running on", Capacitor.getPlatform());
 
     // Status bar
     try {
@@ -43,8 +43,12 @@ export async function initCapacitor(): Promise<void> {
         await PushNotifications.register();
 
         PushNotifications.addListener("registration", (token) => {
-          console.log("[Capacitor] Push registration token:", token.value);
-          // TODO: send token to server for storage
+          if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Push registration token:", token.value);
+          void fetch("/api/push/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
+          }).catch(() => {});
         });
 
         PushNotifications.addListener("registrationError", (err) => {
@@ -52,11 +56,11 @@ export async function initCapacitor(): Promise<void> {
         });
 
         PushNotifications.addListener("pushNotificationReceived", (notification) => {
-          console.log("[Capacitor] Push received:", notification.title);
+          if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Push received:", notification.title);
         });
 
         PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-          console.log("[Capacitor] Push action:", action.notification.data);
+          if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Push action:", action.notification.data);
           // Navigate based on notification data
           const url = action.notification.data?.url;
           if (url && typeof window !== "undefined") {
@@ -87,11 +91,11 @@ export async function initCapacitor(): Promise<void> {
     try {
       const { App } = await import("@capacitor/app");
       App.addListener("appStateChange", ({ isActive }) => {
-        console.log("[Capacitor] App state:", isActive ? "foreground" : "background");
+        if (process.env.NODE_ENV !== "production") console.log("[Capacitor] App state:", isActive ? "foreground" : "background");
       });
 
       App.addListener("appUrlOpen", (data) => {
-        console.log("[Capacitor] Deep link opened:", data.url);
+        if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Deep link opened:", data.url);
       });
     } catch { /* plugin not available */ }
 
@@ -99,10 +103,10 @@ export async function initCapacitor(): Promise<void> {
     try {
       const { Network } = await import("@capacitor/network");
       const status = await Network.getStatus();
-      console.log("[Capacitor] Network:", status.connected ? "online" : "offline");
+      if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Network:", status.connected ? "online" : "offline");
 
       Network.addListener("networkStatusChange", (status) => {
-        console.log("[Capacitor] Network changed:", status.connected ? "online" : "offline");
+        if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Network changed:", status.connected ? "online" : "offline");
         // Dispatch a custom event so React components can react
         window.dispatchEvent(
           new CustomEvent("capacitor:network-change", {
@@ -137,7 +141,7 @@ export async function initCapacitor(): Promise<void> {
       }
     } catch { /* plugin not available */ }
 
-    console.log("[Capacitor] Initialization complete");
+    if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Initialization complete");
   } catch (err) {
     console.warn("[Capacitor] Init failed:", err);
   }

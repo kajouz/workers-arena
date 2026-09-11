@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       eventLog.splice(0, eventLog.length - 10000);
     }
 
-    console.log(`[AB Track] ${body.type}: ${body.experimentId} / ${body.variantId}`);
+    if (process.env.LOG_LEVEL !== "silent") console.log(`[AB Track] ${body.type}: ${body.experimentId} / ${body.variantId}`);
 
     return NextResponse.json({ success: true, eventId: eventLog.length });
   } catch (error) {

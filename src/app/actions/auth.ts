@@ -6,7 +6,7 @@ import { z } from "zod";
 import { DEMO_USERS, SESSION_COOKIE, realAuthEnabled, type SessionRole } from "@/lib/auth-demo";
 import { addLead, addReview, registerView } from "@/lib/data/repo";
 import { getLocale } from "@/lib/i18n/server";
-import { DEMO_PASSWORD, hashPassword } from "@/lib/security";
+import { DEMO_PASSWORD, hashPassword, sanitizeText, signSessionPayload } from "@/lib/security";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -29,7 +29,10 @@ export type AuthActionState = { error?: string; success?: string };
 
 async function setSession(user: (typeof DEMO_USERS)[SessionRole]) {
   const store = await cookies();
-  store.set(SESSION_COOKIE, encodeURIComponent(JSON.stringify(user)), {
+  // C3: HMAC-sign the payload — payload is base64url(JSON), signature is hex.
+  const payload = Buffer.from(JSON.stringify(user), "utf8").toString("base64url");
+  const signed = signSessionPayload(payload);
+  store.set(SESSION_COOKIE, encodeURIComponent(signed), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -120,10 +123,10 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
       const locale = await getLocale();
       await prisma.user.create({
         data: {
-          name: String(parsed.data.name),
+          name: sanitizeText(String(parsed.data.name), 100),
           email: parsed.data.email.toLowerCase(),
           passwordHash: hashPassword(parsed.data.password),
-          phone: parsed.data.phone ?? null,
+          phone: parsed.data.phone ? sanitizeText(String(parsed.data.phone), 30) : null,
           role: prismaRole(role),
           locale,
           hue: 210,
@@ -169,8 +172,10 @@ export async function trackViewAction(workerId: string): Promise<void> {
 /** Submit a review for a worker (demo: in-memory). */
 export async function submitReviewAction(workerId: string, formData: FormData): Promise<{ ok: boolean }> {
   const rating = Number(formData.get("rating"));
-  const name = String(formData.get("name") ?? "Anonymous");
-  const text = String(formData.get("text") ?? "");
+  const rawName = String(formData.get("name") ?? "Anonymous");
+  const rawText = String(formData.get("text") ?? "");
+  const name = sanitizeText(rawName, 100) || "Anonymous";
+  const text = sanitizeText(rawText, 4000);
   if (!rating || rating < 1 || rating > 5 || !text.trim()) return { ok: false };
   // ok reflects whether the review actually persisted — in real mode the repo
   // no-ops until W2 (docs/ARCHITECTURE.md §10), so the client must NOT claim

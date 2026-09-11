@@ -1,39 +1,27 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { hasSessionCookie } from "@/lib/session-cookie";
+import { checkRateLimit } from "@/lib/rate-limit";
 
-// Rate limiting in-memory store
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-
-function rateLimit(
-  key: string,
-  limit = 30,
-  windowMs = 60_000
-): boolean {
-  const now = Date.now();
-  const bucket = rateLimitStore.get(key);
-  if (!bucket || bucket.resetAt < now) {
-    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-  bucket.count += 1;
-  return bucket.count <= limit;
-}
-
-// Content Security Policy
+// Content Security Policy — hardened: no unsafe-eval (Sentry v10 doesn't need it;
+// next via Turbopack also works without). unsafe-inline kept for the theme
+// blocking script in src/app/layout.tsx:102 + Next's style tags — next step is
+// nonce-per-request. Also covers static assets via next.config.ts headers() fallback.
 const CSP_DIRECTIVES = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com https://fonts.googleapis.com",
+  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://fonts.googleapis.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
-  "connect-src 'self' https://vitals.vercel-insights.com",
+  "img-src 'self' data: blob: https://res.cloudinary.com https://*.sentry.io",
+  "connect-src 'self' https://vitals.vercel-insights.com https://*.sentry.io https://*.ingest.sentry.io",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
+  "object-src 'none'",
+  "upgrade-insecure-requests",
 ].join("; ");
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const response = NextResponse.next();
 
@@ -52,7 +40,29 @@ export function proxy(request: NextRequest) {
     "camera=(), microphone=(), geolocation=(self)"
   );
 
-  // Rate limiting for API routes
+  // ── Origin check for state-changing requests (M4) ──
+  const skipOriginCheck =
+    pathname.startsWith("/api/payments/webhook") || pathname.startsWith("/api/sentry-tunnel");
+  if (!skipOriginCheck && request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS") {
+    const origin = request.headers.get("origin");
+    const host = request.headers.get("host");
+    // Only enforce when Origin is present (browser fetches/forms); allow
+    // same-origin and missing (e.g. server-to-server cron/webhook) — but reject
+    // cross-origin POSTs that would carry cookies (CSRF).
+    if (origin && host) {
+      try {
+        const originHost = new URL(origin).host;
+        if (originHost !== host) {
+          return NextResponse.json({ error: "forbidden", reason: "origin_mismatch" }, { status: 403 });
+        }
+      } catch {
+        // Malformed Origin — reject
+        return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      }
+    }
+  }
+
+  // Rate limiting for API routes (distributed via Upstash Redis REST when configured)
   if (pathname.startsWith("/api/")) {
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous";
@@ -74,7 +84,7 @@ export function proxy(request: NextRequest) {
       limit = 10; // Moderate for reviews
     }
 
-    if (!rateLimit(key, limit, windowMs)) {
+    if (!(await checkRateLimit(key, limit, windowMs))) {
       return NextResponse.json(
         { error: "rate_limited", retryAfter: Math.ceil(windowMs / 1000) },
         { status: 429 }
@@ -88,7 +98,7 @@ export function proxy(request: NextRequest) {
       request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous";
     const key = `form:${ip}:${pathname}`;
 
-    if (!rateLimit(key, 10, 60_000)) {
+    if (!(await checkRateLimit(key, 10, 60_000))) {
       return NextResponse.json(
         { error: "rate_limited", retryAfter: 60 },
         { status: 429 }

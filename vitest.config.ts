@@ -15,6 +15,8 @@ export default defineConfig({
   test: {
     // Default node env — component tests opt into jsdom via a per-file
     // `// @vitest-environment jsdom` docblock (see tests/respond-dialog.test.tsx).
+    // Keep single project for now; docblock opt-in is intentional — splitting into
+    // projects would require duplicating setupFiles/alias. Revisit if flakiness appears.
     environment: "node",
     include: ["tests/**/*.test.{ts,tsx}"],
     // Guarded polyfills (matchMedia/ResizeObserver) for the jsdom component

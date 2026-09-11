@@ -41,6 +41,7 @@ import { buildBookingTrailsCsv } from "@/lib/data/booking-trail-export";
 import { PdfRenderError, renderAuditPdf } from "@/lib/data/booking-pdf";
 import { dictionaries, translate } from "@/lib/i18n/dictionaries";
 import { dispatch } from "@/lib/notifications/dispatcher";
+import { sanitizeText } from "@/lib/security";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -95,15 +96,20 @@ export async function requestBookingAction(
   // (no session) stay phone-keyed and get no invoice.
   const session = await getSession();
 
+  const cleanCustomerName = sanitizeText(parsed.data.customerName, 100);
+  const cleanJobTitle = sanitizeText(parsed.data.jobTitle, 200);
+  const cleanNote = parsed.data.note ? sanitizeText(parsed.data.note, 2000) : undefined;
+  if (!cleanCustomerName || !cleanJobTitle) return { ok: false, error: "invalid" };
+
   const result = await createBookingRequest({
     workerId: worker.id,
     slotId: parsed.data.slotId,
     customerId: session?.id,
-    customerName: parsed.data.customerName,
+    customerName: cleanCustomerName,
     customerPhone: parsed.data.customerPhone,
     customerEmail: parsed.data.customerEmail || undefined,
-    jobTitle: parsed.data.jobTitle,
-    note: parsed.data.note || undefined,
+    jobTitle: cleanJobTitle,
+    note: cleanNote,
     serviceItem,
     isEmergency: parsed.data.isEmergency === "true",
   });
@@ -141,14 +147,18 @@ export async function requestRecurringBookingAction(
   const worker = await getWorkerBySlug(workerSlug);
   if (!worker) return { ok: false, error: "invalid" };
 
+  const cleanCustomerName = sanitizeText(parsed.data.customerName, 100);
+  const cleanJobTitle = sanitizeText(parsed.data.jobTitle, 200);
+  const cleanNote = parsed.data.note ? sanitizeText(parsed.data.note, 2000) : undefined;
+  if (!cleanCustomerName || !cleanJobTitle) return { ok: false, error: "invalid" };
   const result = await createRecurringRequest({
     workerId: worker.id,
     slotId: parsed.data.slotId,
-    customerName: parsed.data.customerName,
+    customerName: cleanCustomerName,
     customerPhone: parsed.data.customerPhone,
     customerEmail: parsed.data.customerEmail || undefined,
-    jobTitle: parsed.data.jobTitle,
-    note: parsed.data.note || undefined,
+    jobTitle: cleanJobTitle,
+    note: cleanNote,
     serviceItem: worker.services.find((s) => s.nameEn === parsed.data.serviceItemName),
     frequency: frequency.data as RecurringFrequency,
   });
@@ -195,11 +205,13 @@ export async function respondBookingAction(
   const accept = parsed.data.accept === "true";
   const toMinor = (v?: string) => (v ? Math.round(Number(v) * 100) : undefined);
 
+  const cleanDeclineReason = parsed.data.declineReason ? sanitizeText(parsed.data.declineReason, 500) : undefined;
+
   const booking = await respondToBooking(bookingId, {
     accept,
     quote: toMinor(parsed.data.quote),
     deposit: toMinor(parsed.data.deposit),
-    declineReason: parsed.data.declineReason || undefined,
+    declineReason: cleanDeclineReason,
   });
   if (!booking) return { ok: false, error: "not-found" };
 
@@ -223,12 +235,13 @@ export async function respondRecurringBookingAction(
 
   const accept = parsed.data.accept === "true";
   const toMinor = (v?: string) => (v ? Math.round(Number(v) * 100) : undefined);
+  const cleanDeclineReason = parsed.data.declineReason ? sanitizeText(parsed.data.declineReason, 500) : undefined;
 
   const recurring = await respondToRecurring(recurringId, {
     accept,
     quote: toMinor(parsed.data.quote),
     deposit: toMinor(parsed.data.deposit),
-    declineReason: parsed.data.declineReason || undefined,
+    declineReason: cleanDeclineReason,
   });
   if (!recurring) return { ok: false, error: "not-found" };
 
@@ -242,8 +255,9 @@ export async function cancelRecurringContractAction(
   recurringId: string,
   formData: FormData
 ): Promise<BookingActionResult> {
-  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
-  const recurring = await cancelRecurringContract(recurringId, reason || undefined);
+  const rawReason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const reason = rawReason ? sanitizeText(rawReason, 500) : undefined;
+  const recurring = await cancelRecurringContract(recurringId, reason);
   if (!recurring) return { ok: false, error: "not-found" };
   revalidatePath("/bookings");
   return { ok: true };
@@ -329,8 +343,9 @@ export async function cancelBookingAction(
     reason: formData.get("reason") || undefined,
   });
   if (!parsed.success) return { ok: false, error: "invalid" };
+  const cleanCancelReason = parsed.data.reason ? sanitizeText(parsed.data.reason, 500) : undefined;
 
-  const booking = await cancelBooking(bookingId, parsed.data);
+  const booking = await cancelBooking(bookingId, { by: parsed.data.by, reason: cleanCancelReason });
   if (!booking) return { ok: false, error: "not-found" };
 
   revalidatePath("/dashboard");
@@ -353,7 +368,8 @@ export async function adminCancelBookingAction(
 ): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" | "reason" }> {
   const session = await getSession();
   if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
-  const reason = String(formData.get("reason") ?? "").trim();
+  const rawReason = String(formData.get("reason") ?? "").trim();
+  const reason = sanitizeText(rawReason, 500);
   if (!reason) return { ok: false, error: "reason" };
   const booking = await cancelBooking(bookingId, { by: "admin", reason, adminName: session.name });
   if (!booking) return { ok: false, error: "not-found" };
@@ -376,7 +392,8 @@ export async function refundBookingDepositAction(
 ): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" | "reason" }> {
   const session = await getSession();
   if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
-  const reason = String(formData.get("reason") ?? "").trim();
+  const rawReason = String(formData.get("reason") ?? "").trim();
+  const reason = sanitizeText(rawReason, 500);
   if (!reason) return { ok: false, error: "reason" };
   const booking = await refundBookingDeposit(bookingId, { reason, adminName: session.name });
   if (!booking) return { ok: false, error: "not-found" };
@@ -407,11 +424,12 @@ export async function setSlotBlockedAction(
   const worker = await getWorkerBySlug(workerSlug);
   if (!worker) return { ok: false, error: "invalid" };
 
+  const cleanNote = parsed.data.note ? sanitizeText(parsed.data.note, 200) : undefined;
   const slot = await setSlotBlocked(
     worker.id,
     parsed.data.slotId,
     parsed.data.blocked === "true",
-    parsed.data.note
+    cleanNote
   );
   if (!slot) return { ok: false, error: "not-found" };
 
@@ -461,9 +479,10 @@ export async function rescheduleBookingAction(
   });
   if (!parsed.success) return { ok: false, error: "invalid" };
 
+  const cleanRescheduleReason = parsed.data.reason ? sanitizeText(parsed.data.reason, 500) : undefined;
   const booking = await rescheduleBooking(bookingId, parsed.data.targetSlotId, {
     by: parsed.data.by,
-    reason: parsed.data.reason,
+    reason: cleanRescheduleReason,
   });
   if (!booking) return { ok: false, error: "not-found" };
 
@@ -568,14 +587,18 @@ export async function createQuoteRequestAction(
     ? first.services.find((s) => s.nameEn === parsed.data.serviceItemName)
     : undefined;
 
+  const cleanQrCustomerName = sanitizeText(parsed.data.customerName, 100);
+  const cleanQrJobTitle = sanitizeText(parsed.data.jobTitle, 200);
+  const cleanQrNote = parsed.data.note ? sanitizeText(parsed.data.note, 2000) : undefined;
+  if (!cleanQrCustomerName || !cleanQrJobTitle) return { ok: false, error: "invalid" };
   const result = await createQuoteRequest(
     {
       customerId: session?.id,
-      customerName: parsed.data.customerName,
+      customerName: cleanQrCustomerName,
       customerPhone: parsed.data.customerPhone,
       customerEmail: parsed.data.customerEmail || undefined,
-      jobTitle: parsed.data.jobTitle,
-      note: parsed.data.note || undefined,
+      jobTitle: cleanQrJobTitle,
+      note: cleanQrNote,
       serviceItem,
       categorySlug: first.categorySlug,
       citySlug: first.citySlug,
@@ -835,7 +858,8 @@ export async function sendBookingMessageAction(
   const session = await getSession();
   if (!session) return { ok: false, error: "unauthorized" };
 
-  const text = String(formData.get("text") ?? "").trim();
+  const rawText = String(formData.get("text") ?? "").trim();
+  const text = sanitizeText(rawText, 4000);
   if (!chatTextSchema.safeParse(text).success) return { ok: false, error: "invalid" };
   // Optional in-thread quote — major units from the form, ×100 to minor.
   const rawQuote = String(formData.get("quote") ?? "").trim();

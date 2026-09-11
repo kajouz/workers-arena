@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
  *
  * Guarded like the other operational routes (admin emergency/revenue APIs,
  * the CRON_SECRET cron endpoints): either a signed-in **admin** session or
- * the `x-cron-secret: $CRON_SECRET` header (or `?secret=` for schedulers
- * that can't set headers). Unauthenticated callers get 401.
+ * the `x-cron-secret: $CRON_SECRET` / `Authorization: Bearer $CRON_SECRET` header.
+ * `?secret=` query param is NOT accepted (leaks to access logs). Unauthenticated callers get 401.
  *
  *   curl -X POST -H "x-cron-secret: $CRON_SECRET" https://app.example.com/api/search/sync
  *
@@ -20,8 +20,10 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
-  const provided =
-    req.headers.get("x-cron-secret") ?? new URL(req.url).searchParams.get("secret");
+  const headerSecret = req.headers.get("x-cron-secret");
+  const authHeader = req.headers.get("authorization");
+  const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const provided = headerSecret ?? bearer;
   const hasValidCronSecret = Boolean(cronSecret && provided && provided === cronSecret);
 
   if (!hasValidCronSecret) {

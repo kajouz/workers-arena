@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/cron-auth";
 import { runRecurringGenerationEngine } from "@/lib/data/recurring-generation";
 
 export const revalidate = 0;
@@ -18,14 +19,8 @@ export const dynamic = "force-dynamic";
  * demo materializes at accept time).
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  const provided =
-    req.headers.get("x-cron-secret") ??
-    new URL(req.url).searchParams.get("secret");
-
-  if (!secret || !provided || provided !== secret) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const authError = verifyCronAuth(req);
+  if (authError) return authError;
 
   const run = await runRecurringGenerationEngine();
   return NextResponse.json({ ok: true, ...run });

@@ -91,9 +91,17 @@ describe("POST /api/search/sync — auth guard", () => {
     expect(res.status).toBe(200);
   });
 
-  it("accepts the CRON_SECRET via ?secret= (header-less schedulers)", async () => {
+  it("rejects the CRON_SECRET via ?secret= (leaks to logs — use header)", async () => {
     cookieStore.get.mockReturnValue(undefined);
     const res = await post("http://localhost/api/search/sync?secret=test-cron-secret");
+    expect(res.status).toBe(401);
+  });
+
+  it("accepts the CRON_SECRET via Authorization Bearer", async () => {
+    cookieStore.get.mockReturnValue(undefined);
+    const res = await post("http://localhost/api/search/sync", {
+      authorization: "Bearer test-cron-secret",
+    });
     expect(res.status).toBe(200);
   });
 

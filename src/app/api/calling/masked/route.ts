@@ -6,16 +6,53 @@
  */
 
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth-demo";
+import { getBookingById } from "@/lib/data/repo";
+import { getWorkerById } from "@/lib/data/repo";
 import { createMaskedNumbers, getMaskedNumbersForBooking } from "@/lib/calling/masked-number-service";
+
+async function canAccessBooking(
+  bookingId: string,
+  session: { id: string; email: string; role: string }
+): Promise<boolean> {
+  if (session.role === "admin") return true;
+  const booking = await getBookingById(bookingId);
+  if (!booking) return false;
+  if (session.role === "customer") {
+    return (
+      (booking.customerId != null && booking.customerId === session.id) ||
+      (booking.customerEmail != null && booking.customerEmail.toLowerCase() === session.email.toLowerCase())
+    );
+  }
+  if (session.role === "worker") {
+    // Demo worker: match by worker.id OR worker.email (session.email)
+    const worker = await getWorkerById(booking.workerId);
+    if (worker && (worker.id === session.id || worker.email === session.email)) return true;
+    // Fallback: direct workerId match (when session.id is the worker id)
+    if (booking.workerId === session.id) return true;
+    return false;
+  }
+  // Company and other roles: not a party to the booking
+  return false;
+}
 
 export async function GET(request: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const url = new URL(request.url);
     const bookingId = url.searchParams.get("bookingId");
     const partyType = url.searchParams.get("partyType") as "worker" | "customer" | null;
 
     if (!bookingId) {
       return NextResponse.json({ error: "bookingId is required" }, { status: 400 });
+    }
+
+    // Ownership check — only the booking's customer/worker or an admin may view
+    if (!(await canAccessBooking(bookingId, session))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (partyType) {
@@ -40,6 +77,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const body = await request.json();
     const { workerId, customerId, customerPhone, bookingId, expirationDays } = body;
 
@@ -48,6 +89,15 @@ export async function POST(request: Request) {
         { error: "workerId, customerPhone, and bookingId are required" },
         { status: 400 }
       );
+    }
+
+    // Validate booking exists and caller is a party (prevents pool DoS / arbitrary ids)
+    const booking = await getBookingById(bookingId);
+    if (!booking) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+    if (!(await canAccessBooking(bookingId, session))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const result = await createMaskedNumbers({

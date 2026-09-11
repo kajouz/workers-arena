@@ -5,9 +5,41 @@ import type { NextConfig } from "next";
 // NOTE: Next treats distDir as a project-relative NAME — an absolute path is
 // not honored and yields a confusing split build. Use a relative scratch name
 // like `tmp/…` (git- and lint-ignored) when isolation is needed.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://fonts.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https://res.cloudinary.com https://*.sentry.io",
+  "connect-src 'self' https://vitals.vercel-insights.com https://*.sentry.io https://*.ingest.sentry.io",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 const nextConfig: NextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   reactStrictMode: true,
+  async headers() {
+    return [
+      {
+        // Covers _next/static, images, etc. that proxy matcher excludes — proxy still sets same CSP dynamically
+        source: "/(.*)",
+        headers: [
+          { key: "Content-Security-Policy", value: CSP },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+      {
+        source: "/api/:path*",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+    ];
+  },
   // Next 16 blocks cross-origin dev resources (HMR, first-compile chunks, fonts)
   // from hosts outside this list — the local preview runs on 127.0.0.1, so the
   // on-demand chunk compiles 403 and the first page load never hydrates without
@@ -20,9 +52,14 @@ const nextConfig: NextConfig = {
   // (standalone expects `node .next/standalone/server.js` instead).
   ...(process.env.VERCEL || process.env.NEXT_DISABLE_STANDALONE ? {} : { output: "standalone" }),
   images: {
-    // Demo mode: the app ships fully offline-safe visuals (no remote images).
-    // For production with Cloudinary/S3, remove this and configure remotePatterns.
-    unoptimized: true,
+    // Demo mode: offline-safe (no remote optimizer needed). Production uses
+    // Next's optimizer with Cloudinary / remotePatterns (M5).
+    unoptimized: process.env.DEMO_MODE !== "false",
+    remotePatterns: [
+      { protocol: "https", hostname: "res.cloudinary.com" },
+      { protocol: "https", hostname: "*.cloudinary.com" },
+      { protocol: "https", hostname: "images.unsplash.com" },
+    ],
   },
   poweredByHeader: false,
 };

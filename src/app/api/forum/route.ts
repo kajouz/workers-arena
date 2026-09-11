@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getSession } from "@/lib/auth-demo";
+import { sanitizeText } from "@/lib/security";
 
 const prisma = new PrismaClient();
 
@@ -100,12 +101,20 @@ export async function POST(request: Request) {
       );
     }
 
+    const cleanTitle = sanitizeText(String(title), 200);
+    const cleanContent = sanitizeText(String(content), 10000);
+    const cleanCategory = category ? sanitizeText(String(category), 50) : "general";
+    const cleanTags = Array.isArray(tags) ? tags.map((t: unknown) => sanitizeText(String(t), 30)).filter(Boolean) : [];
+    if (!cleanTitle || !cleanContent) {
+      return NextResponse.json({ error: "Title and content are required" }, { status: 400 });
+    }
+
     const post = await prisma.forumPost.create({
       data: {
-        title,
-        content,
-        category: category ?? "general",
-        tags: tags ?? [],
+        title: cleanTitle,
+        content: cleanContent,
+        category: cleanCategory,
+        tags: cleanTags,
         authorId: session.id,
       },
     });

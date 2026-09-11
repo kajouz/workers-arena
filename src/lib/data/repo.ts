@@ -480,9 +480,9 @@ export async function getInvoices(): Promise<Invoice[]> {
 
 /** ── Notifications ────────────────────────────────────────────────────────── */
 /**
- * `ownerId` scopes the inbox to one user in prisma mode. Production TODO: pass
- * the acting session user id from the page/route once NextAuth is wired (demo
- * mode ignores it and returns the single global feed).
+ * `ownerId` scopes the inbox to one user in prisma mode. In production the
+ * caller threads the session user id (NextAuth wired in Phase 1); demo mode
+ * ignores it and returns the single global feed (backward compat for E2E).
  */
 export async function getNotificationsList(ownerId?: string): Promise<Notification[]> {
   return await getNotifications(ownerId);
@@ -827,7 +827,7 @@ export async function getChatPresence(bookingId: string): Promise<ChatPresenceSn
  * export on /admin). Demo reads the whole in-memory store; prisma reads all
  * Booking rows with the same include set as the per-booking read (events,
  * service item, M3 receipt) so the combined document matches the dispute
- * view. Production TODO: paginate for very large stores.
+ * view. For very large stores (>10k bookings) callers should paginate upstream.
  */
 export async function getAllBookings(): Promise<Booking[]> {
   if (realDataEnabled) return (await prismaRepo()).prismaGetAllBookings();

@@ -245,8 +245,12 @@ export function setupNotificationListeners(): () => void {
     localStorage.setItem("wa-push-token", token.value);
     localStorage.setItem("wa-push-platform", getPlatform());
 
-    // TODO: Send token to server for storage
-    // POST /api/push/register { platform: getPlatform(), token: token.value }
+    // Send token to server for storage (fire-and-forget, server dedupes by endpoint)
+    void fetch("/api/push/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform: getPlatform(), token: token.value }),
+    }).catch(() => {});
   });
   listeners.push(() => registrationListener.then((l) => l.remove()));
 
@@ -315,9 +319,12 @@ export function setupNotificationListeners(): () => void {
 
   // 6. Token refresh (FCM/APNs may rotate tokens)
   const tokenRefreshListener = PushNotifications.addListener("registration", (token) => {
-    console.log("Push token refreshed:", token.value);
     localStorage.setItem("wa-push-token", token.value);
-    // TODO: Update token on server
+    void fetch("/api/push/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform: getPlatform(), token: token.value }),
+    }).catch(() => {});
   });
   listeners.push(() => tokenRefreshListener.then((l) => l.remove()));
 

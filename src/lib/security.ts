@@ -1,4 +1,4 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 
 /**
  * Shared password for the seeded demo accounts (prisma/seed.ts) — real-mode
@@ -117,6 +117,42 @@ export function rateLimit(key: string, limit = 30, windowMs = 60_000): boolean {
 
 export function csrfToken(): string {
   return randomBytes(24).toString("hex");
+}
+
+// ── Demo session cookie HMAC (C3) ───────────────────────────────────────────
+/** Secret used to sign the demo wa_session cookie. AUTH_SECRET when set, else dev fallback. */
+function getSessionSecret(): string {
+  const raw = process.env.AUTH_SECRET ?? "";
+  if (raw && !raw.includes("replace-me") && raw.length >= 16) return raw;
+  // Fail-closed only for real-mode production (DEMO_MODE=false) — demo/E2E
+  // still needs to boot without a real secret. Dev fallback is never used in
+  // real prod because realAuthEnabled would already require a real secret.
+  if (process.env.NODE_ENV === "production" && process.env.DEMO_MODE === "false") {
+    // Return placeholder — getSession will reject via demoSessionAllowed path,
+    // but signing itself shouldn't crash the module load.
+    return raw || "placeholder-secret-will-be-rejected";
+  }
+  return "dev-session-secret-not-for-production";
+}
+
+/** Sign a raw payload (base64url JSON) with HMAC-SHA256. */
+export function signSessionPayload(payload: string): string {
+  const sig = createHmac("sha256", getSessionSecret()).update(payload).digest("hex");
+  return `${payload}.${sig}`;
+}
+
+/** Verify a signed payload. Returns the payload if valid, null otherwise. */
+export function verifySessionPayload(signed: string): string | null {
+  const dot = signed.lastIndexOf(".");
+  if (dot === -1) return null;
+  const payload = signed.slice(0, dot);
+  const sig = signed.slice(dot + 1);
+  const expected = createHmac("sha256", getSessionSecret()).update(payload).digest("hex");
+  const a = Buffer.from(sig, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length) return null;
+  if (!timingSafeEqual(a, b)) return null;
+  return payload;
 }
 
 /**

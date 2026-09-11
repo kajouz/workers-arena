@@ -1037,8 +1037,15 @@ describe("push-prune cron route", () => {
     expect(body.kept).toBe(1); // no VAPID → nothing probed, nothing removed
   });
 
-  it("accepts the secret as a query param", async () => {
+  it("rejects the secret as a query param (leaks to logs — use header)", async () => {
     const res = await routeGet(new Request("http://localhost/api/cron/push-prune?secret=test-secret"));
+    expect(res.status).toBe(401);
+  });
+
+  it("accepts the secret via Authorization Bearer", async () => {
+    const res = await routeGet(
+      new Request("http://localhost/api/cron/push-prune", { headers: { authorization: "Bearer test-secret" } })
+    );
     expect(res.status).toBe(200);
   });
 });
@@ -1079,8 +1086,15 @@ describe("activity-prune cron route", () => {
     expect(body.remaining).toBe(1); // fresh entry survives
   });
 
-  it("accepts the secret as a query param", async () => {
+  it("rejects the secret as a query param (leaks to logs — use header)", async () => {
     const res = await routeGet(new Request("http://localhost/api/cron/activity-prune?secret=test-secret"));
+    expect(res.status).toBe(401);
+  });
+
+  it("accepts the secret via Authorization Bearer", async () => {
+    const res = await routeGet(
+      new Request("http://localhost/api/cron/activity-prune", { headers: { authorization: "Bearer test-secret" } })
+    );
     expect(res.status).toBe(200);
   });
 });

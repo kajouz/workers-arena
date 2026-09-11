@@ -7,13 +7,11 @@ const config: CapacitorConfig = {
   // For development with `cap run`, use the server.url option below.
   webDir: "out",
   server: {
-    // Production: load from the deployed site (no CORS issues)
-    url: "https://workersarena.com",
-    cleartext: false,
+    // M9 fix: env-driven so `cap run` in dev doesn't hit production by accident.
+    // NEXT_PUBLIC_APP_URL is the same origin the web app uses.
+    url: process.env.NEXT_PUBLIC_APP_URL ?? process.env.CAP_SERVER_URL ?? "https://workersarena.com",
+    cleartext: (process.env.NEXT_PUBLIC_APP_URL ?? "").startsWith("http://"),
     androidScheme: "https",
-    // For local development, uncomment below and comment production URL:
-    // url: "http://localhost:3001",
-    // cleartext: true,
   },
 
   // iOS specific

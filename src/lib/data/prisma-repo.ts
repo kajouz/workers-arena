@@ -63,11 +63,11 @@ import { getPaymentProvider } from "@/lib/payments/registry";
 
 /**
  * Absolute base URL for checkout success/cancel redirects. Uses APP_URL when
- * set (Vercel/prod); otherwise a relative URL — good enough for the simulated
- * provider in local dev/tests.
+ * set (Vercel/prod), falls back to NEXT_PUBLIC_APP_URL (M11 fix: empty string
+ * broke email hrefs), otherwise relative URL for simulated provider in local dev.
  */
 function origin(): string {
-  return process.env.APP_URL ?? "";
+  return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
 }
 import { distanceKm, isOpenNow, type CurrencyCode } from "@/lib/utils";
 import {

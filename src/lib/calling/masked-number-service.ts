@@ -526,7 +526,22 @@ async function getBookingForMaskedNumber(bookingId: string): Promise<{
   workerPhone: string;
   customerPhone: string;
 } | null> {
-  // In demo mode, return mock data; in production, query the database
+  // Prefer real lookup so a missing booking is caught (BK- prefix alone hid it).
+  try {
+    const { getBookingById } = await import("@/lib/data/repo");
+    const { getWorkerById } = await import("@/lib/data/repo");
+    const booking = await getBookingById(bookingId);
+    if (booking) {
+      const worker = await getWorkerById(booking.workerId);
+      return {
+        workerPhone: worker?.phone ?? "+961 71 000 000",
+        customerPhone: booking.customerPhone,
+      };
+    }
+  } catch {
+    // Fall through to mock
+  }
+  // Demo fallback for synthetic BK- ids used in isolated tests without a seeded booking
   if (bookingId.startsWith("BK-")) {
     return { workerPhone: "+961 71 123 456", customerPhone: "+961 70 123 456" };
   }

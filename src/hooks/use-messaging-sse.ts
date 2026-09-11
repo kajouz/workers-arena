@@ -111,7 +111,7 @@ export function useMessagingSSE(options: UseMessagingSSEOptions): UseMessagingSE
       setIsConnected(true);
       setError(null);
       reconnectAttempts.current = 0;
-      console.log("[SSE] Connected to messaging stream");
+      if (process.env.NODE_ENV !== "production") console.log("[SSE] Connected to messaging stream");
     };
 
     eventSource.onmessage = (event) => {
@@ -135,7 +135,7 @@ export function useMessagingSSE(options: UseMessagingSSEOptions): UseMessagingSE
             // Keepalive — no action needed
             break;
           case "connected":
-            console.log("[SSE] Stream established");
+            if (process.env.NODE_ENV !== "production") console.log("[SSE] Stream established");
             break;
         }
       } catch (err) {
@@ -151,7 +151,7 @@ export function useMessagingSSE(options: UseMessagingSSEOptions): UseMessagingSE
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
       reconnectAttempts.current++;
 
-      console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
+      if (process.env.NODE_ENV !== "production") console.log(`[SSE] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
 
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();

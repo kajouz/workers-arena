@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/cron-auth";
 import { runDueReminderEngine } from "@/lib/notifications/reminders";
 
 export const revalidate = 0;
@@ -17,14 +18,8 @@ export const dynamic = "force-dynamic";
  * response includes `bookings: { dispatched, alreadySent, total }`.
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  const provided =
-    req.headers.get("x-cron-secret") ??
-    new URL(req.url).searchParams.get("secret");
-
-  if (!secret || !provided || provided !== secret) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const authError = verifyCronAuth(req);
+  if (authError) return authError;
 
   const run = await runDueReminderEngine();
   return NextResponse.json({ ok: true, ...run });

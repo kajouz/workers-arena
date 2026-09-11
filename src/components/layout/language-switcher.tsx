@@ -30,11 +30,13 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
         {locales.map((l) => (
           <DropdownMenuItem
             key={l}
+            lang={l}
+            aria-label={`Switch to ${localeNames[l]}`}
             onClick={() => setLocale(l)}
             className={cn(locale === l && "bg-brand-500/10 font-semibold text-brand-700 dark:text-brand-300")}
           >
-            <span className="flex-1">{localeNames[l]}</span>
-            {locale === l && <Check className="size-4 text-brand-600 dark:text-brand-400" />}
+            <span className="flex-1" lang={l}>{localeNames[l]}</span>
+            {locale === l && <Check className="size-4 text-brand-600 dark:text-brand-400" aria-hidden />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

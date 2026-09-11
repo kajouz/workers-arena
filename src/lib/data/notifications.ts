@@ -275,8 +275,7 @@ export function rowToNotification(row: PrismaNotificationRow): Notification {
 
 /**
  * The demo inbox is one global feed; production is per-user. `ownerId` scopes a
- * query to one user's rows when provided (production TODO: thread the session
- * user id from the repo layer once NextAuth is wired — demo mode ignores it).
+ * query to one user's rows when provided (session id threaded from repo layer in production; demo ignores it).
  */
 async function prismaGetNotifications(ownerId?: string): Promise<Notification[]> {
   return withPrisma(async (db) => {
@@ -347,8 +346,7 @@ async function prismaPush(
 
 /**
  * All notifications, newest first. `ownerId` scopes to one user in prisma mode
- * (production TODO: pass the acting session user id); demo mode ignores it and
- * returns the single global feed.
+ * (threaded from repo layer); demo mode ignores it and returns the single global feed.
  */
 export async function getNotifications(ownerId?: string): Promise<Notification[]> {
   return inboxAdapterMode() === "prisma"

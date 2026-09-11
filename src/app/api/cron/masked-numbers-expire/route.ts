@@ -9,21 +9,17 @@
  */
 
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/cron-auth";
 import { expireOldMaskedNumbers } from "@/lib/calling/masked-number-service";
 
 export async function GET(request: Request) {
   try {
-    // Verify the request is from an authorized source
-    const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
-    
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authError = verifyCronAuth(request);
+    if (authError) return authError;
 
     const expiredCount = await expireOldMaskedNumbers();
 
-    console.log(`[Cron] Masked numbers expiration: ${expiredCount} numbers expired`);
+    if (process.env.LOG_LEVEL !== "silent") console.log(`[Cron] Masked numbers expiration: ${expiredCount} numbers expired`);
 
     return NextResponse.json({
       success: true,

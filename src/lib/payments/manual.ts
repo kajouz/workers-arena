@@ -15,10 +15,19 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PaymentProviderMethod } from "./types";
 
-const SIM_SECRET = process.env.PAYMENT_SIM_SECRET ?? "sim-dev-secret";
+function getSimSecret(): string {
+  const secret = process.env.PAYMENT_SIM_SECRET;
+  if (secret && secret.length >= 16) return secret;
+  if (process.env.NODE_ENV === "production" && process.env.DEMO_MODE !== "true") {
+    throw new Error(
+      "[payments] PAYMENT_SIM_SECRET is required in production (non-demo). Set a random 32+ char secret — e.g. `openssl rand -hex 32`."
+    );
+  }
+  return "sim-dev-secret";
+}
 
 export function signManual(payload: string): string {
-  return createHmac("sha256", SIM_SECRET).update(payload).digest("hex");
+  return createHmac("sha256", getSimSecret()).update(payload).digest("hex");
 }
 
 export function safeEqual(a: string, b: string): boolean {

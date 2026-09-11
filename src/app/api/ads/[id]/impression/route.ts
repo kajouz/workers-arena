@@ -11,8 +11,7 @@ export async function GET(
 ) {
   const { id } = await params;
   
-  // Log the impression (in production, save to database)
-  console.log(`[Email Ad Impression] Ad ${id} viewed at ${new Date().toISOString()}`);
+  if (process.env.LOG_LEVEL !== "silent") console.log(`[Email Ad Impression] Ad ${id} viewed at ${new Date().toISOString()}`);
   
   // Try to increment impression count in the ads store
   try {

@@ -77,7 +77,7 @@ export default defineConfig({
     : {
         command: "npx next dev -p " + PORT,
         port: PORT,
-        reuseExistingServer: true,
+        reuseExistingServer: !isCI,
         timeout: 120_000,
       },
 });

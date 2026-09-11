@@ -56,7 +56,7 @@ export function registerClient(
   };
 
   clients.set(id, client);
-  console.log(`[SSE] Client ${id} connected to booking ${bookingId} (${role})`);
+  if (process.env.NODE_ENV !== "production") console.log(`[SSE] Client ${id} connected to booking ${bookingId} (${role})`);
 
   // Notify other clients about new connection
   broadcast(bookingId, {
@@ -75,7 +75,7 @@ export function removeClient(id: string): void {
   if (!client) return;
 
   clients.delete(id);
-  console.log(`[SSE] Client ${id} disconnected from booking ${client.bookingId}`);
+  if (process.env.NODE_ENV !== "production") console.log(`[SSE] Client ${id} disconnected from booking ${client.bookingId}`);
 
   // Notify remaining clients
   broadcast(client.bookingId, {

@@ -41,11 +41,23 @@ jobs:
 
       - run: npm ci
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
       - name: ESLint
         run: npm run lint
 
       - name: TypeScript
         run: npm run typecheck
+
+      - name: Docs links
+        run: npm run check:docs-links
+
+      - name: Diagrams (validate)
+        run: npm run validate:diagrams
+
+      - name: Docs manual (generate)
+        run: npm run docs:manual
 
   # ─── Unit Tests ───
   test:

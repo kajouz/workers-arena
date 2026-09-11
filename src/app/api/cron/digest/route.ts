@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/cron-auth";
 import {
   generateWorkerDigestHTML,
   generateCustomerDigestHTML,
@@ -16,13 +17,10 @@ import {
  * Or schedule via: Vercel Cron (vercel.json) or external cron service
  */
 export async function POST(request: Request) {
-  // Verify cron secret for security
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authError = verifyCronAuth(request);
+  if (authError) return authError;
 
-  console.log("[Digest Cron] Starting weekly digest send...");
+  if (process.env.LOG_LEVEL !== "silent") console.log("[Digest Cron] Starting weekly digest send...");
 
   // In production, fetch recipients from database
   // For now, log that the job ran
@@ -41,8 +39,10 @@ export async function POST(request: Request) {
   // 3. Include sponsored content in each email
   // 4. Send the email via the configured provider
 
-  console.log("[Digest Cron] Sponsored content ready:", sponsoredContent.length, "ads");
-  console.log("[Digest Cron] Results:", results);
+  if (process.env.LOG_LEVEL !== "silent") {
+    console.log("[Digest Cron] Sponsored content ready:", sponsoredContent.length, "ads");
+    console.log("[Digest Cron] Results:", results);
+  }
 
   return NextResponse.json({
     success: true,
@@ -53,11 +53,13 @@ export async function POST(request: Request) {
 }
 
 /**
- * GET handler for testing the cron endpoint
+ * GET handler — also cron-guarded (no open leak).
  */
-export async function GET() {
+export async function GET(request: Request) {
+  const authError = verifyCronAuth(request);
+  if (authError) return authError;
   return NextResponse.json({
     message: "Digest cron endpoint is ready",
-    usage: "POST /api/cron/digest with Authorization: Bearer <CRON_SECRET>",
+    usage: "POST /api/cron/digest with Authorization: Bearer <CRON_SECRET> or x-cron-secret",
   });
 }

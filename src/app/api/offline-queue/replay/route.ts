@@ -12,6 +12,8 @@
  */
 
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth-demo";
+import { sanitizeText } from "@/lib/security";
 import { addLead, addReview } from "@/lib/data/repo";
 
 type ReplayBody = {
@@ -38,11 +40,18 @@ export async function POST(request: Request): Promise<NextResponse> {
         if (!workerId || typeof workerId !== "string") {
           return NextResponse.json({ ok: false, error: "invalid" }, { status: 400 });
         }
+        // Lead is allowed for guests (phone-keyed contact) — rate-limited by
+        // proxy (30/min per IP) and sanitized; review below requires auth.
         const w = await addLead(workerId);
         return NextResponse.json({ ok: !!w });
       }
 
       case "review": {
+        // Reviews must be authenticated — prevents anonymous spam (C2).
+        const session = await getSession();
+        if (!session) {
+          return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+        }
         const { workerId, author, rating, text } = body.payload as {
           workerId?: string;
           author?: string;
@@ -62,11 +71,16 @@ export async function POST(request: Request): Promise<NextResponse> {
         ) {
           return NextResponse.json({ ok: false, error: "invalid" }, { status: 400 });
         }
+        const cleanText = sanitizeText(text, 4000);
+        const cleanAuthor = sanitizeText(author || session.name || "Anonymous", 100) || "Anonymous";
+        if (!cleanText) {
+          return NextResponse.json({ ok: false, error: "invalid" }, { status: 400 });
+        }
         const w = await addReview(workerId, {
-          author: author || "Anonymous",
+          author: cleanAuthor,
           rating,
-          textEn: text,
-          textAr: text,
+          textEn: cleanText,
+          textAr: cleanText,
           verifiedPurchase: false,
         });
         return NextResponse.json({ ok: !!w });
