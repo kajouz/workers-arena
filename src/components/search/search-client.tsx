@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Mic, SlidersHorizontal, X, MapPin } from "lucide-react";
@@ -217,16 +216,6 @@ export function SearchClient({
   }, [hasMore, loading, page, filters, runSearch]);
 
   const sentinel = useInfiniteScroll(loadMore, hasMore);
-
-  // Virtual scrolling for large result lists
-  const parentRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line react-hooks/incompatible-library -- @tanstack/react-virtual isn't React-Compiler aware; the rule can't analyze it and rendering is unaffected
-  const rowVirtualizer = useVirtualizer({
-    count: results.items.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 280, // estimated card height
-    overscan: 5,
-  });
 
   const update = <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
     setFilters((f) => ({ ...f, [key]: value, page: undefined }));
@@ -477,40 +466,7 @@ export function SearchClient({
                 {L.emptyCta}
               </Button>
             </div>
-          ) : results.items.length > 12 ? (
-            // Virtual scrolling for large result sets (>12 items)
-            <div ref={parentRef} className="h-[800px] overflow-auto">
-              <div
-                className="relative grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
-                style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-              >
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const worker = results.items[virtualRow.index];
-                  return (
-                    <div
-                      key={worker.id}
-                      className="absolute inset-x-0 top-0 grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
-                      style={{
-                        height: `${virtualRow.size}px`,
-                        transform: `translateY(${virtualRow.start}px)`,
-                      }}
-                    >
-                      <WorkerCard worker={worker} index={virtualRow.index} />
-                    </div>
-                  );
-                })}
-              </div>
-              {loading && (
-                <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <WorkerCardSkeleton key={`s-${i}`} />
-                  ))}
-                </div>
-              )}
-              <div ref={sentinel} className="h-4" aria-hidden />
-            </div>
           ) : (
-            // Standard grid for small result sets
             <>
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 <AnimatePresence mode="popLayout">
