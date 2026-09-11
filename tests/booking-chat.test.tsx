@@ -76,7 +76,7 @@ const booking = {
   id: "bk-1001",
   number: "BK-1001",
   jobTitle: "Fix a leaking pipe",
-  currency: "SAR",
+  currency: "USD",
   status: "requested",
   quote: 15_000,
 } as unknown as Booking;

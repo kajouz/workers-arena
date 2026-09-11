@@ -81,7 +81,7 @@ const DEMO_WORKERS = [
 const DEMO_INVOICES: Invoice[] = [
   {
     id: "inv-1", number: "INV-2024-001", workerName: "Khaled Al-Harbi", workerNameAr: "خالد الحربي", workerEmail: "khaled@plumbfix.sa",
-    type: "subscription", amount: 11900, tax: 1785, currency: "SAR", status: "paid", issuedAt: "2024-01-15", paidAt: "2024-01-15", dueDate: "2024-02-15", hue: 294,
+    type: "subscription", amount: 11900, tax: 1785, currency: "USD", status: "paid", issuedAt: "2024-01-15", paidAt: "2024-01-15", dueDate: "2024-02-15", hue: 294,
     lineItems: [
       { id: "li-1", description: "Premium Plan — Monthly", quantity: 1, unitPrice: 11900, total: 11900 },
     ],
@@ -92,7 +92,7 @@ const DEMO_INVOICES: Invoice[] = [
   },
   {
     id: "inv-2", number: "INV-2024-002", workerName: "Ali Hassan", workerNameAr: "علي حسن", workerEmail: "ali@carpentry.sa",
-    type: "subscription", amount: 5900, tax: 885, currency: "AED", status: "paid", issuedAt: "2024-01-20", paidAt: "2024-01-20", dueDate: "2024-02-20", hue: 299,
+    type: "subscription", amount: 5900, tax: 885, currency: "USD", status: "paid", issuedAt: "2024-01-20", paidAt: "2024-01-20", dueDate: "2024-02-20", hue: 299,
     lineItems: [
       { id: "li-2", description: "Professional Plan — Monthly", quantity: 1, unitPrice: 5900, total: 5900 },
     ],
@@ -103,7 +103,7 @@ const DEMO_INVOICES: Invoice[] = [
   },
   {
     id: "inv-3", number: "INV-2024-003", workerName: "Omar Al-Mutairi", workerNameAr: "عمر المطيري", workerEmail: "omar@ac-tech.sa",
-    type: "verification", amount: 2900, tax: 435, currency: "SAR", status: "pending", issuedAt: "2024-02-01", dueDate: "2024-03-01", hue: 260,
+    type: "verification", amount: 2900, tax: 435, currency: "USD", status: "pending", issuedAt: "2024-02-01", dueDate: "2024-03-01", hue: 260,
     lineItems: [
       { id: "li-3", description: "Identity Verification Fee", quantity: 1, unitPrice: 1500, total: 1500 },
       { id: "li-4", description: "Background Check", quantity: 1, unitPrice: 1400, total: 1400 },
@@ -115,7 +115,7 @@ const DEMO_INVOICES: Invoice[] = [
   },
   {
     id: "inv-4", number: "INV-2024-004", workerName: "Bilal Mansour", workerNameAr: "بلال منصور", workerEmail: "bilal@clean.pro",
-    type: "featured", amount: 4900, tax: 735, currency: "AED", status: "overdue", issuedAt: "2024-01-10", dueDate: "2024-02-10", hue: 275,
+    type: "featured", amount: 4900, tax: 735, currency: "USD", status: "overdue", issuedAt: "2024-01-10", dueDate: "2024-02-10", hue: 275,
     lineItems: [
       { id: "li-5", description: "Featured Listing — 30 days", quantity: 1, unitPrice: 3900, total: 3900 },
       { id: "li-6", description: "Homepage Banner Placement", quantity: 1, unitPrice: 1000, total: 1000 },
@@ -127,7 +127,7 @@ const DEMO_INVOICES: Invoice[] = [
   },
   {
     id: "inv-5", number: "INV-2024-005", workerName: "BuildCo Ltd", workerNameAr: "شركة بلدت ك", workerEmail: "ads@buildco.sa",
-    type: "campaign", amount: 29900, tax: 4485, currency: "SAR", status: "paid", issuedAt: "2024-02-05", paidAt: "2024-02-05", dueDate: "2024-03-05", hue: 156,
+    type: "campaign", amount: 29900, tax: 4485, currency: "USD", status: "paid", issuedAt: "2024-02-05", paidAt: "2024-02-05", dueDate: "2024-03-05", hue: 156,
     lineItems: [
       { id: "li-7", description: "Enterprise Campaign — Monthly", quantity: 1, unitPrice: 29900, total: 29900 },
     ],
@@ -138,7 +138,7 @@ const DEMO_INVOICES: Invoice[] = [
   },
   {
     id: "inv-6", number: "INV-2024-006", workerName: "Anas Barakat", workerNameAr: "أنس بركات", workerEmail: "anas@design.studio",
-    type: "subscription", amount: 11900, tax: 1785, currency: "AED", status: "paid", issuedAt: "2024-02-10", paidAt: "2024-02-10", dueDate: "2024-03-10", hue: 23,
+    type: "subscription", amount: 11900, tax: 1785, currency: "USD", status: "paid", issuedAt: "2024-02-10", paidAt: "2024-02-10", dueDate: "2024-03-10", hue: 23,
     lineItems: [
       { id: "li-8", description: "Premium Plan — Monthly", quantity: 1, unitPrice: 11900, total: 11900 },
     ],
@@ -149,7 +149,7 @@ const DEMO_INVOICES: Invoice[] = [
   },
   {
     id: "inv-7", number: "INV-2024-007", workerName: "Mohammed Farouk", workerNameAr: "محمد فاروق", workerEmail: "mohammed@test.com",
-    type: "subscription", amount: 11900, tax: 0, currency: "EGP", status: "cancelled", issuedAt: "2024-01-25", dueDate: "2024-02-25", hue: 79,
+    type: "subscription", amount: 11900, tax: 0, currency: "USD", status: "cancelled", issuedAt: "2024-01-25", dueDate: "2024-02-25", hue: 79,
     lineItems: [
       { id: "li-9", description: "Premium Plan — Monthly", quantity: 1, unitPrice: 11900, total: 11900 },
     ],
@@ -209,7 +209,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
   const [genType, setGenType] = useState<string>("subscription");
   const [genAmount, setGenAmount] = useState("");
   const [genTax, setGenTax] = useState("15");
-  const [genCurrency, setGenCurrency] = useState("SAR");
+  const [genCurrency, setGenCurrency] = useState("USD");
   const [genDueDate, setGenDueDate] = useState("");
   const [genNotes, setGenNotes] = useState("");
   const [genLineItems, setGenLineItems] = useState<{ description: string; quantity: number; unitPrice: number }[]>([
@@ -660,10 +660,10 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <span className="font-bold text-ink-900 dark:text-ink-50">
-                    {formatPrice(invoice.amount / 100, invoice.currency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}
+                    {formatPrice(invoice.amount / 100, "USD", locale as "en" | "ar")}
                   </span>
                   {invoice.tax > 0 && (
-                    <p className="text-[10px] text-ink-400">+{formatPrice(invoice.tax / 100, invoice.currency as "SAR" | "AED" | "EGP", locale as "en" | "ar")} tax</p>
+                    <p className="text-[10px] text-ink-400">+{formatPrice(invoice.tax / 100, "USD", locale as "en" | "ar")} tax</p>
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">
@@ -898,15 +898,15 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                   <div className="rounded-xl border border-ink-200 bg-ink-50 p-4 dark:border-ink-700 dark:bg-ink-800/50">
                     <div className="flex justify-between text-sm text-ink-600 dark:text-ink-400">
                       <span>Subtotal</span>
-                      <span>{formatPrice(genSubtotal / 100, genCurrency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}</span>
+                      <span>{formatPrice(genSubtotal / 100, "USD", locale as "en" | "ar")}</span>
                     </div>
                     <div className="mt-1 flex justify-between text-sm text-ink-600 dark:text-ink-400">
                       <span>Tax ({genTax}%)</span>
-                      <span>{formatPrice(genTaxAmount / 100, genCurrency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}</span>
+                      <span>{formatPrice(genTaxAmount / 100, "USD", locale as "en" | "ar")}</span>
                     </div>
                     <div className="mt-2 flex justify-between border-t border-ink-200 pt-2 font-bold text-ink-900 dark:text-ink-50">
                       <span>Total</span>
-                      <span>{formatPrice((genSubtotal + genTaxAmount) / 100, genCurrency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}</span>
+                      <span>{formatPrice((genSubtotal + genTaxAmount) / 100, "USD", locale as "en" | "ar")}</span>
                     </div>
                   </div>
 
@@ -995,8 +995,8 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                       <tr key={li.id} className="border-t border-ink-100 dark:border-ink-800">
                         <td className="px-3 py-2 text-ink-700 dark:text-ink-200">{li.description}</td>
                         <td className="px-3 py-2 text-center text-ink-500">{li.quantity}</td>
-                        <td className="px-3 py-2 text-right text-ink-500">{formatPrice(li.unitPrice / 100, showDetailModal.currency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}</td>
-                        <td className="px-3 py-2 text-right font-medium text-ink-700 dark:text-ink-200">{formatPrice(li.total / 100, showDetailModal.currency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}</td>
+                        <td className="px-3 py-2 text-right text-ink-500">{formatPrice(li.unitPrice / 100, "USD", locale as "en" | "ar")}</td>
+                        <td className="px-3 py-2 text-right font-medium text-ink-700 dark:text-ink-200">{formatPrice(li.total / 100, "USD", locale as "en" | "ar")}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1007,17 +1007,17 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
               <div className="mt-3 space-y-1 text-right">
                 <div className="flex justify-between text-sm text-ink-500">
                   <span>Subtotal</span>
-                  <span>{formatPrice(showDetailModal.amount / 100, showDetailModal.currency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}</span>
+                  <span>{formatPrice(showDetailModal.amount / 100, "USD", locale as "en" | "ar")}</span>
                 </div>
                 {showDetailModal.tax > 0 && (
                   <div className="flex justify-between text-sm text-ink-500">
                     <span>Tax</span>
-                    <span>{formatPrice(showDetailModal.tax / 100, showDetailModal.currency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}</span>
+                    <span>{formatPrice(showDetailModal.tax / 100, "USD", locale as "en" | "ar")}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-ink-200 pt-1 font-bold text-ink-900 dark:text-ink-50">
                   <span>Total Due</span>
-                  <span>{formatPrice((showDetailModal.amount + showDetailModal.tax) / 100, showDetailModal.currency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}</span>
+                  <span>{formatPrice((showDetailModal.amount + showDetailModal.tax) / 100, "USD", locale as "en" | "ar")}</span>
                 </div>
               </div>
 
@@ -1037,7 +1037,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
               {showDetailModal.refundAmount && (
                 <div className="mt-4 rounded-xl bg-purple-50 p-3 text-sm dark:bg-purple-900/20">
                   <p className="font-medium text-purple-600 dark:text-purple-400">
-                    Refunded: {formatPrice(showDetailModal.refundAmount / 100, showDetailModal.currency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}
+                    Refunded: {formatPrice(showDetailModal.refundAmount / 100, "USD", locale as "en" | "ar")}
                   </p>
                 </div>
               )}
@@ -1173,7 +1173,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                         placeholder={String(showRevokeModal.amount / 100)}
                         className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
                       />
-                      <p className="mt-1 text-xs text-ink-400">Full amount: {formatPrice(showRevokeModal.amount / 100, showRevokeModal.currency as "SAR" | "AED" | "EGP", locale as "en" | "ar")}</p>
+                      <p className="mt-1 text-xs text-ink-400">Full amount: {formatPrice(showRevokeModal.amount / 100, "USD", locale as "en" | "ar")}</p>
                     </div>
                   )}
 

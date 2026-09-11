@@ -185,10 +185,10 @@ async function main() {
   console.log("cities:", cities.length, "| first:", cities[0]?.slug, cities[0]?.currency, "| areas:", cities[0]?.areas.length);
   assert(cities.length > 0, "cities returned");
   assert(cities.every((c) => c.areas.length > 0), "every city carries its areas");
-  assert(cities[0]?.slug === "riyadh", "cities keep the demo canonical display order");
+  assert(cities[0]?.slug === "beirut", "cities keep the demo canonical display order");
   assert(typeof cities[0]?.currency === "string" && cities[0]!.currency.length === 3, "city currency cast to CurrencyCode");
-  const riyadh = cities.find((c) => c.slug === "riyadh");
-  assert(riyadh?.areas.some((a) => a.slug === "al-olaya"), "riyadh areas mapped");
+  const beirut = cities.find((c) => c.slug === "beirut");
+  assert(beirut?.areas.some((a) => a.slug === "achrafieh"), "beirut areas mapped");
 
   const khaled = await prismaGetWorkerBySlug("khaled-al-harbi-plumbing");
   console.log(
@@ -1904,7 +1904,7 @@ async function main() {
   // rendered from the SAME shared campaignRefundNotification builder the
   // /admin preview uses — proving the preview email lands for a real
   // refunded payment. The seeded company row is required (npm run db:seed
-  // creates BuildCo Ltd for ads@buildco.sa).
+  // creates BuildCo Ltd for ads@buildco.lb).
   // Self-healing: a crashed run (assert throw before cleanup) leaves the
   // AdCampaign + ad + payment + any minted invoice behind. Our smoke
   // campaigns are findable by the deterministic nameEn prefix; delete in
@@ -1929,8 +1929,8 @@ async function main() {
   });
   if (smokeCampaigns.length > 0) console.log("self-heal: removed", smokeCampaigns.length, "leftover smoke campaign(s)");
 
-  const companyUser = await prisma.user.findUnique({ where: { email: "ads@buildco.sa" } });
-  assert(companyUser !== null, "seed user ads@buildco.sa exists for the campaign purchase check");
+  const companyUser = await prisma.user.findUnique({ where: { email: "ads@buildco.lb" } });
+  assert(companyUser !== null, "seed user ads@buildco.lb exists for the campaign purchase check");
   const seededCompany = await prisma.company.findUnique({ where: { userId: companyUser!.id } });
   assert(seededCompany !== null, "seed company row exists (BuildCo Ltd) — re-run npm run db:seed");
 

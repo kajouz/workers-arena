@@ -61,10 +61,10 @@ function makeWorkerRow(overrides: Partial<WorkerRow> = {}): WorkerRow {
     areaId: "area1",
     lat: 24.7,
     lng: 46.7,
-    phone: "+966 55 123 4871",
-    whatsapp: "+966 55 123 4871",
-    email: "khaled@plumbfix.sa",
-    website: "plumbfix.sa",
+    phone: "+961 70 123 456",
+    whatsapp: "+961 70 123 456",
+    email: "khaled@plumbfix.lb",
+    website: "plumbfix.lb",
     socials: null,
     priceMin: 8000, // minor units (×100) — mapper divides back to 80
     priceMax: 95000,
@@ -106,17 +106,17 @@ function makeWorkerRow(overrides: Partial<WorkerRow> = {}): WorkerRow {
     },
     city: {
       id: "city1",
-      slug: "riyadh",
-      nameEn: "Riyadh",
-      nameAr: "الرياض",
-      countryEn: "Saudi Arabia",
-      countryAr: "السعودية",
-      currency: "SAR",
-      lat: 24.7136,
-      lng: 46.6753,
+      slug: "beirut",
+      nameEn: "Beirut",
+      nameAr: "بيروت",
+      countryEn: "Lebanon",
+      countryAr: "لبنان",
+      currency: "USD",
+      lat: 33.8938,
+      lng: 35.5018,
       isActive: true,
     },
-    area: { id: "area1", slug: "al-olaya", nameEn: "Al Olaya", nameAr: "العليا", cityId: "city1" },
+    area: { id: "area1", slug: "achrafieh", nameEn: "Achrafieh", nameAr: "الأشرفية", cityId: "city1" },
     subscription: {
       id: "sub1",
       workerId: "w1",
@@ -222,18 +222,21 @@ function makeCategoryRow(overrides: Partial<CategoryRow> = {}): CategoryRow {
 function makeCityRow(overrides: Partial<CityRow> = {}): CityRow {
   const base: CityRow = {
     id: "city1",
-    slug: "riyadh",
-    nameEn: "Riyadh",
-    nameAr: "الرياض",
-    countryEn: "Saudi Arabia",
-    countryAr: "السعودية",
-    currency: "SAR",
-    lat: 24.7136,
-    lng: 46.6753,
+    slug: "beirut",
+    nameEn: "Beirut",
+    nameAr: "بيروت",
+    countryEn: "Lebanon",
+    countryAr: "لبنان",
+    currency: "USD",
+    lat: 33.8938,
+    lng: 35.5018,
     isActive: true,
     areas: [
-      { id: "area1", slug: "al-olaya", nameEn: "Al Olaya", nameAr: "العليا", cityId: "city1" },
-      { id: "area2", slug: "al-malqa", nameEn: "Al Malqa", nameAr: "الملقا", cityId: "city1" },
+      { id: "area1", slug: "achrafieh", nameEn: "Achrafieh", nameAr: "الأشرفية", cityId: "city1" },
+      { id: "area2", slug: "hamra", nameEn: "Hamra", nameAr: "الحمرة", cityId: "city1" },
+      { id: "area3", slug: "gemmayzeh", nameEn: "Gemmayzeh", nameAr: "الجميزة", cityId: "city1" },
+      { id: "area4", slug: "mar-mikhael", nameEn: "Mar Mikhael", nameAr: "مار مخائيل", cityId: "city1" },
+      { id: "area5", slug: "badaro", nameEn: "Badaro", nameAr: "بدارو", cityId: "city1" },
     ],
   };
   return { ...base, ...overrides };
@@ -246,8 +249,8 @@ describe("toDomainWorker (Prisma row → domain)", () => {
     expect(w.id).toBe("w1");
     expect(w.slug).toBe("khaled-al-harbi-plumbing");
     expect(w.categorySlug).toBe("plumbing");
-    expect(w.citySlug).toBe("riyadh");
-    expect(w.areaSlug).toBe("al-olaya");
+    expect(w.citySlug).toBe("beirut");
+    expect(w.areaSlug).toBe("achrafieh");
     expect(w.verification).toBe("verified");
     expect(w.featured).toBe(true);
     expect(w.premium).toBe(true);
@@ -259,7 +262,7 @@ describe("toDomainWorker (Prisma row → domain)", () => {
     expect(w.subscription.status).toBe("active");
     expect(w.subscription.invoiceNo).toBe("sub1");
 
-    expect(w.currency).toBe("SAR");
+    expect(w.currency).toBe("USD");
 
     // All money is minor units in the DB — divided back to major for the UI.
     expect(w.priceMin).toBe(80);
@@ -315,8 +318,8 @@ describe("toDomainWorker (Prisma row → domain)", () => {
 
   it("falls back to city coordinates when lat/lng are null", () => {
     const w = toDomainWorker(makeWorkerRow({ lat: null, lng: null }));
-    expect(w.lat).toBe(24.7136);
-    expect(w.lng).toBe(46.6753);
+    expect(w.lat).toBe(33.8938);
+    expect(w.lng).toBe(35.5018);
   });
 
   it("handles null-ish optional JSON and text columns gracefully", () => {
@@ -351,8 +354,8 @@ describe("filtersToWhere (SearchFilters → Prisma where)", () => {
   it("translates the SQL-filterable filters", () => {
     const where = filtersToWhere({
       category: "plumbing",
-      city: "riyadh",
-      area: "al-olaya",
+      city: "beirut",
+      area: "achrafieh",
       minRating: 4.5,
       priceMin: 100,
       priceMax: 500,
@@ -363,8 +366,8 @@ describe("filtersToWhere (SearchFilters → Prisma where)", () => {
       availableNow: true,
     });
     expect(where.category).toEqual({ slug: "plumbing" });
-    expect(where.city).toEqual({ slug: "riyadh" });
-    expect(where.area).toEqual({ slug: "al-olaya" });
+    expect(where.city).toEqual({ slug: "beirut" });
+    expect(where.area).toEqual({ slug: "achrafieh" });
     expect(where.rating).toEqual({ gte: 4.5 });
     expect(where.priceMax).toEqual({ gte: 100 });
     expect(where.priceMin).toEqual({ lte: 500 });
@@ -427,25 +430,28 @@ describe("toDomainCategory (Prisma row → domain)", () => {
 describe("toDomainCity (Prisma row → domain)", () => {
   it("maps a seeded city with its areas", () => {
     const c = toDomainCity(makeCityRow());
-    expect(c.slug).toBe("riyadh");
-    expect(c.nameEn).toBe("Riyadh");
-    expect(c.nameAr).toBe("الرياض");
-    expect(c.countryEn).toBe("Saudi Arabia");
-    expect(c.currency).toBe("SAR");
-    expect(c.lat).toBe(24.7136);
-    expect(c.lng).toBe(46.6753);
+    expect(c.slug).toBe("beirut");
+    expect(c.nameEn).toBe("Beirut");
+    expect(c.nameAr).toBe("بيروت");
+    expect(c.countryEn).toBe("Lebanon");
+    expect(c.currency).toBe("USD");
+    expect(c.lat).toBe(33.8938);
+    expect(c.lng).toBe(35.5018);
     expect(c.areas).toEqual([
-      { slug: "al-olaya", nameEn: "Al Olaya", nameAr: "العليا" },
-      { slug: "al-malqa", nameEn: "Al Malqa", nameAr: "الملقا" },
+      { slug: "achrafieh", nameEn: "Achrafieh", nameAr: "الأشرفية" },
+      { slug: "hamra", nameEn: "Hamra", nameAr: "الحمرة" },
+      { slug: "gemmayzeh", nameEn: "Gemmayzeh", nameAr: "الجميزة" },
+      { slug: "mar-mikhael", nameEn: "Mar Mikhael", nameAr: "مار مخائيل" },
+      { slug: "badaro", nameEn: "Badaro", nameAr: "بدارو" },
     ]);
   });
 
   it("casts the currency to a domain CurrencyCode and defaults missing values", () => {
-    const c = toDomainCity(makeCityRow({ currency: "AED", nameEn: "Dubai", slug: "dubai" }));
-    expect(c.currency).toBe("AED");
+    const c = toDomainCity(makeCityRow({ currency: "USD", nameEn: "Beirut", slug: "beirut" }));
+    expect(c.currency).toBe("USD");
     const noCurr = toDomainCity(makeCityRow({ currency: "" }));
-    expect(noCurr.currency).toBe("SAR");
-    expect(noCurr.areas.length).toBe(2);
+    expect(noCurr.currency).toBe("USD");
+    expect(noCurr.areas.length).toBe(5);
   });
 });
 
@@ -472,7 +478,7 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
       workerId: "w1",
       customerId: null,
       customerName: "Noor E.",
-      customerPhone: "+966 55 000 0000",
+      customerPhone: "+961 70 000 000",
       customerEmail: "noor@example.com",
       jobTitle: "Fix a leaking pipe",
       note: "Under the kitchen sink",
@@ -483,7 +489,7 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
       deposit: null,
       platformFee: 560, // M5 take rate — minor units, mapped as-is
       platformFeeRateBps: 700,
-      currency: "SAR",
+      currency: "USD",
       paymentId: null,
       recurringBookingId: null,
       events: [
@@ -530,7 +536,7 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
     // derives net = quote − fee from these).
     expect(b.platformFee).toBe(560);
     expect(b.platformFeeRateBps).toBe(700);
-    expect(b.currency).toBe("SAR");
+    expect(b.currency).toBe("USD");
     expect(b.events.map((e) => e.status)).toEqual(["requested", "confirmed"]);
     expect(b.events[0]?.actorType).toBe("customer");
     expect(b.events[1]?.time).toBe("2026-08-10T09:05:00.000Z");
@@ -585,7 +591,7 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
           invoice: {
             number: "WA-2026-00001",
             amount: 5000,
-            currency: "SAR",
+            currency: "USD",
             status: "PAID",
             paidAt: new Date("2026-08-10T09:30:00.000Z"),
             createdAt: new Date("2026-08-10T09:30:00.000Z"),
@@ -597,7 +603,7 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
     expect(b.invoice).toEqual({
       number: "WA-2026-00001",
       amount: 5000, // minor units, as-is
-      currency: "SAR",
+      currency: "USD",
       status: "paid",
       date: "2026-08-10T09:30:00.000Z",
     });
@@ -615,7 +621,7 @@ describe("booking mappers (W2 — Prisma row → domain)", () => {
           invoice: {
             number: "WA-2026-00002",
             amount: 4000,
-            currency: "SAR",
+            currency: "USD",
             status: "VOID",
             paidAt: new Date("2026-08-10T10:00:00.000Z"),
             createdAt: new Date("2026-08-10T10:00:00.000Z"),
@@ -664,12 +670,12 @@ describe("toDomainQuoteRequest (multi-candidate quote mapper)", () => {
       number: "QR-2026-00001",
       customerId: "u1",
       customerName: "Noor E.",
-      customerPhone: "+966 55 000 0000",
+      customerPhone: "+961 70 000 000",
       customerEmail: "noor@example.com",
       jobTitle: "Fix a leaking pipe under the kitchen sink",
       note: null,
       categorySlug: "plumbing",
-      citySlug: "riyadh",
+      citySlug: "beirut",
       status: "OPEN",
       expiresAt: new Date(CREATED.getTime() + 48 * 60 * 60 * 1000),
       createdAt: CREATED,
@@ -685,7 +691,7 @@ describe("toDomainQuoteRequest (multi-candidate quote mapper)", () => {
       workerId: "w1",
       customerId: "u1",
       customerName: "Noor E.",
-      customerPhone: "+966 55 000 0000",
+      customerPhone: "+961 70 000 000",
       customerEmail: "noor@example.com",
       jobTitle: "Fix a leaking pipe under the kitchen sink",
       note: null,
@@ -696,7 +702,7 @@ describe("toDomainQuoteRequest (multi-candidate quote mapper)", () => {
       deposit: null,
       platformFee: null,
       platformFeeRateBps: null,
-      currency: "SAR",
+      currency: "USD",
       paymentId: null,
       recurringBookingId: null,
       quoteRequestId: "qr-1",
@@ -859,9 +865,9 @@ describe("toDomainInvoice (W2 boundary — company invoices mapper)", () => {
       status: "PAID",
       paidAt: DATE,
       createdAt: new Date("2026-07-01T00:00:00.000Z"),
-      items: [{ description: "AC maintenance — Jeddah & Riyadh — Sponsored search" }],
+      items: [{ description: "AC maintenance — Beirut — Sponsored search" }],
       payment: { advertisementId: "seed-c2" },
-      campaign: { nameAr: "صيانة مكيفات — جدة والرياض", placement: "Sponsored search" },
+      campaign: { nameAr: "صيانة مكيفات — بيروت", placement: "Sponsored search" },
       ...overrides,
     };
   }
@@ -875,8 +881,8 @@ describe("toDomainInvoice (W2 boundary — company invoices mapper)", () => {
     expect(inv.currency).toBe("USD");
     expect(inv.status).toBe("paid");
     expect(inv.date).toBe(DATE.toISOString()); // paidAt wins over createdAt
-    expect(inv.descriptionEn).toBe("AC maintenance — Jeddah & Riyadh — Sponsored search");
-    expect(inv.descriptionAr).toBe("صيانة مكيفات — جدة والرياض — Sponsored search");
+    expect(inv.descriptionEn).toBe("AC maintenance — Beirut — Sponsored search");
+    expect(inv.descriptionAr).toBe("صيانة مكيفات — بيروت — Sponsored search");
     expect(inv.campaignId).toBe("seed-c2");
   });
 
@@ -927,13 +933,13 @@ describe("ad rotation matching (W2 boundary — pure helpers)", () => {
   it("applies the targeting gate like the demo: untargeted always serves, targeted narrows", () => {
     const untargeted = { categorySlug: null, citySlug: null };
     expect(matchesAdTargeting(untargeted, { category: "plumbing" })).toBe(true);
-    expect(matchesAdTargeting(untargeted, { category: "plumbing", city: "riyadh" })).toBe(true);
+    expect(matchesAdTargeting(untargeted, { category: "plumbing", city: "beirut" })).toBe(true);
     expect(matchesAdTargeting(untargeted, {})).toBe(true);
 
-    const targeted = { categorySlug: "cleaning", citySlug: "dubai" };
-    expect(matchesAdTargeting(targeted, { category: "cleaning", city: "dubai" })).toBe(true);
+    const targeted = { categorySlug: "cleaning", citySlug: "beirut" };
+    expect(matchesAdTargeting(targeted, { category: "cleaning", city: "beirut" })).toBe(true);
     expect(matchesAdTargeting(targeted, { category: "plumbing" })).toBe(false);
-    expect(matchesAdTargeting(targeted, { city: "jeddah" })).toBe(false);
+    expect(matchesAdTargeting(targeted, { city: "hamra" })).toBe(false);
     // No filters at all — every ad serves (the API always passes placement,
     // but category/city are optional).
     expect(matchesAdTargeting(targeted, {})).toBe(true);
@@ -950,7 +956,7 @@ describe("toDomainRecurring (W2 recurring mapper)", () => {
       workerId: "w1",
       customerId: null,
       customerName: "Noor E.",
-      customerPhone: "+966 55 000 0000",
+      customerPhone: "+961 70 000 000",
       customerEmail: "noor@example.com",
       jobTitle: "Weekly AC maintenance",
       note: null,
@@ -961,7 +967,7 @@ describe("toDomainRecurring (W2 recurring mapper)", () => {
       deposit: null,
       platformFee: 560,
       platformFeeRateBps: 700,
-      currency: "SAR",
+      currency: "USD",
       paymentId: null,
       recurringBookingId: "rc-1",
       ...overrides,
@@ -975,7 +981,7 @@ describe("toDomainRecurring (W2 recurring mapper)", () => {
       workerId: "w1",
       customerId: "u1",
       customerName: "Noor E.",
-      customerPhone: "+966 55 000 0000",
+      customerPhone: "+961 70 000 000",
       customerEmail: "noor@example.com",
       serviceItem: { nameEn: "AC maintenance", nameAr: "صيانة مكيف", price: 150, unit: "job" },
       jobTitle: "Weekly AC maintenance",

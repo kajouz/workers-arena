@@ -181,7 +181,7 @@ export function WorkerDetailModal({ worker, isOpen, onClose, locale = "en" }: Wo
                         {locale === "ar" ? service.nameAr : service.nameEn}
                       </span>
                       <span className="text-sm font-bold text-ink-900 dark:text-ink-50">
-                        {formatPrice(service.price, worker.currency as "SAR" | "AED" | "EGP" | "JOD", locale as "en" | "ar")}
+                        {formatPrice(service.price, worker.currency as "USD", locale as "en" | "ar")}
                       </span>
                     </div>
                   ))}

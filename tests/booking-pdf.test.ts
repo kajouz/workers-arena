@@ -81,10 +81,10 @@ const booking: Booking = {
   startAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
   endAt: new Date(Date.now() - 2 * 3_600_000).toISOString(),
   quote: 15000,
-  currency: "SAR",
+  currency: "USD",
   events: [
     { status: "requested", actorType: "customer", time: new Date(Date.now() - 5 * 3_600_000).toISOString() },
-    { status: "confirmed", actorType: "worker", reason: "Can do — quote SAR 150", time: new Date(Date.now() - 4 * 3_600_000).toISOString() },
+    { status: "confirmed", actorType: "worker", reason: "Can do — quote $150", time: new Date(Date.now() - 4 * 3_600_000).toISOString() },
   ],
 };
 

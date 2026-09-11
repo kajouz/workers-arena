@@ -96,7 +96,7 @@ describe("verification audit trail", () => {
   });
 
   it("logs a reject and removes the worker from the queue", async () => {
-    const w = workerBySlug("tariq-al-shammari-roofing")!;
+    const w = workerBySlug("tarek-chammas-roofing")!;
     const queueBefore = await getVerificationQueue();
     const wasPending = queueBefore.some((x) => x.slug === w.slug);
 

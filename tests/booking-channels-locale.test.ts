@@ -39,7 +39,7 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     status: "confirmed",
     startAt: "2026-08-18T09:00:00.000Z",
     endAt: "2026-08-18T10:00:00.000Z",
-    currency: "SAR",
+    currency: "USD",
     events: [{ status: "confirmed", actorType: "worker", time: "2026-08-17T07:27:20.083Z" }],
     ...overrides,
   };

@@ -137,7 +137,7 @@ function bookingFacts(
   workerName?: string
 ): { label: string; value: string }[] {
   const t = (key: string) => translate(dict, key);
-  const fmtMoney = (minor: number) => `${(minor / 100).toFixed(2)} ${booking.currency}`;
+  const fmtMoney = (minor: number) => `$${(minor / 100).toFixed(2)}`;
   const slot = booking.startAt
     ? booking.endAt
       ? `${auditFmtDate(locale, booking.startAt)}, ${auditFmtTime(locale, booking.startAt)} – ${auditFmtTime(locale, booking.endAt)}`

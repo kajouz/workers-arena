@@ -55,10 +55,10 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     endAt: at(23),
     quote: 25000,
     deposit: 10000,
-    currency: "SAR",
+    currency: "USD",
     events: [
       { status: "requested", actorType: "customer", time: at(26) },
-      { status: "confirmed", actorType: "worker", reason: "Can do — quote SAR 250", time: at(25) },
+      { status: "confirmed", actorType: "worker", reason: "Can do — quote $250", time: at(25) },
       { status: "refunded", actorType: "admin", reason: "Customer requested cancellation", time: at(1) },
     ],
     ...overrides,
@@ -153,10 +153,10 @@ describe("booking-refund notification — amount + reason reach all three surfac
     expect(email.subject).toContain("BK-1001");
     expect(email.html).toContain("Booking details");
     expect(email.html).toContain("BK-1001");
-    expect(email.html).toContain("SAR 100"); // 10000 minor → SAR 100 (formatPrice)
+    expect(email.html).toContain("$100"); // 10000 minor → $100 (formatPrice — USD)
     expect(email.html).toContain("Customer requested cancellation"); // reason row
     expect(email.html).toContain("/admin/bookings/BK-1001"); // dispute deep link
-    expect(email.text).toContain("Refunded: SAR 100");
+    expect(email.text).toContain("Refunded: $100");
     expect(email.text).toContain("Reason: Customer requested cancellation");
   });
 
@@ -174,7 +174,7 @@ describe("booking-refund notification — amount + reason reach all three surfac
     const output = logSpy.mock.calls.map((c) => c.join(" ")).join("\n");
     expect(output).toContain("Deposit refunded");
     expect(output).toContain("BK-1001");
-    expect(output).toContain("SAR 100");
+    expect(output).toContain("$100");
     expect(output).toContain("Customer requested cancellation");
     expect(output).toContain("/admin/bookings/BK-1001");
   });

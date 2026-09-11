@@ -17,7 +17,7 @@ import type { ChannelPayload } from "../src/lib/notifications/types";
  * full circle the invoice was minted for.
  *
  * Fixtures use a DEDICATED user + company (the seed now creates the BuildCo
- * Ltd Company row for ads@buildco.sa, so reusing that user would collide on
+ * Ltd Company row for ads@buildco.lb, so reusing that user would collide on
  * the unique Company.userId — and cleanup must never touch seeded rows).
  *
  * Gated on a live DATABASE_URL (mirrors booking-email-chain-prisma.test.ts):
@@ -112,7 +112,7 @@ afterEach(async () => {
 /** A dedicated user + company fixture (never the seeded rows). */
 async function seedCompany(): Promise<{ userId: string; companyId: string; email: string }> {
   const prisma = getPrisma();
-  fixtureEmail = `chain-campaign-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@test.sa`;
+  fixtureEmail = `chain-campaign-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@test.lb`;
   const user = await prisma.user.create({
     data: { name: "Chain Co", email: fixtureEmail, role: "COMPANY", hue: 120, passwordHash: "test" },
   });

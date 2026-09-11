@@ -62,7 +62,7 @@ function request(slotId: string, overrides: Record<string, unknown> = {}) {
     workerId: khaled().id,
     slotId,
     customerName: "Noor E.",
-    customerPhone: "+966 55 123 4871",
+    customerPhone: "+961 70 123 456",
     customerEmail: "noor@example.com",
     jobTitle: "Fix a leaking pipe under the kitchen sink",
     ...overrides,
@@ -319,7 +319,7 @@ describe("M5 platform fee (take rate — docs/booking-take-rate.md)", () => {
   });
 
   it("computePlatformFee — exact 7% of the quote (minor units)", () => {
-    expect(computePlatformFee(8000)).toBe(560); // SAR 80 → SAR 5.60
+    expect(computePlatformFee(8000)).toBe(560); // $80 → $5.60
     expect(computePlatformFee(15000)).toBe(1050);
     expect(computePlatformFee(25000)).toBe(1750);
   });
@@ -359,7 +359,7 @@ describe("M5 platform fee (take rate — docs/booking-take-rate.md)", () => {
   });
 
   it("an Enterprise worker's quoted accept stores fee 0 but keeps the audit rate", async () => {
-    const w = workerBySlug("mohammed-farouk-electrical")!;
+    const w = workerBySlug("jad-el-khoury-electrical")!;
     const original = w.subscription.plan;
     try {
       w.subscription.plan = "enterprise";
@@ -369,7 +369,7 @@ describe("M5 platform fee (take rate — docs/booking-take-rate.md)", () => {
           workerId: w.id,
           slotId: slot.id,
           customerName: "Noor E.",
-          customerPhone: "+966 55 123 4871",
+          customerPhone: "+961 70 123 456",
           customerEmail: "noor@example.com",
           jobTitle: "Rewire a room",
         })) ?? { error: "not-found" }
@@ -394,11 +394,11 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
     const w = khaled();
     // One plain confirmed accept (fee 560) + one deposit accept that later refunds.
     const slot1 = demoAddSlot(w.id, "2027-06-10T09:00:00.000Z", "2027-06-10T10:00:00.000Z", "available");
-    const b1 = bookingOf(await createBookingRequest(request(slot1.id, { customerEmail: "stats-a@test.sa" })));
+    const b1 = bookingOf(await createBookingRequest(request(slot1.id, { customerEmail: "stats-a@test.lb" })));
     await respondToBooking(b1.id, { accept: true, quote: 8000 });
 
     const slot2 = demoAddSlot(w.id, "2027-06-10T11:00:00.000Z", "2027-06-10T12:00:00.000Z", "available");
-    const b2 = bookingOf(await createBookingRequest(request(slot2.id, { customerEmail: "stats-b@test.sa" })));
+    const b2 = bookingOf(await createBookingRequest(request(slot2.id, { customerEmail: "stats-b@test.lb" })));
     await respondToBooking(b2.id, { accept: true, quote: 8000, deposit: 3000 });
     const checkout = await createBookingCheckout(b2.id);
     expect(checkout).not.toBeNull();
@@ -410,7 +410,7 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
     expect(s.netMinor).toBe(1120);
     expect(s.count).toBe(2);
     expect(s.avgFeeMinor).toBe(560);
-    expect(s.currency).toBe("SAR"); // khaled is Riyadh-based
+    expect(s.currency).toBe("USD"); // khaled is Beirut-based
 
     // Customer cancels the deposit booking → the paid deposit (and its fee) refunds.
     await cancelBooking(b2.id, { by: "customer", reason: "Changed my mind" });
@@ -428,7 +428,7 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
     // cancel keeps the deposit (payment stays PAID) and the fee stays collected.
     const startAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
     const slot = demoAddSlot(w.id, startAt, new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(), "available");
-    const b = bookingOf(await createBookingRequest(request(slot.id, { customerEmail: "stats-c@test.sa" })));
+    const b = bookingOf(await createBookingRequest(request(slot.id, { customerEmail: "stats-c@test.lb" })));
     await respondToBooking(b.id, { accept: true, quote: 8000, deposit: 3000 });
     await createBookingCheckout(b.id);
     await confirmBookingPayment(b.id, `sim_pay-${b.id}`);
@@ -443,10 +443,10 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
   it("quote-less accepts and declines never appear (no fee is set)", async () => {
     const w = khaled();
     const slot1 = demoAddSlot(w.id, "2027-06-11T09:00:00.000Z", "2027-06-11T10:00:00.000Z", "available");
-    const b1 = bookingOf(await createBookingRequest(request(slot1.id, { customerEmail: "stats-d@test.sa" })));
+    const b1 = bookingOf(await createBookingRequest(request(slot1.id, { customerEmail: "stats-d@test.lb" })));
     await respondToBooking(b1.id, { accept: true }); // no quote → fee stays unset
     const slot2 = demoAddSlot(w.id, "2027-06-11T11:00:00.000Z", "2027-06-11T12:00:00.000Z", "available");
-    const b2 = bookingOf(await createBookingRequest(request(slot2.id, { customerEmail: "stats-e@test.sa" })));
+    const b2 = bookingOf(await createBookingRequest(request(slot2.id, { customerEmail: "stats-e@test.lb" })));
     await respondToBooking(b2.id, { accept: false });
 
     const s = await getPlatformFeeStats(30);
@@ -456,7 +456,7 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
   });
 
   it("an Enterprise worker's fee-0 accept is not counted (nothing collected)", async () => {
-    const w = workerBySlug("mohammed-farouk-electrical")!;
+    const w = workerBySlug("jad-el-khoury-electrical")!;
     const original = w.subscription.plan;
     try {
       w.subscription.plan = "enterprise";
@@ -466,7 +466,7 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
           workerId: w.id,
           slotId: slot.id,
           customerName: "Noor E.",
-          customerPhone: "+966 55 123 4871",
+          customerPhone: "+961 70 123 456",
           customerEmail: "noor@example.com",
           jobTitle: "Rewire a room",
         })) ?? { error: "not-found" }
@@ -555,8 +555,8 @@ describe("availability — generateSlots (M2)", () => {
 
   it("skips closed days entirely", () => {
     // Khaled is emergency (Saturday = 24/7), so use a non-emergency worker:
-    // Mohammed Farouk has a regular template with Saturday closed.
-    const w = workerBySlug("mohammed-farouk-electrical")!;
+    // Jad El Khoury has a regular template with Saturday closed.
+    const w = workerBySlug("jad-el-khoury-electrical")!;
     const saturday = new Date(2027, 0, 9); // Saturday, verified
     const created = demoGenerateSlots(
       w.id,
@@ -637,7 +637,7 @@ describe("reads", () => {
 
   it("finds customer bookings by email and by normalized phone", async () => {
     expect(await getCustomerBookings({ email: "sara@example.com" })).toHaveLength(1);
-    expect(await getCustomerBookings({ phone: "+966 50 000 0000" })).toHaveLength(1);
+    expect(await getCustomerBookings({ phone: "+961 70 000 000" })).toHaveLength(1);
     expect(await getCustomerBookings({ email: "nobody@example.com" })).toHaveLength(0);
   });
 
@@ -1251,7 +1251,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
 
   it("is empty before any completed job (seeded BK-1001 is requested)", async () => {
     const b = await getWorkerBalance(khaled().id);
-    expect(b).toEqual({ availableMinor: 0, pendingMinor: 0, currency: "SAR" });
+    expect(b).toEqual({ availableMinor: 0, pendingMinor: 0, currency: "USD" });
   });
 
   it("credits net earnings (quote − platform fee) when a job completes", async () => {
@@ -1259,7 +1259,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     const b = await getWorkerBalance(khaled().id);
     expect(b.availableMinor).toBe(7440);
     expect(b.pendingMinor).toBe(0);
-    expect(b.currency).toBe("SAR");
+    expect(b.currency).toBe("USD");
 
     // A second completion of the same booking cannot double-credit (the
     // ledger's one-entry-per-booking guard mirrors the prisma @@unique).
@@ -1326,7 +1326,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
   });
 
   it("an Enterprise worker's full quote is credited (fee 0 → no deduction)", async () => {
-    const w = workerBySlug("mohammed-farouk-electrical")!;
+    const w = workerBySlug("jad-el-khoury-electrical")!;
     const original = w.subscription.plan;
     try {
       w.subscription.plan = "enterprise";
@@ -1336,7 +1336,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
           workerId: w.id,
           slotId: slot.id,
           customerName: "Noor E.",
-          customerPhone: "+966 55 123 4871",
+          customerPhone: "+961 70 123 456",
           customerEmail: "noor@example.com",
           jobTitle: "Rewire a room",
         })) ?? { error: "not-found" }
@@ -1362,11 +1362,11 @@ function quoteOf(r: QuoteRequest | { error: string }): QuoteRequest {
 function quoteInput(overrides: Record<string, unknown> = {}) {
   return {
     customerName: "Noor E.",
-    customerPhone: "+966 55 123 4871",
+    customerPhone: "+961 70 123 456",
     customerEmail: "noor@example.com",
     jobTitle: "Fix a leaking pipe under the kitchen sink",
     categorySlug: "plumbing",
-    citySlug: "riyadh",
+    citySlug: "beirut",
     ...overrides,
   };
 }
@@ -1397,7 +1397,7 @@ describe("multi-candidate quotes (demo adapter + seams)", () => {
     const mine = await getCustomerQuoteRequests({ email: "noor@example.com" });
     expect(mine.some((q) => q.id === created.id)).toBe(true);
 
-    const tooMany = await createQuoteRequest(quoteInput(), [khaled().id, ali().id, omar().id, workerBySlug("ahmed-el-sayed-masonry")!.id]);
+    const tooMany = await createQuoteRequest(quoteInput(), [khaled().id, ali().id, omar().id, workerBySlug("ahmad-nassar-masonry")!.id]);
     expect(tooMany).toEqual({ error: "too-many" });
     const dup = await createQuoteRequest(quoteInput(), [khaled().id, khaled().id]);
     expect(dup).toEqual({ error: "duplicate" });
@@ -1496,7 +1496,7 @@ describe("multi-candidate quotes (demo adapter + seams)", () => {
       workerId: khaled().id,
       slotId: slot.id,
       customerName: "Sara Customer",
-      customerPhone: "+966 50 000 0000",
+      customerPhone: "+961 70 000 000",
       jobTitle: "Leaking sink",
     });
     expect("error" in slotTaken).toBe(false);
@@ -1524,13 +1524,13 @@ describe("multi-candidate quotes (demo adapter + seams)", () => {
     const { createQuoteRequestAction, submitQuoteAction, selectQuoteAction } = await import("../src/app/actions/bookings");
     const fd = new FormData();
     fd.set("customerName", "Noor E.");
-    fd.set("customerPhone", "+966 55 123 4871");
+    fd.set("customerPhone", "+961 70 123 456");
     fd.set("customerEmail", "noor@example.com");
     fd.set("jobTitle", "Fix a leaking pipe under the kitchen sink");
     const res = await createQuoteRequestAction([khaled().slug, ali().slug], fd);
     expect(res.ok).toBe(true);
     // More than MAX_QUOTE_WORKERS slugs → too-many at the action layer.
-    const slugs = [khaled().slug, ali().slug, omar().slug, workerBySlug("ahmed-el-sayed-masonry")!.slug];
+    const slugs = [khaled().slug, ali().slug, omar().slug, workerBySlug("ahmad-nassar-masonry")!.slug];
     expect((await createQuoteRequestAction(slugs, fd)).error).toBe("too-many");
 
     const job = (await getCustomerQuoteRequests({ email: "noor@example.com" }))[0]!;

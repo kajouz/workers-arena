@@ -47,7 +47,7 @@ function bookingOf(r: Booking | { error: string }): Booking {
 }
 
 const ADMIN = { id: "a1", name: "Amina Admin", email: "admin@workersarena.com", role: "admin", hue: 280 };
-const WORKER = { id: "w-khaled", name: "Khaled Al-Harbi", email: "khaled@plumbfix.sa", role: "worker", hue: 25 };
+const WORKER = { id: "w-khaled", name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", role: "worker", hue: 25 };
 const CUSTOMER = { id: "u-sara", name: "Sara", email: "sara@example.com", role: "customer", hue: 200 };
 
 beforeEach(() => {

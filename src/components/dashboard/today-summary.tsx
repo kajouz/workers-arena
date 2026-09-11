@@ -112,7 +112,7 @@ export function TodaySummary({
             </span>
           </div>
           <span className="text-lg font-black text-brand-600 dark:text-brand-400">
-            {formatPrice(estimatedRevenue / 100, "SAR", locale as "en" | "ar")}
+            {formatPrice(estimatedRevenue / 100, "USD", locale as "en" | "ar")}
           </span>
         </div>
 

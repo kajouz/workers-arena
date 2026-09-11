@@ -303,9 +303,9 @@ describe("WorkerManagementTable", () => {
       const text = await captured.blob!.text();
       expect(text.split("\n")).toEqual([
         '"Name","City","Category","Plan","Status"',
-        '"Nasser Al-Qahtani","riyadh","Movers","Professional","Expiring soon"',
-        '"Khaled Al-Harbi","riyadh","Plumbing","Premium","Active"',
-        '"Bilal Mansour","dubai","Cleaning Services","Enterprise","Active"',
+        '"Nasser Al-Qahtani","Beirut","Movers","Professional","Expiring soon"',
+        '"Khaled Al-Harbi","Beirut","Plumbing","Premium","Active"',
+        '"Bilal Mansour","Beirut","Cleaning Services","Enterprise","Active"',
       ]);
     } finally {
       URL.createObjectURL = origCreate;

@@ -26,10 +26,10 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     startAt: at(4),
     endAt: at(3),
     quote: 15000, // minor units → 150.00
-    currency: "SAR",
+    currency: "USD",
     events: [
       { status: "requested", actorType: "customer", time: at(5) },
-      { status: "confirmed", actorType: "worker", reason: "Can do — quote SAR 150", time: at(4) },
+      { status: "confirmed", actorType: "worker", reason: "Can do — quote $150", time: at(4) },
       { status: "completed", actorType: "worker", reason: "Job done, receipt issued", time: at(1) },
     ],
     ...overrides,
@@ -54,7 +54,7 @@ describe("renderBookingAuditPrint", () => {
     expect(doc).toContain("Leaking kitchen sink repair");
     expect(doc).toContain("Khaled Al-Harbi");
     expect(doc).toContain("Sara Customer · +966 50 000 0000 · sara@example.com");
-    expect(doc).toContain("150.00 SAR");
+    expect(doc).toContain("$150.00");
 
     // The trail — every event with status, actor, reason and exact timestamp.
     expect(doc).toContain("Waiting for response");
@@ -62,7 +62,7 @@ describe("renderBookingAuditPrint", () => {
     expect(doc).toContain("Completed");
     expect(doc).toContain("Customer");
     expect(doc).toContain("Worker");
-    expect(doc).toContain("Can do — quote SAR 150");
+    expect(doc).toContain("Can do — quote $150");
     expect(doc).toContain("Job done, receipt issued");
     expect(doc).toContain(exactTime(booking.events[0]!.time, "en"));
     expect(doc).toContain(exactTime(booking.events[2]!.time, "en"));

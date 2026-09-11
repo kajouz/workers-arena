@@ -41,7 +41,7 @@ beforeEach(() => {
 const premiumWorker = {
   priceMin: 80,
   priceMax: 120,
-  currency: "SAR",
+  currency: "USD",
   subscription: { plan: "premium", status: "active" },
 } as unknown as Worker;
 
@@ -144,11 +144,11 @@ describe("RespondDialog take-rate display", () => {
     openDialog();
 
     // Prefilled quote = priceMin 80 → fee max(round(8000×7%), 500) = 560 minor
-    // (SAR 5.6, display-rounded like the rest of the app) → receive SAR 74.
+    // ($5.6, display-rounded like the rest of the app) → receive $74.
     expect(screen.getByText("Platform fee")).toBeInTheDocument();
-    expect(screen.getByText("SAR 6")).toBeInTheDocument();
+    expect(screen.getByText("$6")).toBeInTheDocument();
     expect(screen.getByText("You receive")).toBeInTheDocument();
-    expect(screen.getByText("SAR 74")).toBeInTheDocument();
+    expect(screen.getByText("$74")).toBeInTheDocument();
     // No waiver banner.
     expect(screen.queryByText("Fee waived by your plan")).not.toBeInTheDocument();
   });
@@ -160,9 +160,9 @@ describe("RespondDialog take-rate display", () => {
     const quoteInput = screen.getByDisplayValue("80");
     fireEvent.change(quoteInput, { target: { value: "100" } });
 
-    // 100 → fee 700 minor → SAR 7, receive 93.
-    expect(screen.getByText("SAR 7")).toBeInTheDocument();
-    expect(screen.getByText("SAR 93")).toBeInTheDocument();
+    // 100 → fee 700 minor → , receive 93.
+    expect(screen.getByText("$7")).toBeInTheDocument();
+    expect(screen.getByText("$93")).toBeInTheDocument();
   });
 
   it("shows the waiver banner instead of the split for an exempt (Enterprise) worker", () => {
@@ -177,7 +177,7 @@ describe("RespondDialog take-rate display", () => {
     // The split is gone entirely — there is no fee to split.
     expect(screen.queryByText("Platform fee")).not.toBeInTheDocument();
     expect(screen.queryByText("You receive")).not.toBeInTheDocument();
-    expect(screen.queryByText("SAR 6")).not.toBeInTheDocument();
+    expect(screen.queryByText("$6")).not.toBeInTheDocument();
   });
 });
 });

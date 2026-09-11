@@ -50,7 +50,7 @@ interface WorkerConfig {
   verified?: boolean;
   verification?: VerificationStatus;
   plan?: SubscriptionPlan;
-  expiresInDays?: number; // days until subscription expiry (negative = already expired)
+  expiresInDays?: number;
   premium?: boolean;
   featured?: boolean;
   emergency?: boolean;
@@ -64,33 +64,26 @@ interface WorkerConfig {
   website?: string;
 }
 
+// Tenant lb — Lebanon only (Beirut · 5 neighborhoods · USD $)
 const CONFIGS: WorkerConfig[] = [
-  // Khaled is the demo WORKER account (u-worker) — kept UNVERIFIED (rejected)
-  // so the dashboard's verification banner shows the resubmit action and the
-  // VERIFICATION_REQUEST_SUBMITTED flow is exercisable in the preview.
-  // Featured/premium/emergency stay on so the homepage still showcases him.
-  { nameEn: "Khaled Al-Harbi", nameAr: "خالد الحربي", category: "plumbing", city: "riyadh", area: "al-olaya", rating: 4.9, reviewCount: 132, yearsExp: 12, verification: "rejected", premium: true, featured: true, emergency: true, joinedYear: 2019, priceMin: 80, priceMax: 950, langCodes: ["ar", "en"], phone: "+966 55 123 4871", email: "khaled@plumbfix.sa", website: "plumbfix.sa" },
-  { nameEn: "Mohammed Farouk", nameAr: "محمد فاروق", category: "electrical", city: "cairo", area: "nasr-city", rating: 4.8, reviewCount: 98, yearsExp: 15, verified: true, premium: true, joinedYear: 2016, priceMin: 60, priceMax: 600, langCodes: ["ar", "en"], phone: "+20 100 456 7823", email: "m.farouk@volt-eg.com", website: "volt-eg.com" },
-  { nameEn: "Ali Hassan", nameAr: "علي حسن", category: "carpentry", city: "dubai", area: "deira", rating: 4.7, reviewCount: 76, yearsExp: 10, verified: true, featured: true, joinedYear: 2018, priceMin: 100, priceMax: 1800, langCodes: ["ar", "en", "ur"], phone: "+971 50 778 2194", email: "ali@woodcraft.ae", website: "woodcraft.ae" },
-  { nameEn: "Youssef Benali", nameAr: "يوسف بن علي", category: "painting", city: "casablanca", area: "maarif", rating: 4.6, reviewCount: 54, yearsExp: 8, verified: true, joinedYear: 2019, priceMin: 150, priceMax: 1200, langCodes: ["ar", "fr"], phone: "+212 661 22 45 78", email: "y.benali@peinture.ma" },
-  { nameEn: "Ahmed El-Sayed", nameAr: "أحمد السيد", category: "masonry", city: "cairo", area: "maadi", rating: 4.5, reviewCount: 61, yearsExp: 20, verified: true, joinedYear: 2014, priceMin: 150, priceMax: 1200, langCodes: ["ar"], phone: "+20 106 933 4412", email: "ahmed.mason@built-eg.com" },
-  { nameEn: "Omar Al-Mutairi", nameAr: "عمر المطيري", category: "ac-technician", city: "riyadh", area: "al-malqa", rating: 4.9, reviewCount: 210, yearsExp: 9, verified: true, premium: true, featured: true, emergency: true, available: true, joinedYear: 2020, priceMin: 120, priceMax: 500, langCodes: ["ar", "en"], phone: "+966 54 330 8129", email: "omar@coolair.sa", website: "coolair.sa" },
-  { nameEn: "Hassan Karimi", nameAr: "حسن كريمي", category: "satellite-technician", city: "dubai", area: "al-barsha", rating: 4.7, reviewCount: 45, yearsExp: 7, verified: true, joinedYear: 2021, priceMin: 80, priceMax: 250, langCodes: ["ar", "en", "fr"], phone: "+971 52 441 8876", email: "hassan@signaltv.ae" },
-  { nameEn: "Sami Najjar", nameAr: "سامي نجار", category: "mechanic", city: "amman", area: "abdoun", rating: 4.8, reviewCount: 88, yearsExp: 14, verified: true, premium: true, joinedYear: 2017, priceMin: 50, priceMax: 400, langCodes: ["ar", "en"], phone: "+962 79 556 1203", email: "sami@autocare.jo", website: "autocare.jo" },
-  { nameEn: "Fahad Al-Dosari", nameAr: "فهد الدوسري", category: "welding", city: "riyadh", area: "al-rawdah", rating: 4.6, reviewCount: 39, yearsExp: 11, verified: true, joinedYear: 2019, priceMin: 200, priceMax: 900, langCodes: ["ar", "en"], phone: "+966 56 778 9921", email: "fahad@steelpro.sa" },
-  { nameEn: "Ibrahim Khalil", nameAr: "إبراهيم خليل", category: "blacksmith", city: "cairo", area: "heliopolis", rating: 4.5, reviewCount: 33, yearsExp: 18, verified: true, joinedYear: 2015, priceMin: 150, priceMax: 1200, langCodes: ["ar"], phone: "+20 100 664 2290", email: "ibrahim@ironworks-eg.com" },
-  { nameEn: "Tariq Al-Shammari", nameAr: "طارق الشمري", category: "roofing", city: "riyadh", area: "al-nakheel", rating: 4.4, reviewCount: 27, yearsExp: 13, verification: "pending", plan: "basic", expiresInDays: -6, joinedYear: 2018, priceMin: 150, priceMax: 2000, langCodes: ["ar"], phone: "+966 50 219 3344", email: "tariq@roofshield.sa" },
-  { nameEn: "Bilal Mansour", nameAr: "بلال منصور", category: "cleaning", city: "dubai", area: "jumeirah", rating: 4.9, reviewCount: 156, yearsExp: 6, verified: true, premium: true, featured: true, available: true, plan: "enterprise", joinedYear: 2021, priceMin: 150, priceMax: 600, langCodes: ["ar", "en", "ur"], phone: "+971 55 902 1137", email: "bilal@sparkle.ae", website: "sparkle.ae" },
-  { nameEn: "Nasser Al-Qahtani", nameAr: "ناصر القحطاني", category: "movers", city: "riyadh", area: "al-sulimaniyah", rating: 4.7, reviewCount: 71, yearsExp: 9, verified: true, plan: "professional", expiresInDays: 7, joinedYear: 2019, priceMin: 400, priceMax: 1600, langCodes: ["ar", "en"], phone: "+966 53 660 7712", email: "nasser@moveit.sa" },
-  { nameEn: "Wael Ghanem", nameAr: "وائل غانم", category: "gardening", city: "amman", area: "sweifieh", rating: 4.6, reviewCount: 42, yearsExp: 12, verified: true, plan: "basic", expiresInDays: 3, joinedYear: 2017, priceMin: 150, priceMax: 900, langCodes: ["ar", "en"], phone: "+962 77 445 6681", email: "wael@gardenia.jo" },
-  { nameEn: "Rami Awwad", nameAr: "رامي عواد", category: "pest-control", city: "amman", area: "tlaa-al-ali", rating: 4.8, reviewCount: 63, yearsExp: 8, verified: true, emergency: true, joinedYear: 2020, priceMin: 100, priceMax: 900, langCodes: ["ar", "en"], phone: "+962 78 991 3045", email: "rami@guardian.jo" },
-  { nameEn: "Saleh Al-Otaibi", nameAr: "صالح العتيبي", category: "locksmith", city: "dubai", area: "bur-dubai", rating: 4.7, reviewCount: 58, yearsExp: 10, verified: true, emergency: true, available: true, joinedYear: 2018, priceMin: 40, priceMax: 350, langCodes: ["ar", "en"], phone: "+971 50 447 9061", email: "saleh@keymaster.ae" },
-  { nameEn: "Majed Haddad", nameAr: "ماجد حداد", category: "glass-works", city: "casablanca", area: "ain-diab", rating: 4.5, reviewCount: 36, yearsExp: 9, verification: "rejected", plan: "basic", joinedYear: 2020, priceMin: 150, priceMax: 800, langCodes: ["ar", "fr"], phone: "+212 662 88 01 47", email: "majed@vitrage.ma" },
-  { nameEn: "Karim El-Fassi", nameAr: "كريم الفاسي", category: "aluminum-works", city: "casablanca", area: "gauthier", rating: 4.6, reviewCount: 47, yearsExp: 15, verified: true, joinedYear: 2016, priceMin: 300, priceMax: 1200, langCodes: ["ar", "fr"], phone: "+212 661 45 77 20", email: "karim@alucasa.ma", website: "alucasa.ma" },
-  { nameEn: "Zaid Al-Sabhan", nameAr: "زيد السبهان", category: "gypsum-works", city: "riyadh", area: "al-malqa", rating: 4.7, reviewCount: 52, yearsExp: 8, verified: true, joinedYear: 2020, priceMin: 150, priceMax: 900, langCodes: ["ar", "en"], phone: "+966 54 812 3367", email: "zaid@gypsodesign.sa" },
-  { nameEn: "Anas Barakat", nameAr: "أنس بركات", category: "interior-design", city: "dubai", area: "dubai-marina", rating: 4.9, reviewCount: 89, yearsExp: 11, verified: true, premium: true, featured: true, joinedYear: 2018, priceMin: 300, priceMax: 3000, langCodes: ["ar", "en", "fr"], phone: "+971 56 221 7845", email: "anas@studioarab.ae", website: "studioarab.ae" },
-  { nameEn: "Hamza Douma", nameAr: "حمزة دوما", category: "construction", city: "cairo", area: "dokki", rating: 4.6, reviewCount: 68, yearsExp: 22, verified: true, premium: true, joinedYear: 2013, priceMin: 2000, priceMax: 20000, langCodes: ["ar", "en"], phone: "+20 122 887 4430", email: "hamza@buildco-eg.com", website: "buildco-eg.com" },
-  { nameEn: "Khaled Bouazza", nameAr: "خالد بوعزة", category: "ac-technician", city: "casablanca", area: "californie", rating: 4.8, reviewCount: 77, yearsExp: 10, verified: true, emergency: true, expiresInDays: 1, joinedYear: 2019, priceMin: 100, priceMax: 450, langCodes: ["ar", "fr"], phone: "+212 663 09 52 81", email: "khaled@froid.ma" },
+  { nameEn: "Khaled Al-Harbi", nameAr: "خالد الحربي", category: "plumbing", city: "beirut", area: "achrafieh", rating: 4.9, reviewCount: 132, yearsExp: 12, verification: "rejected", premium: true, featured: true, emergency: true, joinedYear: 2019, priceMin: 35, priceMax: 280, langCodes: ["ar", "en"], phone: "+961 70 123 456", email: "khaled@plumbfix.lb", website: "plumbfix.lb" },
+  { nameEn: "Jad El Khoury", nameAr: "جاد الخوري", category: "electrical", city: "beirut", area: "hamra", rating: 4.8, reviewCount: 98, yearsExp: 15, verified: true, premium: true, joinedYear: 2016, priceMin: 30, priceMax: 220, langCodes: ["ar", "en"], phone: "+961 71 456 789", email: "jad@volt-lb.com", website: "volt-lb.com" },
+  { nameEn: "Ali Hassan", nameAr: "علي حسن", category: "carpentry", city: "beirut", area: "gemmayzeh", rating: 4.7, reviewCount: 76, yearsExp: 10, verified: true, featured: true, joinedYear: 2018, priceMin: 60, priceMax: 320, langCodes: ["ar", "en", "fr"], phone: "+961 70 778 219", email: "ali@woodcraft.lb", website: "woodcraft.lb" },
+  { nameEn: "Youssef Benali", nameAr: "يوسف بن علي", category: "painting", city: "beirut", area: "mar-mikhael", rating: 4.6, reviewCount: 54, yearsExp: 8, verified: true, joinedYear: 2019, priceMin: 80, priceMax: 350, langCodes: ["ar", "fr"], phone: "+961 3 661 224", email: "y.benali@peinture.lb" },
+  { nameEn: "Ahmad Nassar", nameAr: "أحمد نصار", category: "masonry", city: "beirut", area: "badaro", rating: 4.5, reviewCount: 61, yearsExp: 20, verified: true, joinedYear: 2014, priceMin: 90, priceMax: 480, langCodes: ["ar"], phone: "+961 76 933 441", email: "ahmad@built-lb.com" },
+  { nameEn: "Omar Al-Mutairi", nameAr: "عمر المطيري", category: "ac-technician", city: "beirut", area: "achrafieh", rating: 4.9, reviewCount: 210, yearsExp: 9, verified: true, premium: true, featured: true, emergency: true, available: true, joinedYear: 2020, priceMin: 40, priceMax: 180, langCodes: ["ar", "en"], phone: "+961 71 330 812", email: "omar@coolair.lb", website: "coolair.lb" },
+  { nameEn: "Hassan Karimi", nameAr: "حسن كريمي", category: "satellite-technician", city: "beirut", area: "hamra", rating: 4.7, reviewCount: 45, yearsExp: 7, verified: true, joinedYear: 2021, priceMin: 35, priceMax: 120, langCodes: ["ar", "en", "fr"], phone: "+961 76 441 887", email: "hassan@signaltv.lb" },
+  { nameEn: "Sami Najjar", nameAr: "سامي نجار", category: "mechanic", city: "beirut", area: "gemmayzeh", rating: 4.8, reviewCount: 88, yearsExp: 14, verified: true, premium: true, joinedYear: 2017, priceMin: 25, priceMax: 250, langCodes: ["ar", "en"], phone: "+961 71 556 120", email: "sami@autocare.lb", website: "autocare.lb" },
+  { nameEn: "Fadi Jabbour", nameAr: "فادي جبور", category: "welding", city: "beirut", area: "mar-mikhael", rating: 4.6, reviewCount: 39, yearsExp: 11, verified: true, joinedYear: 2019, priceMin: 70, priceMax: 300, langCodes: ["ar", "en"], phone: "+961 70 778 992", email: "fadi@steelpro.lb" },
+  { nameEn: "Ibrahim Khalil", nameAr: "إبراهيم خليل", category: "blacksmith", city: "beirut", area: "badaro", rating: 4.5, reviewCount: 33, yearsExp: 18, verified: true, joinedYear: 2015, priceMin: 70, priceMax: 320, langCodes: ["ar"], phone: "+961 70 664 229", email: "ibrahim@ironworks-lb.com" },
+  { nameEn: "Tarek Chammas", nameAr: "طارق شماس", category: "roofing", city: "beirut", area: "achrafieh", rating: 4.4, reviewCount: 27, yearsExp: 13, verification: "pending", plan: "basic", expiresInDays: -6, joinedYear: 2018, priceMin: 80, priceMax: 500, langCodes: ["ar"], phone: "+961 70 219 334", email: "tarek@roofshield.lb" },
+  { nameEn: "Bilal Mansour", nameAr: "بلال منصور", category: "cleaning", city: "beirut", area: "hamra", rating: 4.9, reviewCount: 156, yearsExp: 6, verified: true, premium: true, featured: true, available: true, plan: "enterprise", joinedYear: 2021, priceMin: 40, priceMax: 180, langCodes: ["ar", "en"], phone: "+961 71 902 113", email: "bilal@sparkle.lb", website: "sparkle.lb" },
+  { nameEn: "Nadim Karam", nameAr: "نديم كرم", category: "movers", city: "beirut", area: "gemmayzeh", rating: 4.7, reviewCount: 71, yearsExp: 9, verified: true, plan: "professional", expiresInDays: 7, joinedYear: 2019, priceMin: 60, priceMax: 300, langCodes: ["ar", "en"], phone: "+961 76 660 771", email: "nadim@moveit.lb" },
+  { nameEn: "Wissam Ghanem", nameAr: "وسام غانم", category: "gardening", city: "beirut", area: "mar-mikhael", rating: 4.6, reviewCount: 42, yearsExp: 12, verified: true, plan: "basic", expiresInDays: 3, joinedYear: 2017, priceMin: 40, priceMax: 200, langCodes: ["ar", "en"], phone: "+961 81 445 668", email: "wissam@gardenia.lb" },
+  { nameEn: "Rami Awwad", nameAr: "رامي عواد", category: "pest-control", city: "beirut", area: "badaro", rating: 4.8, reviewCount: 63, yearsExp: 8, verified: true, emergency: true, joinedYear: 2020, priceMin: 35, priceMax: 150, langCodes: ["ar", "en"], phone: "+961 71 991 304", email: "rami@guardian.lb" },
+  { nameEn: "Sami Haddad", nameAr: "سامي حداد", category: "locksmith", city: "beirut", area: "achrafieh", rating: 4.7, reviewCount: 58, yearsExp: 10, verified: true, emergency: true, available: true, joinedYear: 2018, priceMin: 25, priceMax: 120, langCodes: ["ar", "en"], phone: "+961 70 447 906", email: "sami@keymaster.lb" },
+  { nameEn: "Karim El-Fassi", nameAr: "كريم الفاسي", category: "glass-works", city: "beirut", area: "hamra", rating: 4.5, reviewCount: 36, yearsExp: 9, verification: "rejected", plan: "basic", joinedYear: 2020, priceMin: 50, priceMax: 220, langCodes: ["ar", "fr"], phone: "+961 70 882 014", email: "karim@vitrage.lb" },
+  { nameEn: "Nabil Salloum", nameAr: "نبيل سلوم", category: "aluminum-works", city: "beirut", area: "gemmayzeh", rating: 4.6, reviewCount: 47, yearsExp: 15, verified: true, joinedYear: 2016, priceMin: 80, priceMax: 350, langCodes: ["ar", "fr"], phone: "+961 70 645 772", email: "nabil@alucasa.lb", website: "alucasa.lb" },
 ];
 
 function buildReviews(cfg: WorkerConfig, seed: string): Review[] {
@@ -166,12 +159,11 @@ function buildWorker(cfg: WorkerConfig): Worker {
 
   const reviews = buildReviews(cfg, slug);
 
-  // ── Subscription & verification state (demo, deterministic) ────────────────
   const verification: VerificationStatus =
     cfg.verification ?? (cfg.verified ? "verified" : "pending");
   const plan: SubscriptionPlan =
     cfg.plan ?? (cfg.premium ? "premium" : cfg.verified ? "professional" : "basic");
-  const expiresInDays = cfg.expiresInDays ?? 14 + Math.floor(rnd() * 26); // 14–39 days
+  const expiresInDays = cfg.expiresInDays ?? 14 + Math.floor(rnd() * 26);
   const planPrices: Record<SubscriptionPlan, number> = {
     basic: 29,
     professional: 59,

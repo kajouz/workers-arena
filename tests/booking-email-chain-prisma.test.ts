@@ -50,8 +50,8 @@ process.env.DEMO_MODE = "false";
 // file mode even in real mode).
 delete process.env.ADMIN_ACTIVITY_FILE;
 
-const TEST_EMAIL = "chain-prisma@test.sa";
-const TEST_AR_EMAIL = "chain-prisma-ar@test.sa";
+const TEST_EMAIL = "chain-prisma@test.lb";
+const TEST_AR_EMAIL = "chain-prisma-ar@test.lb";
 
 let slotId: string | null = null;
 let bookingId: string | null = null;
@@ -137,7 +137,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
       startAt: slot.startAt.toISOString(),
       endAt: slot.endAt.toISOString(),
       quote: 8000, // minor units, as-is
-      currency: "SAR",
+      currency: "USD",
       jobTitle: "Chain test plumbing job",
       platformFee: 560,
     });
@@ -147,10 +147,10 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     const email = renderBookingEmail(emailPayload!, "en");
     expect(email.subject).toContain(created.number);
     expect(email.html).toContain("Booking details");
-    expect(email.html).toContain("SAR 80"); // quote 8000 minor → 80 major
+    expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain("Platform fee");
-    expect(email.html).toContain("SAR 6"); // 560 minor → 5.6, display-rounded
-    expect(email.text).toContain("Platform fee: SAR 6");
+    expect(email.html).toContain("$6"); // 560 minor → 5.6, display-rounded
+    expect(email.text).toContain("Platform fee: $6");
     expect(email.html).toContain(`/admin/bookings/${created.number}`);
   });
 
@@ -245,7 +245,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     const cancelPayload = dispatched.find((p) => p.type === "bookingCancelled");
     expect(cancelPayload).toBeDefined();
     expect(cancelPayload!.href).toBe("/dashboard");
-    expect(cancelPayload!.recipient?.email).toBe("khaled@plumbfix.sa");
+    expect(cancelPayload!.recipient?.email).toBe("khaled@plumbfix.lb");
 
     // Same payload shape as the confirm test — the ORIGINAL slot survives cancel.
     expect(cancelPayload!.booking).toMatchObject({
@@ -253,7 +253,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
       startAt: slot.startAt.toISOString(),
       endAt: slot.endAt.toISOString(),
       quote: 8000, // minor units, as-is
-      currency: "SAR",
+      currency: "USD",
       jobTitle: "Chain test cancel booking",
     });
 
@@ -261,7 +261,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     const email = renderBookingEmail(cancelPayload!, "en");
     expect(email.subject).toContain(created.number);
     expect(email.html).toContain("Booking cancelled");
-    expect(email.html).toContain("SAR 80"); // quote 8000 minor → 80 major
+    expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain(`/admin/bookings/${created.number}`);
   });
 
@@ -325,7 +325,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
       startAt: slot.startAt.toISOString(),
       endAt: slot.endAt.toISOString(),
       quote: 8000, // minor units, as-is
-      currency: "SAR",
+      currency: "USD",
       jobTitle: "Chain test deposit booking",
     });
 
@@ -333,7 +333,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     const email = renderBookingEmail(cancelPayload!, "en");
     expect(email.subject).toContain(created.number);
     expect(email.html).toContain("Booking cancelled");
-    expect(email.html).toContain("SAR 80"); // quote 8000 minor → 80 major
+    expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain(`/admin/bookings/${created.number}`);
 
     // The refund also dispatches a bookingRefund email to the customer with
@@ -347,7 +347,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     const refundEmail = renderBookingEmail(refundPayload!, "en");
     expect(refundEmail.subject).toContain(created.number);
     expect(refundEmail.html).toContain("Deposit refunded");
-    expect(refundEmail.html).toContain("SAR 30"); // refund 3000 minor → 30 major
+    expect(refundEmail.html).toContain("$30"); // refund 3000 minor → 30 major
     expect(refundEmail.html).toContain("Machine broke"); // reason row in the card
     expect(refundEmail.html).toContain(`/admin/bookings/${created.number}`);
   });
@@ -429,7 +429,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
       startAt: slot.startAt.toISOString(),
       endAt: slot.endAt.toISOString(),
       quote: 8000, // minor units, as-is
-      currency: "SAR",
+      currency: "USD",
       jobTitle: "Chain test kept deposit",
     });
 
@@ -440,7 +440,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     const email = renderBookingEmail(cancelPayload!, "en");
     expect(email.subject).toContain(created.number);
     expect(email.html).toContain("Booking cancelled");
-    expect(email.html).toContain("SAR 80"); // quote 8000 minor → 80 major
+    expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain(`/admin/bookings/${created.number}`);
   });
 });

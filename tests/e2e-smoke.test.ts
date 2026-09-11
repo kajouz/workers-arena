@@ -185,8 +185,8 @@ function manifestInstallabilityProblems(manifest: unknown): string[] {
 /** Demo session values (mirror src/lib/auth-demo.ts → DEMO_USERS). */
 const SESSIONS: Record<string, { id: string; name: string; email: string; role: string; hue: number }> = {
   admin: { id: "u-admin", name: "Platform Admin", email: "admin@workersarena.com", role: "admin", hue: 280 },
-  worker: { id: "u-worker", name: "Khaled Al-Harbi", email: "khaled@plumbfix.sa", role: "worker", hue: 25 },
-  company: { id: "u-company", name: "BuildCo Ltd", email: "ads@buildco.sa", role: "company", hue: 150 },
+  worker: { id: "u-worker", name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", role: "worker", hue: 25 },
+  company: { id: "u-company", name: "BuildCo Ltd", email: "ads@buildco.lb", role: "company", hue: 150 },
   // The customer whose demo bookings the /bookings page renders (BK-1001).
   customer: { id: "u-customer", name: "Sara Customer", email: "sara@example.com", role: "customer", hue: 200 },
 };

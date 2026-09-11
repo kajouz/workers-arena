@@ -20,26 +20,16 @@ export function formatCompact(n: number): string {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 }
 
-export type CurrencyCode = "SAR" | "AED" | "EGP" | "JOD" | "MAD" | "LBP" | "USD";
+export type CurrencyCode = "USD";
 
 const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
-  SAR: "ر.س",
-  AED: "د.إ",
-  EGP: "ج.م",
-  JOD: "د.أ",
-  MAD: "د.م",
-  LBP: "ل.ل",
   USD: "$",
 };
 
-/** RTL-safe price formatting: "150 ر.س" in Arabic, "SAR 150" in English. */
-export function formatPrice(amount: number, currency: CurrencyCode, locale: "en" | "ar" = "en"): string {
+/** USD-only price formatting — single tenant lb. Future tenants re-open this union. */
+export function formatPrice(amount: number, _currency: CurrencyCode = "USD", _locale: "en" | "ar" = "en"): string {
   const num = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(amount);
-  if (locale === "ar") {
-    return `${num} ${CURRENCY_SYMBOLS[currency]}`;
-  }
-  if (currency === "USD") return `$${num}`;
-  return `${currency} ${num}`;
+  return `$${num}`;
 }
 
 /** Format a date for a given locale. */
@@ -104,7 +94,7 @@ export function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
-/** Distance (km) between two coordinates — used by the "nearest" sort. */
+/** Distance (km) between two coordinates — used by the "nearest" sort (single centre: Beirut). */
 export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;

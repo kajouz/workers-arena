@@ -310,7 +310,7 @@ export function toDomainCity(
     nameAr: row.nameAr,
     countryEn: row.countryEn,
     countryAr: row.countryAr,
-    currency: (row.currency || "SAR") as CurrencyCode,
+    currency: (row.currency || "USD") as CurrencyCode,
     lat: row.lat,
     lng: row.lng,
     areas: row.areas.map((a) => ({ slug: a.slug, nameEn: a.nameEn, nameAr: a.nameAr })),
@@ -3584,7 +3584,7 @@ export async function prismaCreateCampaign(
     });
     if (!company) {
       const fallback = await prisma.user.findUnique({
-        where: { email: "ads@buildco.sa" },
+        where: { email: "ads@buildco.lb" },
         select: { id: true },
       });
       if (fallback) {
@@ -3596,7 +3596,7 @@ export async function prismaCreateCampaign(
     }
     if (!company?.user?.email) {
       console.error(
-        `[prisma-repo] createCampaign: no Company row for user ${input.companyId} (the seed creates one for ads@buildco.sa)`
+        `[prisma-repo] createCampaign: no Company row for user ${input.companyId} (the seed creates one for ads@buildco.lb)`
       );
       return null;
     }
@@ -3905,7 +3905,7 @@ export async function prismaConfirmCampaignPayment(
  *     major, PAID/VOID → paid/refunded, EN + AR descriptions from the items
  *     + the campaign's Arabic name). Production TODO: scope by the acting
  *     company's user id once real auth lands — the demo seam is single-company,
- *     so the seeded company (ads@buildco.sa) is the anchor.
+ *     so the seeded company (ads@buildco.lb) is the anchor.
  * ──────────────────────────────────────────────────────────────────────────── */
 
 const INVOICE_STATUS_DB_TO_APP: Record<string, Invoice["status"]> = {
@@ -3961,7 +3961,7 @@ export function toDomainInvoice(row: PrismaInvoiceRow): Invoice {
 /**
  * The company's invoices (advertising + subscription), newest first — mirrors
  * demoGetInvoices (the /company invoices card + the worker dashboard read
- * this seam). Real mode anchors on the seeded company (ads@buildco.sa — the
+ * this seam). Real mode anchors on the seeded company (ads@buildco.lb — the
  * same fallback prismaCreateCampaign resolves), so self-serve ad purchases
  * show up end-to-end: the WA-YYYY-NNNNN receipt the webhook mints reads back
  * as a paid advertising invoice, and a refund's VOID flip as the credit note.
@@ -3971,7 +3971,7 @@ export function toDomainInvoice(row: PrismaInvoiceRow): Invoice {
 export async function prismaGetInvoices(): Promise<Invoice[]> {
   const prisma = getPrisma();
   const companyUser = await prisma.user.findUnique({
-    where: { email: "ads@buildco.sa" },
+    where: { email: "ads@buildco.lb" },
     select: { id: true },
   });
   if (!companyUser) return [];

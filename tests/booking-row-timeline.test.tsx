@@ -77,10 +77,10 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     startAt: at(4),
     endAt: at(3),
     quote: 15000,
-    currency: "SAR",
+    currency: "USD",
     events: [
       { status: "requested", actorType: "customer", time: at(5) },
-      { status: "confirmed", actorType: "worker", reason: "Can do — quote SAR 150", time: at(4) },
+      { status: "confirmed", actorType: "worker", reason: "Can do — quote $150", time: at(4) },
       { status: "inProgress", actorType: "worker", time: at(2) },
       { status: "completed", actorType: "worker", reason: "Job done, receipt issued", time: at(1) },
     ],
@@ -122,7 +122,7 @@ describe("BookingRow — §2.4 customer dispute timeline", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(toggle).toHaveTextContent("4"); // event count badge
     // Collapsed — no event rows, no reasons, no timestamps.
-    expect(screen.queryByText("Can do — quote SAR 150")).not.toBeInTheDocument();
+    expect(screen.queryByText("Can do — quote $150")).not.toBeInTheDocument();
     expect(screen.queryByText(/ago/)).not.toBeInTheDocument();
   });
 
@@ -145,7 +145,7 @@ describe("BookingRow — §2.4 customer dispute timeline", () => {
     expect(trail.getAllByText("Worker")).toHaveLength(3);
 
     // Reasons ride the entries (same as the admin event trail).
-    expect(trail.getByText("Can do — quote SAR 150")).toBeInTheDocument();
+    expect(trail.getByText("Can do — quote $150")).toBeInTheDocument();
     expect(trail.getByText("Job done, receipt issued")).toBeInTheDocument();
 
     // Timestamps — "when" is rendered for every entry.
@@ -181,7 +181,7 @@ describe("BookingRow — §2.4 customer dispute timeline", () => {
     // Each entry is a tappable summary (status + actor + time); the detail is
     // hidden until tapped. The confirmed entry is the one carrying this reason
     // (its accessible name joins the sibling spans without spaces).
-    const confirmedEntry = screen.getByRole("button", { name: /quote SAR 150/ });
+    const confirmedEntry = screen.getByRole("button", { name: /quote \$150/ });
     expect(confirmedEntry).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Audit line")).not.toBeInTheDocument();
     fireEvent.click(confirmedEntry);
@@ -192,7 +192,7 @@ describe("BookingRow — §2.4 customer dispute timeline", () => {
     expect(detail.getByText("BK-1001")).toBeInTheDocument();
     expect(detail.getByText("Confirmed")).toBeInTheDocument();
     expect(detail.getByText("Worker")).toBeInTheDocument();
-    expect(detail.getByText("Can do — quote SAR 150")).toBeInTheDocument();
+    expect(detail.getByText("Can do — quote $150")).toBeInTheDocument();
     // The exact "when" — the localized full timestamp, not just the time-ago.
     expect(detail.getByText(exactTime(booking.events[1]!.time))).toBeInTheDocument();
     expect(confirmedEntry).toHaveAttribute("aria-expanded", "true");
@@ -202,7 +202,7 @@ describe("BookingRow — §2.4 customer dispute timeline", () => {
     renderRow();
     fireEvent.click(screen.getByRole("button", { name: /What happened/ }));
 
-    const entry = screen.getByRole("button", { name: /quote SAR 150/ });
+    const entry = screen.getByRole("button", { name: /quote \$150/ });
     fireEvent.click(entry);
     expect(screen.getByText("Audit line")).toBeInTheDocument();
     fireEvent.click(entry);
@@ -236,7 +236,7 @@ describe("BookingRow — §2.4 customer dispute timeline", () => {
     const dialog = screen.getByRole("dialog");
     const iframe = within(dialog).getByTitle(/BK-1001/) as HTMLIFrameElement;
     expect((iframe.getAttribute("srcdoc") ?? "")).toContain("Khaled Al-Harbi");
-    expect((iframe.getAttribute("srcdoc") ?? "")).toContain("Can do — quote SAR 150");
+    expect((iframe.getAttribute("srcdoc") ?? "")).toContain("Can do — quote $150");
   });
 
   it("localizes the compact Print link in Arabic", () => {
@@ -281,7 +281,7 @@ describe("WorkerBookingRow — the same §2.4 timeline from the worker's side", 
     expect(trail.getByText("Completed")).toBeInTheDocument();
     expect(trail.getByText("Customer")).toBeInTheDocument();
     expect(trail.getAllByText("Worker")).toHaveLength(3);
-    expect(trail.getByText("Can do — quote SAR 150")).toBeInTheDocument();
+    expect(trail.getByText("Can do — quote $150")).toBeInTheDocument();
     expect(trail.getByText("5 hours ago")).toBeInTheDocument();
   });
 
@@ -304,11 +304,11 @@ describe("WorkerBookingRow — the same §2.4 timeline from the worker's side", 
     const booking = makeBooking();
     renderWorkerRow("en", booking);
     fireEvent.click(screen.getByRole("button", { name: /What happened/ }));
-    fireEvent.click(screen.getByRole("button", { name: /quote SAR 150/ }));
+    fireEvent.click(screen.getByRole("button", { name: /quote \$150/ }));
 
     const detail = within(screen.getByText("Audit line").parentElement!);
     expect(detail.getByText("BK-1001")).toBeInTheDocument();
-    expect(detail.getByText("Can do — quote SAR 150")).toBeInTheDocument();
+    expect(detail.getByText("Can do — quote $150")).toBeInTheDocument();
     expect(detail.getByText(exactTime(booking.events[1]!.time))).toBeInTheDocument();
   });
 
@@ -325,7 +325,7 @@ describe("WorkerBookingRow — the same §2.4 timeline from the worker's side", 
     // The audit document carries the worker's name + the same event trail.
     expect(doc).toContain("BK-1001");
     expect(doc).toContain("Khaled Al-Harbi");
-    expect(doc).toContain("Can do — quote SAR 150");
+    expect(doc).toContain("Can do — quote $150");
   });
 
   it("localizes the print button + audit document in Arabic", () => {
@@ -417,7 +417,7 @@ describe("BookingRow — M3 receipt vs voided receipt", () => {
   const invoice = (status: "paid" | "voided"): Booking["invoice"] => ({
     number: "WA-2026-00001",
     amount: 15000,
-    currency: "SAR",
+    currency: "USD",
     status,
     date: new Date().toISOString(),
   });

@@ -62,8 +62,8 @@ function makeQuote(overrides: Partial<QuoteRequest> = {}): QuoteRequest {
     createdAt: new Date(NOW - 12 * 3_600_000).toISOString(),
     expiresAt: new Date(NOW + 36 * 3_600_000).toISOString(),
     bookings: [
-      { id: "bk-1", workerId: "w1", status: "quoted", quote: 15000, currency: "SAR" },
-      { id: "bk-2", workerId: "w2", status: "quoting", quote: undefined, currency: "SAR" },
+      { id: "bk-1", workerId: "w1", status: "quoted", quote: 15000, currency: "USD" },
+      { id: "bk-2", workerId: "w2", status: "quoting", quote: undefined, currency: "USD" },
     ],
     ...overrides,
   } as unknown as QuoteRequest;

@@ -212,7 +212,7 @@ export function renderBookingEmail(
   const baseUrl = appBaseUrl();
   const ctaHref = `${baseUrl}${payload.href ?? "/bookings"}`;
   const ctaLabel = locale === "ar" ? "عرض حجزك" : "View your booking";
-  const currency = (booking.currency as CurrencyCode) ?? "SAR";
+  const currency = (booking.currency as CurrencyCode) ?? "USD";
 
   const l = (en: string, ar: string) => (locale === "ar" ? ar : en);
   const price = (minor: number) => formatPrice(minor / 100, currency, locale);

@@ -455,9 +455,11 @@ export function AdminDashboard({
           data={{
             sessionDuration: { avg: 185, median: 142, p95: 420 },
             bounceRate: 34.2,
+            // Deterministic pseudo-random (no Math.random — SSR/client renders
+            // must match or React hydration fails on the heatmap titles).
             peakHours: Array.from({ length: 24 }, (_, i) => ({
               hour: i,
-              count: Math.floor(Math.random() * 80) + 10,
+              count: ((i * 37 + 13) % 70) + 12,
             })),
             deviceBreakdown: [
               { device: "mobile", percentage: 62.4 },
@@ -505,7 +507,14 @@ export function AdminDashboard({
                 name: w.nameEn,
                 nameAr: w.nameAr,
                 plan: w.subscription.plan,
-                daysUntilExpiry: Math.floor(Math.random() * 10) + 1,
+                // Deterministic: derived from the real expiry so SSR and the
+                // client render the same number (Math.random breaks hydration).
+                daysUntilExpiry: Math.max(
+                  1,
+                  Math.ceil(
+                    (new Date(w.subscription.expiresAt).getTime() - Date.now()) / 86_400_000
+                  )
+                ),
                 lastActivity: "2 days ago",
                 hue: w.hue,
               })),

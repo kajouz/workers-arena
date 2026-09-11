@@ -66,7 +66,7 @@ const booking: Booking = {
   customerEmail: "sara@example.com",
   jobTitle: "Leaking kitchen sink repair",
   status: "requested",
-  currency: "SAR",
+  currency: "USD",
   events: [
     { status: "requested", actorType: "customer", time: new Date().toISOString() },
   ],
@@ -79,7 +79,7 @@ const worker = {
   id: "w-khaled",
   nameEn: "Khaled Al-Harbi",
   nameAr: "خالد الحربي",
-  email: "khaled@plumbfix.sa",
+  email: "khaled@plumbfix.lb",
 } as unknown as Worker;
 
 beforeEach(() => {
@@ -157,7 +157,7 @@ describe("emailBookingAuditAction", () => {
     const res = await emailBookingAuditAction("BK-1001", ["customer", "worker"], "ar");
     expect(res).toEqual({ ok: true });
     expect(dispatched.length).toBe(2);
-    expect(dispatched.map((d) => d.recipient?.email)).toEqual(["sara@example.com", "khaled@plumbfix.sa"]);
+    expect(dispatched.map((d) => d.recipient?.email)).toEqual(["sara@example.com", "khaled@plumbfix.lb"]);
     // The PDF is rendered once (the same attachment for both recipients) and
     // the worker recipient carries the worker's display name.
     expect(renderAuditPdfMock).toHaveBeenCalledTimes(1);
@@ -195,14 +195,14 @@ describe("emailBookingAuditAction", () => {
   });
 
   it("allows the worker on the booking (matched by email)", async () => {
-    getSessionMock.mockResolvedValue({ id: "u-worker", name: "Khaled Al-Harbi", email: "khaled@plumbfix.sa", role: "worker", hue: 25 });
+    getSessionMock.mockResolvedValue({ id: "u-worker", name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", role: "worker", hue: 25 });
     const res = await emailBookingAuditAction("BK-1001", ["worker"], "en");
     expect(res).toEqual({ ok: true });
-    expect(dispatched[0]!.recipient).toEqual({ name: "Khaled Al-Harbi", email: "khaled@plumbfix.sa", locale: "en" });
+    expect(dispatched[0]!.recipient).toEqual({ name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", locale: "en" });
   });
 
   it("rejects a different worker", async () => {
-    getSessionMock.mockResolvedValue({ id: "u-other-worker", name: "Other", email: "other@plumb.sa", role: "worker", hue: 25 });
+    getSessionMock.mockResolvedValue({ id: "u-other-worker", name: "Other", email: "other@plumb.lb", role: "worker", hue: 25 });
     await expect(emailBookingAuditAction("BK-1001", ["worker"], "en")).resolves.toEqual({
       ok: false,
       error: "unauthorized",

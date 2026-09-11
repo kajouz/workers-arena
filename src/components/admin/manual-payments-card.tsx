@@ -80,7 +80,7 @@ export function ManualPaymentsCard({ payments }: { payments: PendingManualPaymen
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <p className="text-sm font-black text-ink-900 dark:text-ink-50">
-                    {formatPrice(p.amount / 100, p.currency === "LBP" ? "LBP" : "USD", locale)}
+                    {formatPrice(p.amount / 100, "USD", locale)}
                   </p>
                   <Button size="sm" onClick={() => setConfirming(p)}>
                     {t("payments.adminPendingConfirm")}
@@ -101,7 +101,7 @@ export function ManualPaymentsCard({ payments }: { payments: PendingManualPaymen
                 t("payments.adminPendingConfirmBody")
                   .replace(
                     "{amount}",
-                    formatPrice(confirming.amount / 100, confirming.currency === "LBP" ? "LBP" : "USD", locale)
+                    formatPrice(confirming.amount / 100, "USD", locale)
                   )
                   .replace("{method}", t(`payments.method${confirming.method[0].toUpperCase()}${confirming.method.slice(1)}`))}
             </DialogDescription>

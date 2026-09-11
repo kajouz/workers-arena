@@ -146,7 +146,7 @@ describe("M3 invoice row (signed-in customers only)", () => {
     expect(booking.invoice).toBeDefined();
     expect(booking.invoice?.number).toMatch(/^WA-\d{4}-\d{5}$/);
     expect(booking.invoice?.amount).toBe(5000); // minor units, as-is
-    expect(booking.invoice?.currency).toBe("SAR");
+    expect(booking.invoice?.currency).toBe("USD");
     expect(booking.invoice?.status).toBe("paid");
   });
 
@@ -289,7 +289,7 @@ describe("M3 payment provider seam", () => {
       paymentId: "pay-x",
       bookingId: "bk-x",
       amountMinor: 5000,
-      currency: "SAR",
+      currency: "USD",
       description: "BK-1001 — Fix sink",
       successUrl: "https://app.example.com/bookings",
       cancelUrl: "https://app.example.com/bookings",

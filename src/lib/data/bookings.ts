@@ -246,7 +246,7 @@ function seed(): void {
     workerId: demoWorkerId,
     customerId: "u-customer", // Sara's demo user id — signed-in bookings get a receipt
     customerName: "Sara Customer",
-    customerPhone: "+966 50 000 0000",
+    customerPhone: "+961 70 000 000",
     customerEmail: "sara@example.com",
     jobTitle: "Leaking kitchen sink repair",
     // The catalog service the booking was created from — carries nameEn/nameAr
@@ -257,7 +257,7 @@ function seed(): void {
     startAt: reserved.startAt,
     endAt: reserved.endAt,
     status: "requested",
-    currency: worker?.currency ?? "SAR",
+    currency: worker?.currency ?? "USD",
     events: [event],
   });
 
@@ -276,7 +276,7 @@ function seed(): void {
   // ────────────────────────────────────────────────────────────────────────────
   const ali = workerBySlug("ali-hassan-carpentry");
   const omar = workerBySlug("omar-al-mutairi-ac-technician");
-  const ahmed = workerBySlug("ahmed-el-sayed-masonry");
+  const ahmed = workerBySlug("ahmad-nassar-masonry");
 
   const availableSlot = (id: string, workerId: string, hour: number) => {
     const t = hourSlot(hour);
@@ -306,7 +306,7 @@ function seed(): void {
       number: "BK-0990",
       workerId: ali.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Custom wardrobe install",
       // Carpentry catalog item — the email receipt's "Service" row renders
@@ -315,7 +315,7 @@ function seed(): void {
       startAt,
       endAt,
       status: "completed",
-      currency: worker?.currency ?? "SAR",
+      currency: worker?.currency ?? "USD",
       events: [
         { status: "requested", actorType: "customer", time: created },
         { status: "confirmed", actorType: "worker", time: startAt },
@@ -801,7 +801,7 @@ export function demoSeedCompletedBookingForCustomer(input: {
     startAt,
     endAt,
     status: "completed",
-    currency: worker?.currency ?? "SAR",
+    currency: worker?.currency ?? "USD",
     events: [
       { status: "requested", actorType: "customer", time: created },
       { status: "confirmed", actorType: "worker", time: startAt },

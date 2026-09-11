@@ -101,14 +101,14 @@ export function resetCampaignStore(): void {
 }
 
 /** The demo company the campaign notifications are addressed to — mirrors the
- * demo company session (src/lib/auth-demo.ts → u-company / ads@buildco.sa).
+ * demo company session (src/lib/auth-demo.ts → u-company / ads@buildco.lb).
  * Carries a demo phone so the SMS/WhatsApp channels render the campaign copy
  * (console providers log it in demo mode — the e2e hydration smoke asserts
  * the dispatched channels against this recipient). */
 const COMPANY = {
   name: "BuildCo Ltd",
-  email: "ads@buildco.sa",
-  phone: "+966 55 123 0099",
+  email: "ads@buildco.lb",
+  phone: "+961 70 123 009",
   // The demo company prefers Arabic — outbound campaign emails render in it,
   // and the /admin refund-email preview leads with it as the primary block
   // (so an EN admin previews the AR email the company received).

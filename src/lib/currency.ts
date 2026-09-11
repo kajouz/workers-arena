@@ -1,15 +1,10 @@
 /**
- * Multi-currency support for WorkersArena.
- *
- * Supports:
- * - LBP (Lebanese Pound)
- * - USD (US Dollar)
- * - SAR (Saudi Riyal)
- *
- * Exchange rates are fetched from an API or can be hardcoded for offline use.
+ * Single-currency (USD $) for Lebanon tenant lb.
+ * Future tenants will add per-tenant currency via TENANT_SLUG.
+ * Hardcoded FX paths remain as stubs for backward compat.
  */
 
-export type CurrencyCode = "LBP" | "USD" | "SAR" | "EUR" | "GBP";
+export type CurrencyCode = "USD";
 
 export interface CurrencyConfig {
   code: CurrencyCode;
@@ -21,14 +16,6 @@ export interface CurrencyConfig {
 }
 
 export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
-  LBP: {
-    code: "LBP",
-    symbol: "L£",
-    name: "Lebanese Pound",
-    nameAr: "ليرة لبنانية",
-    decimals: 0,
-    symbolPosition: "after",
-  },
   USD: {
     code: "USD",
     symbol: "$",
@@ -37,133 +24,50 @@ export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
     decimals: 2,
     symbolPosition: "before",
   },
-  SAR: {
-    code: "SAR",
-    symbol: "ر.س",
-    name: "Saudi Riyal",
-    nameAr: "ريال سعودي",
-    decimals: 2,
-    symbolPosition: "after",
-  },
-  EUR: {
-    code: "EUR",
-    symbol: "€",
-    name: "Euro",
-    nameAr: "يورو",
-    decimals: 2,
-    symbolPosition: "before",
-  },
-  GBP: {
-    code: "GBP",
-    symbol: "£",
-    name: "British Pound",
-    nameAr: "جنيه إسترليني",
-    decimals: 2,
-    symbolPosition: "before",
-  },
 };
 
-// Default exchange rates (relative to USD)
-// In production, fetch from an API like exchangerate-api.com
 const DEFAULT_RATES: Record<CurrencyCode, number> = {
   USD: 1,
-  LBP: 89000, // ~89,000 LBP per USD (approximate)
-  SAR: 3.75,
-  EUR: 0.92,
-  GBP: 0.79,
 };
 
 let exchangeRates: Record<CurrencyCode, number> = { ...DEFAULT_RATES };
 let lastFetchTime = 0;
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+const CACHE_DURATION = 60 * 60 * 1000;
 
-/**
- * Get current exchange rates
- */
 export function getExchangeRates(): Record<CurrencyCode, number> {
   return { ...exchangeRates };
 }
 
-/**
- * Convert amount from one currency to another
- */
-export function convertCurrency(
-  amount: number,
-  from: CurrencyCode,
-  to: CurrencyCode
-): number {
+export function convertCurrency(amount: number, from: CurrencyCode, to: CurrencyCode): number {
   if (from === to) return amount;
-
-  // Convert to USD first, then to target
   const inUSD = amount / exchangeRates[from];
   return inUSD * exchangeRates[to];
 }
 
-/**
- * Format price with currency symbol
- */
-export function formatPrice(
-  amount: number,
-  currency: CurrencyCode,
-  locale: "en" | "ar" = "en"
-): string {
-  const config = CURRENCIES[currency];
+export function formatPrice(amount: number, _currency: CurrencyCode = "USD", locale: "en" | "ar" = "en"): string {
+  const config = CURRENCIES["USD"];
   const formatted = amount.toLocaleString(locale === "ar" ? "ar-LB" : "en-US", {
     minimumFractionDigits: config.decimals,
     maximumFractionDigits: config.decimals,
   });
-
-  if (config.symbolPosition === "before") {
-    return `${config.symbol}${formatted}`;
-  }
-  return `${formatted} ${config.symbol}`;
+  return `${config.symbol}${formatted}`;
 }
 
-/**
- * Get currency symbol
- */
-export function getCurrencySymbol(currency: CurrencyCode): string {
-  return CURRENCIES[currency].symbol;
+export function getCurrencySymbol(_currency: CurrencyCode = "USD"): string {
+  return CURRENCIES["USD"].symbol;
 }
 
-/**
- * Get currency name in locale
- */
-export function getCurrencyName(
-  currency: CurrencyCode,
-  locale: "en" | "ar"
-): string {
-  const config = CURRENCIES[currency];
+export function getCurrencyName(_currency: CurrencyCode = "USD", locale: "en" | "ar"): string {
+  const config = CURRENCIES["USD"];
   return locale === "ar" ? config.nameAr : config.name;
 }
 
-/**
- * Fetch latest exchange rates from API
- */
 export async function fetchExchangeRates(): Promise<void> {
-  // Check cache
-  if (Date.now() - lastFetchTime < CACHE_DURATION) {
-    return;
-  }
-
-  try {
-    // In production, use a real API:
-    // const res = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
-    // const data = await res.json();
-    // exchangeRates = { USD: 1, LBP: data.rates.LBP, SAR: data.rates.SAR, ... };
-
-    // For now, use default rates
-    exchangeRates = { ...DEFAULT_RATES };
-    lastFetchTime = Date.now();
-  } catch (error) {
-    console.error("[Currency] Failed to fetch rates:", error);
-    // Keep using cached/default rates
-  }
+  if (Date.now() - lastFetchTime < CACHE_DURATION) return;
+  exchangeRates = { ...DEFAULT_RATES };
+  lastFetchTime = Date.now();
 }
 
-/**
- * Currency selector component props
- */
 export interface CurrencySelectorProps {
   value: CurrencyCode;
   onChange: (currency: CurrencyCode) => void;
@@ -171,41 +75,12 @@ export interface CurrencySelectorProps {
   className?: string;
 }
 
-/**
- * Get default currency for a country
- */
-export function getDefaultCurrency(countryCode: string): CurrencyCode {
-  const map: Record<string, CurrencyCode> = {
-    LB: "LBP",
-    US: "USD",
-    SA: "SAR",
-    AE: "SAR",
-    KW: "SAR",
-    BH: "SAR",
-    QA: "SAR",
-    OM: "SAR",
-    GB: "GBP",
-    FR: "EUR",
-    DE: "EUR",
-    ES: "EUR",
-    IT: "EUR",
-  };
-  return map[countryCode] ?? "USD";
+export function getDefaultCurrency(_countryCode: string): CurrencyCode {
+  return "USD";
 }
 
-/**
- * Parse amount from string (handles different currency formats)
- */
-export function parseAmount(
-  input: string,
-  currency: CurrencyCode
-): number | null {
-  // Remove currency symbols and whitespace
-  const cleaned = input
-    .replace(/[L£$€ر.س]/g, "")
-    .replace(/\s/g, "")
-    .replace(/,/g, "");
-
+export function parseAmount(input: string, _currency: CurrencyCode = "USD"): number | null {
+  const cleaned = input.replace(/[$\s,]/g, "");
   const amount = parseFloat(cleaned);
   return isNaN(amount) ? null : amount;
 }

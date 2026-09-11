@@ -33,8 +33,8 @@ describe("searchWorkers — filters", () => {
   });
 
   it("filters by city", () => {
-    const { items } = searchWorkers({ city: "riyadh" });
-    expect(items.every((w) => w.citySlug === "riyadh")).toBe(true);
+    const { items } = searchWorkers({ city: "beirut" });
+    expect(items.every((w) => w.citySlug === "beirut")).toBe(true);
   });
 
   it("filters by minimum rating", () => {
@@ -53,8 +53,8 @@ describe("searchWorkers — filters", () => {
   });
 
   it("combines filters (category + city + verified)", () => {
-    const { items } = searchWorkers({ category: "ac-technician", city: "riyadh", verifiedOnly: true });
-    expect(items.every((w) => w.categorySlug === "ac-technician" && w.citySlug === "riyadh" && w.verified)).toBe(true);
+    const { items } = searchWorkers({ category: "ac-technician", city: "beirut", verifiedOnly: true });
+    expect(items.every((w) => w.categorySlug === "ac-technician" && w.citySlug === "beirut" && w.verified)).toBe(true);
   });
 });
 
@@ -153,7 +153,7 @@ describe("W1 trust signals (repo seam, demo mode)", () => {
   });
 
   it("leaves workers without bookings/slots as null/false", async () => {
-    const w = await getWorkerBySlug("mohammed-farouk-electrical");
+    const w = await getWorkerBySlug("jad-el-khoury-electrical");
     expect(w?.responseRate).toBeNull();
     expect(w?.availableThisWeek).toBe(false);
   });
@@ -176,7 +176,7 @@ describe("W1 trust signals (repo seam, demo mode)", () => {
     const omar = await getWorkerBySlug("omar-al-mutairi-ac-technician");
     expect(omar?.responseRate).toBeNull();
     expect(omar?.availableThisWeek).toBe(true);
-    const ahmed = await getWorkerBySlug("ahmed-el-sayed-masonry");
+    const ahmed = await getWorkerBySlug("ahmad-nassar-masonry");
     expect(ahmed?.responseRate).toBeNull();
     expect(ahmed?.availableThisWeek).toBe(true);
 

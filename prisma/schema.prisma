@@ -322,7 +322,7 @@ model City {
   nameAr    String
   countryEn String
   countryAr String
-  currency  String  @default("SAR")
+  currency  String  @default("USD")
   lat       Float
   lng       Float
   isActive  Boolean @default(true)

@@ -120,9 +120,9 @@ describe("Deep Links", () => {
 
   it("parseDeepLink handles URLs with search params", async () => {
     const mod = await import("@/lib/mobile/deep-links");
-    const result = mod.parseDeepLink("https://workersarena.com/search?category=plumbing&city=riyadh");
+    const result = mod.parseDeepLink("https://workersarena.com/search?category=plumbing&city=beirut");
     expect(result.path).toBe("/search");
-    expect(result.search).toBe("?category=plumbing&city=riyadh");
+    expect(result.search).toBe("?category=plumbing&city=beirut");
   });
 
   it("parseDeepLink handles invalid URLs gracefully", async () => {

@@ -52,7 +52,7 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     customerName: "Sara Customer",
     status: "pendingPayment",
     deposit: 3000,
-    currency: "SAR",
+    currency: "USD",
     paymentStatus: "paid",
     events: [],
     ...overrides,

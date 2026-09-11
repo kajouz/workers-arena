@@ -103,10 +103,10 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     expect(email.subject).toContain(booking!.number);
     expect(email.html).toContain("Booking details");
     expect(email.html).toContain(booking!.number);
-    expect(email.html).toContain("SAR 80"); // quote 8000 minor → 80 major
+    expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain("Platform fee");
-    expect(email.html).toContain("SAR 6"); // 560 minor → 5.6, display-rounded
-    expect(email.text).toContain("Platform fee: SAR 6");
+    expect(email.html).toContain("$6"); // 560 minor → 5.6, display-rounded
+    expect(email.text).toContain("Platform fee: $6");
     expect(email.html).toContain("Leaking kitchen sink repair");
     expect(email.html).toContain(`/admin/bookings/${booking!.number}`);
   });
@@ -175,7 +175,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       const email = renderBookingEmail(emailPayload!, "en");
       expect(email.html).toContain("Platform fee");
       expect(email.html).toContain("Waived by the worker's plan");
-      expect(email.html).not.toContain("SAR 6"); // no amount — the fee is waived
+      expect(email.html).not.toContain("$6"); // no amount — the fee is waived
       expect(email.text).toContain("Platform fee: Waived by the worker's plan");
     } finally {
       worker.subscription.plan = original;
@@ -251,7 +251,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const cancelPayload = dispatched.find((p) => p.type === "bookingCancelled");
     expect(cancelPayload).toBeDefined();
     expect(cancelPayload!.href).toBe("/dashboard");
-    expect(cancelPayload!.recipient?.email).toBe("khaled@plumbfix.sa");
+    expect(cancelPayload!.recipient?.email).toBe("khaled@plumbfix.lb");
 
     // The payload carries the ORIGINAL confirmed slot (cancel mutates only
     // status/slot, never the times or quote) — same shape as the confirm test.
@@ -268,7 +268,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const email = renderBookingEmail(cancelPayload!, "en");
     expect(email.subject).toContain(cancelled!.number);
     expect(email.html).toContain("Booking cancelled");
-    expect(email.html).toContain("SAR 80"); // quote 8000 minor → 80 major
+    expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain(`/admin/bookings/${cancelled!.number}`);
   });
 
@@ -335,7 +335,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const email = renderBookingEmail(cancelPayload!, "en");
     expect(email.subject).toContain(cancelled!.number);
     expect(email.html).toContain("Booking cancelled");
-    expect(email.html).toContain("SAR 80"); // quote 8000 minor → 80 major
+    expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain(`/admin/bookings/${cancelled!.number}`);
 
     // The refund also dispatches a bookingRefund email to the customer with
@@ -349,7 +349,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const refundEmail = renderBookingEmail(refundPayload!, "en");
     expect(refundEmail.subject).toContain(cancelled!.number);
     expect(refundEmail.html).toContain("Deposit refunded");
-    expect(refundEmail.html).toContain("SAR 30"); // refund 3000 minor → 30 major
+    expect(refundEmail.html).toContain("$30"); // refund 3000 minor → 30 major
     expect(refundEmail.html).toContain("Machine broke"); // reason row in the card
     expect(refundEmail.html).toContain(`/admin/bookings/${cancelled!.number}`);
   });
@@ -412,7 +412,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     const email = renderBookingEmail(cancelPayload!, "en");
     expect(email.subject).toContain(cancelled!.number);
     expect(email.html).toContain("Booking cancelled");
-    expect(email.html).toContain("SAR 80"); // quote 8000 minor → 80 major
+    expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain(`/admin/bookings/${cancelled!.number}`);
   });
 

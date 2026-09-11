@@ -37,7 +37,7 @@ const booking: Booking = {
   jobTitle: "Leaking kitchen sink repair",
   status: "confirmed",
   quote: 15000,
-  currency: "SAR",
+  currency: "USD",
   events: [
     { status: "requested", actorType: "customer", time: new Date().toISOString() },
   ],

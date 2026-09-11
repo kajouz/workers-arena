@@ -89,7 +89,10 @@ export function SearchClient({
 }) {
   const router = useRouter();
 
-  const [filters, setFilters] = useState<SearchFilters>(initialFilters);
+  const [filters, setFilters] = useState<SearchFilters>(() => ({
+    ...initialFilters,
+    city: initialFilters.city ?? "beirut",
+  }));
   const [query, setQuery] = useState(initialFilters.query ?? "");
   const [results, setResults] = useState<SearchResult>(initialResults);
   const [page, setPage] = useState(1);
@@ -223,11 +226,20 @@ export function SearchClient({
 
   const clearAll = () => {
     setQuery("");
-    setFilters({});
+    setFilters({ city: "beirut" });
   };
 
-  const city = cities.find((c) => c.slug === filters.city);
-  const areaOptions = city?.areas ?? [];
+  const beirutCity = useMemo(() => cities.find((c) => c.slug === "beirut") ?? cities[0], [cities]);
+  const effectiveCitySlug = filters.city ?? "beirut";
+  const city = cities.find((c) => c.slug === effectiveCitySlug) ?? beirutCity;
+  const areaOptions = city?.areas ?? beirutCity?.areas ?? [];
+
+  // Single-country scope: coerce any non-beirut city (e.g. legacy deep links) to beirut.
+  useEffect(() => {
+    if (filters.city && filters.city !== "beirut") {
+      setFilters((f) => ({ ...f, city: "beirut", area: undefined }));
+    }
+  }, [filters.city]);
 
   const { listening, supported, toggle } = useVoiceSearch((transcript) => {
     setQuery(transcript);
@@ -553,22 +565,22 @@ function FilterControls({
 
       <div className="space-y-2">
         <Label>{L.city}</Label>
-        <Select value={filters.city ?? "all"} onValueChange={(v) => update("city", v === "all" ? undefined : v)}>
-          <SelectTrigger aria-label={L.city}>
+        <Select value="beirut" disabled>
+          <SelectTrigger aria-label={L.city} className="opacity-60">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">—</SelectItem>
-            {cities.map((c) => (
-              <SelectItem key={c.slug} value={c.slug}>
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="size-3" />
-                  {locale === "ar" ? c.nameAr : c.nameEn}
-                </span>
-              </SelectItem>
-            ))}
+            <SelectItem value="beirut">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="size-3" />
+                {locale === "ar" ? "بيروت" : "Beirut"}
+              </span>
+            </SelectItem>
           </SelectContent>
         </Select>
+        <p className="text-xs text-ink-400">
+          {locale === "ar" ? "لبنان — بيروت فقط (USD)" : "Lebanon — Beirut only (USD)"}
+        </p>
       </div>
 
       {city && (

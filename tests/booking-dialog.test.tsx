@@ -46,7 +46,7 @@ beforeEach(() => {
 const worker = {
   nameEn: "Khaled Al-Harbi",
   nameAr: "خالد الحربي",
-  currency: "SAR",
+  currency: "USD",
   subscription: { plan: "premium", status: "active" },
   services: [
     { nameEn: "AC Repair", nameAr: "إصلاح مكيف", price: 150, unit: "job" },

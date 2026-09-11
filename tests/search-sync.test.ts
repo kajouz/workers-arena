@@ -63,7 +63,7 @@ describe("POST /api/search/sync — auth guard", () => {
         JSON.stringify({
           id: "u-worker",
           name: "Khaled Al-Harbi",
-          email: "khaled@plumbfix.sa",
+          email: "khaled@plumbfix.lb",
           role: "worker",
           hue: 25,
         })
@@ -111,7 +111,7 @@ describe("POST /api/search/sync — auth guard", () => {
         JSON.stringify({
           id: "u-worker",
           name: "Khaled Al-Harbi",
-          email: "khaled@plumbfix.sa",
+          email: "khaled@plumbfix.lb",
           role: "worker",
           hue: 25,
         })

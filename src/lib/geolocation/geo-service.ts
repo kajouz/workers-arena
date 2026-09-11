@@ -131,17 +131,7 @@ export function filterByRadius<T extends GeoLocation>(
 
 /* ─── City Approximate Coordinates ─── */
 export const CITY_COORDINATES: Record<string, GeoLocation> = {
-  riyadh: { latitude: 24.7136, longitude: 46.6753 },
-  dubai: { latitude: 25.2048, longitude: 55.2708 },
-  abudhabi: { latitude: 24.4539, longitude: 54.3773 },
-  doha: { latitude: 25.2854, longitude: 51.531 },
-  kuwait: { latitude: 29.3759, longitude: 47.9774 },
-  manama: { latitude: 26.2285, longitude: 50.586 },
-  muscat: { latitude: 23.588, longitude: 58.3829 },
-  amman: { latitude: 31.9454, longitude: 35.9284 },
   beirut: { latitude: 33.8938, longitude: 35.5018 },
-  cairo: { latitude: 30.0444, longitude: 31.2357 },
-  casablanca: { latitude: 33.5731, longitude: -7.5898 },
 };
 
 /* ─── Radius Presets ─── */

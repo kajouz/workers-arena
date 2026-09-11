@@ -121,7 +121,7 @@ export function WorkerManagementTable({
         return (
           nameOf(w).includes(q) ||
           catOf(w).includes(q) ||
-          w.citySlug.toLowerCase().includes(q)
+          "beirut".includes(q)
         );
       })
       .sort((a, b) => {
@@ -163,7 +163,7 @@ export function WorkerManagementTable({
     const header = [t("admin.name"), t("search.city"), t("search.category"), t("admin.plan"), t("admin.status")];
     const rows = visible.map((w) => [
       nameOf(w),
-      w.citySlug,
+      "Beirut",
       catOf(w),
       t(`plans.${w.subscription.plan}`),
       t(statusOf(w).labelKey),
@@ -287,7 +287,7 @@ export function WorkerManagementTable({
                         <p className="font-bold text-ink-900 dark:text-ink-50">
                           {locale === "ar" ? w.nameAr : w.nameEn}
                         </p>
-                        <p className="text-xs text-ink-400">{w.citySlug}</p>
+                        <p className="text-xs text-ink-400">Beirut</p>
                         {/* M5 audit deep link — jump from the DB row to what the
                             customer sees. Enterprise rows open the fee-waived
                             search (proving the exemption surfaces); other rows

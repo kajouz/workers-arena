@@ -24,10 +24,10 @@ function makeBooking(number: string, workerId: string, overrides: Partial<Bookin
     status: "completed",
     startAt: at(4),
     endAt: at(3),
-    currency: "SAR",
+    currency: "USD",
     events: [
       { status: "requested", actorType: "customer", time: at(5) },
-      { status: "confirmed", actorType: "worker", reason: "Can do — quote SAR 150", time: at(4) },
+      { status: "confirmed", actorType: "worker", reason: "Can do — quote $150", time: at(4) },
       { status: "completed", actorType: "worker", reason: "Job done, receipt issued", time: at(1) },
     ],
     ...overrides,
@@ -61,7 +61,7 @@ describe("buildBookingTrailsCsv", () => {
     expect(firstBookingRows[0]).toContain(",1,");
     expect(firstBookingRows[0]).toContain(",Waiting for response,Customer,");
     expect(firstBookingRows[1]).toContain(",2,");
-    expect(firstBookingRows[1]).toContain(",Confirmed,Worker,Can do — quote SAR 150");
+    expect(firstBookingRows[1]).toContain(",Confirmed,Worker,Can do — quote $150");
     expect(firstBookingRows[2]).toContain(",3,");
     expect(firstBookingRows[2]).toContain(',Completed,Worker,"Job done, receipt issued"');
   });
@@ -109,7 +109,7 @@ describe("renderBookingTrailsPrint", () => {
     expect(doc).toContain("Khaled Al-Harbi");
     expect(doc).toContain("Ali Hassan");
     expect(doc).toContain("Waiting for response");
-    expect(doc).toContain("Can do — quote SAR 150");
+    expect(doc).toContain("Can do — quote $150");
     expect(doc).toContain("Job done, receipt issued");
     expect(doc).toContain("Generated on");
   });

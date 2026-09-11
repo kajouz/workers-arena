@@ -39,7 +39,7 @@ const baseWorker = {
   bioEn: "Plumbing expert with 12 years of experience.",
   bioAr: "خبير سباكة بخبرة 12 عاماً.",
   priceMin: 80,
-  currency: "SAR",
+  currency: "USD",
   emergency: false,
   premium: true,
   featured: false,

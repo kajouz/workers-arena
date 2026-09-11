@@ -71,7 +71,7 @@ vi.mock("@/lib/data/repo", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-const worker: Worker = { id: "w-khaled", email: "khaled@plumbfix.sa" } as unknown as Worker;
+const worker: Worker = { id: "w-khaled", email: "khaled@plumbfix.lb" } as unknown as Worker;
 const booking = {
   id: "bk-1001",
   number: "BK-1001",
@@ -120,7 +120,7 @@ describe("sendBookingMessageAction — permission gate", () => {
   });
 
   it("lets the worker on the booking send (id match)", async () => {
-    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.sa", role: "worker" });
+    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.lb", role: "worker" });
     const res = await sendBookingMessageAction("bk-1001", fd("My price is 120", "120"));
     expect(res).toEqual({ ok: true });
     const input = sendBookingMessageMock.mock.calls[0][1] as BookingMessageInput;
@@ -145,7 +145,7 @@ describe("sendBookingMessageAction — validation & errors", () => {
   });
 
   it("rejects a negative or non-numeric quote", async () => {
-    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.sa", role: "worker" });
+    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.lb", role: "worker" });
     expect(await sendBookingMessageAction("bk-1001", fd("hi", "-5"))).toEqual({ ok: false, error: "invalid" });
     expect(await sendBookingMessageAction("bk-1001", fd("hi", "abc"))).toEqual({ ok: false, error: "invalid" });
   });
@@ -194,7 +194,7 @@ describe("acceptChatQuoteAction — customer accepts the worker's in-thread quot
   });
 
   it("rejects a worker — the accept is customer-only (workers propose, never accept)", async () => {
-    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.sa", role: "worker" });
+    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.lb", role: "worker" });
     expect(await acceptChatQuoteAction("bk-1001", "msg-1")).toEqual({ ok: false, error: "unauthorized" });
   });
 
@@ -235,7 +235,7 @@ describe("presence actions — markChatReadAction / setChatTypingAction / getCha
   });
 
   it("markChatReadAction: the worker stamps with role worker; a stranger is rejected", async () => {
-    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.sa", role: "worker" });
+    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.lb", role: "worker" });
     expect((await markChatReadAction("bk-1001")).ok).toBe(true);
     expect(markChatReadMock).toHaveBeenCalledWith("bk-1001", "worker");
 
@@ -257,7 +257,7 @@ describe("presence actions — markChatReadAction / setChatTypingAction / getCha
   });
 
   it("setChatTypingAction: the worker sets and clears their typing flag with role worker", async () => {
-    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.sa", role: "worker" });
+    getSessionMock.mockResolvedValue({ id: "w-khaled", email: "khaled@plumbfix.lb", role: "worker" });
     expect(await setChatTypingAction("bk-1001", true)).toEqual({ ok: true });
     expect(setChatTypingMock).toHaveBeenCalledWith("bk-1001", "worker", true);
     expect(await setChatTypingAction("bk-1001", false)).toEqual({ ok: true });

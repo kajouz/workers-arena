@@ -40,7 +40,7 @@ function makeQuoteBooking(overrides: Partial<Booking> = {}): Booking {
     serviceItem: AR_SERVICE,
     status: "quoted",
     quote: 25000,
-    currency: "SAR",
+    currency: "USD",
     quoteRequestId: "qr-1",
     events: [{ status: "quoted", actorType: "worker", time: "2026-08-17T07:27:20.083Z" }],
     ...overrides,
@@ -58,7 +58,7 @@ function asChannelPayload(msg: ReturnType<typeof quoteNotification>): ChannelPay
     bodyAr: msg.bodyAr,
     href: msg.href,
     time: "2026-08-17T07:27:20.083Z",
-    recipient: { name: "Khaled Al-Harbi", email: "khaled@plumbfix.sa" },
+    recipient: { name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb" },
   };
 }
 

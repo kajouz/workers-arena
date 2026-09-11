@@ -102,7 +102,7 @@ describe("bucketBookings", () => {
       startAt,
       endAt: new Date(new Date(startAt).getTime() + 60 * 60 * 1000).toISOString(),
       status,
-      currency: "SAR",
+      currency: "USD",
       events: [],
     };
   }

@@ -61,14 +61,14 @@ const booking: Booking = {
   customerEmail: "sara@example.com",
   jobTitle: "Leaking kitchen sink repair",
   status: "confirmed",
-  currency: "SAR",
+  currency: "USD",
   events: [
     { status: "requested", actorType: "customer", time: new Date().toISOString() },
     { status: "confirmed", actorType: "worker", reason: "Can do", time: new Date().toISOString() },
   ],
 };
 
-const worker = { id: "w-khaled", nameEn: "Khaled Al-Harbi", nameAr: "خالد الحربي", email: "khaled@plumbfix.sa" } as unknown as import("@/lib/data/types").Worker;
+const worker = { id: "w-khaled", nameEn: "Khaled Al-Harbi", nameAr: "خالد الحربي", email: "khaled@plumbfix.lb" } as unknown as import("@/lib/data/types").Worker;
 
 beforeEach(() => {
   getSessionMock.mockResolvedValue({ id: "u-admin", name: "Admin", email: "admin@workersarena.com", role: "admin", hue: 280 });

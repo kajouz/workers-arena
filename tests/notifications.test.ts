@@ -25,7 +25,7 @@ const payload: ChannelPayload = {
   bodyAr: "خالد: ملفك يعرض الآن شارة التوثيق.",
   href: "/dashboard",
   time: new Date().toISOString(),
-  recipient: { name: "Khaled Al-Harbi", email: "khaled@plumbfix.sa", phone: "+966 55 123 4567" },
+  recipient: { name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", phone: "+966 55 123 4567" },
 };
 
 // Isolate the file-backed push store per test — never touch the live app's
@@ -160,7 +160,7 @@ describe("booking-confirmation email", () => {
       endAt: "2026-08-12T10:00:00.000Z",
       quote: 8000, // 80 major → 8000 minor
       deposit: 2000, // 20 major → 2000 minor
-      currency: "SAR",
+      currency: "USD",
       jobTitle: "Leaking kitchen sink repair",
     },
   };
@@ -173,8 +173,8 @@ describe("booking-confirmation email", () => {
     // Details card — booking number, header, quote + deposit (minor ÷ 100).
     expect(html).toContain("Booking details");
     expect(html).toContain("BK-2048");
-    expect(html).toContain("SAR 80");
-    expect(html).toContain("SAR 20");
+    expect(html).toContain("$80");
+    expect(html).toContain("$20");
     expect(html).toContain("Leaking kitchen sink repair");
     // Customer CTA + the admin dispute-view deep link (feed/funnel story).
     expect(html).toContain("http://localhost:3000/bookings");
@@ -201,8 +201,8 @@ describe("booking-confirmation email", () => {
     };
     const { html } = renderBookingEmail(plain, "en");
     expect(html).toContain("BK-2048");
-    expect(html).not.toContain("SAR 80");
-    expect(html).not.toContain("SAR 20");
+    expect(html).not.toContain("$80");
+    expect(html).not.toContain("$20");
   });
 
   it("escapes booking fields (XSS-safe)", () => {
@@ -231,7 +231,7 @@ describe("shared booking notification builder", () => {
       status: "confirmed",
       quote: 8000,
       deposit: 2000,
-      currency: "SAR",
+      currency: "USD",
       events: [],
       ...overrides,
     };
@@ -247,7 +247,7 @@ describe("shared booking notification builder", () => {
     expect(msg.booking.number).toBe("BK-2048");
     expect(msg.booking.quote).toBe(8000); // minor units, as-is
     expect(msg.booking.deposit).toBe(2000);
-    expect(msg.booking.currency).toBe("SAR");
+    expect(msg.booking.currency).toBe("USD");
   });
 
   it("worker kinds deep-link to /dashboard, customer kinds to /bookings", () => {
@@ -363,7 +363,7 @@ describe("email channel", () => {
           startAt: "2026-08-12T09:00:00.000Z",
           endAt: "2026-08-12T10:00:00.000Z",
           quote: 8000,
-          currency: "SAR",
+          currency: "USD",
         },
       };
       const results = await dispatch({ ...bookingPayload, recipient: { name: "Noor E.", email: "noor@example.com" } });
@@ -377,7 +377,7 @@ describe("email channel", () => {
       expect(logs).toContain("Booking: BK-2048");
       expect(logs).toContain("── html ──");
       expect(logs).toContain("Booking details");
-      expect(logs).toContain("SAR 80");
+      expect(logs).toContain("$80");
       expect(logs).toContain("/admin/bookings/BK-2048");
     } finally {
       logSpy.mockRestore();
@@ -1252,7 +1252,7 @@ describe("inbox persistence + dispatch wiring", () => {
     const before = (await getNotifications()).length;
     const item = await pushNotification(
       { type: "lead", titleEn: "New lead", titleAr: "عميل جديد", bodyEn: "b", bodyAr: "ب", href: "/dashboard" },
-      { name: "Khaled", email: "khaled@plumbfix.sa" }
+      { name: "Khaled", email: "khaled@plumbfix.lb" }
     );
     const after = (await getNotifications()).length;
     expect(after).toBe(before + 1);

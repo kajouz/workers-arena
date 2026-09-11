@@ -194,7 +194,7 @@ describe("confirmCampaignPayment — the webhook flips PENDING → ACTIVE", () =
     // The dispatched recipient rides the demo company's preferred locale (AR)
     // — the confirm-side twin of the refund-side locale assertion, so the
     // SMS/WhatsApp/email channels render the campaign-live copy in AR.
-    expect(live!.recipient).toMatchObject({ email: "ads@buildco.sa", locale: "ar" });
+    expect(live!.recipient).toMatchObject({ email: "ads@buildco.lb", locale: "ar" });
     expect(live!.recipient?.phone).toBeTruthy();
   });
 
@@ -256,7 +256,7 @@ describe("admin campaign refund", () => {
     const refundPayload = dispatched.find((p) => p.type === "campaignRefunded");
     expect(refundPayload).toBeDefined();
     expect(refundPayload!.href).toBe("/company");
-    expect(refundPayload!.recipient?.email).toBe("ads@buildco.sa");
+    expect(refundPayload!.recipient?.email).toBe("ads@buildco.lb");
     // The demo company prefers Arabic — the recipient locale rides the
     // payload, so outbound emails render in it and the /admin preview leads
     // with it as the primary block.
@@ -408,7 +408,7 @@ describe("payment provider seam — campaign checkout", () => {
       paymentId: "pay-bk-1",
       bookingId: "bk-1",
       amountMinor: 5000,
-      currency: "SAR",
+      currency: "USD",
       description: "BK-1001 — Fix sink",
       successUrl: "https://app.example.com/bookings",
       cancelUrl: "https://app.example.com/bookings",
@@ -515,15 +515,15 @@ describe("payment webhook + simulated callback routes", () => {
 describe("campaignRefundNotification builder (single source of truth)", () => {
   it("builds the exact payload the adapters dispatch and renderCampaignRefundEmail renders it — the /admin preview contract", () => {
     const msg = campaignRefundNotification(
-      { nameEn: "Villa construction — Riyadh", nameAr: "بناء فيلا — الرياض" },
+      { nameEn: "Villa construction — Beirut", nameAr: "بناء فيلا — بيروت" },
       { amount: 15000, currency: "USD", refundReason: "Campaign violated ad policy" }
     );
     expect(msg).toMatchObject({
       type: "campaignRefunded",
       href: "/company",
       campaignRefund: {
-        campaignName: "Villa construction — Riyadh",
-        campaignNameAr: "بناء فيلا — الرياض",
+        campaignName: "Villa construction — Beirut",
+        campaignNameAr: "بناء فيلا — بيروت",
         amount: 15000,
         currency: "USD",
         reason: "Campaign violated ad policy",
@@ -544,10 +544,10 @@ describe("campaignRefundNotification builder (single source of truth)", () => {
     };
     const email = renderCampaignRefundEmail(payload, "en");
     expect(email.subject).toContain("Campaign refunded");
-    expect(email.subject).toContain("Villa construction — Riyadh");
+    expect(email.subject).toContain("Villa construction — Beirut");
     expect(email.subject).not.toContain("بناء فيلا"); // EN subject never shows the AR name
     expect(email.html).toContain("Refund details");
-    expect(email.html).toContain("Villa construction — Riyadh");
+    expect(email.html).toContain("Villa construction — Beirut");
     expect(email.html).toContain("$150");
     expect(email.html).toContain("Campaign violated ad policy");
     expect(email.html).toContain("/company");
@@ -558,10 +558,10 @@ describe("campaignRefundNotification builder (single source of truth)", () => {
     // both names by design — emailShell appends the secondary-language block).
     const emailAr = renderCampaignRefundEmail(payload, "ar");
     expect(emailAr.subject).toContain("تم استرداد الحملة");
-    expect(emailAr.subject).toContain("بناء فيلا — الرياض");
+    expect(emailAr.subject).toContain("بناء فيلا — بيروت");
     expect(emailAr.subject).not.toContain("Villa construction");
     expect(emailAr.html).toContain("تفاصيل الاسترداد");
-    expect(emailAr.html).toContain("بناء فيلا — الرياض");
+    expect(emailAr.html).toContain("بناء فيلا — بيروت");
   });
 
   it("omits the reason row when the refund had no stated reason", () => {

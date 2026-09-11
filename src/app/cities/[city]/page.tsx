@@ -6,7 +6,7 @@ import { getCategories, getWorkers } from "@/lib/data/repo";
 import { CITY_COORDINATES } from "@/lib/geolocation/geo-service";
 import { CategoryIcon } from "@/components/shared/category-icon";
 import { WorkerCardSkeleton } from "@/components/ui/page-skeleton";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getI18n } from "@/lib/i18n/server";
 
 interface CityPageProps {
@@ -14,17 +14,7 @@ interface CityPageProps {
 }
 
 const CITY_NAMES: Record<string, { en: string; ar: string; country: string }> = {
-  riyadh: { en: "Riyadh", ar: "الرياض", country: "Saudi Arabia" },
-  dubai: { en: "Dubai", ar: "دبي", country: "UAE" },
-  abudhabi: { en: "Abu Dhabi", ar: "أبو ظبي", country: "UAE" },
-  doha: { en: "Doha", ar: "الدوحة", country: "Qatar" },
-  kuwait: { en: "Kuwait City", ar: "مدينة الكويت", country: "Kuwait" },
-  manama: { en: "Manama", ar: "المنامة", country: "Bahrain" },
-  muscat: { en: "Muscat", ar: "مسقط", country: "Oman" },
-  amman: { en: "Amman", ar: "عمّان", country: "Jordan" },
   beirut: { en: "Beirut", ar: "بيروت", country: "Lebanon" },
-  cairo: { en: "Cairo", ar: "القاهرة", country: "Egypt" },
-  casablanca: { en: "Casablanca", ar: "الدار البيضاء", country: "Morocco" },
 };
 
 export async function generateMetadata({ params }: CityPageProps): Promise<Metadata> {

@@ -31,10 +31,10 @@ const booking: Booking = {
   startAt: new Date(Date.now() - 4 * 3_600_000).toISOString(),
   endAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
   quote: 15000,
-  currency: "SAR",
+  currency: "USD",
   events: [
     { status: "requested", actorType: "customer", time: new Date(Date.now() - 5 * 3_600_000).toISOString() },
-    { status: "confirmed", actorType: "worker", reason: "Can do — quote SAR 150", time: new Date(Date.now() - 4 * 3_600_000).toISOString() },
+    { status: "confirmed", actorType: "worker", reason: "Can do — quote $150", time: new Date(Date.now() - 4 * 3_600_000).toISOString() },
   ],
 };
 
@@ -64,7 +64,7 @@ describe("BookingPrintButton — printable audit-trail export", () => {
     expect(doc).toContain("BK-1001");
     expect(doc).toContain("Waiting for response");
     expect(doc).toContain("Confirmed");
-    expect(doc).toContain("Can do — quote SAR 150");
+    expect(doc).toContain("Can do — quote $150");
     expect(doc).toContain("Khaled Al-Harbi");
 
     // The footer Print button targets the IFRAME's print dialog.

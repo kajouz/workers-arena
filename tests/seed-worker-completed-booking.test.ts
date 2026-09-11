@@ -68,7 +68,7 @@ describe("POST /api/dev/seed-worker-completed-booking", () => {
     const preview = workerEmailPreviewFor(booking!, {
       nameEn: "Khaled Al-Harbi",
       nameAr: "خالد الحربي",
-      email: "khaled@plumbfix.sa",
+      email: "khaled@plumbfix.lb",
       languages: [{ code: "ar" }],
     });
     expect(preview).not.toBeNull();
