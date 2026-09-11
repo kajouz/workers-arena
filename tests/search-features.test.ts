@@ -179,27 +179,29 @@ describe("Search History Component", () => {
   });
 });
 
-describe("Virtual Scrolling Integration", () => {
-  it("search-client uses @tanstack/react-virtual", async () => {
+describe("Results grid (virtual scrolling removed — see 2cf9d22)", () => {
+  it("search-client renders a plain responsive grid (no virtualizer)", async () => {
     const fs = await import("fs");
     const path = await import("path");
     const content = fs.readFileSync(
       path.join(process.cwd(), "src/components/search/search-client.tsx"),
       "utf-8"
     );
-    expect(content).toContain("@tanstack/react-virtual");
-    expect(content).toContain("useVirtualizer");
+    // The broken virtualizer was removed; results render in a plain grid.
+    expect(content).not.toContain("@tanstack/react-virtual");
+    expect(content).not.toContain("useVirtualizer");
+    expect(content).toContain("sm:grid-cols-2 xl:grid-cols-3");
   });
 
-  it("search-client has virtual scrolling threshold", async () => {
+  it("search-client keeps infinite scroll (sentinel + useInfiniteScroll)", async () => {
     const fs = await import("fs");
     const path = await import("path");
     const content = fs.readFileSync(
       path.join(process.cwd(), "src/components/search/search-client.tsx"),
       "utf-8"
     );
-    // Virtual scrolling kicks in when results > 12
-    expect(content).toContain("results.items.length > 12");
+    expect(content).toContain("useInfiniteScroll");
+    expect(content).toContain("sentinel");
   });
 });
 
