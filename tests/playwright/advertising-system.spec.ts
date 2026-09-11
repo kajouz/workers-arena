@@ -182,7 +182,7 @@ test.describe("Click Tracking", () => {
         workerId: "w-1",
         searchQuery: "plumber",
         categorySlug: "plumbing",
-        citySlug: "riyadh",
+        citySlug: "beirut",
         position: 0,
       },
     });
@@ -213,7 +213,7 @@ test.describe("Click Tracking", () => {
         workerId: "w-1",
         searchQuery: "plumber",
         categorySlug: "plumbing",
-        citySlug: "riyadh",
+        citySlug: "beirut",
         position: 0,
       },
     });

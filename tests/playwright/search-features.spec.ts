@@ -131,7 +131,7 @@ test.describe("Search History", () => {
           {
             query: "",
             category: "plumbing",
-            city: "riyadh",
+            city: "beirut",
             timestamp: Date.now(),
           },
         ])
@@ -340,15 +340,15 @@ test.describe("Search API Contract", () => {
   });
 
   test("workers API filters by city", async ({ request }) => {
-    const response = await request.get("/api/workers?city=riyadh");
+    const response = await request.get("/api/workers?city=beirut");
     expect(response.status()).toBe(200);
 
     const body = await response.json();
     expect(body.items.length).toBeGreaterThan(0);
 
-    // All results should be in Riyadh
+    // All results should be in Beirut
     for (const item of body.items) {
-      expect(item.citySlug).toBe("riyadh");
+      expect(item.citySlug).toBe("beirut");
     }
   });
 

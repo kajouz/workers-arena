@@ -446,10 +446,10 @@ async function main() {
   // the audit entries are restored afterwards.
   const preBilal = await prismaGetWorkerBySlug("bilal-mansour-cleaning");
   assert(preBilal?.subscription.plan === "enterprise", "bilal starts Enterprise (seeded)");
-  const preTariq = await prismaGetWorkerBySlug("tariq-al-shammari-roofing");
+  const preTarek = await prismaGetWorkerBySlug("tarek-chammas-roofing");
   assert(
-    preTariq?.subscription.plan === "basic" && preTariq.subscription.status === "expired",
-    "tariq starts Basic + expired (hidden from public search)"
+    preTarek?.subscription.plan === "basic" && preTarek.subscription.status === "expired",
+    "tarek starts Basic + expired (hidden from public search)"
   );
   // The acting admin's REAL user id (ActivityLog.actorId is an FK to User.id —
   // the same id the action threads from session.id; demo session ids like
@@ -482,18 +482,18 @@ async function main() {
     "feed copy carries worker + from → to plan"
   );
 
-  const tariqChanged = await prismaChangeWorkerPlan(preTariq!.id, "professional");
+  const tarekChanged = await prismaChangeWorkerPlan(preTarek!.id, "professional");
   assert(
-    tariqChanged?.subscription.plan === "professional" && tariqChanged.subscription.status === "active",
+    tarekChanged?.subscription.plan === "professional" && tarekChanged.subscription.status === "active",
     "expired subscription reactivated by the plan change"
   );
   assert(
-    Date.parse(tariqChanged!.subscription.expiresAt) > Date.now() + 27 * 86400000,
+    Date.parse(tarekChanged!.subscription.expiresAt) > Date.now() + 27 * 86400000,
     "reactivation extends the expiry ~1 month"
   );
-  const tariqSearchable = await prismaSearchWorkers({ query: "Tariq" });
+  const tarekSearchable = await prismaSearchWorkers({ query: "Tarek" });
   assert(
-    tariqSearchable.items.some((w) => w.slug === "tariq-al-shammari-roofing"),
+    tarekSearchable.items.some((w) => w.slug === "tarek-chammas-roofing"),
     "reactivated worker visible in public search"
   );
 
@@ -503,7 +503,7 @@ async function main() {
     data: { plan: "ENTERPRISE", price: 29900, status: "ACTIVE" },
   });
   await prisma.subscription.update({
-    where: { workerId: preTariq!.id },
+    where: { workerId: preTarek!.id },
     data: {
       plan: "BASIC",
       price: 2900,
@@ -519,7 +519,7 @@ async function main() {
       action: "ADMIN_PLAN_CHANGED",
       OR: [
         { meta: { path: ["actionEn"], string_contains: "Bilal Mansour" } },
-        { meta: { path: ["actionEn"], string_contains: "Tariq Al-Shammari" } },
+        { meta: { path: ["actionEn"], string_contains: "Tarek Chammas" } },
       ],
     },
   });

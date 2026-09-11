@@ -122,7 +122,9 @@ export function SearchClient({
   const activeCount = useMemo(() => {
     let n = 0;
     if (filters.category) n++;
-    if (filters.city) n++;
+    // Beirut is the only city (tenant lb) — the pinned default never counts
+    // as a user filter, otherwise "Clear filters" would always show.
+    if (filters.city && filters.city !== "beirut") n++;
     if (filters.area) n++;
     if (filters.minRating) n++;
     if (filters.priceMin != null || filters.priceMax != null) n++;
@@ -435,7 +437,7 @@ export function SearchClient({
           {activeCount > 0 && (
             <button
               onClick={clearAll}
-              className="flex items-center gap-1 rounded-full bg-brand-500/10 px-3 py-1 text-xs font-bold text-brand-700 transition-colors hover:bg-brand-500/20 dark:text-brand-400"
+              className="flex items-center gap-1 rounded-full bg-brand-500/10 px-3 py-1 text-xs font-bold text-brand-800 transition-colors hover:bg-brand-500/20 dark:text-brand-300"
             >
               <X className="size-3" /> {L.clearFilters}
             </button>
