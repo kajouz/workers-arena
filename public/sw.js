@@ -63,7 +63,6 @@ const PRECACHE_URLS = [
   "/workers/ali-hassan-carpentry",
   "/workers/omar-al-mutairi-ac-technician",
   "/workers/bilal-mansour-cleaning",
-  "/workers/anas-barakat-interior-design",
   "/search?category=plumbing",
   "/search?category=electrical",
   "/search?category=carpentry",

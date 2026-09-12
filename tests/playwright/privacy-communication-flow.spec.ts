@@ -36,7 +36,7 @@ const DEMO_SESSIONS = {
   worker: {
     id: "u-worker",
     name: "Khaled Al-Harbi",
-    email: "khaled@plumbfix.sa",
+    email: "khaled@plumbfix.lb",
     role: "worker",
     hue: 25,
   },

@@ -16,6 +16,27 @@
 
 import { test, expect } from "@playwright/test";
 
+// Reviews require an authenticated session (C2 anti-spam) — the API-only
+// review tests sign in via the demo-session cookie first.
+async function loginAsCustomer(page: import("@playwright/test").Page) {
+  await page.context().addCookies([
+    {
+      name: "wa_session",
+      value: encodeURIComponent(
+        JSON.stringify({
+          id: "u-customer",
+          name: "Sara Customer",
+          email: "sara@example.com",
+          role: "customer",
+          hue: 200,
+        })
+      ),
+      domain: "localhost",
+      path: "/",
+    },
+  ]);
+}
+
 test.describe("Offline queue replay flow", () => {
   test.beforeEach(async ({ page }) => {
     // Visit the homepage first to ensure the service worker is registered
@@ -196,8 +217,9 @@ test.describe("Offline queue API contract", () => {
     expect(body.ok).toBe(false);
   });
 
-  test("replay endpoint rejects review without required fields", async ({ request }) => {
-    const response = await request.post("/api/offline-queue/replay", {
+  test("replay endpoint rejects review without required fields", async ({ page }) => {
+    await loginAsCustomer(page);
+    const response = await page.request.post("/api/offline-queue/replay", {
       data: { type: "review", payload: { workerId: "test" } },
     });
     expect(response.status()).toBe(400);
@@ -219,8 +241,9 @@ test.describe("Offline queue API contract", () => {
     expect(body).toHaveProperty("ok");
   });
 
-  test("replay endpoint processes valid review", async ({ request }) => {
-    const response = await request.post("/api/offline-queue/replay", {
+  test("replay endpoint processes valid review", async ({ page }) => {
+    await loginAsCustomer(page);
+    const response = await page.request.post("/api/offline-queue/replay", {
       data: {
         type: "review",
         payload: {

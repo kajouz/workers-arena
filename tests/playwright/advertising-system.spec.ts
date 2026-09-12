@@ -16,7 +16,7 @@ import { test, expect, type Page } from "@playwright/test";
 const COMPANY_SESSION = {
   id: "u-company",
   name: "BuildCo Ltd",
-  email: "ads@buildco.sa",
+  email: "ads@buildco.lb",
   role: "company",
   hue: 150,
 };
@@ -146,9 +146,10 @@ test.describe("Impression Tracking", () => {
     const contentType = response.headers()["content-type"];
     expect(contentType).toContain("image/gif");
 
-    // Should have no-cache headers
+    // Should have no-cache headers (no-store is the stronger equivalent —
+    // the hardened proxy stamps personalized/API responses with it)
     const cacheControl = response.headers()["cache-control"];
-    expect(cacheControl).toContain("no-cache");
+    expect(cacheControl).toMatch(/no-cache|no-store/);
 
     // Body should be a valid GIF (starts with GIF89a)
     const body = await response.body();

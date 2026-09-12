@@ -33,14 +33,14 @@ const DEMO_SESSIONS = {
   worker: {
     id: "u-worker",
     name: "Khaled Al-Harbi",
-    email: "khaled@plumbfix.sa",
+    email: "khaled@plumbfix.lb",
     role: "worker",
     hue: 25,
   },
   company: {
     id: "u-company",
     name: "BuildCo Ltd",
-    email: "ads@buildco.sa",
+    email: "ads@buildco.lb",
     role: "company",
     hue: 150,
   },

@@ -85,7 +85,7 @@ describe("Service worker (public/sw.js)", () => {
     // Categories listing page for offline trade browsing
     expect(sw).toContain('"/categories"');
     // Top worker profiles (featured workers for offline access)
-    for (const slug of ["khaled-al-harbi-plumbing", "omar-al-mutairi-ac-technician", "bilal-mansour-cleaning", "anas-barakat-interior-design", "ali-hassan-carpentry"]) {
+    for (const slug of ["khaled-al-harbi-plumbing", "omar-al-mutairi-ac-technician", "bilal-mansour-cleaning", "ali-hassan-carpentry"]) {
       expect(sw).toContain(`/workers/${slug}`);
     }
     // Every category search page for offline trade browsing
