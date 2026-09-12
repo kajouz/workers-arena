@@ -24,7 +24,7 @@ const booking: Booking = {
   number: "BK-1001",
   workerId: "w1",
   customerName: "Sara Customer",
-  customerPhone: "+966 50 000 0000",
+  customerPhone: "+961 70 000 000",
   customerEmail: "sara@example.com",
   jobTitle: "Leaking kitchen sink repair",
   status: "confirmed",

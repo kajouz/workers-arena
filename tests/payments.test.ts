@@ -69,7 +69,7 @@ async function paidBookingOnSlot(startAt: string): Promise<Booking> {
       workerId: w.id,
       slotId: slot.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Fix a leaking pipe",
     })
@@ -190,7 +190,7 @@ describe("M3 invoice row (signed-in customers only)", () => {
         slotId: slot.id,
         customerId: "u-customer",
         customerName: "Sara Customer",
-        customerPhone: "+966 50 000 0000",
+        customerPhone: "+961 70 000 000",
         customerEmail: "sara2@example.com",
         jobTitle: "Second receipt",
       })

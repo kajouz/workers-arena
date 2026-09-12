@@ -105,7 +105,7 @@ export default function RegisterPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="phone">{t("auth.phone")}</Label>
-              <Input id="phone" type="tel" placeholder="+966 5X XXX XXXX" {...register("phone")} />
+              <Input id="phone" type="tel" placeholder="+961 7X XXX XXX" {...register("phone")} />
             </div>
 
             <div className="space-y-1.5">

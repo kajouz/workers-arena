@@ -35,7 +35,13 @@
     "tests/**/*",
     "scripts/**/*",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    "tmp/locale-repro/types/**/*.ts",
+    "tmp/locale-repro/dev/types/**/*.ts",
+    "tmp/fw-repro/types/**/*.ts",
+    "tmp/fw-repro/dev/types/**/*.ts",
+    "tmp/stack-capture-next/types/**/*.ts",
+    "tmp/stack-capture-next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

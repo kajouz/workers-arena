@@ -1295,8 +1295,8 @@ export async function prismaAcceptChatQuote(
  * A customer's bookings, matched by email or normalized phone — mirrors
  * demoGetCustomerBookings (the /bookings page keyed the same way: session
  * email for signed-in customers, raw phone for guests). Phone parity: BOTH
- * sides strip spaces/dashes/parentheses, so "+966 50 999 9999" stored matches
- * a guest typing "+966509999999". findMany has no regexp string filter, so
+ * sides strip spaces/dashes/parentheses, so "+961 70 999 999" stored matches
+ * a guest typing "+96170999999". findMany has no regexp string filter, so
  * the candidate ids come from a Postgres regexp_replace query (only `id` is
  * selected — no column-mapping risk), then the rows load through the normal
  * client include and toDomainBooking. Newest first, like the demo.

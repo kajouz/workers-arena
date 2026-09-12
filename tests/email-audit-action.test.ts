@@ -62,7 +62,7 @@ const booking: Booking = {
   workerId: "w-khaled",
   customerId: "u-customer",
   customerName: "Sara Customer",
-  customerPhone: "+966 50 000 0000",
+  customerPhone: "+961 70 000 000",
   customerEmail: "sara@example.com",
   jobTitle: "Leaking kitchen sink repair",
   status: "requested",

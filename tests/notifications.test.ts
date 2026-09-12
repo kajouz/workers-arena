@@ -25,7 +25,7 @@ const payload: ChannelPayload = {
   bodyAr: "خالد: ملفك يعرض الآن شارة التوثيق.",
   href: "/dashboard",
   time: new Date().toISOString(),
-  recipient: { name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", phone: "+966 55 123 4567" },
+  recipient: { name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", phone: "+961 70 123 456" },
 };
 
 // Isolate the file-backed push store per test — never touch the live app's
@@ -223,7 +223,7 @@ describe("shared booking notification builder", () => {
       number: "BK-2048",
       workerId: "khaled-plum",
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Leaking kitchen sink repair",
       startAt: "2026-08-12T09:00:00.000Z",
@@ -288,7 +288,7 @@ describe("shared booking notification builder", () => {
 
 describe("phone normalization (E.164 providers)", () => {
   it("strips formatting from display phone numbers", () => {
-    expect(normalizePhone("+966 55 123 4567")).toBe("+966551234567");
+    expect(normalizePhone("+961 70 123 456")).toBe("+96170123456");
     expect(normalizePhone("(+971) 50-778-2194")).toBe("+971507782194");
     expect(normalizePhone(" ")).toBeUndefined();
     expect(normalizePhone(undefined)).toBeUndefined();
@@ -418,7 +418,7 @@ describe("whatsapp channel", () => {
     const body = JSON.parse(init.body as string) as { messaging_product: string; to: string; text: { body: string; preview_url: boolean } };
     expect(body.messaging_product).toBe("whatsapp");
     // The Cloud API requires clean E.164 — the formatted display number is normalized.
-    expect(body.to).toBe("+966551234567");
+    expect(body.to).toBe("+96170123456");
     expect(body.text.preview_url).toBe(true);
     expect(body.text.body).toContain("تم توثيق الملف");
   });

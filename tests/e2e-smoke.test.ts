@@ -1176,6 +1176,12 @@ describeE2E("E2E hydration smoke", () => {
         // --no-sandbox is required in root/container CI contexts (harmless on
         // macOS); --disable-gpu stabilizes headless rendering.
         args: ["--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage"],
+        // CDP default is 180s — too tight on loaded machines (CI runners,
+        // dev laptops under build load) where a single page.evaluate can
+        // legitimately exceed it and fail the whole suite with a bare
+        // "Runtime.callFunctionOn timed out". 10 min matches the longest
+        // page.goto budget (120s) with headroom for stacked waits.
+        protocolTimeout: 600_000,
       });
 
       // Is Web Push configured here? If so, grant notification permission
@@ -2196,7 +2202,7 @@ describeE2E("E2E hydration smoke", () => {
     const { baseUrl: b, locale, deposit = false } = opts;
     const en = locale === "en";
     const name = en ? "E2E Customer" : "عميل تجريبي";
-    const phone = en ? "+966 50 111 2222" : "+966 50 333 4444";
+    const phone = en ? "+961 70 111 2222" : "+961 70 333 4444";
     // An email makes the guest a FULLY-ADDRESSED customer: notifyCustomer only
     // builds a recipient when booking.customerEmail is set, so without it the
     // customer-confirmed SMS/WhatsApp lines never dispatch (and the

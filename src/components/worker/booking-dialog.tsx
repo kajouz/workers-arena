@@ -278,7 +278,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.phone")}</label>
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+966 5x xxx xxxx" dir="ltr" />
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+961 7x xxx xxx" dir="ltr" />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.email")}</label>

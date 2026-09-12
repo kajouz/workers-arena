@@ -101,11 +101,11 @@ async function main() {
   // who changes a demo user's password in the DB will have it reset by re-seeding.
   const demoUsers = [
     { email: "sara@example.com", name: "Sara Customer", role: Role.CUSTOMER, hue: 200 },
-    { email: "khaled@plumbfix.sa", name: "Khaled Al-Harbi", role: Role.WORKER, hue: 25 },
+    { email: "khaled@plumbfix.lb", name: "Khaled Al-Harbi", role: Role.WORKER, hue: 25 },
     // The company user carries the same demo phone as the demo adapter's
     // COMPANY recipient (src/lib/data/campaigns.ts) — so real-mode campaign
     // SMS/WhatsApp dispatches render copy instead of logging "no phone".
-    { email: "ads@buildco.sa", name: "BuildCo Ltd", role: Role.COMPANY, hue: 150, phone: "+966 55 123 0099" },
+    { email: "ads@buildco.lb", name: "BuildCo Ltd", role: Role.COMPANY, hue: 150, phone: "+961 70 123 009" },
     { email: "admin@workersarena.com", name: "Platform Admin", role: Role.ADMIN, hue: 280 },
   ];
   const users = new Map<string, string>(); // email → user id
@@ -140,8 +140,16 @@ async function main() {
   // The demo company account gets its Company row (mirrors the demo adapter's
   // fixed company) so self-serve ad purchases work in real mode — the purchase
   // path resolves the Company by userId (Company.userId is unique). Idempotent.
-  const companyUserId = users.get("ads@buildco.sa");
+  const companyUserId = users.get("ads@buildco.lb");
   if (companyUserId) {
+    // Pre-Lebanon databases (seeded before the .sa→.lb tenant remap) still hold
+    // the BuildCo Company row under the old ads@buildco.sa user. Migrate it to
+    // the .lb user — a plain upsert here would collide on the globally-unique
+    // Company.slug ("buildco-ltd") and crash the seed (P2002).
+    const legacyBuildco = await prisma.company.findUnique({ where: { slug: "buildco-ltd" } });
+    if (legacyBuildco && legacyBuildco.userId !== companyUserId) {
+      await prisma.company.update({ where: { id: legacyBuildco.id }, data: { userId: companyUserId } });
+    }
     const company = await prisma.company.upsert({
       where: { userId: companyUserId },
       update: { nameEn: "BuildCo Ltd", nameAr: "شركة بيلدكو" },
@@ -164,8 +172,8 @@ async function main() {
     const adsSeed = [
       {
         id: "seed-c1",
-        nameEn: "Villa construction — Riyadh",
-        nameAr: "بناء فيلا — الرياض",
+        nameEn: "Villa construction — Beirut",
+        nameAr: "بناء فيلا — بيروت",
         placement: "Homepage · Banner",
         adType: AdType.BANNER,
         budget: 500000, // minor units ($5000) — the domain divides by 100
@@ -178,8 +186,8 @@ async function main() {
       },
       {
         id: "seed-c2",
-        nameEn: "AC maintenance — Jeddah & Riyadh",
-        nameAr: "صيانة مكيفات — جدة والرياض",
+        nameEn: "AC maintenance — Beirut",
+        nameAr: "صيانة مكيفات — بيروت",
         placement: "Sponsored search",
         adType: AdType.SPONSORED_SEARCH,
         budget: 400000,
@@ -192,8 +200,8 @@ async function main() {
       },
       {
         id: "seed-c3",
-        nameEn: "Deep cleaning — Dubai Marina",
-        nameAr: "تنظيف عميق — مرسى دبي",
+        nameEn: "Deep cleaning — Badaro",
+        nameAr: "تنظيف عميق — بدارو",
         placement: "Category · Cleaning",
         adType: AdType.SPONSORED_CATEGORY,
         budget: 250000,
@@ -351,6 +359,23 @@ async function main() {
       : null;
     if (!category || !city || !area) continue;
 
+    // Retire workers that no longer exist in the dataset (pre-Lebanon remap
+    // slugs: they still point at dead SAR/MAD city rows and would surface in
+    // real-mode listings with stale currencies). Soft-delete only: their
+    // bookings/ledger keep their FKs, matching the repo's deletedAt: null scans.
+    const keepSlugs = new Set(WORKERS.map((x) => x.slug));
+    const stale = await prisma.worker.findMany({
+      where: { slug: { notIn: [...keepSlugs] }, deletedAt: null },
+      select: { id: true },
+    });
+    if (stale.length > 0) {
+      await prisma.worker.updateMany({
+        where: { id: { in: stale.map((s) => s.id) } },
+        data: { deletedAt: new Date(), available: false, status: WorkerStatus.INACTIVE },
+      });
+      console.log(`  ✓ retired ${stale.length} stale worker(s) not in the dataset`);
+    }
+
     const worker = await prisma.worker.upsert({
       where: { slug: w.slug },
       update: {
@@ -362,6 +387,18 @@ async function main() {
         bioAr: w.bioAr,
         rating: w.rating,
         reviewCount: w.reviewCount,
+        // Location + contact must refresh on re-seed too — the Lebanon tenant
+        // remap (61ee923) repointed workers at Beirut/USD; an update branch
+        // without these left pre-remap DBs serving SAR/Riyadh rows forever.
+        categoryId: category.id,
+        cityId: city.id,
+        areaId: area.id,
+        lat: w.lat,
+        lng: w.lng,
+        phone: w.phone,
+        whatsapp: w.whatsapp,
+        email: w.email,
+        website: w.website,
         yearsExp: w.yearsExp,
         verified: w.verified,
         premium: w.premium,
@@ -371,8 +408,6 @@ async function main() {
         // mapper divides back to major units for the UI (prisma-repo.ts).
         priceMin: w.priceMin * 100,
         priceMax: w.priceMax * 100,
-        phone: w.phone,
-        whatsapp: w.whatsapp,
         // Preserve the demo verification state: pending workers stay pending
         // (PENDING_VERIFICATION) so the production mapper round-trips
         // Worker.verification correctly; verified/rejected map to ACTIVE.
@@ -567,14 +602,14 @@ async function main() {
         workerId: demoWorker.id,
         customerId: saraId ?? null,
         customerName: "Sara Customer",
-        customerPhone: "+966 50 000 0000",
+        customerPhone: "+961 70 000 000",
         customerEmail: "sara@example.com",
         jobTitle: "Leaking kitchen sink repair",
         note: "Sink under the kitchen window has been leaking for two days.",
         startAt: slotPlans[1]!.startAt,
         endAt: new Date(slotPlans[1]!.startAt.getTime() + 60 * 60 * 1000),
         status: BookingStatus.REQUESTED,
-        currency: "SAR",
+        currency: "USD",
       },
     });
     // Claim the reserved slot (slot → booking FK lives on BookingSlot).
@@ -615,7 +650,7 @@ async function main() {
         workerId: demoWorker.id,
         customerId: saraId ?? null,
         customerName: "Sara Customer",
-        customerPhone: "+966 50 000 0000",
+        customerPhone: "+961 70 000 000",
         customerEmail: "sara@example.com",
         jobTitle: "Weekly AC maintenance",
         note: "Filter clean + pressure check, every week.",
@@ -631,17 +666,17 @@ async function main() {
         workerId: demoWorker.id,
         customerId: saraId ?? null,
         customerName: "Sara Customer",
-        customerPhone: "+966 50 000 0000",
+        customerPhone: "+961 70 000 000",
         customerEmail: "sara@example.com",
         jobTitle: "Weekly AC maintenance",
         note: "Filter clean + pressure check, every week.",
         startAt: recurringSlot.startAt,
         endAt: recurringSlot.endAt,
         status: BookingStatus.CONFIRMED,
-        quote: 15000, // 150 SAR — minor units, like the adapter's stamps
+        quote: 15000, // 150 USD — minor units, like the adapter's stamps
         platformFee: 1500, // 10% take rate snapshot
         platformFeeRateBps: 1000,
-        currency: "SAR",
+        currency: "USD",
         recurringBookingId: recurring.id,
       },
     });

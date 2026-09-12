@@ -257,7 +257,7 @@ test.describe("Admin Role", () => {
     // Wait for customer cards to render
     await expect(page.getByText("Fatima Al-Saud").first()).toBeVisible({ timeout: 10000 });
     await page.getByText("Fatima Al-Saud").first().click();
-    await expect(page.getByText("+966 55 123 4567")).toBeVisible();
+    await expect(page.getByText("+961 70 123 4567")).toBeVisible();
   });
 
   test("Export CSV downloads file", async ({ page }) => {

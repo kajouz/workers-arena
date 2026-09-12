@@ -216,7 +216,7 @@ test.describe("Admin Customer Management", () => {
     await page.getByText("Fatima Al-Saud").click();
 
     // Verify expanded details show
-    await expect(page.getByText("+966 55 123 4567")).toBeVisible();
+    await expect(page.getByText("+961 70 123 4567")).toBeVisible();
     await expect(page.getByText(/Joined/)).toBeVisible();
   });
 

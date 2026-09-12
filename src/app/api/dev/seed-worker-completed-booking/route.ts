@@ -46,7 +46,7 @@ export async function POST() {
     workerId: worker.id,
     customerId: "u-customer",
     customerName: "Sara Customer",
-    customerPhone: "+966 50 000 0000",
+    customerPhone: "+961 70 000 000",
     customerEmail: "sara@example.com",
     jobTitle: "Bathroom tiles re-grouting",
     // Catalog plumbing item (closest match to the free-text title) — the AR

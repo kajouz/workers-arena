@@ -62,7 +62,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       workerId: worker.id,
       slotId: slot.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Leaking kitchen sink repair",
     });
@@ -122,7 +122,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       workerId: worker.id,
       slotId: slot.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Leaking kitchen sink repair",
     });
@@ -158,7 +158,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
         workerId: worker.id,
         slotId: slot.id,
         customerName: "Noor E.",
-        customerPhone: "+966 55 123 4871",
+        customerPhone: "+961 70 123 456",
         customerEmail: "noor@example.com",
         jobTitle: "Pipe replacement",
       });
@@ -199,7 +199,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       workerId: worker.id,
       slotId: slot.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Sink repair",
     });
@@ -229,7 +229,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       workerId: worker.id,
       slotId: slot.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Bathroom leak repair",
     });
@@ -292,7 +292,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       workerId: worker.id,
       slotId: slot.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Water heater install",
     });
@@ -371,7 +371,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       workerId: worker.id,
       slotId: slot.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Sump pump install",
     });
@@ -431,7 +431,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       workerId: worker.id,
       slotId: slot.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Weekly AC maintenance",
       frequency: "weekly",

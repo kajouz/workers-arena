@@ -18,7 +18,7 @@ function makeBooking(number: string, workerId: string, overrides: Partial<Bookin
     number,
     workerId,
     customerName: "Sara Customer",
-    customerPhone: "+966 50 000 0000",
+    customerPhone: "+961 70 000 000",
     customerEmail: "sara@example.com",
     jobTitle: "Leaking kitchen sink repair",
     status: "completed",
@@ -54,7 +54,7 @@ describe("buildBookingTrailsCsv", () => {
     // BK-1001 rows come first (number sort), with the worker's display name.
     const firstBookingRows = lines.slice(1, 4);
     for (const row of firstBookingRows) {
-      expect(row.startsWith("BK-1001,Leaking kitchen sink repair,Khaled Al-Harbi,Sara Customer · +966 50 000 0000 · sara@example.com,Completed,")).toBe(true);
+      expect(row.startsWith("BK-1001,Leaking kitchen sink repair,Khaled Al-Harbi,Sara Customer · +961 70 000 000 · sara@example.com,Completed,")).toBe(true);
     }
     // Event columns: # / time / event status / actor / reason (a comma in
     // the reason gets RFC-4180 quoted).

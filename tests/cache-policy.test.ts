@@ -11,6 +11,7 @@ import type { NextRequest } from "next/server";
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { AUTH_SESSION_COOKIE_NAMES, SESSION_COOKIE_NAME, hasSessionCookie } from "../src/lib/session-cookie";
+import { hasPersonalizationCookie } from "../src/lib/personalization-cookie";
 import { proxy } from "../src/proxy";
 
 /** Minimal NextRequest double — proxy() only touches nextUrl, headers, method. */
@@ -86,9 +87,29 @@ describe("proxy cache-control policy", () => {
     expect(await cacheControlOf("http://localhost:3000/")).toBe(
       "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
     );
-    expect(await cacheControlOf("http://localhost:3000/search", { cookie: "wa_theme=dark; consent=1" })).toBe(
+    expect(await cacheControlOf("http://localhost:3000/search", { cookie: "consent=1" })).toBe(
       "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
     );
+  });
+
+  it("personalized anonymous pages (locale/theme cookies) get private, no-store", async () => {
+    // The SSR document carries the cookie's <html lang dir class> — the
+    // browser's stale-while-revalidate would otherwise serve the PREVIOUS
+    // locale/theme's document after a flip (the /search-ar-rendered-EN bug).
+    for (const cookie of ["wa_locale=ar", "wa_theme=dark", "wa_locale=ar; consent=1"]) {
+      expect(await cacheControlOf("http://localhost:3000/search", { cookie })).toBe(
+        "private, no-store"
+      );
+    }
+  });
+
+  it("is exact-name: a lookalike personalization cookie must NOT flip the policy", async () => {
+    expect(await cacheControlOf("http://localhost:3000/search", { cookie: "wa_locale_backup=ar" })).toBe(
+      "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
+    );
+    expect(hasPersonalizationCookie("wa_theme_backup=dark")).toBe(false);
+    expect(hasPersonalizationCookie(null)).toBe(false);
+    expect(hasPersonalizationCookie("")).toBe(false);
   });
 
   it("API routes are untouched (they set their own cache headers)", async () => {

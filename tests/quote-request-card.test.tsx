@@ -52,7 +52,7 @@ function makeQuote(overrides: Partial<QuoteRequest> = {}): QuoteRequest {
     number: "QR-2026-00001",
     customerId: "c1",
     customerName: "Sara Customer",
-    customerPhone: "+966 5x xxx xxxx",
+    customerPhone: "+961 7x xxx xxx",
     jobTitle: "AC repair at home",
     note: "Two units, one is leaking",
     categorySlug: "hvac",

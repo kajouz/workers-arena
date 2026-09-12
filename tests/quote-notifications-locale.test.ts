@@ -34,7 +34,7 @@ function makeQuoteBooking(overrides: Partial<Booking> = {}): Booking {
     workerId: "w1",
     customerId: "u-customer",
     customerName: "Sara Customer",
-    customerPhone: "+966 50 000 0000",
+    customerPhone: "+961 70 000 000",
     customerEmail: "sara@example.com",
     jobTitle: "Leaking kitchen sink repair",
     serviceItem: AR_SERVICE,

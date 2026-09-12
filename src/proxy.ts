@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { hasSessionCookie } from "@/lib/session-cookie";
+import { hasPersonalizationCookie } from "@/lib/personalization-cookie";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 // Content Security Policy — hardened: no unsafe-eval (Sentry v10 doesn't need it;
@@ -107,18 +108,29 @@ export async function proxy(request: NextRequest) {
   }
 
   // ── Cache policy ──────────────────────────────────────────────────────────
-  // Authenticated requests must NEVER be publicly cached: every page renders
-  // session-aware markup (the header switches Sign in ⇄ avatar, and dashboards
-  // embed per-user data), so a shared cache (CDN edge, corporate proxy) holding
-  // a logged-in HTML response would leak one user's page to another. Detection
-  // is cookie-based — exact name match on the request's Cookie header.
+  // Responses that vary per-browser must NEVER be publicly cached: every page
+  // renders session-aware markup (the header switches Sign in ⇄ avatar, and
+  // dashboards embed per-user data), so a shared cache (CDN edge, corporate
+  // proxy) holding one user's HTML would leak it to another. Detection is
+  // cookie-based — exact name match on the request's Cookie header.
+  //
+  // Anonymous requests carrying the personalization cookies (wa_locale /
+  // wa_theme) are ALSO per-browser: the SSR document is stamped with the
+  // cookie's locale/theme (<html lang dir class>). A shared cache — or the
+  // BROWSER's own stale-while-revalidate — would serve the previous locale's
+  // document after a language flip (Chromium implements SWR for main
+  // resources): stale-serve up to 300s of wrong-language/wrong-theme HTML.
   if (!pathname.startsWith("/api/") && !pathname.startsWith("/_next/")) {
-    if (hasSessionCookie(request.headers.get("cookie"))) {
-      // Signed-in: private to this browser, never stored by any shared cache.
-      // no-store also disables bfcache-safe reuse of authenticated pages.
+    const cookieHeader = request.headers.get("cookie");
+    if (hasSessionCookie(cookieHeader) || hasPersonalizationCookie(cookieHeader)) {
+      // Signed-in or personalized: private to this browser, never stored by
+      // any shared cache. no-store also disables stale-while-revalidate reuse
+      // (a locale flip must never serve the previous locale's document).
       response.headers.set("Cache-Control", "private, no-store");
     } else {
-      // Anonymous: cacheable at the edge briefly, stale-serve while revalidating.
+      // Truly cookie-less: cacheable at the edge briefly, stale-serve while
+      // revalidating. Shared caches key on the full request URL + headers, and
+      // a cookie-less request always renders the same default (en/light) doc.
       response.headers.set(
         "Cache-Control",
         "public, max-age=0, s-maxage=60, stale-while-revalidate=300"

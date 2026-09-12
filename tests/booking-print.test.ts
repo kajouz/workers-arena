@@ -19,7 +19,7 @@ function makeBooking(overrides: Partial<Booking> = {}): Booking {
     number: "BK-1001",
     workerId: "w1",
     customerName: "Sara Customer",
-    customerPhone: "+966 50 000 0000",
+    customerPhone: "+961 70 000 000",
     customerEmail: "sara@example.com",
     jobTitle: "Leaking kitchen sink repair",
     status: "completed",
@@ -53,7 +53,7 @@ describe("renderBookingAuditPrint", () => {
     // Facts — job, worker, customer (name · phone · email), slot, quote.
     expect(doc).toContain("Leaking kitchen sink repair");
     expect(doc).toContain("Khaled Al-Harbi");
-    expect(doc).toContain("Sara Customer · +966 50 000 0000 · sara@example.com");
+    expect(doc).toContain("Sara Customer · +961 70 000 000 · sara@example.com");
     expect(doc).toContain("$150.00");
 
     // The trail — every event with status, actor, reason and exact timestamp.

@@ -112,7 +112,7 @@ test.describe("Step 2: Worker Privacy — No Customer Phone Visible", () => {
     await page.waitForTimeout(2000);
 
     // The worker should see the customer name (Sara Customer)
-    // but should NOT see the raw phone number (+966 50 000 0000)
+    // but should NOT see the raw phone number (+961 70 000 000)
     const pageContent = await page.content();
     // Customer name should be visible
     expect(pageContent).toContain("Sara Customer");

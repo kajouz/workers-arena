@@ -24,7 +24,7 @@ function request(slotId: string, frequency: "weekly" | "biweekly" | "monthly" = 
     workerId: khaled().id,
     slotId,
     customerName: "Noor E.",
-    customerPhone: "+966 55 123 4871",
+    customerPhone: "+961 70 123 456",
     customerEmail: "noor@example.com",
     jobTitle: "Monthly AC maintenance",
     frequency,
@@ -168,9 +168,9 @@ describe("demo recurring adapter (M1)", () => {
     await demoCreateRecurringRequest(request("slot-khaled-9", "weekly"));
     const byEmail = demoGetCustomerRecurrings({ email: "NOOR@example.com" });
     expect(byEmail).toHaveLength(1);
-    const byPhone = demoGetCustomerRecurrings({ phone: "+966 55 123-4871" });
+    const byPhone = demoGetCustomerRecurrings({ phone: "+961 70 123-456" });
     expect(byPhone).toHaveLength(1);
-    expect(demoGetCustomerRecurrings({ phone: "+966 50 000 0000" })).toHaveLength(0);
+    expect(demoGetCustomerRecurrings({ phone: "+966 50 000 000" })).toHaveLength(0);
     expect(demoGetCustomerRecurrings({})).toHaveLength(0);
   });
 

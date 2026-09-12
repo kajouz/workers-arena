@@ -534,7 +534,7 @@ async function main() {
     workerId: khaled!.id,
     slotId: free!.id,
     customerName: "Smoke Tester",
-    customerPhone: "+966 50 999 9999",
+    customerPhone: "+961 70 999 999",
     customerEmail: "smoke@workersarena.test",
     jobTitle: "Smoke test booking",
   });
@@ -1092,19 +1092,19 @@ async function main() {
   );
 
   // ── W2 — customer-side booking lookup (prismaGetCustomerBookings) ─────────
-  // The `created` booking (smoke@workersarena.test / +966 50 999 9999) is
+  // The `created` booking (smoke@workersarena.test / +961 70 999 999) is
   // still live. Email must match case-insensitively, phone must match with
-  // separators stripped on BOTH sides (guest typing +966509999999 finds the
+  // separators stripped on BOTH sides (guest typing +96170999999 finds the
   // formatted stored value), and a stranger's identifier must return nothing.
   const byEmail = await prismaGetCustomerBookings({ email: "SMOKE@WORKERSARENA.TEST" });
   console.log("customer lookup by email (uppercase):", byEmail.map((b) => `${b.number}:${b.status}`));
   assert(byEmail.length === 1 && byEmail[0]!.id === created.id, "email lookup is case-insensitive and finds exactly the smoke booking");
 
-  const byPhone = await prismaGetCustomerBookings({ phone: "+966509999999" });
+  const byPhone = await prismaGetCustomerBookings({ phone: "+96170999999" });
   console.log("customer lookup by phone (no separators):", byPhone.map((b) => `${b.number}:${b.status}`));
   assert(byPhone.some((b) => b.id === created.id), "normalized phone lookup finds the smoke booking");
 
-  const byFormattedPhone = await prismaGetCustomerBookings({ phone: "+966 50 999 9999" });
+  const byFormattedPhone = await prismaGetCustomerBookings({ phone: "+961 70 999 999" });
   assert(byFormattedPhone.some((b) => b.id === created.id), "formatted phone input matches too (both sides normalized)");
 
   const noMatch = await prismaGetCustomerBookings({ phone: "+966 00 000 0000" });
@@ -1471,7 +1471,7 @@ async function main() {
     slotId: m3cSlot.id,
     customerId: sara.id,
     customerName: "Sara Customer",
-    customerPhone: "+966 50 000 0000",
+    customerPhone: "+961 70 000 000",
     customerEmail: "depositu@workersarena.test",
     jobTitle: "Smoke signed-in deposit",
   });

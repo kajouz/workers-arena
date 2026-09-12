@@ -774,7 +774,7 @@ export const en = {
     emptyBody: "Request a booking on a worker's profile and it will appear here.",
     guestLookupTitle: "Find your bookings",
     guestLookupBody: "Enter the phone number you used when booking.",
-    guestLookupPlaceholder: "+966 5x xxx xxxx",
+    guestLookupPlaceholder: "+961 7x xxx xxx",
     guestLookup: "Find my bookings",
     guestLookupNone: "No bookings found for this number.",
     bookingWith: "Booked with",

@@ -23,7 +23,7 @@ async function confirmBooking(startAt: Date, overrides: Record<string, unknown> 
     workerId: w.id,
     slotId: slot.id,
     customerName: "Noor E.",
-    customerPhone: "+966 55 123 4871",
+    customerPhone: "+961 70 123 456",
     customerEmail: "noor@example.com",
     jobTitle: "Fix a leaking pipe under the kitchen sink",
     ...overrides,
@@ -106,7 +106,7 @@ describe("booking reminder engine (M4)", () => {
       workerId: w.id,
       slotId: slot.id,
       customerName: "Noor E.",
-      customerPhone: "+966 55 123 4871",
+      customerPhone: "+961 70 123 456",
       customerEmail: "noor@example.com",
       jobTitle: "Deposit booking",
     });

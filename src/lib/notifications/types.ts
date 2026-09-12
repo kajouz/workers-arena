@@ -33,7 +33,7 @@ export interface NotificationRecipient {
 /**
  * Strip display formatting (spaces, dashes, parentheses) from a phone number.
  * Real carriers — Twilio and especially the WhatsApp Cloud API — require clean
- * E.164, and the demo dataset stores formatted numbers like "+966 55 123 4871".
+ * E.164, and the demo dataset stores formatted numbers like "+961 70 123 456".
  */
 export function normalizePhone(phone?: string): string | undefined {
   if (!phone) return undefined;

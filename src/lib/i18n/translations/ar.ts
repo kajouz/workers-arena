@@ -776,7 +776,7 @@ export const ar: Dictionary = {
     emptyBody: "اطلب حجزاً من ملف أي عامل وسيظهر هنا.",
     guestLookupTitle: "ابحث عن حجوزاتك",
     guestLookupBody: "أدخل رقم الهاتف الذي استخدمته عند الحجز.",
-    guestLookupPlaceholder: "+966 5x xxx xxxx",
+    guestLookupPlaceholder: "+961 7x xxx xxx",
     guestLookup: "ابحث عن حجوزاتي",
     guestLookupNone: "لا توجد حجوزات مطابقة لهذا الرقم.",
     bookingWith: "حجز مع",

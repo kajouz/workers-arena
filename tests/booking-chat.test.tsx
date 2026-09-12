@@ -137,11 +137,11 @@ describe("BookingChat — WhatsApp fallback", () => {
   });
 
   it("worker view links to the customer's phone (no whatsapp prop needed)", () => {
-    const withPhone = { ...booking, customerPhone: "+966 55 123 4871" } as unknown as Booking;
+    const withPhone = { ...booking, customerPhone: "+961 70 123 456" } as unknown as Booking;
     renderChat("en", { booking: withPhone, viewerRole: "worker", workerWhatsapp: undefined });
     fireEvent.click(screen.getByRole("button", { name: /Chat/ }));
     const link = screen.getByRole("link", { name: /Continue on WhatsApp/ });
-    expect(link.getAttribute("href")).toContain("https://wa.me/966551234871?text=");
+    expect(link.getAttribute("href")).toContain("https://wa.me/96170123456?text=");
   });
 
   it("admin view has no WhatsApp fallback (read-only trail)", () => {
