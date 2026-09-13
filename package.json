@@ -32,6 +32,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:smoke": "tsx scripts/smoke-prisma.ts",
     "test:e2e:playwright": "npx playwright test",
+    "smoke:preview": "node scripts/smoke-preview.mjs",
     "cap:init": "cap init",
     "cap:add": "cap add",
     "cap:sync": "cap sync",

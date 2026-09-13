@@ -224,7 +224,7 @@ children.push(
   B("Admin search-trends card aggregates SearchLog data."),
   H3("Step by step"),
   STEP(1, "Open the homepage or /search. Type a service (e.g. “plumber”, “سباك”) or choose a category from the directory."),
-  STEP(2, "Pick the city and area from the dropdowns (cities like Beirut, Riyadh, Dubai are seeded with their areas)."),
+  STEP(2, "Pick the city and area from the dropdowns (the seeded cities — e.g. Beirut — each carry their areas)."),
   STEP(3, "Apply filters — minimum rating, price band, verified / featured / emergency / open-now — to narrow the pool."),
   STEP(4, "Choose a sort mode (relevance is default; “Nearest” uses the city centre distance)."),
   STEP(5, "Read the trust chips on each card (response rate + free this week) before choosing."),

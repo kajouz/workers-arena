@@ -21,8 +21,14 @@
  * scripts/validate-diagrams.mjs, so docs edits can't silently rot.
  *
  * Anchor slugs follow GitHub's algorithm (what github-slugger produces):
- * lowercase, drop punctuation, spaces → hyphens. A heading "## 7. Keep fresh"
- * gets slug 7-keep-fresh — so a link to #-keep-fresh is genuinely broken.
+ * lowercase, drop punctuation, spaces → hyphens (one per space, no collapsing,
+ * so "A & B" is a--b). A heading "## 7. Keep fresh" gets slug 7-keep-fresh —
+ * so a link to #-keep-fresh is genuinely broken.
+ *
+ * Fenced code blocks (```…```) are skipped: sample markup inside them is not a
+ * clickable link. Inline code spans (`…`) are blanked for the same reason — a
+ * doc that explains this checker quotes the placeholder it excludes, e.g. the
+ * tracking pixel `<img src="/api/ads/{id}/impression">`.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -44,15 +50,30 @@ function markdownFilesUnder(dir) {
   return out;
 }
 
-/** GitHub-style slug for a heading line ("## 7. Keep fresh" → "7-keep-fresh"). */
+/**
+ * GitHub-style slug for a heading line ("## 7. Keep fresh" → "7-keep-fresh").
+ *
+ * The two steps below are ORDER-SENSITIVE and the space step must map EACH
+ * space to its own hyphen — GitHub does not collapse runs. Punctuation is
+ * deleted first, so a separator surrounded by spaces leaves two spaces behind
+ * and the slug keeps a DOUBLE hyphen:
+ *
+ *   "## 2. Authentication & Authorization Testing" → 2-authentication--authorization-testing
+ *   "## 7. Dashboard Testing — Worker"            → 7-dashboard-testing--worker
+ *
+ * Collapsing `\s+` to a single hyphen made every `&` / " — " heading in docs/
+ * look broken, even though GitHub resolves the `--` anchors the tables of
+ * contents actually use (18 false failures on this repo).
+ */
 function headingSlug(line) {
   const text = line.replace(/^#+\s*/, "").trim().toLowerCase();
   return (
     text
       // Drop everything that isn't a letter, digit, space, or hyphen.
       .replace(/[^\p{L}\p{N} -]/gu, "")
-      // Spaces → hyphens.
-      .replace(/\s+/g, "-")
+      // Each space → one hyphen (see the note above: no run collapsing). The
+      // trim() above keeps leading/trailing spaces from adding hyphens.
+      .replace(/ /g, "-")
   );
 }
 
@@ -66,8 +87,47 @@ function headingSlugs(md) {
 }
 
 /**
+ * Blank out inline code spans (`…`, ``…``) so markup quoted inside them is not
+ * read as a link. Inline code is not clickable on GitHub either, and a doc that
+ * explains this checker naturally quotes the placeholder it excludes.
+ *
+ * A run of N backticks is closed by the next run of exactly N (CommonMark). The
+ * span is replaced character-for-character with spaces so column arithmetic and
+ * line numbers stay intact. An unterminated run — like "```html" written
+ * mid-sentence — is not a code span and is kept verbatim.
+ */
+function stripInlineCode(line) {
+  let out = "";
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] !== "`") {
+      out += line[i];
+      i += 1;
+      continue;
+    }
+    let run = 0;
+    while (line[i + run] === "`") run += 1;
+    const close = line.indexOf("`".repeat(run), i + run);
+    if (close === -1) {
+      out += line.slice(i);
+      break;
+    }
+    out += " ".repeat(close + run - i);
+    i = close + run;
+  }
+  return out;
+}
+
+/**
  * Extract { target, line, kind } for every link/image in a file: markdown
  * links, markdown images, and HTML <img src>. Returns [] for unreadable files.
+ *
+ * Fenced code blocks and inline code spans are skipped: an example in ```html /
+ * ```js, or quoted as `code`, is sample markup, not a link. Docs routinely show
+ * placeholder URLs that way (e.g. the digest tracking pixel
+ * `<img src="/api/ads/{id}/impression">`, whose real route is
+ * `/api/ads/[id]/impression`) — resolving those reports broken links that no
+ * reader can click.
  */
 function extractLinks(md) {
   const links = [];
@@ -81,14 +141,26 @@ function extractLinks(md) {
     if (t.length > 0) links.push({ target: t, line, kind });
   };
 
+  // The open fence's marker character (` or ~), or null outside a fence.
+  let fence = null;
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
+    const fenceMatch = /^\s*(`{3,}|~{3,})/.exec(l);
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      // Only the SAME marker closes the block; a different one is content.
+      if (fence === null) fence = marker;
+      else if (marker === fence) fence = null;
+      continue;
+    }
+    if (fence !== null) continue;
+    const text = stripInlineCode(l);
     // Markdown links + images: ![alt](target) or [text](target) — handle the
     // ! separately so image links are labeled, then the plain [..](..).
-    for (const m of l.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) push(m[1], i + 1, "image");
-    for (const m of l.matchAll(/(?<!!)\[[^\]]*\]\(([^)]+)\)/g)) push(m[1], i + 1, "link");
+    for (const m of text.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) push(m[1], i + 1, "image");
+    for (const m of text.matchAll(/(?<!!)\[[^\]]*\]\(([^)]+)\)/g)) push(m[1], i + 1, "link");
     // HTML <img src="..."> — the pre-rendered SVG embeds.
-    for (const m of l.matchAll(/<img[^>]*\bsrc="([^"]+)"/g)) push(m[1], i + 1, "image");
+    for (const m of text.matchAll(/<img[^>]*\bsrc="([^"]+)"/g)) push(m[1], i + 1, "image");
   }
   return links;
 }
@@ -169,4 +241,8 @@ function main() {
   console.log(`check:docs-links — all ${checked} link(s) resolve (${skipped} external skipped).`);
 }
 
-main();
+export { extractLinks, headingSlug, headingSlugs, isExternal, splitAnchor, stripInlineCode };
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
+}

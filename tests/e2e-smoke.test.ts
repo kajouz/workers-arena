@@ -354,6 +354,40 @@ function minFreeGbFromEnv(): number {
 }
 
 /**
+ * Self-healing is the DEFAULT. A crashed run — SIGKILL, an OOM, a CI hard
+ * timeout, a host reboot — reaches neither `afterAll` nor `installSignalGuard`,
+ * so it leaves its isolated dist dir and the tsconfig rewrite behind; the
+ * pre-run check would then reject EVERY later run until a human cleaned up by
+ * hand. So the check now heals those artifacts itself and proceeds.
+ *
+ * `E2E_AUTOCLEAN=0` restores the strict, fail-fast behavior (reject and list
+ * the artifacts) — useful when you want to inspect a crash's leftovers before
+ * they're removed. `E2E_AUTOCLEAN=1` is still accepted (it's what CI and
+ * `npm run test:e2e:autoclean` set) and means the same as the default.
+ */
+function autocleanEnabled(): boolean {
+  return process.env.E2E_AUTOCLEAN !== "0";
+}
+
+/** Is a PID still running? `process.kill(pid, 0)` probes for existence without
+ * delivering a signal (throws ESRCH when the process is gone). */
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The PID an isolated dist dir name encodes (`.next-e2e-<pid>` /
+ * `.next-e2e-prod-<pid>`) — undefined when the name carries no PID. */
+function distDirPid(dir: string): number | undefined {
+  const m = /^\.next-e2e(?:-prod)?-(\d+)$/.exec(path.basename(dir));
+  return m ? Number(m[1]) : undefined;
+}
+
+/**
  * Pre-run workspace check — hardens the E2E against the disk-full incident:
  * an absolute NEXT_DIST_DIR was path-joined onto the cwd, silently building a
  * 43G doubled-path tree, and hard-killed runs left stale machine-specific
@@ -481,9 +515,25 @@ function detectWorkspaceProblems(
  * quoted include entries (starting with a quote, matching the stale path
  * inside) — a minified one-line file or a comment mentioning the path is left
  * alone, which the post-fix re-check then rejects (fail-safe). `disk` problems
- * have nothing to remove — the caller skips them. */
-function fixWorkspaceProblem(p: WorkspaceProblem): { dirs: number; tsconfigLines: number } {
+ * have nothing to remove — the caller skips them.
+ *
+ * A `dir` whose name encodes a still-running PID is NOT removed: it belongs to
+ * a concurrent run sharing this checkout, and deleting a live build cache
+ * would corrupt that run. It comes back as `skipped` so the caller can report
+ * it and still fail the re-check. */
+function fixWorkspaceProblem(
+  p: WorkspaceProblem,
+  isPidAlive: (pid: number) => boolean = pidAlive
+): { dirs: number; tsconfigLines: number; skipped?: string } {
   if (p.kind === "dir") {
+    const pid = distDirPid(p.path);
+    if (pid !== undefined && isPidAlive(pid)) {
+      return {
+        dirs: 0,
+        tsconfigLines: 0,
+        skipped: `${p.path} — still owned by a running process (PID ${pid})`,
+      };
+    }
     rmSync(p.path, { recursive: true, force: true });
     return { dirs: 1, tsconfigLines: 0 };
   }
@@ -511,34 +561,43 @@ function fixWorkspaceProblem(p: WorkspaceProblem): { dirs: number; tsconfigLines
  *
  * Rejects (throws) when artifacts are found, unless `autofix` is set — then
  * the removable ones (dirs + stale include lines) are removed after being
- * printed, and the workspace is re-checked; anything that survives (or a disk
- * floor with nothing to clean) still rejects. The production call passes
- * `E2E_AUTOCLEAN === "1"` and `minFreeGbFromEnv()` (default 5 GiB floor,
- * E2E_MIN_FREE_GB override, 0 disables) — a near-full disk fails before the
- * build starts, not mid-write.
+ * printed, and the workspace is re-checked; anything that survives (a disk
+ * floor, or a dist dir a concurrent run still owns) still rejects. The
+ * production call passes `autocleanEnabled()` (self-heal by default,
+ * `E2E_AUTOCLEAN=0` to opt into strict fail-fast) and `minFreeGbFromEnv()`
+ * (default 5 GiB floor, E2E_MIN_FREE_GB override, 0 disables) — a near-full
+ * disk fails before the build starts, not mid-write.
+ *
+ * `isPidAlive` is injectable so the unit tests can pin liveness
+ * deterministically (a real `process.kill` probe against a test PID would be
+ * environment-dependent).
  */
 function assertCleanWorkspace(
   root: string,
   tsconfigPath = path.join(root, "tsconfig.json"),
   minFreeGb = 0,
-  autofix = false
+  autofix = false,
+  isPidAlive: (pid: number) => boolean = pidAlive
 ): void {
   let problems = detectWorkspaceProblems(root, tsconfigPath, minFreeGb);
   if (problems.length === 0) return;
   const lines = problems.map((p) => `  • ${p.message}`);
   const cleanable = problems.filter((p) => p.kind !== "disk");
+  const skipped: string[] = [];
 
   if (autofix && cleanable.length > 0) {
     const before = diskFreeGb(root);
     console.warn(
-      "E2E pre-run check: E2E_AUTOCLEAN=1 — removing crash artifacts:\n" + lines.join("\n")
+      "E2E pre-run check: self-healing crash artifacts from a previous run (E2E_AUTOCLEAN=0 disables):\n" +
+        lines.join("\n")
     );
     let dirsRemoved = 0;
     let tsconfigLinesRemoved = 0;
     for (const p of cleanable) {
-      const r = fixWorkspaceProblem(p);
+      const r = fixWorkspaceProblem(p, isPidAlive);
       dirsRemoved += r.dirs;
       tsconfigLinesRemoved += r.tsconfigLines;
+      if (r.skipped) skipped.push(r.skipped);
     }
     const after = diskFreeGb(root);
     // Freed-space summary so CI output shows exactly what the autoclean
@@ -580,12 +639,18 @@ function assertCleanWorkspace(
     if (problems.length === 0) return;
   }
 
+  const skippedNote =
+    skipped.length > 0
+      ? "\nLeft in place — a process still owns them (stop the other run, or clear them by hand):\n" +
+        skipped.map((s) => `  • ${s}`).join("\n")
+      : "";
   const hint = autofix
-    ? "\nE2E_AUTOCLEAN=1 was set but the remaining problems could not be auto-removed (disk conditions can't be; check the paths above)."
-    : "\nThese are build artifacts (isolated .next dirs + a config rewrite), not source — safe to delete before re-running (or set E2E_AUTOCLEAN=1 to have the check remove them).";
+    ? "\nSelf-heal ran but the remaining problems could not be removed (disk conditions can't be; a live process's dist dir is never deleted)."
+    : "\nThese are build artifacts (isolated .next dirs + a config rewrite), not source — safe to delete before re-running (or drop E2E_AUTOCLEAN=0 to let the check self-heal them).";
   throw new Error(
     "E2E pre-run check failed — a crashed run left artifacts behind:\n" +
       problems.map((p) => `  • ${p.message}`).join("\n") +
+    skippedNote +
     hint
   );
 }
@@ -835,7 +900,9 @@ describe("assertCleanWorkspace", () => {
     );
     try {
       expect(() =>
-        assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, true)
+        // `() => false` pins liveness: the test PID is a crash artifact, not a
+        // concurrent run's live cache.
+        assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, true, () => false)
       ).not.toThrow();
       // The dir is gone and the tsconfig no longer references .data — the
       // rest of the include array survives, and the dangling trailing comma
@@ -917,7 +984,7 @@ describe("assertCleanWorkspace", () => {
     );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, true);
+      assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, true, () => false);
       // The human line names what was removed (1 dir + 1 stale line) and the
       // freed delta.
       const summary = warn.mock.calls.find((c) => /autoclean removed/.test(String(c[0])));
@@ -950,7 +1017,7 @@ describe("assertCleanWorkspace", () => {
     mkdirSync(path.join(dir, "dev"), { recursive: true });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, true);
+      assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, true, () => false);
       // Structured line present with 0.000 freed and the dir count.
       const structured = warn.mock.calls.find((c) => /^E2E_AUTOCLEAN_RESULT=/.test(String(c[0])));
       expect(structured).toBeDefined();
@@ -980,6 +1047,81 @@ describe("assertCleanWorkspace", () => {
       // The comment is still there (untouched by the conservative fix).
       expect(readFileSync(path.join(root, "tsconfig.json"), "utf8")).toContain("// stale:");
     } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("self-heals by default; only E2E_AUTOCLEAN=0 opts into strict fail-fast", () => {
+    vi.stubEnv("E2E_AUTOCLEAN", "1");
+    expect(autocleanEnabled()).toBe(true);
+    vi.stubEnv("E2E_AUTOCLEAN", "true");
+    expect(autocleanEnabled()).toBe(true); // anything but "0" self-heals
+    vi.stubEnv("E2E_AUTOCLEAN", "0");
+    expect(autocleanEnabled()).toBe(false);
+    vi.unstubAllEnvs();
+    expect(autocleanEnabled()).toBe(true); // unset → self-heal
+  });
+
+  it("a crashed run's leftovers self-heal through the production default (no wedge)", () => {
+    const root = tempWorkspace();
+    // The exact shape a SIGKILL leaves: an isolated dist dir + the Next TS
+    // plugin's absolute, machine-specific include entry.
+    mkdirSync(path.join(root, ".data", ".next-e2e-9999"), { recursive: true });
+    writeFileSync(
+      path.join(root, "tsconfig.json"),
+      '{\n  "include": [\n    "next-env.d.ts",\n    "**/*.ts",\n    "/Users/ka/.data/.next-e2e-4858/dev/types/**/*.ts"\n  ]\n}\n'
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(() =>
+        assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, autocleanEnabled(), () => false)
+      ).not.toThrow();
+      expect(existsSync(path.join(root, ".data", ".next-e2e-9999"))).toBe(false);
+      expect(readFileSync(path.join(root, "tsconfig.json"), "utf8")).not.toContain(".data");
+      // The heal is announced, not silent.
+      expect(warn.mock.calls.some((c) => /self-healing crash artifacts/.test(String(c[0])))).toBe(true);
+    } finally {
+      warn.mockRestore();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("E2E_AUTOCLEAN=0 keeps the strict reject-and-list behavior", () => {
+    vi.stubEnv("E2E_AUTOCLEAN", "0");
+    const root = tempWorkspace();
+    mkdirSync(path.join(root, ".data", ".next-e2e-9999"), { recursive: true });
+    try {
+      expect(() =>
+        assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, autocleanEnabled())
+      ).toThrow(/leftover isolated dist dir/);
+      // Opted out of healing → the artifact is left in place to inspect.
+      expect(existsSync(path.join(root, ".data", ".next-e2e-9999"))).toBe(true);
+      // …and the hint points at the opt-OUT, since healing is the default.
+      expect(() =>
+        assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, autocleanEnabled())
+      ).toThrow(/drop E2E_AUTOCLEAN=0 to let the check self-heal/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("never deletes a dist dir a CONCURRENT run still owns (live PID)", () => {
+    const root = tempWorkspace();
+    const live = path.join(root, ".data", ".next-e2e-4242");
+    const dead = path.join(root, ".data", ".next-e2e-4243");
+    mkdirSync(live, { recursive: true });
+    mkdirSync(dead, { recursive: true });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // PID 4242 is "running" (a sibling run's cache); 4243 is crash debris.
+      expect(() =>
+        assertCleanWorkspace(root, path.join(root, "tsconfig.json"), 0, true, (pid) => pid === 4242)
+      ).toThrow(/still owned by a running process \(PID 4242\)/);
+      expect(existsSync(live)).toBe(true); // live cache preserved
+      expect(existsSync(dead)).toBe(false); // crash debris removed
+    } finally {
+      warn.mockRestore();
       rmSync(root, { recursive: true, force: true });
     }
   });
@@ -1125,29 +1267,41 @@ describeE2E("E2E hydration smoke", () => {
 
   beforeAll(
     async () => {
-      // Pre-run hardening: reject fast if a crashed run left the doubled-path
-      // tree, leftover isolated dist dirs, or stale tsconfig include entries
-      // (see assertCleanWorkspace) — silently proceeding is how the disk
-      // filled to 127MiB free. Also enforce the free-disk floor (default 5
-      // GiB, E2E_MIN_FREE_GB override, 0 disables) before the build starts.
-      // E2E_AUTOCLEAN=1 makes the check remove the crash artifacts itself
-      // (after printing them) instead of rejecting — for CI convenience.
+      // Pre-run hardening (see assertCleanWorkspace): a crashed run's
+      // leftovers — the doubled-path tree, isolated dist dirs, stale tsconfig
+      // include entries — are SELF-HEALED (printed, removed, then re-checked)
+      // so one crashed run can't wedge every later run. Silently proceeding is
+      // how the disk once filled to 127MiB free, so the free-disk floor
+      // (default 5 GiB, E2E_MIN_FREE_GB override, 0 disables) is still
+      // enforced before the build starts. E2E_AUTOCLEAN=0 opts back into the
+      // strict reject-and-list behavior; a dist dir a concurrent run still
+      // owns is never deleted.
       assertCleanWorkspace(
         process.cwd(),
         tsconfigPath,
         minFreeGbFromEnv(),
-        process.env.E2E_AUTOCLEAN === "1"
+        autocleanEnabled()
       );
       tsconfigBackup = readFileSync(tsconfigPath, "utf8");
 
       // Finally-like guard for hard kills: afterAll only runs on a clean
-      // teardown, so restore the shared tsconfig on normal process exit AND
-      // on SIGINT/SIGTERM (Ctrl-C / CI timeout) before re-raising the signal
-      // (shared with the unit test in tests/signal-guard.test.ts, which
-      // proves the restore runs before exit). restoreTsconfig is idempotent,
-      // so the afterAll restore + this guard can never double-write or fight
-      // each other.
-      installSignalGuard(restoreTsconfig);
+      // teardown, so restore the shared tsconfig AND drop this run's isolated
+      // dist dirs on normal process exit AND on SIGINT/SIGTERM (Ctrl-C / CI
+      // timeout) before re-raising the signal (the guard is shared with the
+      // unit test in tests/signal-guard.test.ts, which proves the restore runs
+      // before exit). Both restores are idempotent, so the afterAll cleanup +
+      // this guard can never double-write or fight each other. Only a SIGKILL
+      // bypasses this — which is exactly what the pre-run self-heal covers.
+      installSignalGuard(() => {
+        for (const dir of [distDir, prodDistDir]) {
+          try {
+            rmSync(dir, { recursive: true, force: true });
+          } catch {
+            // best-effort teardown — the pre-run self-heal is the backstop
+          }
+        }
+        restoreTsconfig();
+      });
 
       const port = await freePort();
       baseUrl = `http://${HOST}:${port}`;
@@ -1259,9 +1413,16 @@ describeE2E("E2E hydration smoke", () => {
       const kind = strict ? classifyStrict(text) : classify(text);
       (kind === "note" ? notes : issues).push(`[console.${msg.type()}] ${text}`);
     });
-    page.on("pageerror", (err: unknown) =>
-      issues.push(`[pageerror] ${err instanceof Error ? err.message : String(err)}`)
-    );
+    page.on("pageerror", (err: unknown) => {
+      // Carry the first few stack frames. A page error's MESSAGE alone is
+      // undiagnosable — "frame.join is not a function" names no file — and the
+      // stack is what turns it into a location.
+      const detail =
+        err instanceof Error
+          ? [err.message, ...(err.stack ?? "").split("\n").slice(1, 5)].join("\n      ")
+          : String(err);
+      issues.push(`[pageerror] ${detail}`);
+    });
   }
 
   /**
@@ -1795,10 +1956,103 @@ describeE2E("E2E hydration smoke", () => {
             await new Promise((r) => setTimeout(r, 200));
           }
         }
-        throw new Error(`timeout waiting for: ${label}`);
+        throw new Error(`timeout waiting for: ${label}${await describePage(page)}`);
       }
       await new Promise((r) => setTimeout(r, 200));
     }
+  }
+
+  /**
+   * Click a control that exists in SSR HTML before React hydrates.
+   *
+   * A pre-hydration click is a silent no-op: no error, no toast, no state
+   * change. The failure therefore surfaces LATER as an unrelated timeout
+   * (this is what "timeout waiting for: resubmit success toast" was), which
+   * reads like a broken feature rather than a lost click.
+   *
+   * Sleeping first does not fix it. HYDRATION_SETTLE_MS is a 400ms guess and
+   * hydration time is not a constant — a heavy dev route (the worker dashboard
+   * with its charts and motion, after a language switch forced a full reload)
+   * can outrun it, and then no later assertion in the chain can recover, since
+   * the handler was never attached for that click.
+   *
+   * So: click, watch for the EFFECT, and click again only if the effect has not
+   * appeared. This cannot mask a genuine failure — a control whose effect never
+   * arrives still exhausts the budget and throws with the same message as
+   * before, and the extra clicks are harmless because they only happen while
+   * nothing has happened yet.
+   */
+  async function clickUntil(
+    page: Page,
+    click: () => Promise<unknown>,
+    effect: string,
+    label: string,
+    timeoutMs = 20_000
+  ): Promise<void> {
+    const start = Date.now();
+    let attempts = 0;
+    for (;;) {
+      attempts += 1;
+      await click().catch(() => {});
+      const window = Date.now() + 2_000;
+      for (;;) {
+        if (await page.evaluate(effect).catch(() => false)) {
+          if (attempts > 1) {
+            pushNote(`[click-retry] ${label} — took effect on attempt ${attempts} (pre-hydration no-op recovered)`);
+          }
+          return;
+        }
+        if (Date.now() > window) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(`timeout waiting for: ${label} (after ${attempts} click attempt(s))`);
+      }
+    }
+  }
+
+  /**
+   * A compact DOM snapshot for a `waitFor` timeout. The bare line — "timeout
+   * waiting for: X" — cannot distinguish the cases that actually occur: the
+   * control is genuinely missing, the page settled on another route, or it
+   * rendered in the other locale (so the awaited label was never going to
+   * appear). The snapshot names the route, lang/dir, and the buttons that ARE
+   * there, which is usually enough to read the cause off the failure.
+   */
+  async function describePage(page: Page): Promise<string> {
+    type Snapshot = {
+      href?: string;
+      title?: string;
+      lang?: string;
+      dir?: string;
+      chars?: number;
+      head?: string;
+      buttons?: string[];
+      error?: string;
+    };
+    const info: Snapshot = await page
+      .evaluate(() => ({
+        href: location.href,
+        title: document.title,
+        lang: document.documentElement.lang,
+        dir: document.documentElement.dir,
+        chars: document.body.innerText.trim().length,
+        head: document.body.innerText.trim().replace(/\s+/g, " ").slice(0, 240),
+        buttons: [...document.querySelectorAll("button")]
+          .map((b) => (b.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 40))
+          .filter(Boolean)
+          .slice(0, 24),
+      }))
+      .catch((err: unknown): Snapshot => ({ error: String(err) }));
+    return [
+      `\n    at ${info.href ?? "?"} lang=${info.lang ?? "?"} dir=${info.dir ?? "?"} chars=${info.chars ?? "?"}`,
+      `    title: ${JSON.stringify(info.title ?? "")}`,
+      `    head: ${JSON.stringify(info.head ?? "")}`,
+      `    buttons: ${JSON.stringify(info.buttons ?? [])}`,
+      info.error ? `    snapshot failed: ${info.error}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
   }
 
   /**
@@ -2028,6 +2282,20 @@ describeE2E("E2E hydration smoke", () => {
    * Tabs deliberately IGNORES synthetic element.click() (event.detail === 0
    * → it preventDefaults and never selects), so switching tabs in tests needs
    * a genuine pointer-level click at the element's coordinates.
+   *
+   * Returns whether the tab is ACTIVE afterwards, not merely whether a click
+   * was dispatched — a coordinate click can land on whatever moved under it.
+   *
+   * Two traps this guards, both seen in real runs:
+   *  · the page sets `scroll-behavior: smooth` on <html>, so the rect read
+   *    right after `scrollIntoView` is still the PRE-scroll position — the
+   *    click then lands wherever the animation hasn't reached yet (in the run
+   *    that exposed this, a stray click navigated the whole flow to /search,
+   *    and the panel assertion failed against a page with no tabs at all).
+   *    Hence `behavior: "instant"`.
+   *  · a re-render between measuring and clicking moves the tab, so the point
+   *    is hit-tested first and the click only happens when the tab (or a child
+   *    of it) is what is actually there.
    */
   async function clickTab(page: Page, text: string): Promise<boolean> {
     const point = await page
@@ -2036,18 +2304,30 @@ describeE2E("E2E hydration smoke", () => {
           (x.textContent ?? "").includes(pred)
         );
         if (!(el instanceof HTMLElement)) return null;
-        // Scroll the tab into view first: the dashboard's panel can sit below
-        // the fold in the headless viewport, and a mouse click at coordinates
-        // outside the viewport silently no-ops — the tab never activates and
-        // waitForUpcomingBadge times out with the tab stuck inactive.
-        el.scrollIntoView({ block: "center" });
+        // The dashboard's panel can sit below the fold in the headless
+        // viewport, and a mouse click at coordinates outside the viewport
+        // silently no-ops — so scroll it in, instantly.
+        el.scrollIntoView({ block: "center", behavior: "instant" });
         const r = el.getBoundingClientRect();
-        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+        const x = Math.round(r.x + r.width / 2);
+        const y = Math.round(r.y + r.height / 2);
+        if (x < 0 || y < 0 || x > innerWidth - 1 || y > innerHeight - 1) return null;
+        const top = document.elementFromPoint(x, y);
+        if (!top || !(top === el || el.contains(top))) return null;
+        return { x, y };
       }, text)
       .catch(() => null);
     if (!point) return false;
     await page.mouse.click(point.x, point.y);
-    return true;
+    // Verify the activation, so a mis-click can never masquerade as success.
+    return page
+      .evaluate((pred) => {
+        const el = [...document.querySelectorAll('[role="tab"]')].find((x) =>
+          (x.textContent ?? "").includes(pred)
+        );
+        return el?.getAttribute("data-state") === "active";
+      }, text)
+      .catch(() => false);
   }
 
   /**
@@ -2114,7 +2394,9 @@ describeE2E("E2E hydration smoke", () => {
       .evaluate((sel) => {
         const el = document.querySelector(sel);
         if (!(el instanceof HTMLElement)) return null;
-        el.scrollIntoView({ block: "center" });
+        // `instant`: the page's `scroll-behavior: smooth` would otherwise make
+        // the rect below the pre-scroll position (see clickTab).
+        el.scrollIntoView({ block: "center", behavior: "instant" });
         const r = el.getBoundingClientRect();
         return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
       }, selector)
@@ -2134,10 +2416,11 @@ describeE2E("E2E hydration smoke", () => {
    */
   async function waitForUpcomingBadge(
     page: Page,
-    opts: { jobTitle: string; badge: string; tab: string; locale: string }
+    opts: { jobTitle: string; badge: string; tab: string; locale: string; refreshFallback?: boolean }
   ): Promise<void> {
-    const { jobTitle, badge, tab, locale } = opts;
-    const deadline = Date.now() + 20_000;
+    const { jobTitle, badge, tab, locale, refreshFallback = false } = opts;
+    let deadline = Date.now() + 20_000;
+    let reloaded = false;
     for (;;) {
       const shown = await page
         .evaluate(
@@ -2155,6 +2438,21 @@ describeE2E("E2E hydration smoke", () => {
       await clickTab(page, tab);
       await new Promise((r) => setTimeout(r, 300));
       if (Date.now() > deadline) {
+        if (refreshFallback && !reloaded) {
+          // Same dev-only gap as waitFor's reloadOnTimeout: the accept's
+          // router.refresh() flight can arrive and never reconcile, leaving the
+          // panel on its pre-accept data (the tab COUNTS still read
+          // Requests1/Upcoming0). The SSR document is provably fresh, so reload
+          // once and re-check — if the row is still missing afterwards this
+          // still fails, so the fallback cannot hide a real state bug.
+          pushNote(
+            `[refresh-fallback] (dev) the accept's refresh flight didn't reconcile the panel for ${jobTitle} — reloading once; the SSR document is provably fresh (the flight reconcile is the dev-mode gap)`
+          );
+          await page.reload({ waitUntil: "load", timeout: 120_000 });
+          reloaded = true;
+          deadline = Date.now() + 20_000;
+          continue;
+        }
         const panelState = await page
           .evaluate(() => {
             const tabs = [...document.querySelectorAll('[role="tab"]')].map((t) => ({
@@ -2197,9 +2495,15 @@ describeE2E("E2E hydration smoke", () => {
    */
   async function runBookingFlow(
     page: Page,
-    opts: { baseUrl: string; locale: "en" | "ar"; deposit?: boolean }
+    opts: {
+      baseUrl: string;
+      locale: "en" | "ar";
+      deposit?: boolean;
+      /** Dev-only: the same refresh-flight tolerance the renewal assertions use. */
+      refreshFallback?: boolean;
+    }
   ): Promise<void> {
-    const { baseUrl: b, locale, deposit = false } = opts;
+    const { baseUrl: b, locale, deposit = false, refreshFallback = false } = opts;
     const en = locale === "en";
     const name = en ? "E2E Customer" : "عميل تجريبي";
     const phone = en ? "+961 70 111 2222" : "+961 70 333 4444";
@@ -2385,6 +2689,7 @@ describeE2E("E2E hydration smoke", () => {
       badge: deposit ? paymentRequiredBadge : confirmedBadge,
       tab: upcomingTab,
       locale,
+      refreshFallback,
     });
 
     // ── 5. Customer sees the same status via phone lookup ───────────────────
@@ -2605,15 +2910,21 @@ describeE2E("E2E hydration smoke", () => {
         "[...document.querySelectorAll('button')].some(b => (b.textContent ?? '').includes('إعادة إرسال المستندات'))",
         "resubmit button on worker dashboard"
       );
-      await page.evaluate(() => {
-        const btn = [...document.querySelectorAll("button")].find((b) =>
-          (b.textContent ?? "").includes("إعادة إرسال المستندات")
-        );
-        if (!(btn instanceof HTMLButtonElement)) throw new Error("resubmit button not found");
-        btn.click();
-      });
-      // Success toast (auto-dismisses after ~4s) then the banner flips to pending.
-      await waitFor(page, "document.body.innerText.includes('تم إرسال طلب التوثيق')", "resubmit success toast");
+      // Click, then watch for the toast (it auto-dismisses after ~4s) — the
+      // retry covers the pre-hydration no-op described on clickUntil.
+      await clickUntil(
+        page,
+        () =>
+          page.evaluate(() => {
+            const btn = [...document.querySelectorAll("button")].find((b) =>
+              (b.textContent ?? "").includes("إعادة إرسال المستندات")
+            );
+            if (!(btn instanceof HTMLButtonElement)) throw new Error("resubmit button not found");
+            btn.click();
+          }),
+        "document.body.innerText.includes('تم إرسال طلب التوثيق')",
+        "resubmit success toast"
+      );
       await waitFor(
         page,
         "[...document.querySelectorAll('span')].some(s => (s.textContent ?? '').trim() === 'قيد المراجعة')",
@@ -2639,16 +2950,21 @@ describeE2E("E2E hydration smoke", () => {
       const khaledInQueue =
         "[...document.querySelectorAll('button')].some(b => (b.textContent ?? '').trim() === 'اعتماد' && (b.closest('.rounded-xl')?.textContent ?? '').includes('خالد الحربي'))";
       await waitFor(page, khaledInQueue, "Khaled appears in the admin queue after resubmit");
-      await page.evaluate(() => {
-        const btn = [...document.querySelectorAll("button")].find(
-          (b) =>
-            (b.textContent ?? "").trim() === "اعتماد" &&
-            (b.closest(".rounded-xl")?.textContent ?? "").includes("خالد الحربي")
-        );
-        if (!(btn instanceof HTMLButtonElement)) throw new Error("approve button for Khaled not found");
-        btn.click();
-      });
-      await waitFor(page, `!(${khaledInQueue})`, "Khaled removed from the queue after approval");
+      await clickUntil(
+        page,
+        () =>
+          page.evaluate(() => {
+            const btn = [...document.querySelectorAll("button")].find(
+              (b) =>
+                (b.textContent ?? "").trim() === "اعتماد" &&
+                (b.closest(".rounded-xl")?.textContent ?? "").includes("خالد الحربي")
+            );
+            if (!(btn instanceof HTMLButtonElement)) throw new Error("approve button for Khaled not found");
+            btn.click();
+          }),
+        `!(${khaledInQueue})`,
+        "Khaled removed from the queue after approval"
+      );
       // The audit entry (WORKER_VERIFIED) surfaces in the Recent activity card.
       await waitFor(page, "document.body.innerText.includes('تم توثيقه بواسطة')", "decision logged to Recent activity");
 
@@ -2666,6 +2982,7 @@ describeE2E("E2E hydration smoke", () => {
         baseUrl: targetBase,
         locale: "en",
         deposit: mode === "dev",
+        refreshFallback,
       });
 
       // ── 8. Booking request → accept (AR; deposit path in dev) ────────────
@@ -2673,6 +2990,7 @@ describeE2E("E2E hydration smoke", () => {
         baseUrl: targetBase,
         locale: "ar",
         deposit: mode === "dev",
+        refreshFallback,
       });
 
       // ── 9. Company self-serve campaign (dev only — the simulated provider
@@ -2715,8 +3033,11 @@ describeE2E("E2E hydration smoke", () => {
         // Name EN + AR (by placeholder) + budget (the dialog's number input),
         // then submit — the submit shares the trigger's label, so click the
         // LAST match inside the dialog (same pattern as the accept flow).
-        await setInput(page, '[role="dialog"] input[placeholder="Villa renovation — Riyadh"]', campaignName);
-        await setInput(page, '[role="dialog"] input[placeholder="تجديد فيلا — الرياض"]', "حملة تجريبية");
+        await setInput(page, '[role="dialog"] input[placeholder="Villa renovation — Beirut"]', campaignName);
+        // The campaign-builder placeholder carries the SERVED tenant's copy
+        // (Beirut for the Lebanon tenant) — a Riyadh placeholder here meant the
+        // expectation outlived the dataset it came from.
+        await setInput(page, '[role="dialog"] input[placeholder="تجديد فيلا — بيروت"]', "حملة تجريبية");
         await setInput(page, '[role="dialog"] input[type="number"]', "150");
         await page.evaluate((label) => {
           const dialog = document.querySelector('[role="dialog"]');
@@ -2950,7 +3271,13 @@ describeE2E("E2E hydration smoke", () => {
         page,
         `${bilalRow("Bilal Mansour")}.querySelector('select').value === 'premium' &&
          (document.body.innerText ?? '').includes("changed Bilal Mansour's plan: Enterprise → Premium")`,
-        "bilal demoted to Premium + ADMIN_PLAN_CHANGED in Recent activity"
+        "bilal demoted to Premium + ADMIN_PLAN_CHANGED in Recent activity",
+        20_000,
+        // The dialog's Apply only appears once React handled the change event,
+        // so the click itself cannot be a hydration no-op — what lags here is
+        // the dev-mode router.refresh() flight, the same gap every sibling
+        // assertion in this chain already tolerates.
+        refreshFallback
       );
 
       // The fee-waived search (SSR render, same context as the mutation) must
@@ -2995,7 +3322,9 @@ describeE2E("E2E hydration smoke", () => {
       await waitFor(
         page,
         `${bilalRow("Bilal Mansour")}.querySelector('select').value === 'enterprise'`,
-        "bilal reverted to Enterprise"
+        "bilal reverted to Enterprise",
+        20_000,
+        refreshFallback
       );
       const ssrAfterRevert = await searchSsr();
       expect(ssrAfterRevert).toContain("bilal-mansour-cleaning");
@@ -3025,7 +3354,11 @@ describeE2E("E2E hydration smoke", () => {
         ].join("\n")
       );
     } finally {
-      await page.close();
+      // Never let the cleanup REPLACE the failure: when the browser connection
+      // is already gone (a wedged page, or vitest aborting the test), a bare
+      // `page.close()` throws ConnectionClosedError from here and the real
+      // error — plus the collected notes — is lost.
+      await page.close().catch(() => {});
     }
     expect(
       issues,
