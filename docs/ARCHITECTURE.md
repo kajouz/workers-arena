@@ -168,6 +168,13 @@ npm run db:seed              # load the bilingual dataset (idempotent upserts)
 ```
 Re-run `npm run db:seed` after pulling to refresh data; the seed's `update` branches keep rows in sync.
 
+The seed is **country-parameterized**: cities come from `CountryConfig.cities` and the demo workforce is generated from the shared role recipes (`src/lib/data/worker-recipes.ts`) + a country's `demoWorkforce` metadata, so no city or worker row is written by hand. Select the country with `SEED_COUNTRY`:
+```bash
+SEED_COUNTRY=lb npm run db:seed     # one country (tenant slug or ISO code; the default)
+SEED_COUNTRY=all npm run db:seed    # every configured country
+```
+Adding a country is one entry in `src/lib/tenant/countries.ts` (see [MULTI-COUNTRY-AND-QUALITY-PLAN.md](MULTI-COUNTRY-AND-QUALITY-PLAN.md) §2.3).
+
 ## 9. Scaling
 
 - `output: standalone` for cheap Docker deploys; ISR (`revalidate`) on public pages; CDN for assets; Redis for hot search + rate limits; read-replica ready (Prisma supports `replicas`).

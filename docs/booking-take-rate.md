@@ -22,8 +22,8 @@
 | Parameter | Default | Meaning |
 |---|---|---|
 | `PLATFORM_FEE_RATE_BPS` | `700` (7.0%) | take rate, basis points |
-| `PLATFORM_FEE_MIN_MINOR` | `500` (SAR 5 / $5) | floor, minor units |
-| `PLATFORM_FEE_MAX_MINOR` | `30_000` (SAR 300 / $300) | cap per job, minor units |
+| `PLATFORM_FEE_MIN_MINOR` | `500` ($5) | floor, minor units |
+| `PLATFORM_FEE_MAX_MINOR` | `30_000` ($300) | cap per job, minor units |
 | exemption | Enterprise plan | fee waived for workers whose subscription plan is exempt (per BUSINESS-MODEL §5.2) |
 
 Fee applies to the **quote**, not on top of it and not on the deposit (the deposit is a partial pre-payment of the quote). `fee = clamp(round(quote × bps / 10000), min, max)` — round-half-up to the nearest minor unit, then clamp.
@@ -132,8 +132,8 @@ Under the quote input, a **live preview** line (recomputed on every keystroke �
 
 ```
 Quote:        [ 80 ]
-Platform fee: SAR 5.60   (7%, min/max applied — shown only when > 0)
-You receive:  SAR 74.40
+Platform fee: $5.60   (7%, min/max applied — shown only when > 0)
+You receive:  $74.40
 ```
 
 - Exempt plans show `Platform fee: waived (Enterprise)` instead of a number.
@@ -144,7 +144,7 @@ You receive:  SAR 74.40
 Under the quote price, a muted transparency line (builds trust, which is the point of showing it):
 
 ```
-SAR 80 · Includes platform fee SAR 5.60 · Worker receives SAR 74.40
+$80 · Includes platform fee $5.60 · Worker receives $74.40
 ```
 
 Rendered only when `booking.platformFee` is set. The deposit pay-box copy is unchanged (the customer pays the quote total; the fee is settled by the platform from the transaction).

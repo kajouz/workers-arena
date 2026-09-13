@@ -58,6 +58,10 @@ npm run db:seed
 npm run dev
 ```
 
+The seed is country-parameterized — cities and demo workers are generated from the
+country registry, so `SEED_COUNTRY=<slug|ISO code>` (or `all`) seeds a configured
+country without editing the dataset (defaults to the served tenant, `lb`).
+
 ## 🧪 Quality
 
 [![CI](https://github.com/kajouz/workers-arena/actions/workflows/ci.yml/badge.svg)](https://github.com/kajouz/workers-arena/actions/workflows/ci.yml)
@@ -74,11 +78,13 @@ npm run build              # production build
 
 CI is codified in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — on every push/PR: typecheck + unit suite, E2E quick (dev matrix), and full E2E (dev + prod-build matrix), each on its own runner; plus a nightly live-Postgres `db:smoke` (+ prisma chain tests) that you can also trigger on demand from the Actions tab.
 
-**E2E pre-run check env flags** (`tests/e2e-smoke.test.ts`): before booting anything, the check rejects fast if a crashed run left artifacts — the doubled-path tree (`<root>/Users` · `<root>/home` · a drive-letter segment), leftover `.data/.next-e2e-*` isolated dist dirs, stale `.data/.next-e2e` entries in `tsconfig.json`'s include array — or if the disk is critically full:
+**E2E pre-run check env flags** (`tests/e2e-smoke.test.ts`): before booting anything, the check **self-heals** the artifacts a crashed run left behind — the doubled-path tree (`<root>/Users` · `<root>/home` · a drive-letter segment), leftover `.data/.next-e2e-*` isolated dist dirs, stale `.data/.next-e2e` entries in `tsconfig.json`'s include array — so one crashed run can no longer wedge every later run. Only a disk that is critically full still rejects. A dist dir whose encoded PID is **still running** is never deleted (it belongs to a concurrent run sharing the checkout) — it's reported, and the run fails with a clear message instead.
 
 | Flag | Effect |
 |---|---|
-| `E2E_AUTOCLEAN=1` | Print and **remove** the crash artifacts instead of rejecting (leftover dist dirs, the doubled tree, stale include lines), log the freed space tied to the artifacts ("autoclean removed 1 dir + 1 stale tsconfig line, freed 0.020 GiB (47.50 → 47.52 GiB free)") plus a parseable `E2E_AUTOCLEAN_RESULT=<freed>|<before>|<after>|<dirs>|<tsconfig lines>` line (3-decimal freed, 2-decimal before/after) — **emitted on every autoclean run, even when freed is 0.000**, so CI sees a record per run — then re-check the workspace. `npm run test:e2e:autoclean` sets it for you. |
+| *(unset)* | **Default — self-heal.** Print the crash artifacts, remove them, log the freed space ("autoclean removed 2 dirs + 4 stale tsconfig lines, freed 0.003 GiB (26.23 → 26.23 GiB free)") plus a parseable `E2E_AUTOCLEAN_RESULT=<freed>|<before>|<after>|<dirs>|<tsconfig lines>` line (3-decimal freed, 2-decimal before/after) — **emitted on every self-heal run, even when freed is 0.000**, so CI sees a record per run — then re-check the workspace and proceed. |
+| `E2E_AUTOCLEAN=0` | **Opt out** — restore the strict fail-fast behavior: reject and list the artifacts without removing them (useful when you want to inspect a crash's leftovers). |
+| `E2E_AUTOCLEAN=1` | Accepted for compatibility (CI and `npm run test:e2e:autoclean` set it) and means the same as the default: self-heal. |
 | `E2E_MIN_FREE_GB=<n>` | Free-disk floor before the build starts — default `5` GiB, `0` disables, garbage falls back to the default. |
 | `E2E_SKIP_PROD=1` | Skip the ~1-2 min `next build` + `next start` matrix (the dev matrix still runs). `npm run test:e2e:quick` sets it for you. |
 
@@ -110,6 +116,7 @@ src/
   app/            # App Router — pages, API routes, sitemap/robots/manifest
   components/     # ui/* (design system), layout/*, home/*, search/*, worker/*, dashboard/*
   lib/
+    tenant/       # CountryConfig registry — currency, locale, dial code, SEO region, geo
     i18n/         # EN/AR dictionaries, locale detection, RTL
     data/         # domain types, bilingual dataset, search engine, repository seam
     server/       # prisma singleton
@@ -151,7 +158,7 @@ For the full PostgreSQL stack (Auth.js, real payments), follow the **Full stack 
 ```bash
 npm run test:all        # the full gate: typecheck + unit + E2E (dev & prod-build matrices)
 npm run test:e2e:quick  # fast browser pass (dev matrix only)
-npm run test:e2e:autoclean  # self-healing E2E (E2E_AUTOCLEAN=1)
+npm run test:e2e:autoclean  # same as npm run test:e2e — the E2E self-heals by default
 npm run db:smoke        # live-Postgres booking/campaign smoke (needs the seed)
 ```
 
@@ -159,7 +166,7 @@ npm run db:smoke        # live-Postgres booking/campaign smoke (needs the seed)
 
 - Branch from `main` and keep changes focused; the CI badge at the top of this README shows the current workflow status.
 - Run `npm run test:all` locally before pushing — CI mirrors it (typecheck + unit, E2E quick, E2E full, each on its own runner).
-- The E2E pre-run check fails fast on crash artifacts and full disks: use `npm run test:e2e:autoclean` (or `E2E_AUTOCLEAN=1`) to have it clean up and re-run instead.
+- The E2E pre-run check **self-heals crash artifacts by default** (leftover `.data/.next-e2e-*` dist dirs + stale `tsconfig.json` include entries), so a crashed run doesn't wedge the next one. Only a full disk still fails fast (`E2E_MIN_FREE_GB`). To inspect a crash's leftovers before they're removed, run with `E2E_AUTOCLEAN=0`.
 - The live-DB suites (`npm run db:smoke`, the prisma chain tests) must run **serially**, never concurrently — they share one `DATABASE_URL` (details in `.freebuff/run.md`).
 - Docs live in `docs/` (product plan, booking, payments, mobile, architecture…); update the relevant one when a feature changes behavior.
 \n<!-- test -->

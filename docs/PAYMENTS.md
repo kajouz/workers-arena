@@ -17,7 +17,7 @@ WorkersArena supports **eight payment methods** through a modular gateway abstra
 | **OMT** (agent / OMT Intra / OMT Pay) | Manual | **Lebanon launch** — offline cash + local transfers |
 | **Whish Money** (app + dual-currency Visa) | Manual | **Lebanon launch** — offline cash + wallet transfers |
 
-**Lebanon is a first-class service country** (Beirut in the CITIES catalog, LBP added to the currency table) and the OMT / Whish methods are **manual** — no gateway keys, no webhook: the customer pays an OMT agent / Whish app with the generated reference, then an **admin confirms receipt** from the `/admin` pending-payments card (the manual twin of a provider webhook). Every revenue flow accepts them: booking deposits, campaign purchases, subscription renewals, and the paid upgrades below.
+**Lebanon is a first-class service country** (Beirut in the CITIES catalog, USD as the tenant currency) and the OMT / Whish methods are **manual** — no gateway keys, no webhook: the customer pays an OMT agent / Whish app with the generated reference, then an **admin confirms receipt** from the `/admin` pending-payments card (the manual twin of a provider webhook). Every revenue flow accepts them: booking deposits, campaign purchases, subscription renewals, and the paid upgrades below.
 
 ## Design
 
@@ -53,7 +53,7 @@ interface PaymentProvider {
 ## Currency & amounts
 
 - All amounts are **integer minor units** (e.g., 11900 = $119.00).
-- Prices shown per city currency (`SAR/AED/EGP/JOD/MAD/LBP`) on worker profiles; subscriptions bill in USD.
+- Prices render in the tenant currency (`USD` for tenant lb) across worker profiles, bookings, receipts and subscriptions — one `formatPrice` in `src/lib/currency.ts`.
 - MyFatoorah/Tap require Arabic `displayName` + local currency params — handled inside their provider modules.
 
 ## Lebanon launch — OMT & Whish (manual, no Stripe)

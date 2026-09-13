@@ -367,7 +367,7 @@ WorkersArena monetizes **three** distinct flows. Amounts are integer minor units
 
 ### 5.2 From bookings — platform take rate (M5, live)
 
-- **Rate:** `PLATFORM_FEE_RATE_BPS = 700` (7.0%), floor `500` minor (SAR 5 / $5), cap `30_000` minor (SAR 300 / $300) per job — `computePlatformFee` in `src/lib/data/booking-ui.ts`.
+- **Rate:** `PLATFORM_FEE_RATE_BPS = 700` (7.0%), floor `500` minor ($5), cap `30_000` minor ($300) per job — `computePlatformFee` in `src/lib/data/booking-ui.ts`.
 - **When:** stamped once at **accept-with-quote** on the **quote** (not the deposit, not on top), as an immutable snapshot (`Booking.platformFee` + `platformFeeRateBps`).
 - **Exempt:** Enterprise plan → fee 0.
 - **Who pays:** effectively the worker — the worker sees "you receive X · platform fee Y" in the RespondDialog; the customer sees the total with an "includes platform fee · worker receives" line.

@@ -8,7 +8,7 @@
 
 ## 1. Executive summary
 
-WorkersArena is a **two-sided marketplace** for home & commercial services in the MENA region (profiles in EN/AR, SAR/AED/USD, cities like Riyadh, Jeddah, Dubai):
+WorkersArena is a **two-sided marketplace** for home & commercial services (profiles in EN/AR, **USD $** pricing, **Beirut** as the served city — see `docs/MULTI-COUNTRY-AND-QUALITY-PLAN.md` §2 for how a second country is added):
 
 - **Supply side:** professional workers (plumbers, electricians, cleaners, AC technicians…) who list profiles, prices, certifications, working hours, and availability, and take **bookings** with quotes + optional deposits.
 - **Demand side:** customers who search, browse, favorite, review, and book workers.
@@ -109,7 +109,7 @@ The two "zero" rows are the plan's headline: they are both fully scaffolded in c
 ### 5.2 Medium term (1–3 months) — requires the P0 payments wave
 
 - **Live payments end-to-end (P0, prerequisite)** — Stripe first (subscription auto-renew via Stripe billing, ad campaign prepayment, booking deposits), then MyFatoorah/Tap/STC Pay for the MENA consumer base. *Impact: unlocks every row below.* **Lebanon-first note:** the launch country already collects on the **OMT/Whish manual rails** (deposits, campaign prepayment, renewals, and the §5.1 upgrades — admin-confirmed, no gateway keys); Stripe/MENA gateways remain the scale play for card-paying markets.
-- **Booking take rate (the headline lever)** — add a `platformFee` (percent + minimum, e.g., 5–8% or SAR 10 floor) applied at **accept-with-quote** and collected at confirm; split-amount presentation ("you receive X, platform fee Y") in the customer + worker UIs; fee waived/absorbed on enterprise subscription (a tier perk). Add the field to `Booking` + invoice line item. *Impact: recurring % of GMV — the single largest new stream.*
+- **Booking take rate (the headline lever)** — add a `platformFee` (percent + minimum, e.g., 5–8% or $10 floor) applied at **accept-with-quote** and collected at confirm; split-amount presentation ("you receive X, platform fee Y") in the customer + worker UIs; fee waived/absorbed on enterprise subscription (a tier perk). Add the field to `Booking` + invoice line item. *Impact: recurring % of GMV — the single largest new stream.*
 - **Deposit as escrow for large jobs** — hold the deposit until job completion (the M4 `transitionBooking(completed)` already exists); release on completion, refund per policy otherwise. Sell "protected payment" as a trust feature; collect the platform fee at release. *Impact: trust-led conversion + take rate on larger jobs.*
 - **Self-serve paid ads** — campaign creation requires prepayment: budget → checkout → webhook activates the campaign (status flips `paused`→`active`); add CPM/CPC tiers and a minimum budget; keep the existing $10 CPM/$1 CPC model as the default tier. The checkout now accepts OMT/Whish (the company's "Pay now" picker) with admin-confirmed activation as the manual twin of the webhook. *Impact: second B2B revenue stream.*
 - ✅ **Paid verification tiers** — shipped via the §5.1 manual rail (Basic $9 / Professional $19, badge in search) — see PAYMENTS.md.
@@ -155,7 +155,7 @@ The two "zero" rows are the plan's headline: they are both fully scaffolded in c
 | Invoices (sub/ad/booking) | ✅ `Invoice` model | ✅ (manual rails) | |
 | Featured / emergency sell | ✅ `purchases.ts` + upgrade dialog | ✅ OMT/Whish manual | purchasable add-ons, admin-confirmed |
 | Verification tiers | ✅ `purchases.ts` + admin card | ✅ OMT/Whish manual | paid ladder live |
-| **Lebanon launch (OMT/Whish)** | ✅ providers + `/payments/manual` + admin queue | ✅ | service country (Beirut, LBP) + manual rails |
+| **Lebanon launch (OMT/Whish)** | ✅ providers + `/payments/manual` + admin queue | ✅ | service country (Beirut, USD) + manual rails |
 | Leads metering | ⚠️ leads exist, no credits | — | credits engine needed |
 | Mobile app monetization | ✅ `mobile-architecture.md` | 🔜 | dispatch + in-app pay |
 

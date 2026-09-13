@@ -302,7 +302,7 @@ const targeting = {
 // Ads filtered by category context
 <SponsoredSearchResults
   category="plumbing"  // Shows plumbing-related ads
-  city="riyadh"        // Shows Riyadh-targeted ads
+  city="beirut"        // Shows Beirut-targeted ads
 />
 ```
 
@@ -519,7 +519,7 @@ const {
 | Visitor Behavior | Ad Shown |
 |------------------|----------|
 | Viewed plumbing 3x | Plumbing service ad |
-| Searched Riyadh | Riyadh-targeted ad |
+| Searched Beirut | Beirut-targeted ad |
 | Bounced from search | "Complete your booking" ad |
 | New visitor (2+ pages) | "Top workers near you" ad |
 

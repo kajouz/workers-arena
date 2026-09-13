@@ -83,7 +83,7 @@ The settlement step is intentionally seam-free for now: `decidePayout → PROCES
 
 ## 7. Currency assumption
 
-Workers are city-keyed, so their bookings share one currency in practice (Khaled → SAR). Each entry records its `currency`; the balance surfaces the worker's city currency. Mixed-currency workers (not reachable through the current booking flow) are a documented future concern, not a bug.
+The served tenant is **USD-only** (`TENANT_CURRENCY` in `src/lib/currency.ts`), so every ledger row is USD in practice. Each entry still records its own `currency`; the balance surfaces the worker's currency from that. A second currency only becomes possible with a second country deployment (see `docs/MULTI-COUNTRY-AND-QUALITY-PLAN.md` §2.3), where mixed-currency workers remain a documented concern, not a bug.
 
 ## 8. Files touched
 

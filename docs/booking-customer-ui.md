@@ -210,8 +210,7 @@ booking: {
   empty: "No bookings yet",
   emptyBody: "Request a booking on a worker's profile and it will appear here.",
   guestLookupTitle: "Find your bookings",
-  guestLookupBody: "Enter the phone number you used when booking.",
-  guestLookupPlaceholder: "+966 5x xxx xxxx",
+  guestLookupBody: "Enter the phone number you used when booking.",    guestLookupPlaceholder: "5x xxx xxxx", // national format only — the UI prepends the country dial code
   guestLookup: "Find my bookings",
   guestLookupNone: "No bookings found for this number.",
   bookingWith: "Booked with",
@@ -271,8 +270,7 @@ booking: {
   empty: "لا توجد حجوزات بعد",
   emptyBody: "اطلب حجزاً من ملف أي عامل وسيظهر هنا.",
   guestLookupTitle: "ابحث عن حجوزاتك",
-  guestLookupBody: "أدخل رقم الهاتف الذي استخدمته عند الحجز.",
-  guestLookupPlaceholder: "+966 5x xxx xxxx",
+  guestLookupBody: "أدخل رقم الهاتف الذي استخدمته عند الحجز.",    guestLookupPlaceholder: "5x xxx xxxx", // national format only — the UI prepends the country dial code
   guestLookup: "ابحث عن حجوزاتي",
   guestLookupNone: "لا توجد حجوزات مطابقة لهذا الرقم.",
   bookingWith: "حجز مع",

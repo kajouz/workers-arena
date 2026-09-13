@@ -462,9 +462,8 @@ Workers access revenue tools from their dashboard at `/dashboard`.
 
 ### Currency Support
 
-- **Primary:** USD (United States Dollar)
-- **Secondary:** LBP (Lebanese Pound)
-- **Exchange Rate:** Dynamic, fetched from API
+- **Tenant currency:** USD (United States Dollar) — tenant lb is single-currency
+- **FX:** the exchange-rate seam (`src/lib/currency.ts`) remains a stub for a future country tenant
 
 ---
 

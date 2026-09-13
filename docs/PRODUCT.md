@@ -74,7 +74,7 @@
 ### 2.7 Payments & billing
 - ✅ **Modular gateway architecture** (`docs/PAYMENTS.md`): Stripe · PayPal · MyFatoorah · Tap · bank transfer · cash
 - ✅ **Lebanon-first payments** — OMT and Whish manual providers (agent-based, admin-confirmed)
-- ✅ **Multi-currency support** — LBP, USD, SAR, EUR, GBP with exchange rate caching
+- ✅ **Single-currency (USD)** — tenant lb bills in USD; `CurrencyCode`/`formatPrice` live in one module (`src/lib/currency.ts`) ready to re-open for a future country tenant (see [MULTI-COUNTRY-AND-QUALITY-PLAN.md](MULTI-COUNTRY-AND-QUALITY-PLAN.md))
 - 🟡 **Live integration** — schemas for `Payment`/`Invoice`/`Subscription` (minor units, statuses, provider refs) are ready; no live checkout yet
 - ✅ Demo renewal flow generates invoices + notifications (deterministic, test-covered)
 
@@ -188,7 +188,7 @@ Priorities are tagged **P0** (blocking production launch), **P1** (high product 
 ### 3.3 P2 — Differentiation & AI
 - [ ] **AI review moderation** — `Review.aiFlags` from an inference service (spam/fake detection, sentiment).
 - [ ] **AI profile assistance** — generate bios, service pricing suggestions, smart category recommendations.
-- [ ] **AI assistant / concierge** — "find me an emergency plumber in Riyadh tonight" chat.
+- [ ] **AI assistant / concierge** — "find me an emergency plumber in Beirut tonight" chat.
 - [ ] **Video profiles & portfolios** (existing `VIDEO` ad type patterns apply to workers).
 - [x] **Trust program** — verified-identity tiers (ID, license, background check), badges visible in search + profile.
 - [ ] **Progressive subscription gating** — premium tiers unlock more leads, priority placement, analytics depth.

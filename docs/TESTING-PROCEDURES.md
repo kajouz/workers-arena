@@ -58,7 +58,7 @@
 | 1.2.1 | Verify demo users are available | 4 demo users (Customer, Worker, Admin, Company) |
 | 1.2.2 | Verify demo workers are seeded | Workers with profiles, services, and reviews |
 | 1.2.3 | Verify demo categories are seeded | 21+ categories with bilingual names |
-| 1.2.4 | Verify demo cities are seeded | Cities in Lebanon, KSA, Emirates, Morocco |
+| 1.2.4 | Verify demo cities are seeded | The served country's cities (tenant `lb` → Beirut + its 5 neighborhoods); `SEED_COUNTRY=<slug>` seeds a different configured country |
 
 ### 1.3 Browser Requirements
 
@@ -542,10 +542,9 @@
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
-| 11.1.1 | Click currency selector | Dropdown shows LBP, USD, SAR, EUR, GBP |
-| 11.1.2 | Select "USD" | All prices shown in USD |
-| 11.1.3 | Select "LBP" | All prices shown in LBP |
-| 11.1.4 | Verify conversion | Prices correctly converted |
+| 11.1.1 | Open any priced surface (profile, booking, invoice) | All prices render in USD with the `$` prefix |
+| 11.1.2 | Search the UI for a foreign currency code | No `LBP`/`SAR`/`AED`/`EGP`/`JOD` appears (tenant lb is USD-only) |
+| 11.1.3 | Verify formatting | Amounts render in whole major units, Latin digits, in both EN and AR |
 
 ### 11.2 Subscription Payment
 
