@@ -45,7 +45,7 @@ const MAX_ENTRIES = 200;
  */
 const DEMO_ACTORS: Record<string, { name: string; email: string; hue: number }> = {
   "u-admin": { name: "Platform Admin", email: "admin@workersarena.com", hue: 280 },
-  "u-worker": { name: "Khaled Al-Harbi", email: "khaled@plumbfix.sa", hue: 25 },
+  "u-worker": { name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", hue: 25 },
   "u-company": { name: "BuildCo Ltd", email: "ads@buildco.lb", hue: 150 },
   "u-customer": { name: "Sara Customer", email: "sara@example.com", hue: 200 },
 };

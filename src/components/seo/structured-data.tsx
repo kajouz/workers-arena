@@ -1,5 +1,7 @@
 import type { Worker } from "@/lib/data/types";
 import { categoryBySlug } from "@/lib/data/categories";
+import { countryOfCitySlug } from "@/lib/data/cities";
+import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
 
 interface StructuredDataProps {
   worker: Worker;
@@ -32,7 +34,9 @@ export function WorkerStructuredData({
     address: {
       "@type": "PostalAddress",
       addressLocality: worker.citySlug,
-      addressCountry: "LB",
+      // SEO region comes from the worker's city → its country config, so a
+      // worker outside the served country is never published under its code.
+      addressCountry: (countryOfCitySlug(worker.citySlug) ?? DEFAULT_COUNTRY).code,
     },
     geo: {
       "@type": "GeoCoordinates",

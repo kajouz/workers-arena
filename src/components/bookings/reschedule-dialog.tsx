@@ -10,14 +10,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { formatDayDate } from "@/lib/data/booking-ui";
+import { intlLocale } from "@/lib/tenant/countries";
 import type { Booking } from "@/lib/data/types";
 
 type SlotOption = { id: string; startAt: string; endAt: string };
 
-function formatOption(s: SlotOption, locale: string): string {
-  const d = new Date(s.startAt);
-  const date = d.toLocaleDateString(locale === "ar" ? "ar-SA" : "en-GB", { weekday: "short", day: "numeric", month: "short" });
-  const time = `${d.toLocaleTimeString(locale === "ar" ? "ar-SA" : "en-GB", { hour: "2-digit", minute: "2-digit" })} – ${new Date(s.endAt).toLocaleTimeString(locale === "ar" ? "ar-SA" : "en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+/** The slot chip's "Thu, Mar 5 · 09:00 – 10:00" — the day label goes through
+ * the shared booking formatter so this dialog spells Arabic months exactly like
+ * every other booking surface (it used to hardcode ar-SA, which rendered
+ * "٥ مارس" beside the app's "٥ آذار"). */
+function formatOption(s: SlotOption, locale: "en" | "ar"): string {
+  const timeOpts = { hour: "2-digit", minute: "2-digit" } as const;
+  const date = formatDayDate(s.startAt, locale);
+  const time = `${new Date(s.startAt).toLocaleTimeString(intlLocale(locale), timeOpts)} – ${new Date(s.endAt).toLocaleTimeString(intlLocale(locale), timeOpts)}`;
   return `${date} · ${time}`;
 }
 

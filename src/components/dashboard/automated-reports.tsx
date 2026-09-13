@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatDateTime } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   FileText,
   Plus,
@@ -68,6 +69,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function AutomatedReports() {
+  const { locale } = useLocale();
   const [schedules, setSchedules] = useState<ReportSchedule[]>([]);
   const [history, setHistory] = useState<ReportHistory[]>([]);
   const [activeTab, setActiveTab,] = useState<"schedules" | "history" | "create">("schedules");
@@ -335,7 +337,7 @@ export function AutomatedReports() {
             </div>
             <div>
               <p className="text-sm font-bold text-gray-900">
-                {stats.lastReportSent ? new Date(stats.lastReportSent).toLocaleDateString() : "Never"}
+                {stats.lastReportSent ? formatDate(stats.lastReportSent, locale) : "Never"}
               </p>
               <p className="text-sm text-gray-500">Last Sent</p>
             </div>
@@ -462,12 +464,12 @@ export function AutomatedReports() {
                   <div>
                     <p className="text-gray-500">Last Sent</p>
                     <p className="font-medium">
-                      {schedule.lastSent ? new Date(schedule.lastSent).toLocaleDateString() : "Never"}
+                      {schedule.lastSent ? formatDate(schedule.lastSent, locale) : "Never"}
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-500">Next Scheduled</p>
-                    <p className="font-medium">{new Date(schedule.nextScheduled).toLocaleDateString()}</p>
+                    <p className="font-medium">{formatDate(schedule.nextScheduled, locale)}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Sections</p>
@@ -510,7 +512,7 @@ export function AutomatedReports() {
                     <p className="font-medium text-gray-900">{item.scheduleName}</p>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
-                    {new Date(item.sentAt).toLocaleString()}
+                    {formatDateTime(item.sentAt, locale)}
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
                     {item.recipientCount}

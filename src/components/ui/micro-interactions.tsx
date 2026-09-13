@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 /* ─── Animated Heart / Favorite Button ─── */
 export function AnimatedHeart({
@@ -229,7 +229,10 @@ export function AnimatedNumber({
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration, ease: "easeOut" }}
       >
-        {value.toLocaleString()}
+        {/* formatNumber, not toLocaleString(): the latter uses the RUNTIME
+            locale, so the same counter rendered Arabic-Indic digits on an
+            Arabic machine (and could differ between server and client render). */}
+        {formatNumber(value)}
       </motion.span>
     </motion.span>
   );

@@ -4,9 +4,10 @@ import { ArrowLeft, CalendarClock, MessageCircle, Repeat, ScrollText, ShieldAler
 import { getSession } from "@/lib/auth-demo";
 import { getI18n } from "@/lib/i18n/server";
 import { getBookingByNumber, getBookingMessages, getRecurringById, getWorkerById } from "@/lib/data/repo";
-import { formatSlotRange } from "@/lib/data/booking-ui";
+import { formatDayDate, formatSlotRange } from "@/lib/data/booking-ui";
 import { bookingEmailPreviewFor } from "@/lib/data/booking-notifications";
 import { timeAgo } from "@/lib/utils";
+import { intlLocale } from "@/lib/tenant/countries";
 import { BookingStatusBadge } from "@/components/bookings/booking-status-badge";
 import { BookingPrintButton } from "@/components/bookings/booking-print-button";
 import { BookingEmailButton } from "@/components/bookings/booking-email-button";
@@ -157,11 +158,7 @@ export default async function AdminBookingDisputePage({
               </p>
               {nextVisit && nextVisit.startAt ? (
                 <p className="font-medium text-ink-800 dark:text-ink-100" dir="ltr">
-                  {new Date(nextVisit.startAt).toLocaleDateString(locale === "ar" ? "ar-SA" : "en-US", {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "short",
-                  })}
+                  {formatDayDate(nextVisit.startAt, locale)}
                   {" "}·{" "}
                   {formatSlotRange(nextVisit, locale)}
                 </p>
@@ -234,7 +231,7 @@ export default async function AdminBookingDisputePage({
                 )}
               </p>
               {booking.startAt && (
-                <p className="text-xs text-ink-400">{new Date(booking.startAt).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { dateStyle: "full" })}</p>
+                <p className="text-xs text-ink-400">{new Date(booking.startAt).toLocaleDateString(intlLocale(locale), { dateStyle: "full" })}</p>
               )}
             </div>
             {booking.note && (

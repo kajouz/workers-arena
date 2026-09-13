@@ -446,3 +446,40 @@ describe("BookingRow — M3 receipt vs voided receipt", () => {
     expect(screen.getByText("WA-2026-00001")).toHaveClass("line-through");
   });
 });
+
+describe("BookingRow — the deposit amount follows the numeral convention", () => {
+  /** A booking waiting on its deposit (the pay-deposit box). */
+  const awaitingDeposit = makeBooking({ status: "pendingPayment", deposit: 3000 });
+
+  it("renders the Arabic deposit in ASCII digits, like every other money value", () => {
+    // Durations, counts and money are ASCII in both UI locales (NUMBER_LOCALE,
+    // tests/number-digits.test.ts); only calendar/clock output is Arabic-Indic.
+    //
+    // This line used to format itself: `(deposit / 100).toLocaleString(locale)`.
+    // That agreed with the convention only by accident — CLDR resolves a BARE
+    // "ar" tag to the latn numbering system, so it printed "30" while
+    // `ar-LB`/`ar-SA` would have printed "٣٠". Handing that site the country tag
+    // (the shape used elsewhere, e.g. the trails document's booking count) is
+    // exactly the regression this pins: swap in intlLocale(locale) and the
+    // assertion below fails.
+    renderRow("ar", awaitingDeposit);
+
+    // Scoped to the deposit line: the row ALSO renders an Arabic-Indic date
+    // (the timeline/audit timestamp), which is the other, pinned convention.
+    const line = screen.getByText(/30 USD/);
+    expect(line).toBeInTheDocument();
+    expect(line.textContent ?? "").not.toMatch(/[\u0660-\u0669]/);
+  });
+
+  it("renders the same digits in English", () => {
+    renderRow("en", awaitingDeposit);
+    expect(screen.getByText(/30 USD/)).toBeInTheDocument();
+  });
+
+  it("groups thousands in ASCII in both locales", () => {
+    renderRow("ar", makeBooking({ status: "pendingPayment", deposit: 1234500 }));
+    const line = screen.getByText(/12,345 USD/);
+    expect(line).toBeInTheDocument();
+    expect(line.textContent ?? "").not.toMatch(/[\u0660-\u0669]/);
+  });
+});

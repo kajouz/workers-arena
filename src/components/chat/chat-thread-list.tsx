@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useLocale } from "@/components/providers/locale-provider";
+import { formatDate } from "@/lib/utils";
 
 interface BookingThread {
   bookingId: string;
@@ -23,7 +24,7 @@ interface ChatThreadListProps {
 }
 
 export default function ChatThreadList({ role }: ChatThreadListProps) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const [threads, setThreads] = useState<BookingThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread" | "active">("all");
@@ -104,7 +105,7 @@ export default function ChatThreadList({ role }: ChatThreadListProps) {
       if (diffMins < 60) return `${diffMins}m`;
       if (diffHours < 24) return `${diffHours}h`;
       if (diffDays < 7) return `${diffDays}d`;
-      return date.toLocaleDateString();
+      return formatDate(date, locale);
     } catch {
       return "";
     }

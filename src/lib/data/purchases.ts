@@ -18,6 +18,7 @@
  * (prisma-repo.ts → prismaCreate*Purchase / prismaConfirm*Purchase).
  * ────────────────────────────────────────────────────────────────────────────
  */
+import { formatDate } from "@/lib/utils";
 import { workerBySlug } from "./workers";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { pushNotification } from "./notifications";
@@ -221,8 +222,10 @@ export async function demoConfirmPurchase(
           type: "subscription",
           titleEn: `Subscription renewed — ${plan}`,
           titleAr: `تم تجديد الاشتراك — ${plan}`,
-          bodyEn: `${w.nameEn}: your ${plan} plan is active until ${new Date(subscription.expiresAt).toLocaleDateString()}.`,
-          bodyAr: `${w.nameAr}: خطتك ${plan} نشطة حتى ${new Date(subscription.expiresAt).toLocaleDateString()}.`,
+          // Locale-aware dates: the Arabic body reads the served country's
+          // month vocabulary, not whatever the host runtime defaults to.
+          bodyEn: `${w.nameEn}: your ${plan} plan is active until ${formatDate(subscription.expiresAt, "en")}.`,
+          bodyAr: `${w.nameAr}: خطتك ${plan} نشطة حتى ${formatDate(subscription.expiresAt, "ar")}.`,
           href: "/dashboard",
         },
         { name: w.nameEn, email: w.email, phone: w.phone, locale: w.languages[0]?.code === "ar" ? "ar" : "en" }

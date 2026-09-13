@@ -19,8 +19,8 @@ export const SESSION_COOKIE = SESSION_COOKIE_NAME;
 
 export const DEMO_USERS: Record<SessionRole, SessionUser> = {
   customer: { id: "u-customer", name: "Sara Customer", email: "sara@example.com", role: "customer", hue: 200 },
-  worker: { id: "u-worker", name: "Khaled Al-Harbi", email: "khaled@plumbfix.sa", role: "worker", hue: 25 },
-  company: { id: "u-company", name: "BuildCo Ltd", email: "ads@buildco.sa", role: "company", hue: 150 },
+  worker: { id: "u-worker", name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", role: "worker", hue: 25 },
+  company: { id: "u-company", name: "BuildCo Ltd", email: "ads@buildco.lb", role: "company", hue: 150 },
   admin: { id: "u-admin", name: "Platform Admin", email: "admin@workersarena.com", role: "admin", hue: 280 },
 };
 

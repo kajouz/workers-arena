@@ -6,7 +6,8 @@ import { ChevronLeft, ChevronRight, Clock, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLocale } from "@/components/providers/locale-provider";
-import { cn } from "@/lib/utils";
+import { cn, formatMonthDay } from "@/lib/utils";
+import { intlLocale } from "@/lib/tenant/countries";
 
 interface TimeSlot {
   id: string;
@@ -87,18 +88,14 @@ export function AvailabilityCalendar({
   };
 
   const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString(locale === "ar" ? "ar-LB" : "en-US", {
+    return new Date(dateStr).toLocaleTimeString(intlLocale(locale), {
       hour: "2-digit",
       minute: "2-digit",
     });
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString(locale === "ar" ? "ar-LB" : "en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  };
+  // Shared day+month label — one month vocabulary with `formatDate`.
+  const formatDate = (date: Date) => formatMonthDay(date, locale);
 
   const isToday = (date: Date) => {
     const today = new Date();

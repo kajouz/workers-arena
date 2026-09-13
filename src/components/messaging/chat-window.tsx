@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useLocale } from "@/components/providers/locale-provider";
-import { cn } from "@/lib/utils";
+import { cn, formatMonthDay } from "@/lib/utils";
+import { intlLocale } from "@/lib/tenant/countries";
 
 interface Message {
   id: string;
@@ -67,7 +68,7 @@ export function ChatWindow({
   };
 
   const formatTime = (date: Date) => {
-    return new Date(date).toLocaleTimeString(locale === "ar" ? "ar-LB" : "en-US", {
+    return new Date(date).toLocaleTimeString(intlLocale(locale), {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -85,10 +86,7 @@ export function ChatWindow({
       return isArabic ? "اليوم" : "Today";
     }
 
-    return messageDate.toLocaleDateString(locale === "ar" ? "ar-LB" : "en-US", {
-      month: "short",
-      day: "numeric",
-    });
+    return formatMonthDay(messageDate, locale);
   };
 
   // Group messages by date

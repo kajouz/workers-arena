@@ -100,7 +100,7 @@ export function PlatformSettings() {
         description: "Payment processing configuration",
         icon: CreditCard,
         settings: [
-          { id: "currency", label: "Default Currency", description: "Primary currency for transactions", type: "select", value: "USD", options: [{ label: "USD", value: "USD" }, { label: "LBP", value: "LBP" }, { label: "SAR", value: "SAR" }] },
+          { id: "currency", label: "Default Currency", description: "Primary currency for transactions (tenant lb — USD only)", type: "select", value: "USD", options: [{ label: "USD", value: "USD" }] },
           { id: "platform_fee_rate", label: "Platform Fee Rate (%)", description: "Percentage fee on completed bookings", type: "number", value: 10 },
           { id: "min_booking_amount", label: "Minimum Booking Amount", description: "Minimum amount for a booking", type: "number", value: 10 },
           { id: "enable_stripe", label: "Enable Stripe", description: "Enable Stripe payment processing", type: "toggle", value: true },

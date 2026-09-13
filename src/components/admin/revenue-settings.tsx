@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import {
   DollarSign,
   Coins,
@@ -195,7 +195,7 @@ export function RevenueSettingsDashboard() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Monthly Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">${totalMonthlyRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">${formatNumber(totalMonthlyRevenue)}</p>
             </div>
           </div>
         </div>
@@ -267,7 +267,7 @@ export function RevenueSettingsDashboard() {
                   {streamAnalytics && (
                     <div className="text-right">
                       <p className="text-sm font-medium text-gray-900">
-                        ${streamAnalytics.monthlyRevenue.toLocaleString()}/mo
+                        ${formatNumber(streamAnalytics.monthlyRevenue)}/mo
                       </p>
                       <p className="text-xs text-green-600">
                         +{streamAnalytics.growthPercent}% growth
@@ -359,7 +359,7 @@ export function RevenueSettingsDashboard() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                           <p className="text-xs text-gray-500">Total Revenue</p>
-                          <p className="font-medium">${streamAnalytics.totalRevenue.toLocaleString()}</p>
+                          <p className="font-medium">${formatNumber(streamAnalytics.totalRevenue)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">Transactions</p>

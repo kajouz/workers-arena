@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isDemoMode, getWorkerBySlug } from "@/lib/data/repo";
+import { dialPrefix } from "@/lib/tenant/countries";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export async function POST() {
     workerId: worker.id,
     customerId: "u-customer",
     customerName: "Sara Customer",
-    customerPhone: "+961 70 000 000",
+    customerPhone: `${dialPrefix()} 70 000 000`,
     customerEmail: "sara@example.com",
     jobTitle: "Leaking kitchen sink repair",
     // Catalog plumbing item — the AR receipt email's "Service" row renders

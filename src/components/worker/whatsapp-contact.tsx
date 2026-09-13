@@ -1,10 +1,11 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
 import { MessageCircle, Phone, ExternalLink } from "lucide-react";
 
 interface WhatsAppContactProps {
-  /** Worker's WhatsApp number (with country code, e.g. "+96171234567") */
+  /** Worker's WhatsApp number in international form ("+<dialCode><national>") */
   whatsapp: string;
   /** Worker's name for the pre-filled message */
   workerName: string;
@@ -20,25 +21,27 @@ interface WhatsAppContactProps {
   className?: string;
   /** Show label text (for icon variant) */
   showLabel?: boolean;
+  /** E.164 dial code (digits only) used to expand a bare national number.
+   * Defaults to the served country (tenant lb → "961"). */
+  dialCode?: string;
 }
 
 /**
- * Format WhatsApp number to international format
+ * Format WhatsApp number to international format. A bare national number
+ * ("0…") is expanded with the SERVED country's dial code from the country
+ * registry — this used to hardcode the served country's dial code.
  */
-function formatWhatsAppNumber(phone: string): string {
+function formatWhatsAppNumber(phone: string, dialCode: string): string {
   // Remove all non-numeric characters except +
   let cleaned = phone.replace(/[^\d+]/g, "");
-  
+
   // Ensure it starts with + if it doesn't already
   if (!cleaned.startsWith("+")) {
-    // Default to Lebanon country code if no + prefix
-    if (cleaned.startsWith("0")) {
-      cleaned = "+961" + cleaned.slice(1);
-    } else {
-      cleaned = "+" + cleaned;
-    }
+    cleaned = cleaned.startsWith("0")
+      ? `+${dialCode}${cleaned.slice(1)}`
+      : `+${cleaned}`;
   }
-  
+
   return cleaned;
 }
 
@@ -47,9 +50,10 @@ function formatWhatsAppNumber(phone: string): string {
  */
 function getWhatsAppUrl(
   phone: string,
-  message?: string
+  message: string | undefined,
+  dialCode: string
 ): string {
-  const formatted = formatWhatsAppNumber(phone);
+  const formatted = formatWhatsAppNumber(phone, dialCode);
   const encoded = message ? encodeURIComponent(message) : "";
   return `https://wa.me/${formatted.replace("+", "")}${encoded ? `?text=${encoded}` : ""}`;
 }
@@ -66,12 +70,13 @@ export function WhatsAppContact({
   size = "md",
   className,
   showLabel = true,
+  dialCode = DEFAULT_COUNTRY.dialCode,
 }: WhatsAppContactProps) {
   // Default message in both languages
   const defaultMessage = `Hi ${workerName}! I found you on WorkersArena and would like to request a quote for a service.`;
   const finalMessage = message || defaultMessage;
   
-  const url = getWhatsAppUrl(whatsapp, finalMessage);
+  const url = getWhatsAppUrl(whatsapp, finalMessage, dialCode);
   
   const sizeClasses = {
     sm: "px-3 py-1.5 text-xs gap-1.5",

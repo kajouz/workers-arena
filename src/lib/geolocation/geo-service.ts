@@ -2,6 +2,7 @@
  * Geolocation Service
  * Handles location detection, distance calculation, and radius-based filtering.
  */
+import { CITIES } from "@/lib/data/cities";
 
 /* ─── Types ─── */
 export interface GeoLocation {
@@ -130,9 +131,14 @@ export function filterByRadius<T extends GeoLocation>(
 }
 
 /* ─── City Approximate Coordinates ─── */
-export const CITY_COORDINATES: Record<string, GeoLocation> = {
-  beirut: { latitude: 33.8938, longitude: 35.5018 },
-};
+/**
+ * Derived from the city catalog — a city's center has ONE definition
+ * (`CITIES[].lat/lng`). This used to be a second literal map that silently
+ * drifted from the catalog.
+ */
+export const CITY_COORDINATES: Record<string, GeoLocation> = Object.fromEntries(
+  CITIES.map((c) => [c.slug, { latitude: c.lat, longitude: c.lng }])
+);
 
 /* ─── Radius Presets ─── */
 export const RADIUS_PRESETS = [

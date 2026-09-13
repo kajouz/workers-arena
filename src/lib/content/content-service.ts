@@ -122,11 +122,11 @@ export function calculateReadingTime(text: string): number {
 export const MOCK_BLOG_POSTS: ContentPost[] = [
   {
     id: "blog-1",
-    slug: "how-to-find-plumber-riyadh",
-    title: "How to Find a Reliable Plumber in Riyadh",
-    titleAr: "كيف تجد ساكباً موثوقاً في الرياض",
-    excerpt: "Finding a trustworthy plumber can be challenging. Here's how WorkersArena makes it easy to find verified professionals in Riyadh.",
-    excerptAr: "قد يكون العثور على ساكب موثوق صعباً. إليك كيف تجعل وركرز أرينا العثور على محترفين معتمدين في الرياض سهلاً.",    content: `
+    slug: "how-to-find-plumber-beirut",
+    title: "How to Find a Reliable Plumber in Beirut",
+    titleAr: "كيف تجد سباكاً موثوقاً في بيروت",
+    excerpt: "Finding a trustworthy plumber can be challenging. Here's how WorkersArena makes it easy to find verified professionals in Beirut.",
+    excerptAr: "قد يكون العثور على سباك موثوق صعباً. إليك كيف تجعل وركرز أرينا العثور على محترفين معتمدين في بيروت سهلاً.",    content: `
 ## Why Finding a Good Plumber Matters
 
 A bad plumbing job can cost thousands in water damage. That's why it's crucial to hire a verified professional.
@@ -134,7 +134,7 @@ A bad plumbing job can cost thousands in water damage. That's why it's crucial t
 ## Steps to Find a Plumber on WorkersArena
 
 1. **Search by trade** — Enter "Plumber" in the search bar
-2. **Filter by location** — Select Riyadh and your area
+2. **Filter by location** — Select Beirut and your area
 3. **Check reviews** — Look for workers with 4+ star ratings
 4. **Verify credentials** — Choose workers with the Verified badge
 5. **Compare prices** — Get quotes from multiple workers
@@ -152,20 +152,20 @@ A bad plumbing job can cost thousands in water damage. That's why it's crucial t
 Every worker on our platform is background-checked and verified. We only accept professionals with proven track records.
     `,
     contentAr: `
-## لماذا يهم العثور على ساكب جيد
+## لماذا يهم العثور على سباك جيد
 
 يمكن أن تكلفة عمل سباكة سيء الآلاف من أضرار المياه. لهذا من المهم توظيف محترف معتمد.
 
-## خطوات العثور على ساكب على وركرز أرينا
+## خطوات العثور على سباك على وركرز أرينا
 
 1. **ابحث حسب الحرفة** — اكتب "سباك" في شريط البحث
-2. ** FILTR حسب الموقع** — اختر الرياض ومنطقتك
+2. ** FILTR حسب الموقع** — اختر بيروت ومنطقتك
 3. **تحقق من المراجعات** — ابحث عن عمال بتقييم 4+ نجوم
 4. **تحقق من الأوراق** — اختر العمال بشارة التوثيق
 5. **قارن الأسعار** — احصل على عروض أسعار من عدة عمال
     `,
     category: "getting-started",
-    tags: ["plumber", "riyadh", "search", "hiring"],
+    tags: ["plumber", "beirut", "search", "hiring"],
     author: "WorkersArena Team",
     publishedAt: "2026-08-15",
     readingTime: 4,

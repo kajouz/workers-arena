@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FadeIn } from "@/components/ui/micro-interactions";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 /* ─── Types ─── */
 interface EarningsData {
@@ -49,12 +49,12 @@ interface PayoutMethod {
 
 /* ─── Mock Data ─── */
 const MOCK_EARNINGS: EarningsData = {
-  totalEarnings: 1245000, // in minor units (LBP cents)
+  totalEarnings: 1245000, // in minor units (USD cents)
   pendingPayout: 185000,
   withdrawn: 960000,
   thisMonth: 342000,
   lastMonth: 298000,
-  currency: "LBP",
+  currency: "USD",
 };
 
 const MOCK_TRANSACTIONS: Transaction[] = [
@@ -121,13 +121,10 @@ const MOCK_PAYOUT_METHODS: PayoutMethod[] = [
 /* ─── Helper to format amount ─── */
 function formatAmount(amount: number, currency: string): string {
   const abs = Math.abs(amount);
-  if (currency === "LBP") {
-    return `${abs.toLocaleString()} LBP`;
-  }
   if (currency === "USD") {
     return `$${(abs / 100).toFixed(2)}`;
   }
-  return `${abs.toLocaleString()} ${currency}`;
+  return `${formatNumber(abs)} ${currency}`;
 }
 
 /* ─── Monthly Chart (simple bar chart) ─── */

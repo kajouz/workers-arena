@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   Headphones,
   Plus,
@@ -86,6 +87,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 export function SupportTickets() {
+  const { locale } = useLocale();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -466,7 +468,7 @@ export function SupportTickets() {
                       <p className="text-sm font-medium text-gray-900">{msg.senderName}</p>
                       <p className="text-sm text-gray-700 mt-1">{msg.message}</p>
                       <p className="text-xs text-gray-400 mt-1">
-                        {new Date(msg.createdAt).toLocaleString()}
+                        {formatDateTime(msg.createdAt, locale)}
                         {msg.isInternal && " • Internal Note"}
                       </p>
                     </div>

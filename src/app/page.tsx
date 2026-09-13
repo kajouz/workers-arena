@@ -7,6 +7,7 @@ import { Testimonials } from "@/components/home/testimonials";
 import { Plans } from "@/components/home/plans";
 import { CTA } from "@/components/home/cta";
 import { getCategories, getFeaturedWorkersList, getPopularSearches } from "@/lib/data/repo";
+import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
 import { getSession } from "@/lib/auth-demo";
 import { PushOnboarding } from "@/components/notifications/push-onboarding";
 
@@ -26,7 +27,7 @@ export default async function HomePage() {
       <CategoriesGrid categories={categories} />
       <FeaturedWorkers workers={featured} />
       <HowItWorks />
-      <StatsBand />
+      <StatsBand citiesServed={DEFAULT_COUNTRY.cities.length} />
       <Testimonials />
       <Plans />
       <CTA />

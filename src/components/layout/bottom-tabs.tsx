@@ -47,14 +47,32 @@ const TABS: Tab[] = [
     match: (p) =>
       p.startsWith("/dashboard") ||
       p.startsWith("/admin") ||
-      p.startsWith("/workers/") ||
-      p === "/login",
+      p.startsWith("/workers/"),
   },
 ];
+
+/**
+ * Routes where the fixed tab bar must NOT render.
+ *
+ * Auth screens are a focused task whose card is TALLER than a phone viewport
+ * (logo + heading + two fields + submit + the demo-account grid ≈ 750px against
+ * a ~748px iPhone viewport), so the bar's ~64px overlay always lands on the
+ * card's tail — exactly where the one-click demo sign-in row sits. A tap there
+ * hit the bar's "Find workers" tab and navigated to /search instead of signing
+ * in, and because the coverage starts at first paint the user has to scroll
+ * before the buttons can be tapped at all. The tabs have nothing to offer
+ * before sign-in, so the bar yields the viewport to the card.
+ *
+ * Measured on /auth/login at 416×748: button row y 711–755 vs bar y 683–748
+ * (document.elementFromPoint at the button's centre returned the bar).
+ */
+const HIDDEN_ON = ["/auth/login", "/auth/register"];
 
 export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
   const pathname = usePathname();
   const { t } = useLocale();
+
+  if (HIDDEN_ON.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null;
 
   return (
     <nav

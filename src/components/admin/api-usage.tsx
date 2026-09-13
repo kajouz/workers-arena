@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import { Activity, Clock, AlertTriangle, CheckCircle, TrendingUp, Zap } from "lucide-react";
 
 interface APIEndpoint { path: string; method: string; calls: number; avgResponse: number; errorRate: number; p95Response: number; }
@@ -30,7 +30,7 @@ export function APIUsage() {
       </div>
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full"><thead className="bg-gray-50"><tr><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Endpoint</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Calls</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Avg Response</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">P95 Response</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Error Rate</th></tr></thead>
-          <tbody className="divide-y divide-gray-200">{endpoints.map((ep) => (<tr key={ep.path} className="hover:bg-gray-50"><td className="px-4 py-4"><span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-800 mr-2">{ep.method}</span><span className="font-mono text-sm text-gray-900">{ep.path}</span></td><td className="px-4 py-4 text-sm font-medium text-gray-900">{ep.calls.toLocaleString()}</td><td className="px-4 py-4"><span className={cn("text-sm font-medium", ep.avgResponse < 200 ? "text-green-600" : ep.avgResponse < 500 ? "text-yellow-600" : "text-red-600")}>{ep.avgResponse}ms</span></td><td className="px-4 py-4 text-sm text-gray-600">{ep.p95Response}ms</td><td className="px-4 py-4"><span className={cn("text-sm font-medium", ep.errorRate < 1 ? "text-green-600" : ep.errorRate < 5 ? "text-yellow-600" : "text-red-600")}>{ep.errorRate}%</span></td></tr>))}</tbody>
+          <tbody className="divide-y divide-gray-200">{endpoints.map((ep) => (<tr key={ep.path} className="hover:bg-gray-50"><td className="px-4 py-4"><span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-800 mr-2">{ep.method}</span><span className="font-mono text-sm text-gray-900">{ep.path}</span></td><td className="px-4 py-4 text-sm font-medium text-gray-900">{formatNumber(ep.calls)}</td><td className="px-4 py-4"><span className={cn("text-sm font-medium", ep.avgResponse < 200 ? "text-green-600" : ep.avgResponse < 500 ? "text-yellow-600" : "text-red-600")}>{ep.avgResponse}ms</span></td><td className="px-4 py-4 text-sm text-gray-600">{ep.p95Response}ms</td><td className="px-4 py-4"><span className={cn("text-sm font-medium", ep.errorRate < 1 ? "text-green-600" : ep.errorRate < 5 ? "text-yellow-600" : "text-red-600")}>{ep.errorRate}%</span></td></tr>))}</tbody>
         </table>
       </div>
     </div>

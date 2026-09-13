@@ -21,7 +21,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatNumber } from "@/lib/utils";
+import { dialPrefix } from "@/lib/tenant/countries";
 
 interface Customer {
   id: string;
@@ -39,12 +40,15 @@ interface Customer {
 }
 
 const DEMO_CUSTOMERS: Customer[] = [
-  { id: "c1", name: "Fatima Al-Saud", nameAr: "فاطمة آل سعود", email: "fatima@example.com", phone: "+961 70 123 4567", bookingsCount: 12, totalSpent: 4500, currency: "SAR", joinedAt: "2024-01-10", lastActive: "2024-02-15", status: "active", hue: 320 },
-  { id: "c2", name: "Ahmed Hassan", nameAr: "أحمد حسن", email: "ahmed@example.com", phone: "+971 50 987 6543", bookingsCount: 8, totalSpent: 3200, currency: "AED", joinedAt: "2024-01-20", lastActive: "2024-02-14", status: "active", hue: 200 },
-  { id: "c3", name: "Sara Mohammed", nameAr: "سارة محمد", email: "sara@example.com", phone: "+20 100 123 4567", bookingsCount: 5, totalSpent: 1800, currency: "EGP", joinedAt: "2024-02-01", lastActive: "2024-02-13", status: "active", hue: 120 },
-  { id: "c4", name: "Khalid Nasser", nameAr: "خالد ناصر", email: "khalid@example.com", phone: "+962 79 555 1234", bookingsCount: 3, totalSpent: 900, currency: "JOD", joinedAt: "2024-02-05", lastActive: "2024-02-10", status: "suspended", hue: 45 },
-  { id: "c5", name: "Layla Hussein", nameAr: "ليلى حسين", email: "layla@example.com", phone: "+961 76 321 0987", bookingsCount: 15, totalSpent: 6200, currency: "SAR", joinedAt: "2023-12-15", lastActive: "2024-02-15", status: "active", hue: 280 },
-  { id: "c6", name: "Mohammed Ali", nameAr: "محمد علي", email: "mohammed@example.com", phone: "+971 55 777 8888", bookingsCount: 1, totalSpent: 150, currency: "AED", joinedAt: "2024-02-10", lastActive: "2024-02-10", status: "banned", hue: 0 },
+  // Tenant lb (Lebanon) — Lebanese identities, the SERVED country's dial code
+  // (registry-driven, not hardcoded), USD. Keep mocks on-tenant so no admin
+  // surface advertises a currency the platform cannot transact in.
+  { id: "c1", name: "Rana Khoury", nameAr: "رنا الخوري", email: "rana@example.com", phone: `${dialPrefix()} 70 123 456`, bookingsCount: 12, totalSpent: 4500, currency: "USD", joinedAt: "2024-01-10", lastActive: "2024-02-15", status: "active", hue: 320 },
+  { id: "c2", name: "Hassan Fawaz", nameAr: "حسن فواز", email: "hassan@example.com", phone: `${dialPrefix()} 71 987 654`, bookingsCount: 8, totalSpent: 3200, currency: "USD", joinedAt: "2024-01-20", lastActive: "2024-02-14", status: "active", hue: 200 },
+  { id: "c3", name: "Maya Nassar", nameAr: "مايا نصار", email: "maya@example.com", phone: `${dialPrefix()} 76 100 456`, bookingsCount: 5, totalSpent: 1800, currency: "USD", joinedAt: "2024-02-01", lastActive: "2024-02-13", status: "active", hue: 120 },
+  { id: "c4", name: "Karim Awwad", nameAr: "كريم عواد", email: "karim@example.com", phone: `${dialPrefix()} 79 555 123`, bookingsCount: 3, totalSpent: 900, currency: "USD", joinedAt: "2024-02-05", lastActive: "2024-02-10", status: "suspended", hue: 45 },
+  { id: "c5", name: "Layla Haddad", nameAr: "ليلى حداد", email: "layla@example.com", phone: `${dialPrefix()} 71 321 098`, bookingsCount: 15, totalSpent: 6200, currency: "USD", joinedAt: "2023-12-15", lastActive: "2024-02-15", status: "active", hue: 280 },
+  { id: "c6", name: "Nadim Chammas", nameAr: "نديم شماس", email: "nadim@example.com", phone: `${dialPrefix()} 70 777 888`, bookingsCount: 1, totalSpent: 150, currency: "USD", joinedAt: "2024-02-10", lastActive: "2024-02-10", status: "banned", hue: 0 },
 ];
 
 const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
@@ -189,7 +193,7 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
         <Card className="border-brand-500/20 bg-brand-500/5">
           <CardContent className="p-4">
             <p className="text-xs font-medium text-brand-600">Total Spent</p>
-            <p className="mt-1 text-2xl font-black text-brand-600">${totalSpent.toLocaleString()}</p>
+            <p className="mt-1 text-2xl font-black text-brand-600">${formatNumber(totalSpent)}</p>
           </CardContent>
         </Card>
       </div>
@@ -259,7 +263,7 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
                     <p className="text-[10px] text-ink-400">Bookings</p>
                   </div>
                   <div className="rounded-lg bg-ink-50 p-2 dark:bg-ink-800/50">
-                    <p className="text-lg font-black text-brand-600">${customer.totalSpent.toLocaleString()}</p>
+                    <p className="text-lg font-black text-brand-600">${formatNumber(customer.totalSpent)}</p>
                     <p className="text-[10px] text-ink-400">Spent</p>
                   </div>
                 </div>
@@ -377,7 +381,7 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
                   <input
                     name="phone"
                     type="tel"
-                    placeholder="+961 71 123 456"
+                    placeholder={`${dialPrefix()} 71 123 456`}
                     className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
                   />
                 </div>

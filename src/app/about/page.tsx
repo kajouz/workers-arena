@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Shield, Star, Users, MapPin, ArrowRight } from "lucide-react";
+import { ALL_COUNTRIES } from "@/lib/tenant/countries";
 
 export const metadata: Metadata = {
   title: "About WorkersArena",
@@ -8,10 +9,20 @@ export const metadata: Metadata = {
     "WorkersArena connects customers with verified professional workers across the Middle East. Learn about our mission, values, and commitment to quality.",
 };
 
+/**
+ * Coverage claims are DERIVED from the registry. This page used to promise "11
+ * cities" across ten MENA countries — the pre-Lebanon dataset — while the
+ * deployment can only serve what CountryConfig declares (same rule the
+ * structured data below follows: never claim coverage we can't transact in).
+ * The social-proof figures stay aspirational, matching the homepage.
+ */
+const COVERAGE_CITIES = ALL_COUNTRIES.flatMap((c) => c.cities.map((city) => city.nameEn));
+const COVERAGE_COUNTRIES = ALL_COUNTRIES.map((c) => c.nameEn);
+
 const STATS = [
   { label: "Verified Workers", value: "500+" },
   { label: "Happy Customers", value: "10,000+" },
-  { label: "Cities Covered", value: "11" },
+  { label: "Cities Covered", value: String(COVERAGE_CITIES.length) },
   { label: "Trade Categories", value: "21+" },
 ];
 
@@ -37,8 +48,7 @@ const VALUES = [
   {
     icon: MapPin,
     title: "Local Focus",
-    description:
-      "Operating across 11 cities in the Middle East, we understand local needs, pricing, and regulations. We're not just a global platform — we're your neighbor.",
+    description: `Operating in ${COVERAGE_COUNTRIES.join(", ")}, we understand local needs, pricing, and regulations. We're not just a global platform — we're your neighbor.`,
   },
 ];
 
@@ -56,18 +66,9 @@ const structuredData = {
     email: "support@workersarena.com",
     contactType: "customer service",
   },
-  areaServed: [
-    { "@type": "Country", name: "Saudi Arabia" },
-    { "@type": "Country", name: "UAE" },
-    { "@type": "Country", name: "Qatar" },
-    { "@type": "Country", name: "Kuwait" },
-    { "@type": "Country", name: "Bahrain" },
-    { "@type": "Country", name: "Oman" },
-    { "@type": "Country", name: "Jordan" },
-    { "@type": "Country", name: "Lebanon" },
-    { "@type": "Country", name: "Egypt" },
-    { "@type": "Country", name: "Morocco" },
-  ],
+  // The countries this deployment actually serves (the country registry) —
+  // structured data must not claim coverage the platform can't transact in.
+  areaServed: ALL_COUNTRIES.map((c) => ({ "@type": "Country", name: c.nameEn })),
 };
 
 export default function AboutPage() {
@@ -120,9 +121,8 @@ export default function AboutPage() {
               or a planned renovation, WorkersArena connects you with the right professional.
             </p>
             <p>
-              Operating across 11 cities in Saudi Arabia, UAE, Qatar, Kuwait, Bahrain, Oman,
-              Jordan, Lebanon, Egypt, and Morocco, we understand the local market and the
-              specific needs of our communities.
+              Covering {COVERAGE_COUNTRIES.join(", ")} — currently {COVERAGE_CITIES.join(", ")} — we
+              understand the local market and the specific needs of our communities.
             </p>
           </div>
         </section>

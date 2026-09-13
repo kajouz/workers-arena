@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import { Search, Filter, AlertTriangle, AlertCircle, Info, Bug, Download, RefreshCw, Trash2 } from "lucide-react";
 
 interface LogEntry { id: string; timestamp: string; level: "error" | "warn" | "info" | "debug"; source: string; message: string; details?: string; }
 
 export function SystemLogs() {
+  const { locale } = useLocale();
   const [logs] = useState<LogEntry[]>([
     { id: "1", timestamp: "2025-01-17T10:30:00Z", level: "error", source: "api/workers", message: "Database connection timeout", details: "Connection to Neon PostgreSQL timed out after 5000ms" },
     { id: "2", timestamp: "2025-01-17T10:25:00Z", level: "warn", source: "cron/backup", message: "Backup taking longer than expected", details: "Current backup duration: 450s (threshold: 300s)" },
@@ -38,7 +40,7 @@ export function SystemLogs() {
         <div className="p-4 border-b border-gray-200 bg-gray-50"><p className="text-sm font-medium text-gray-600">{filteredLogs.length} log entries</p></div>
         <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
           {filteredLogs.map((log) => { const Icon = levelIcons[log.level]; return (
-            <div key={log.id} className="p-4 hover:bg-gray-50"><div className="flex items-start gap-3"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", levelColors[log.level])}><Icon className="w-3 h-3 inline mr-1" />{log.level}</span><div className="flex-1"><div className="flex items-center gap-2"><span className="text-xs text-gray-500">{new Date(log.timestamp).toLocaleString()}</span><span className="text-xs font-mono text-gray-400">{log.source}</span></div><p className="text-sm text-gray-900 mt-1">{log.message}</p>{log.details && <p className="text-xs text-gray-500 mt-1">{log.details}</p>}</div></div></div>
+            <div key={log.id} className="p-4 hover:bg-gray-50"><div className="flex items-start gap-3"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", levelColors[log.level])}><Icon className="w-3 h-3 inline mr-1" />{log.level}</span><div className="flex-1"><div className="flex items-center gap-2"><span className="text-xs text-gray-500">{formatDateTime(log.timestamp, locale)}</span><span className="text-xs font-mono text-gray-400">{log.source}</span></div><p className="text-sm text-gray-900 mt-1">{log.message}</p>{log.details && <p className="text-xs text-gray-500 mt-1">{log.details}</p>}</div></div></div>
           ); })}
         </div>
       </div>

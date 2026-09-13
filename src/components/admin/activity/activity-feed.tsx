@@ -12,7 +12,8 @@ import {
   Clock,
   RefreshCw
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 
 interface ActivityItem {
   id: string;
@@ -39,6 +40,7 @@ export function ActivityFeed({
   className,
   refreshInterval = 30000 
 }: ActivityFeedProps) {
+  const { locale } = useLocale();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -67,7 +69,7 @@ export function ActivityFeed({
         id: "3",
         type: "payment" as const,
         title: "Payment received",
-        description: "SAR 119 for subscription renewal",
+        description: "$119 for subscription renewal",
         timestamp: new Date(now.getTime() - 8 * 60 * 1000),
         user: "Ali Hassan",
       },
@@ -176,7 +178,7 @@ export function ActivityFeed({
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
     
-    return date.toLocaleDateString();
+    return formatDate(date, locale);
   };
 
   return (

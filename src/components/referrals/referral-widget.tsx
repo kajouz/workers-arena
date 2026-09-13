@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useLocale } from "@/components/providers/locale-provider";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 interface ReferralStats {
   code: string;
@@ -32,7 +32,7 @@ export function ReferralWidget({
     signups: 8,
     conversions: 3,
     reward: 15000,
-    currency: "LBP",
+    currency: "USD",
   },
   onCopyCode,
 }: ReferralWidgetProps) {
@@ -149,7 +149,7 @@ export function ReferralWidget({
           {locale === "ar" ? "مكافآتك" : "Your Rewards"}
         </p>
         <p className="text-2xl font-black text-brand-600 dark:text-brand-400">
-          {stats.reward.toLocaleString()} {stats.currency}
+          {formatNumber(stats.reward)} {stats.currency}
         </p>
       </div>
     </div>

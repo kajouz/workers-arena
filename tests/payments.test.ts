@@ -363,6 +363,76 @@ describe("M3 webhook route", () => {
   });
 });
 
+describe("M3 simulated checkout interstitial", () => {
+  /** A signed simulate URL as the provider mints it. */
+  async function checkoutUrl(): Promise<string> {
+    await acceptWithDeposit();
+    const checkout = await createBookingCheckout("bk-1001");
+    return checkout!.url;
+  }
+
+  /**
+   * `new URL(req.url)` in a route handler carries the server's BOUND host
+   * (`localhost`), not the host the client used, so a redirect built from it
+   * left the customer on a stuck interstitial: the POST confirmed the payment,
+   * then the browser refused the cross-origin redirect (`form-action 'self'`),
+   * and `/bookings?paid=1` was never reached. The Location must follow the host
+   * the client actually used — the exact case the e2e suite runs in
+   * (127.0.0.1), and the case of testing the PWA from a phone on a LAN IP.
+   */
+  it("redirects to the SUCCESS target on the host the client used", async () => {
+    const { POST } = await import("../src/app/api/payments/simulate/route");
+    const url = await checkoutUrl();
+    const res = await POST(new Request(`http://localhost${url}`, { method: "POST" }));
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("http://localhost/bookings?paid=1");
+
+    // Same signed URL, reached as 127.0.0.1 — the Location must not stay on
+    // `localhost` (a different origin, which the CSP then blocks).
+    // The real mismatch: on a running server `req.url` carries the BOUND host
+    // (`localhost`) while the Host header carries the one the client used — so
+    // the header, not the URL, is what the Location must follow.
+    const viaIp = await POST(
+      new Request(`http://localhost${url}`, { method: "POST", headers: { host: "127.0.0.1:3011" } })
+    );
+    expect(viaIp.headers.get("location")).toBe("http://127.0.0.1:3011/bookings?paid=1");
+  });
+
+  it("honours the forwarded host/proto a proxy adds", async () => {
+    const { POST } = await import("../src/app/api/payments/simulate/route");
+    const url = await checkoutUrl();
+    const res = await POST(
+      new Request(`http://internal:3011${url}`, {
+        method: "POST",
+        headers: { "x-forwarded-host": "workers-arena.example", "x-forwarded-proto": "https" },
+      })
+    );
+    expect(res.headers.get("location")).toBe("https://workers-arena.example/bookings?paid=1");
+  });
+
+  it("rejects a tampered signature without redirecting", async () => {
+    const { POST } = await import("../src/app/api/payments/simulate/route");
+    const url = await checkoutUrl();
+    const tampered = url.replace(/sig=[^&]+/, "sig=deadbeef");
+    const res = await POST(new Request(`http://localhost${tampered}`, { method: "POST" }));
+    expect(res.status).toBe(400);
+    expect(res.headers.get("location")).toBeNull();
+  });
+});
+
+describe("M3 simulate route — invalid signature", () => {
+  it("400s without confirming or redirecting", async () => {
+    const { POST } = await import("../src/app/api/payments/simulate/route");
+    const res = await POST(
+      new Request("http://localhost/api/payments/simulate?paymentId=pay-x&ref=r&amount=1&sig=nope", {
+        method: "POST",
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(res.headers.get("location")).toBeNull();
+  });
+});
+
 /** Read the demo notification inbox (matches tests/bookings.test.ts). */
 async function getCustomerNotifications(): Promise<{ type: string; href?: string }[]> {
   const { getNotificationsList } = await import("../src/lib/data/repo");

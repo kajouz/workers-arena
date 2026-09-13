@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import { FileText, Plus, Edit, Trash2, Globe, Eye, Save, Search } from "lucide-react";
 
 interface CMSPage {
@@ -20,6 +21,7 @@ interface CMSPage {
 }
 
 export function ContentManagement() {
+  const { locale } = useLocale();
   const [pages, setPages] = useState<CMSPage[]>([
     { id: "1", slug: "about", titleEn: "About Us", titleAr: "من نحن", contentEn: "WorkersArena is...", contentAr: "ووركرز أرينا هي...", metaTitleEn: "About WorkersArena", metaTitleAr: "عن ووركرز أرينا", metaDescriptionEn: "Learn about WorkersArena", metaDescriptionAr: "تعرف على ووركرز أرينا", status: "published", updatedAt: "2025-01-15T10:00:00Z" },
     { id: "2", slug: "terms", titleEn: "Terms of Service", titleAr: "شروط الخدمة", contentEn: "Terms content...", contentAr: "محتوى الشروط...", metaTitleEn: "Terms of Service", metaTitleAr: "شروط الخدمة", metaDescriptionEn: "Our terms", metaDescriptionAr: "شروطنا", status: "published", updatedAt: "2025-01-10T10:00:00Z" },
@@ -82,7 +84,7 @@ export function ContentManagement() {
                   <td className="px-4 py-4"><p className="font-medium text-gray-900">{page.titleEn}</p><p className="text-sm text-gray-500">{page.titleAr}</p></td>
                   <td className="px-4 py-4 font-mono text-sm text-gray-600">/{page.slug}</td>
                   <td className="px-4 py-4"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", page.status === "published" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800")}>{page.status}</span></td>
-                  <td className="px-4 py-4 text-sm text-gray-500">{new Date(page.updatedAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-4 text-sm text-gray-500">{formatDate(page.updatedAt, locale)}</td>
                   <td className="px-4 py-4"><button onClick={() => setEditingPage(page)} className="text-blue-600 hover:text-blue-700"><Edit className="w-4 h-4" /></button></td>
                 </tr>
               ))}

@@ -7,6 +7,7 @@ import { SearchBar } from "./search-bar";
 import { Rating } from "@/components/ui/rating";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { formatPrice } from "@/lib/currency";
 
 export function Hero({ popular }: { popular: { en: string; ar: string; href: string }[] }) {
   const { locale, t } = useLocale();
@@ -95,7 +96,7 @@ export function Hero({ popular }: { popular: { en: string; ar: string; href: str
                 <GradientAvatar name="Omar Al-Mutairi" hue={190} className="size-14 ring-4 ring-white/40" />
                 <div>
                   <p className="font-bold text-ink-900 dark:text-ink-50">Omar Al-Mutairi</p>
-                  <p className="text-xs text-ink-500 dark:text-ink-400">AC Technician · Riyadh</p>
+                  <p className="text-xs text-ink-500 dark:text-ink-400">AC Technician · Achrafieh, Beirut</p>
                 </div>
                 <Badge variant="success" className="ms-auto">
                   <ShieldCheck className="size-3" /> Verified
@@ -109,7 +110,9 @@ export function Hero({ popular }: { popular: { en: string; ar: string; href: str
                 <span className="text-xs font-medium text-ink-500 dark:text-ink-400">
                   {t("worker.services")}
                 </span>
-                <span className="text-sm font-bold text-brand-600 dark:text-brand-400">AC maintenance · 150 ر.س</span>
+                <span className="text-sm font-bold text-brand-600 dark:text-brand-400">
+                  AC maintenance · {formatPrice(150)}
+                </span>
               </div>
             </div>
 

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import { Clock, Plus, Calendar, AlertTriangle, CheckCircle, Trash2, Edit, Bell } from "lucide-react";
 
 interface MaintenanceWindow { id: string; title: string; description: string; scheduledAt: string; duration: number; status: "scheduled" | "in_progress" | "completed" | "cancelled"; notifyUsers: boolean; }
 
 export function ScheduledMaintenance() {
+  const { locale } = useLocale();
   const [windows] = useState<MaintenanceWindow[]>([
     { id: "1", title: "Database Migration", description: "Migrate to new Neon schema", scheduledAt: "2025-01-20T02:00:00Z", duration: 60, status: "scheduled", notifyUsers: true },
     { id: "2", title: "SSL Certificate Renewal", description: "Auto-renew SSL certificates", scheduledAt: "2025-01-25T00:00:00Z", duration: 15, status: "scheduled", notifyUsers: false },
@@ -24,7 +26,7 @@ export function ScheduledMaintenance() {
       </div>
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full"><thead className="bg-gray-50"><tr><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Title</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Scheduled</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Duration</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Notify Users</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Actions</th></tr></thead>
-          <tbody className="divide-y divide-gray-200">{windows.map((w) => (<tr key={w.id} className="hover:bg-gray-50"><td className="px-4 py-4"><p className="font-medium text-gray-900">{w.title}</p><p className="text-sm text-gray-500">{w.description}</p></td><td className="px-4 py-4 text-sm text-gray-600">{new Date(w.scheduledAt).toLocaleString()}</td><td className="px-4 py-4 text-sm text-gray-600">{w.duration} min</td><td className="px-4 py-4"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", statusColors[w.status])}>{w.status.replace(/_/g, " ")}</span></td><td className="px-4 py-4">{w.notifyUsers ? <Bell className="w-4 h-4 text-blue-600" /> : <span className="text-gray-400">—</span>}</td><td className="px-4 py-4"><div className="flex gap-2"><button className="text-gray-400 hover:text-gray-600"><Edit className="w-4 h-4" /></button><button className="text-red-500 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></div></td></tr>))}</tbody>
+          <tbody className="divide-y divide-gray-200">{windows.map((w) => (<tr key={w.id} className="hover:bg-gray-50"><td className="px-4 py-4"><p className="font-medium text-gray-900">{w.title}</p><p className="text-sm text-gray-500">{w.description}</p></td><td className="px-4 py-4 text-sm text-gray-600">{formatDateTime(w.scheduledAt, locale)}</td><td className="px-4 py-4 text-sm text-gray-600">{w.duration} min</td><td className="px-4 py-4"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", statusColors[w.status])}>{w.status.replace(/_/g, " ")}</span></td><td className="px-4 py-4">{w.notifyUsers ? <Bell className="w-4 h-4 text-blue-600" /> : <span className="text-gray-400">—</span>}</td><td className="px-4 py-4"><div className="flex gap-2"><button className="text-gray-400 hover:text-gray-600"><Edit className="w-4 h-4" /></button><button className="text-red-500 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></div></td></tr>))}</tbody>
         </table>
       </div>
       {showCreateModal && (

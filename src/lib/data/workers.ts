@@ -1,5 +1,6 @@
 import { CATEGORIES, categoryBySlug } from "./categories";
-import { CITIES, cityBySlug } from "./cities";
+import { citiesForCountry } from "./cities";
+import { WORKER_RECIPES, type WorkerRecipe } from "./worker-recipes";
 import {
   AUTHOR_NAMES,
   CATEGORY_TEMPLATES,
@@ -13,7 +14,8 @@ import {
   REVIEWS_5_AR,
   REVIEWS_5_EN,
 } from "./templates";
-import type { Review, SubscriptionPlan, VerificationStatus, Worker } from "./types";
+import type { Area, City, Review, SubscriptionPlan, VerificationStatus, Worker } from "./types";
+import { DEFAULT_COUNTRY, type CountryConfig } from "@/lib/tenant/countries";
 
 /** Deterministic PRNG so the demo dataset is stable across reloads. */
 function hashSeed(str: string): number {
@@ -38,57 +40,15 @@ function mulberry32(seed: number) {
 
 const DAYS = 24 * 60 * 60 * 1000;
 
-interface WorkerConfig {
-  nameEn: string;
-  nameAr: string;
-  category: string;
-  city: string;
-  area: string;
-  rating: number;
-  reviewCount: number;
-  yearsExp: number;
-  verified?: boolean;
-  verification?: VerificationStatus;
-  plan?: SubscriptionPlan;
-  expiresInDays?: number;
-  premium?: boolean;
-  featured?: boolean;
-  emergency?: boolean;
-  available?: boolean;
-  joinedYear: number;
-  priceMin?: number;
-  priceMax?: number;
-  langCodes?: string[];
-  phone: string;
-  email: string;
-  website?: string;
+/** Where a generated worker sits — a round-robin spot in its country's catalog. */
+interface WorkforceSpot {
+  city: City;
+  area: Area;
 }
 
-// Tenant lb — Lebanon only (Beirut · 5 neighborhoods · USD $)
-const CONFIGS: WorkerConfig[] = [
-  { nameEn: "Khaled Al-Harbi", nameAr: "خالد الحربي", category: "plumbing", city: "beirut", area: "achrafieh", rating: 4.9, reviewCount: 132, yearsExp: 12, verification: "rejected", premium: true, featured: true, emergency: true, joinedYear: 2019, priceMin: 35, priceMax: 280, langCodes: ["ar", "en"], phone: "+961 70 123 456", email: "khaled@plumbfix.lb", website: "plumbfix.lb" },
-  { nameEn: "Jad El Khoury", nameAr: "جاد الخوري", category: "electrical", city: "beirut", area: "hamra", rating: 4.8, reviewCount: 98, yearsExp: 15, verified: true, premium: true, joinedYear: 2016, priceMin: 30, priceMax: 220, langCodes: ["ar", "en"], phone: "+961 71 456 789", email: "jad@volt-lb.com", website: "volt-lb.com" },
-  { nameEn: "Ali Hassan", nameAr: "علي حسن", category: "carpentry", city: "beirut", area: "gemmayzeh", rating: 4.7, reviewCount: 76, yearsExp: 10, verified: true, featured: true, joinedYear: 2018, priceMin: 60, priceMax: 320, langCodes: ["ar", "en", "fr"], phone: "+961 70 778 219", email: "ali@woodcraft.lb", website: "woodcraft.lb" },
-  { nameEn: "Youssef Benali", nameAr: "يوسف بن علي", category: "painting", city: "beirut", area: "mar-mikhael", rating: 4.6, reviewCount: 54, yearsExp: 8, verified: true, joinedYear: 2019, priceMin: 80, priceMax: 350, langCodes: ["ar", "fr"], phone: "+961 3 661 224", email: "y.benali@peinture.lb" },
-  { nameEn: "Ahmad Nassar", nameAr: "أحمد نصار", category: "masonry", city: "beirut", area: "badaro", rating: 4.5, reviewCount: 61, yearsExp: 20, verified: true, joinedYear: 2014, priceMin: 90, priceMax: 480, langCodes: ["ar"], phone: "+961 76 933 441", email: "ahmad@built-lb.com" },
-  { nameEn: "Omar Al-Mutairi", nameAr: "عمر المطيري", category: "ac-technician", city: "beirut", area: "achrafieh", rating: 4.9, reviewCount: 210, yearsExp: 9, verified: true, premium: true, featured: true, emergency: true, available: true, joinedYear: 2020, priceMin: 40, priceMax: 180, langCodes: ["ar", "en"], phone: "+961 71 330 812", email: "omar@coolair.lb", website: "coolair.lb" },
-  { nameEn: "Hassan Karimi", nameAr: "حسن كريمي", category: "satellite-technician", city: "beirut", area: "hamra", rating: 4.7, reviewCount: 45, yearsExp: 7, verified: true, joinedYear: 2021, priceMin: 35, priceMax: 120, langCodes: ["ar", "en", "fr"], phone: "+961 76 441 887", email: "hassan@signaltv.lb" },
-  { nameEn: "Sami Najjar", nameAr: "سامي نجار", category: "mechanic", city: "beirut", area: "gemmayzeh", rating: 4.8, reviewCount: 88, yearsExp: 14, verified: true, premium: true, joinedYear: 2017, priceMin: 25, priceMax: 250, langCodes: ["ar", "en"], phone: "+961 71 556 120", email: "sami@autocare.lb", website: "autocare.lb" },
-  { nameEn: "Fadi Jabbour", nameAr: "فادي جبور", category: "welding", city: "beirut", area: "mar-mikhael", rating: 4.6, reviewCount: 39, yearsExp: 11, verified: true, joinedYear: 2019, priceMin: 70, priceMax: 300, langCodes: ["ar", "en"], phone: "+961 70 778 992", email: "fadi@steelpro.lb" },
-  { nameEn: "Ibrahim Khalil", nameAr: "إبراهيم خليل", category: "blacksmith", city: "beirut", area: "badaro", rating: 4.5, reviewCount: 33, yearsExp: 18, verified: true, joinedYear: 2015, priceMin: 70, priceMax: 320, langCodes: ["ar"], phone: "+961 70 664 229", email: "ibrahim@ironworks-lb.com" },
-  { nameEn: "Tarek Chammas", nameAr: "طارق شماس", category: "roofing", city: "beirut", area: "achrafieh", rating: 4.4, reviewCount: 27, yearsExp: 13, verification: "pending", plan: "basic", expiresInDays: -6, joinedYear: 2018, priceMin: 80, priceMax: 500, langCodes: ["ar"], phone: "+961 70 219 334", email: "tarek@roofshield.lb" },
-  { nameEn: "Bilal Mansour", nameAr: "بلال منصور", category: "cleaning", city: "beirut", area: "hamra", rating: 4.9, reviewCount: 156, yearsExp: 6, verified: true, premium: true, featured: true, available: true, plan: "enterprise", joinedYear: 2021, priceMin: 40, priceMax: 180, langCodes: ["ar", "en"], phone: "+961 71 902 113", email: "bilal@sparkle.lb", website: "sparkle.lb" },
-  { nameEn: "Nadim Karam", nameAr: "نديم كرم", category: "movers", city: "beirut", area: "gemmayzeh", rating: 4.7, reviewCount: 71, yearsExp: 9, verified: true, plan: "professional", expiresInDays: 7, joinedYear: 2019, priceMin: 60, priceMax: 300, langCodes: ["ar", "en"], phone: "+961 76 660 771", email: "nadim@moveit.lb" },
-  { nameEn: "Wissam Ghanem", nameAr: "وسام غانم", category: "gardening", city: "beirut", area: "mar-mikhael", rating: 4.6, reviewCount: 42, yearsExp: 12, verified: true, plan: "basic", expiresInDays: 3, joinedYear: 2017, priceMin: 40, priceMax: 200, langCodes: ["ar", "en"], phone: "+961 81 445 668", email: "wissam@gardenia.lb" },
-  { nameEn: "Rami Awwad", nameAr: "رامي عواد", category: "pest-control", city: "beirut", area: "badaro", rating: 4.8, reviewCount: 63, yearsExp: 8, verified: true, emergency: true, joinedYear: 2020, priceMin: 35, priceMax: 150, langCodes: ["ar", "en"], phone: "+961 71 991 304", email: "rami@guardian.lb" },
-  { nameEn: "Sami Haddad", nameAr: "سامي حداد", category: "locksmith", city: "beirut", area: "achrafieh", rating: 4.7, reviewCount: 58, yearsExp: 10, verified: true, emergency: true, available: true, joinedYear: 2018, priceMin: 25, priceMax: 120, langCodes: ["ar", "en"], phone: "+961 70 447 906", email: "sami@keymaster.lb" },
-  { nameEn: "Karim El-Fassi", nameAr: "كريم الفاسي", category: "glass-works", city: "beirut", area: "hamra", rating: 4.5, reviewCount: 36, yearsExp: 9, verification: "rejected", plan: "basic", joinedYear: 2020, priceMin: 50, priceMax: 220, langCodes: ["ar", "fr"], phone: "+961 70 882 014", email: "karim@vitrage.lb" },
-  { nameEn: "Nabil Salloum", nameAr: "نبيل سلوم", category: "aluminum-works", city: "beirut", area: "gemmayzeh", rating: 4.6, reviewCount: 47, yearsExp: 15, verified: true, joinedYear: 2016, priceMin: 80, priceMax: 350, langCodes: ["ar", "fr"], phone: "+961 70 645 772", email: "nabil@alucasa.lb", website: "alucasa.lb" },
-];
-
-function buildReviews(cfg: WorkerConfig, seed: string): Review[] {
+function buildReviews(reviewCount: number, seed: string): Review[] {
   const rnd = mulberry32(hashSeed(seed + "-reviews"));
-  const count = Math.max(3, Math.min(6, Math.round(cfg.reviewCount / 22)));
+  const count = Math.max(3, Math.min(6, Math.round(reviewCount / 22)));
   const reviews: Review[] = [];
   const pools5 = [REVIEWS_5_EN, REVIEWS_5_AR];
   const pools4 = [REVIEWS_4_EN, REVIEWS_4_AR];
@@ -99,7 +59,7 @@ function buildReviews(cfg: WorkerConfig, seed: string): Review[] {
     const idx = Math.floor(rnd() * pool[0].length);
     const daysAgo = Math.floor(rnd() * 190) + 2;
     reviews.push({
-      id: `${cfg.nameEn.split(" ")[0].toLowerCase()}-r${i}`,
+      id: `${seed.split("-")[0]}-r${i}`,
       author: AUTHOR_NAMES[Math.floor(rnd() * AUTHOR_NAMES.length)],
       rating,
       date: new Date(Date.now() - daysAgo * DAYS).toISOString(),
@@ -111,27 +71,45 @@ function buildReviews(cfg: WorkerConfig, seed: string): Review[] {
   return reviews.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-function buildWorker(cfg: WorkerConfig): Worker {
-  const cat = categoryBySlug(cfg.category)!;
-  const city = cityBySlug(cfg.city)!;
-  const area = city.areas.find((a) => a.slug === cfg.area) ?? city.areas[0];
-  const template = CATEGORY_TEMPLATES[cfg.category];
-  const rnd = mulberry32(hashSeed(cfg.nameEn));
-  const id = cfg.nameEn.split(" ")[0].toLowerCase() + "-" + cfg.category.slice(0, 4);
-  const slug = `${cfg.nameEn.toLowerCase().replace(/[^a-z]+/g, "-")}-${cfg.category}`;
+/**
+ * Build ONE demo worker: a shared role RECIPE + a country's name pool + a
+ * round-robin spot in that country's city catalog.
+ *
+ * Country-scoped facts all come from `country`: the phone number is
+ * `dialCode` + one of its mobile prefixes, the email/website domain is the
+ * recipe's brand under the country's TLD, and the worker's currency + city
+ * follow its catalog.
+ */
+function buildWorker(recipe: WorkerRecipe, name: { en: string; ar: string }, spot: WorkforceSpot, country: CountryConfig): Worker {
+  const cat = categoryBySlug(recipe.category)!;
+  const { city, area } = spot;
+  const template = CATEGORY_TEMPLATES[recipe.category]!;
+  const rnd = mulberry32(hashSeed(name.en));
+  const id = name.en.split(" ")[0]!.toLowerCase() + "-" + recipe.category.slice(0, 4);
+  const slug = `${name.en.toLowerCase().replace(/[^a-z]+/g, "-")}-${recipe.category}`;
   const specialtyIdx = Math.floor(rnd() * template.specialtyEn.length);
   const qualityIdx = Math.floor(rnd() * QUALITY_EN.length);
 
-  const services = template.services.map(([nEn, nAr, price, unit], i) => ({
+  // Country-derived contact details — a new country needs no dataset edits.
+  const prefixes = country.demoWorkforce.phonePrefixes;
+  if (prefixes.length === 0) {
+    throw new Error(`Country "${country.slug}" has no demoWorkforce.phonePrefixes`);
+  }
+  const prefix = prefixes[recipe.phonePrefixIndex % prefixes.length]!;
+  const phone = `+${country.dialCode} ${prefix} ${recipe.phoneTail}`;
+  const domain = `${recipe.brand}.${recipe.tld ?? country.demoWorkforce.emailTld}`;
+  const emailLocal = recipe.emailLocal ?? name.en.split(" ")[0]!.toLowerCase();
+
+  const services = template.services.map(([nEn, nAr, price, unit]) => ({
     nameEn: nEn,
     nameAr: nAr,
-    price: Math.round(price * (cfg.priceMin && cfg.priceMax ? (0.85 + rnd() * 0.5) : 1)),
+    price: Math.round(price * (0.85 + rnd() * 0.5)),
     unit,
   }));
 
   const certifications = [
-    { nameEn: `${cat.nameEn} Professional License`, nameAr: `رخصة ${cat.nameAr} مهنية`, issuerEn: "National Trades Board", issuerAr: "الهيئة الوطنية للمهن", year: cfg.joinedYear + 1 },
-    { nameEn: "Safety & First Aid Certified", nameAr: "شهادة سلامة وإسعافات أولية", issuerEn: "Safety Institute", issuerAr: "معهد السلامة", year: cfg.joinedYear + 2 },
+    { nameEn: `${cat.nameEn} Professional License`, nameAr: `رخصة ${cat.nameAr} مهنية`, issuerEn: "National Trades Board", issuerAr: "الهيئة الوطنية للمهن", year: recipe.joinedYear + 1 },
+    { nameEn: "Safety & First Aid Certified", nameAr: "شهادة سلامة وإسعافات أولية", issuerEn: "Safety Institute", issuerAr: "معهد السلامة", year: recipe.joinedYear + 2 },
   ];
 
   const hours = [
@@ -143,7 +121,7 @@ function buildWorker(cfg: WorkerConfig): Worker {
     { day: 5, open: "09:00", close: "14:00" },
     { day: 6, open: "00:00", close: "00:00", closed: true },
   ];
-  if (cfg.emergency) hours[6] = { day: 6, open: "00:00", close: "00:00", closed: false };
+  if (recipe.emergency) hours[6] = { day: 6, open: "00:00", close: "00:00", closed: false };
 
   const gallery = template.portfolioEn.map((tEn, i) => ({
     titleEn: tEn,
@@ -151,19 +129,19 @@ function buildWorker(cfg: WorkerConfig): Worker {
     hue: (cat.hue + i * 37 + Math.floor(rnd() * 30)) % 360,
   }));
 
-  const langCodes = cfg.langCodes ?? ["ar", "en"];
+  const langCodes = recipe.langCodes ?? ["ar", "en"];
   const languages = LANGUAGES.filter((l) => langCodes.includes(l.code));
 
   const lat = city.lat + (rnd() - 0.5) * 0.06;
   const lng = city.lng + (rnd() - 0.5) * 0.06;
 
-  const reviews = buildReviews(cfg, slug);
+  const reviews = buildReviews(recipe.reviewCount, slug);
 
   const verification: VerificationStatus =
-    cfg.verification ?? (cfg.verified ? "verified" : "pending");
+    recipe.verification ?? (recipe.verified ? "verified" : "pending");
   const plan: SubscriptionPlan =
-    cfg.plan ?? (cfg.premium ? "premium" : cfg.verified ? "professional" : "basic");
-  const expiresInDays = cfg.expiresInDays ?? 14 + Math.floor(rnd() * 26);
+    recipe.plan ?? (recipe.premium ? "premium" : recipe.verified ? "professional" : "basic");
+  const expiresInDays = recipe.expiresInDays ?? 14 + Math.floor(rnd() * 26);
   const planPrices: Record<SubscriptionPlan, number> = {
     basic: 29,
     professional: 59,
@@ -174,24 +152,24 @@ function buildWorker(cfg: WorkerConfig): Worker {
   return {
     id,
     slug,
-    nameEn: cfg.nameEn,
-    nameAr: cfg.nameAr,
-    categorySlug: cfg.category,
-    citySlug: cfg.city,
-    areaSlug: cfg.area,
-    taglineEn: `${cat.nameEn} specialist · ${cfg.yearsExp} years of experience`,
-    taglineAr: `${cat.professionAr} · خبرة ${cfg.yearsExp} سنة`,
-    bioEn: `I'm ${cfg.nameEn}, a ${cat.professionEn} with ${cfg.yearsExp} years of hands-on experience serving ${city.nameEn} (${area.nameEn}) and nearby areas. ${template.specialtyEn[specialtyIdx]}. ${QUALITY_EN[qualityIdx]}. Every project is delivered on time, on budget — guaranteed.`,
-    bioAr: `أنا ${cfg.nameAr}، ${cat.professionAr} بخبرة ${cfg.yearsExp} سنة أخدم ${city.nameAr} (${area.nameAr}) والمناطق المجاورة. ${template.specialtyAr[specialtyIdx]}. ${QUALITY_AR[qualityIdx]}. كل مشروع يُسلَّم في وقته وضمن ميزانيته — مضمون.`,
-    rating: cfg.rating,
-    reviewCount: cfg.reviewCount,
-    yearsExp: cfg.yearsExp,
+    nameEn: name.en,
+    nameAr: name.ar,
+    categorySlug: recipe.category,
+    citySlug: city.slug,
+    areaSlug: area.slug,
+    taglineEn: `${cat.nameEn} specialist · ${recipe.yearsExp} years of experience`,
+    taglineAr: `${cat.professionAr} · خبرة ${recipe.yearsExp} سنة`,
+    bioEn: `I'm ${name.en}, a ${cat.professionEn} with ${recipe.yearsExp} years of hands-on experience serving ${city.nameEn} (${area.nameEn}) and nearby areas. ${template.specialtyEn[specialtyIdx]}. ${QUALITY_EN[qualityIdx]}. Every project is delivered on time, on budget — guaranteed.`,
+    bioAr: `أنا ${name.ar}، ${cat.professionAr} بخبرة ${recipe.yearsExp} سنة أخدم ${city.nameAr} (${area.nameAr}) والمناطق المجاورة. ${template.specialtyAr[specialtyIdx]}. ${QUALITY_AR[qualityIdx]}. كل مشروع يُسلَّم في وقته وضمن ميزانيته — مضمون.`,
+    rating: recipe.rating,
+    reviewCount: recipe.reviewCount,
+    yearsExp: recipe.yearsExp,
     verified: verification === "verified",
     verification,
-    premium: cfg.premium ?? false,
-    featured: cfg.featured ?? false,
-    emergency: cfg.emergency ?? false,
-    available: cfg.available ?? true,
+    premium: recipe.premium ?? false,
+    featured: recipe.featured ?? false,
+    emergency: recipe.emergency ?? false,
+    available: recipe.available ?? true,
     subscription: {
       plan,
       status: expiresInDays < 0 ? "expired" : expiresInDays <= 7 ? "expiring" : "active",
@@ -200,13 +178,13 @@ function buildWorker(cfg: WorkerConfig): Worker {
       price: planPrices[plan],
       invoiceNo: `INV-${9000 + Math.floor(rnd() * 900)}`,
     },
-    priceMin: cfg.priceMin ?? Math.min(...services.map((s) => s.price)),
-    priceMax: cfg.priceMax ?? Math.max(...services.map((s) => s.price)),
+    priceMin: recipe.priceMin,
+    priceMax: recipe.priceMax,
     currency: city.currency,
-    phone: cfg.phone,
-    whatsapp: cfg.phone.replace(/[^\d]/g, ""),
-    email: cfg.email,
-    website: cfg.website,
+    phone,
+    whatsapp: phone.replace(/[^\d]/g, ""),
+    email: `${emailLocal}@${domain}`,
+    website: recipe.website ? domain : undefined,
     socials: [
       { platform: "instagram", url: `https://instagram.com/${slug}` },
       { platform: "facebook", url: `https://facebook.com/${slug}` },
@@ -218,14 +196,40 @@ function buildWorker(cfg: WorkerConfig): Worker {
     hours,
     gallery,
     reviews,
-    joinedYear: cfg.joinedYear,
-    views: 900 + Math.round(cfg.reviewCount * 34 + cfg.rating * 400 + rnd() * 3000),
-    leads: Math.round(cfg.reviewCount * 1.7),
+    joinedYear: recipe.joinedYear,
+    views: 900 + Math.round(recipe.reviewCount * 34 + recipe.rating * 400 + rnd() * 3000),
+    leads: Math.round(recipe.reviewCount * 1.7),
     completion: 68 + Math.floor(rnd() * 30),
     hue: hashSeed(slug) % 360,
     lat,
     lng,
   };
+}
+
+/**
+ * Generate a country's whole demo workforce: every shared recipe paired with
+ * that country's name pool, assigned round-robin across its cities/areas.
+ *
+ * Deterministic — the same country always yields the same 18 workers, so the
+ * seed, the demo store and every test agree without a hand-written dataset.
+ */
+export function buildWorkforce(country: CountryConfig = DEFAULT_COUNTRY): Worker[] {
+  const cities = citiesForCountry(country);
+  const names = country.demoWorkforce.names;
+  if (names.length < WORKER_RECIPES.length) {
+    throw new Error(
+      `Country "${country.slug}" declares ${names.length} demo names for ${WORKER_RECIPES.length} worker recipes`
+    );
+  }
+  const spots: WorkforceSpot[] = cities.flatMap((city) =>
+    city.areas.map((area) => ({ city, area }))
+  );
+  if (spots.length === 0) {
+    throw new Error(`Country "${country.slug}" declares no city areas to place demo workers in`);
+  }
+  return WORKER_RECIPES.map((recipe, i) =>
+    buildWorker(recipe, names[i]!, spots[i % spots.length]!, country)
+  );
 }
 
 /**
@@ -242,7 +246,17 @@ function buildWorker(cfg: WorkerConfig): Worker {
 const WORKERS_KEY = "__workersArenaDemoWorkers";
 const g = globalThis as Record<string, unknown>;
 export const WORKERS: Worker[] =
-  (g[WORKERS_KEY] as Worker[] | undefined) ?? (g[WORKERS_KEY] = CONFIGS.map(buildWorker));
+  (g[WORKERS_KEY] as Worker[] | undefined) ??
+  (g[WORKERS_KEY] = buildWorkforce(DEFAULT_COUNTRY));
+
+/**
+ * A country's demo workforce. The served tenant reads the shared (mutable)
+ * demo singleton; any other configured country gets a freshly generated set —
+ * which is all the seed needs to populate its own cities and workers.
+ */
+export function workersForCountry(country: CountryConfig = DEFAULT_COUNTRY): Worker[] {
+  return country.slug === DEFAULT_COUNTRY.slug ? WORKERS : buildWorkforce(country);
+}
 
 export const workerBySlug = (slug: string): Worker | undefined =>
   WORKERS.find((w) => w.slug === slug);

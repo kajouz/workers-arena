@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { BookingStatusBadge } from "./booking-status-badge";
 import { useLocale } from "@/components/providers/locale-provider";
 import { toast } from "@/components/ui/toast";
-import { formatDate } from "@/lib/utils";
+import { durationParts, fillDuration, formatDate, formatNumber } from "@/lib/utils";
 import { Price } from "@/components/shared/price";
 import { confirmCompletionAction, payBookingAction } from "@/app/actions/bookings";
 import { RescheduleDialog } from "./reschedule-dialog";
@@ -206,7 +206,10 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
                   <p className="mt-0.5 text-xs text-ink-500 dark:text-ink-400">
                     {t("booking.payDepositBody").replace(
                       "{amount}",
-                      `${(booking.deposit! / 100).toLocaleString(locale)} ${booking.currency}`
+                      // formatNumber, not toLocaleString: this amount sits in the
+                      // same row as the Latin money everywhere else, so the
+                      // digits are ASCII in both UI locales (NUMBER_LOCALE).
+                      `${formatNumber(booking.deposit! / 100)} ${booking.currency}`
                     )}
                   </p>
                 </div>
@@ -234,7 +237,7 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
               <p className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-relaxed text-ink-400">
                 <ShieldCheck className="mt-px size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <span>
-                  {t("booking.cancelPolicyRow").replace(/\{hours\}/g, String(BOOKING_CANCEL_REFUND_WINDOW_MS / 3_600_000))}
+                  {fillDuration(t("booking.cancelPolicyRow"), durationParts(BOOKING_CANCEL_REFUND_WINDOW_MS))}
                 </span>
               </p>
             )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   Share2,
   Copy,
@@ -428,7 +428,7 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
                     </div>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
-                    {new Date(referral.createdAt).toLocaleDateString()}
+                    {formatDate(referral.createdAt, locale)}
                   </td>
                   <td className="px-4 py-4">
                     <span className={cn("px-2 py-1 text-xs font-medium rounded-full", statusColors[referral.status])}>

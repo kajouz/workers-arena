@@ -512,7 +512,6 @@ test.describe("Enhancement API Endpoints", () => {
     expect(Array.isArray(data.paymentMethods)).toBeTruthy();
     expect(data.walletBalance).toBeDefined();
     expect(typeof data.walletBalance.usd).toBe("number");
-    expect(typeof data.walletBalance.lbp).toBe("number");
   });
 
   test("GET /api/worker/gamification returns gamification data", async ({ request }) => {

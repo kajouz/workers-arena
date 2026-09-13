@@ -5,6 +5,20 @@
  *
  * Reuses the exact same source of truth as demo mode
  * (src/lib/data/*), so demo and production stay consistent.
+ *
+ * COUNTRY-PARAMETERIZED: cities and demo workers are GENERATED from the
+ * country registry (src/lib/tenant/countries.ts — `cities` + `demoWorkforce`
+ * feed src/lib/data/cities.ts + workers.ts). No city or worker row is written
+ * here by hand, so a new CountryConfig populates its own catalog and workforce
+ * with nothing to edit in this file:
+ *
+ *   npm run db:seed                      # the served tenant (lb)
+ *   SEED_COUNTRY=lb npm run db:seed      # one country by slug or ISO code
+ *   SEED_COUNTRY=all npm run db:seed     # every configured country
+ *
+ * The platform demo identities (users, company, ads) stay tied to the served
+ * tenant; the demo bookings/slots below attach to its demo worker and are
+ * skipped automatically when that country isn't part of the selection.
  */
 import {
   AdStatus,
@@ -21,13 +35,44 @@ import {
   WorkerStatus,
 } from "@prisma/client";
 import { CATEGORIES } from "../src/lib/data/categories";
-import { CITIES } from "../src/lib/data/cities";
-import { WORKERS } from "../src/lib/data/workers";
+import { citiesForCountry } from "../src/lib/data/cities";
+import { workersForCountry } from "../src/lib/data/workers";
+import {
+  ALL_COUNTRIES,
+  DEFAULT_COUNTRY,
+  countryByCode,
+  countryBySlug,
+  dialPrefix,
+  type CountryConfig,
+} from "../src/lib/tenant/countries";
 
 const prisma = new PrismaClient();
 
+/**
+ * Resolve `SEED_COUNTRY` (slug, ISO code, or "all") to the countries to seed.
+ * Defaults to the served tenant, and rejects an unknown value loudly instead of
+ * silently seeding nothing.
+ */
+function resolveCountries(requested: string | undefined): CountryConfig[] {
+  const value = requested?.trim();
+  if (!value) return [DEFAULT_COUNTRY];
+  if (value.toLowerCase() === "all") return [...ALL_COUNTRIES];
+  const country = countryBySlug(value.toLowerCase()) ?? countryByCode(value);
+  if (!country) {
+    const known = ALL_COUNTRIES.map((c) => `${c.slug} (${c.code})`).join(", ");
+    throw new Error(`Unknown SEED_COUNTRY "${value}" — configured: ${known}, or "all"`);
+  }
+  return [country];
+}
+
 async function main() {
-  console.log("🌱 Seeding WorkersArena…");
+  const countries = resolveCountries(process.env.SEED_COUNTRY);
+  // The demo customer's number, built from the served tenant's dial code rather
+  // than another hardcoded "+961 …".
+  const demoCustomerPhone = `${dialPrefix(DEFAULT_COUNTRY)} 70 000 000`;
+  console.log(
+    `🌱 Seeding WorkersArena — ${countries.map((c) => `${c.nameEn} (${c.slug})`).join(", ")}…`
+  );
 
   // Categories — sortOrder mirrors the demo array order so the production
   // category listing matches the demo's (tie-free ordering for getCategories).
@@ -58,8 +103,9 @@ async function main() {
   }
   console.log(`  ✓ ${CATEGORIES.length} categories`);
 
-  // Cities + areas
-  for (const city of CITIES) {
+  // Cities + areas — generated from each selected country's registry entry.
+  const cities = countries.flatMap((country) => citiesForCountry(country));
+  for (const city of cities) {
     const created = await prisma.city.upsert({
       where: { slug: city.slug },
       update: {
@@ -90,7 +136,7 @@ async function main() {
       });
     }
   }
-  console.log(`  ✓ ${CITIES.length} cities with areas`);
+  console.log(`  ✓ ${cities.length} cities with areas across ${countries.length} country(ies)`);
 
   // Real users for the demo identities — credentials login works end-to-end
   // against the DB (src/app/actions/auth.ts → DEMO_PASSWORD, and the one-click
@@ -351,30 +397,39 @@ async function main() {
     console.log("  ✓ 5 ad campaigns + 3 company invoices (real rotation + /company list)");
   }
 
-  for (const w of WORKERS) {
+  // Every selected country's generated workforce (name + city + phone + email
+  // all come from the registry — the dataset is not hand-listed anywhere).
+  const workforce = countries.flatMap((country) => workersForCountry(country));
+
+  // Retire workers that no longer exist in ANY configured country's dataset
+  // (pre-Lebanon remap slugs: they still point at dead SAR/MAD city rows and
+  // would surface in real-mode listings with stale currencies). The keep-set
+  // spans every CONFIGURED country — not just the selected ones — so seeding a
+  // single country never retires another country's workers. Soft-delete only:
+  // their bookings/ledger keep their FKs, matching the repo's deletedAt: null
+  // scans.
+  const keepSlugs = new Set(
+    ALL_COUNTRIES.flatMap((country) => workersForCountry(country).map((w) => w.slug))
+  );
+  const stale = await prisma.worker.findMany({
+    where: { slug: { notIn: [...keepSlugs] }, deletedAt: null },
+    select: { id: true },
+  });
+  if (stale.length > 0) {
+    await prisma.worker.updateMany({
+      where: { id: { in: stale.map((s) => s.id) } },
+      data: { deletedAt: new Date(), available: false, status: WorkerStatus.INACTIVE },
+    });
+    console.log(`  ✓ retired ${stale.length} stale worker(s) not in any configured country`);
+  }
+
+  for (const w of workforce) {
     const category = await prisma.category.findUnique({ where: { slug: w.categorySlug } });
     const city = await prisma.city.findUnique({ where: { slug: w.citySlug } });
     const area = city
       ? await prisma.area.findUnique({ where: { cityId_slug: { cityId: city.id, slug: w.areaSlug } } })
       : null;
     if (!category || !city || !area) continue;
-
-    // Retire workers that no longer exist in the dataset (pre-Lebanon remap
-    // slugs: they still point at dead SAR/MAD city rows and would surface in
-    // real-mode listings with stale currencies). Soft-delete only: their
-    // bookings/ledger keep their FKs, matching the repo's deletedAt: null scans.
-    const keepSlugs = new Set(WORKERS.map((x) => x.slug));
-    const stale = await prisma.worker.findMany({
-      where: { slug: { notIn: [...keepSlugs] }, deletedAt: null },
-      select: { id: true },
-    });
-    if (stale.length > 0) {
-      await prisma.worker.updateMany({
-        where: { id: { in: stale.map((s) => s.id) } },
-        data: { deletedAt: new Date(), available: false, status: WorkerStatus.INACTIVE },
-      });
-      console.log(`  ✓ retired ${stale.length} stale worker(s) not in the dataset`);
-    }
 
     const worker = await prisma.worker.upsert({
       where: { slug: w.slug },
@@ -543,7 +598,7 @@ async function main() {
       },
     });
   }
-  console.log(`  ✓ ${WORKERS.length} workers with services, hours, reviews & subscriptions`);
+  console.log(`  ✓ ${workforce.length} workers with services, hours, reviews & subscriptions`);
 
   // ── Bookings & slots (demo, deterministic) ─────────────────────────────────
   // A request + slots for the demo worker so the booking flow is exercisable
@@ -552,6 +607,8 @@ async function main() {
   // demo booking and its unclaimed slots are recreated fresh on every seed run
   // (relative "tomorrow" dates, so they always look upcoming).
   const demoWorker = await prisma.worker.findUnique({ where: { slug: "khaled-al-harbi-plumbing" } });
+  // Skipped automatically when the selection excludes the served tenant (its
+  // demo worker isn't in the seeded set) — no country-specific special-casing.
   if (demoWorker) {
     const saraId = users.get("sara@example.com");
     const slotAt = (hour: number) => {
@@ -602,7 +659,7 @@ async function main() {
         workerId: demoWorker.id,
         customerId: saraId ?? null,
         customerName: "Sara Customer",
-        customerPhone: "+961 70 000 000",
+        customerPhone: demoCustomerPhone,
         customerEmail: "sara@example.com",
         jobTitle: "Leaking kitchen sink repair",
         note: "Sink under the kitchen window has been leaking for two days.",
@@ -650,7 +707,7 @@ async function main() {
         workerId: demoWorker.id,
         customerId: saraId ?? null,
         customerName: "Sara Customer",
-        customerPhone: "+961 70 000 000",
+        customerPhone: demoCustomerPhone,
         customerEmail: "sara@example.com",
         jobTitle: "Weekly AC maintenance",
         note: "Filter clean + pressure check, every week.",
@@ -666,7 +723,7 @@ async function main() {
         workerId: demoWorker.id,
         customerId: saraId ?? null,
         customerName: "Sara Customer",
-        customerPhone: "+961 70 000 000",
+        customerPhone: demoCustomerPhone,
         customerEmail: "sara@example.com",
         jobTitle: "Weekly AC maintenance",
         note: "Filter clean + pressure check, every week.",

@@ -133,6 +133,7 @@ export const en = {
     workers: "Active professionals",
     companies: "Partner companies",
     cities: "Cities served",
+    citiesOne: "City served",
     satisfaction: "Customer satisfaction",
   },
   testimonials: {
@@ -774,7 +775,9 @@ export const en = {
     emptyBody: "Request a booking on a worker's profile and it will appear here.",
     guestLookupTitle: "Find your bookings",
     guestLookupBody: "Enter the phone number you used when booking.",
-    guestLookupPlaceholder: "+961 7x xxx xxx",
+    // National-format only — the UI prepends the served country's dial code
+    // (`dialPrefix()` from the country registry), so it can't hardcode one.
+    guestLookupPlaceholder: "7x xxx xxx",
     guestLookup: "Find my bookings",
     guestLookupNone: "No bookings found for this number.",
     bookingWith: "Booked with",

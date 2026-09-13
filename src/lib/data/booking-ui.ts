@@ -1,4 +1,5 @@
 import type { Booking, BookingEmailContext, BookingSlot } from "./types";
+import { intlLocale } from "@/lib/tenant/countries";
 
 /**
  * Pure helpers for the booking slot picker — kept free of React so the
@@ -44,7 +45,7 @@ export function groupSlotsByDay(slots: BookingSlot[]): { dayKey: string; slots: 
 
 /** Localized HH:MM (24h) from an ISO timestamp. */
 function hourMinute(iso: string, locale: "en" | "ar"): string {
-  return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -111,7 +112,7 @@ export function dayLabel(
 
 /** Full short date (e.g. "Mon, Aug 12") for weekday headers. */
 export function formatDayDate(startAt: string, locale: "en" | "ar"): string {
-  return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -166,9 +167,9 @@ export function computeResponseRate(bookings: Pick<Booking, "status">[]): number
  * later rate change). Shared by both adapters so demo and DB can never drift.
  */
 export const PLATFORM_FEE_RATE_BPS = 700; // 7.0% take rate
-/** Floor, minor units (SAR 5 / $5). */
+/** Floor, minor units ($5). */
 export const PLATFORM_FEE_MIN_MINOR = 500;
-/** Cap per job, minor units (SAR 300 / $300). */
+/** Cap per job, minor units ($300). */
 export const PLATFORM_FEE_MAX_MINOR = 30_000;
 /** Subscription plans that waive the platform fee (BUSINESS-MODEL §5.2). */
 export const FEE_EXEMPT_PLANS: readonly string[] = ["enterprise"];

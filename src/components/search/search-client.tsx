@@ -106,6 +106,12 @@ export function SearchClient({
   useEffect(() => setMounted(true), []);
   const debouncedQuery = useDebounce(query, 220);
   const searchSeq = useRef(0);
+  // On mount the server already rendered the canonical URL.  Stash it so
+  // the [filters] effect can skip the redundant router.replace — calling it
+  // during hydration races with the RSC payload reconciliation and can
+  // trigger "Maximum update depth exceeded" when the user toggles a filter
+  // (e.g. fee-waived) before hydration finishes.
+  const canonicalRef = useRef(filtersToSearchParams(initialFilters));
   const { addSearch } = useSearchHistory();
   const { trackCategory, trackCity } = useRetargeting();
   const {
@@ -183,7 +189,13 @@ export function SearchClient({
   /** Sync URL when filters change (deep-linkable searches). */
   useEffect(() => {
     const qs = filtersToSearchParams(filters);
-    router.replace(`/search${qs}`, { scroll: false });
+    // Skip the redundant replace on mount — the server already rendered the
+    // canonical URL.  Only navigate when filters actually changed (user
+    // interaction) or the canonical URL drifted (e.g. coercion).
+    if (qs !== canonicalRef.current) {
+      canonicalRef.current = qs;
+      router.replace(`/search${qs}`, { scroll: false });
+    }
     runSearch(filters, 1);
     // Track search in history
     if (filters.query || filters.category || filters.city) {

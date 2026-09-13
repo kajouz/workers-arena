@@ -21,7 +21,7 @@ const TRADE_DESCRIPTIONS: Record<string, { title: string; description: string; b
       "Same-day appointments for urgent repairs",
     ],
     faq: [
-      { q: "How much does a plumber cost?", a: "Plumbing costs vary by job complexity. Minor repairs start from SAR 80, while major installations can range from SAR 500–5,000. Get a free quote from verified plumbers on WorkersArena." },
+      { q: "How much does a plumber cost?", a: "Plumbing costs vary by job complexity. Minor repairs start from $80, while major installations can range from $500–5,000. Get a free quote from verified plumbers on WorkersArena." },
       { q: "How do I find an emergency plumber?", a: "Use the 'Emergency' filter on WorkersArena to find plumbers available 24/7. Many plumbers offer same-day emergency service for urgent leaks and blockages." },
       { q: "Are the plumbers on WorkersArena licensed?", a: "Yes, all plumbers undergo identity verification and can earn Professional Verification badges for additional trust. Check ratings and reviews before booking." },
     ],
@@ -51,7 +51,7 @@ const TRADE_DESCRIPTIONS: Record<string, { title: string; description: string; b
     ],
     faq: [
       { q: "How often should I service my AC?", a: "AC units should be serviced at least twice a year — before summer and before winter. Regular maintenance improves efficiency and extends the unit's lifespan." },
-      { q: "What's the average AC repair cost?", a: "AC repair costs range from SAR 100 for simple fixes to SAR 1,500+ for compressor replacements. Get quotes from multiple technicians on WorkersArena." },
+      { q: "What's the average AC repair cost?", a: "AC repair costs range from $100 for simple fixes to $1,500+ for compressor replacements. Get quotes from multiple technicians on WorkersArena." },
     ],
   },
   carpentry: {

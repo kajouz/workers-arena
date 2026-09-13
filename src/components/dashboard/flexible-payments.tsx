@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import {
   CreditCard,
   Wallet,
@@ -63,9 +63,9 @@ interface PaymentOptions {
   walletTopUps: WalletTopUp[];
   businessAccounts: BusinessAccount[];
   paymentMethods: PaymentMethod[];
+  // Tenant lb: single-currency USD — the wallet has no second balance.
   walletBalance: {
     usd: number;
-    lbp: number;
   };
 }
 
@@ -133,9 +133,6 @@ export function FlexiblePaymentsCard() {
             <div className="text-sm text-violet-700">Wallet Balance</div>
             <div className="text-2xl font-bold text-violet-800">
               ${options.walletBalance.usd.toFixed(2)}
-            </div>
-            <div className="text-sm text-violet-600">
-              {options.walletBalance.lbp.toLocaleString()} LBP
             </div>
           </div>
           <button className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors">
@@ -355,7 +352,7 @@ export function FlexiblePaymentsCard() {
                   <div className="flex items-center justify-between text-sm mb-3">
                     <span className="text-gray-600">Credit Limit:</span>
                     <span className="font-medium">
-                      ${account.creditLimit.toLocaleString()}
+                      ${formatNumber(account.creditLimit)}
                     </span>
                   </div>
                   {account.dedicatedSupport && (

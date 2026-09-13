@@ -1,6 +1,8 @@
 import { dictionaries, translate, type Dictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import type { Booking, BookingStatus } from "./types";
+import { intlLocale } from "@/lib/tenant/countries";
+import { formatNumber } from "@/lib/utils";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -89,11 +91,11 @@ export function auditActorLabel(dict: Dictionary, actor: string): string {
 }
 
 export function auditFmtDate(locale: Locale, iso: string): string {
-  return new Date(iso).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { dateStyle: "medium" });
+  return new Date(iso).toLocaleDateString(intlLocale(locale), { dateStyle: "medium" });
 }
 
 export function auditFmtTime(locale: Locale, iso: string): string {
-  return new Date(iso).toLocaleTimeString(locale === "ar" ? "ar-EG" : "en-US", { timeStyle: "short" });
+  return new Date(iso).toLocaleTimeString(intlLocale(locale), { timeStyle: "short" });
 }
 
 export function auditFmtDateTime(locale: Locale, iso: string): string {
@@ -160,8 +162,13 @@ function bookingFacts(
   return facts;
 }
 
-/** The events table body rows for one booking (shared by both documents). */
-function eventRows(booking: Booking, dict: Dictionary, locale: Locale, num: Intl.NumberFormat): string {
+/** The events table body rows for one booking (shared by both documents).
+ *
+ * The row index is ASCII digits, like every other number the app formats itself
+ * (NUMBER_LOCALE). A country-tagged NumberFormat here — the shape this file used
+ * to carry — would print Arabic-Indic indices in the Arabic document, beside the
+ * ASCII money and booking number. */
+function eventRows(booking: Booking, dict: Dictionary, locale: Locale): string {
   const rows = booking.events.map((e, i) => {
     const cols = [
       String(i + 1),
@@ -192,12 +199,7 @@ function factsHtml(
 }
 
 /** The events table HTML for one booking (shared by both documents). */
-function eventsHtml(
-  booking: Booking,
-  dict: Dictionary,
-  locale: Locale,
-  num: Intl.NumberFormat
-): string {
+function eventsHtml(booking: Booking, dict: Dictionary, locale: Locale): string {
   const t = (key: string) => translate(dict, key);
   return `    <table>
       <thead>
@@ -210,7 +212,7 @@ function eventsHtml(
         </tr>
       </thead>
       <tbody>
-        ${eventRows(booking, dict, locale, num)}
+        ${eventRows(booking, dict, locale)}
       </tbody>
     </table>`;
 }
@@ -247,7 +249,6 @@ export function renderBookingAuditPrint(
   const { locale, workerName } = opts;
   const dict = dictionaries[locale];
   const t = (key: string) => translate(dict, key);
-  const num = new Intl.NumberFormat(locale === "ar" ? "ar-EG" : "en-US");
 
   return documentShell({
     locale,
@@ -260,7 +261,7 @@ export function renderBookingAuditPrint(
 
   <h2>${escapeHtml(t("booking.disputeDetails"))}</h2>
   ${factsHtml(booking, dict, locale, workerName)}
-  ${eventsHtml(booking, dict, locale, num)}`,
+  ${eventsHtml(booking, dict, locale)}`,
     bodyHtml: "",
   });
 }
@@ -280,7 +281,6 @@ export function renderBookingTrailsPrint(
   const { locale, workerNames = {} } = opts;
   const dict = dictionaries[locale];
   const t = (key: string) => translate(dict, key);
-  const num = new Intl.NumberFormat(locale === "ar" ? "ar-EG" : "en-US");
 
   const sections = bookings
     .map(
@@ -289,7 +289,7 @@ export function renderBookingTrailsPrint(
         auditStatusLabel(dict, b.status)
       )}</span></h2>
     ${factsHtml(b, dict, locale, workerNames[b.workerId])}
-    ${eventsHtml(b, dict, locale, num)}
+    ${eventsHtml(b, dict, locale)}
   </section>`
     )
     .join("\n");
@@ -301,7 +301,7 @@ export function renderBookingTrailsPrint(
     <p class="brand">WorkersArena</p>
     <h1>${escapeHtml(t("admin.exportTrailsDocTitle"))}</h1>
     <p class="meta">${escapeHtml(t("booking.printGenerated"))} ${escapeHtml(auditFmtDateTime(locale, new Date().toISOString()))} · ${escapeHtml(
-      t("admin.exportTrailsBookingsCount").replace("{count}", num.format(bookings.length))
+      t("admin.exportTrailsBookingsCount").replace("{count}", formatNumber(bookings.length))
     )}</p>
   </header>`,
     bodyHtml: sections,

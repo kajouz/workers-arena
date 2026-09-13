@@ -2,6 +2,7 @@ import { bookingEmailContext } from "./booking-ui";
 import { renderBookingEmail } from "@/lib/notifications/templates";
 import type { ChannelPayload } from "@/lib/notifications/types";
 import type { Booking, BookingEmailContext, Notification } from "./types";
+import { intlLocale } from "@/lib/tenant/countries";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -79,12 +80,12 @@ export function bookingNotification(
   const ctx = opts?.refund ? { ...bookingEmailContext(booking), refund: opts.refund } : bookingEmailContext(booking);
   // Slot-less quote bids never flow through this builder (quote-notifications
   // handles them), but keep the timestamp null-safe anyway. The slot time is
-  // formatted PER LOCALE (ar-EG vs en-US) — the payload's bodies feed the
+  // formatted PER LOCALE (the served country's Intl tags) — the payload's bodies feed the
   // SMS/WhatsApp/push channels directly, so a server-locale `toLocaleString()`
   // would leak English-formatted times into Arabic channel copy.
   const timeFor = (locale: "en" | "ar") =>
     booking.startAt
-      ? new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
+      ? new Intl.DateTimeFormat(intlLocale(locale), {
           dateStyle: "medium",
           timeStyle: "short",
         }).format(new Date(booking.startAt))

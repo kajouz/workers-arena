@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
-import { formatPrice, formatCompact } from "@/lib/utils";
+import { formatPrice, formatCompact, formatTime } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -351,7 +351,7 @@ export function FinancialAnalysis() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="px-3 py-1.5">
-            Last updated: {lastRefresh.toLocaleTimeString()}
+            Last updated: {formatTime(lastRefresh, locale as "en" | "ar")}
           </Badge>
           <Button
             variant="outline"

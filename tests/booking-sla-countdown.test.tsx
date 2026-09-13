@@ -145,6 +145,29 @@ describe("BookingSlaCountdown", () => {
     expect(screen.getByText(/يُلغى تلقائياً خلال 47 س 0 د إذا لم يستجب العامل/)).toBeInTheDocument();
   });
 
+  it("renders the countdown in ASCII digits on every voice (the numeral convention)", () => {
+    // Durations are NON-DATE numbers, so the house convention makes them ASCII
+    // in both languages (see tests/number-digits.test.ts) — the Arabic page
+    // shows "47 س 0 د" beside the Arabic-Indic date "١٣ أيلول". This pins all
+    // three voices, because the countdown is the surface where the two
+    // conventions meet in one row.
+    for (const variant of ["customer", "worker", "admin"] as SlaCountdownVariant[]) {
+      cleanup();
+      const { container } = renderTicker(booking, { variant, compact: variant !== "admin", locale: "ar" });
+      const text = container.textContent ?? "";
+
+      // 47h 0m remain at the fixed clock, rendered with ASCII digits.
+      expect(text.match(/(\d+)\s*س\s*(\d+)\s*د/), `${variant} countdown shape`).not.toBeNull();
+      const [, hours, minutes] = text.match(/(\d+)\s*س\s*(\d+)\s*د/)!;
+      expect(hours, `${variant} hours`).toBe("47");
+      expect(minutes, `${variant} minutes`).toBe("0");
+
+      // No Arabic-Indic numerals, and no placeholder left unfilled.
+      expect(text, `${variant} must not use Arabic-Indic digits`).not.toMatch(/[\u0660-\u0669]/);
+      expect(text, `${variant} must consume its placeholders`).not.toMatch(/\{(hours|minutes)\}/);
+    }
+  });
+
   it("compact mode strips the banner chrome (rows); the admin default keeps it", () => {
     renderTicker(booking, { variant: "worker", compact: true });
     const compactRoot = screen.getByRole("progressbar").parentElement!;

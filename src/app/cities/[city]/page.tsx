@@ -4,6 +4,8 @@ import Link from "next/link";
 import { MapPin, Star, ArrowRight } from "lucide-react";
 import { getCategories, getWorkers } from "@/lib/data/repo";
 import { CITY_COORDINATES } from "@/lib/geolocation/geo-service";
+import { cityBySlug, countryOfCity } from "@/lib/data/cities";
+import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
 import { CategoryIcon } from "@/components/shared/category-icon";
 import { WorkerCardSkeleton } from "@/components/ui/page-skeleton";
 import { notFound, redirect } from "next/navigation";
@@ -13,26 +15,35 @@ interface CityPageProps {
   params: Promise<{ city: string }>;
 }
 
-const CITY_NAMES: Record<string, { en: string; ar: string; country: string }> = {
-  beirut: { en: "Beirut", ar: "بيروت", country: "Lebanon" },
-};
+/**
+ * City facts come from the catalog (ONE source of truth) and its country from
+ * the country registry — this page used to carry a second `CITY_NAMES` map
+ * that silently drifted from `CITIES` (and 404'd every city not listed).
+ */
+function cityMetadata(slug: string) {
+  const cityData = cityBySlug(slug);
+  if (!cityData) return undefined;
+  const country = countryOfCity(cityData) ?? DEFAULT_COUNTRY;
+  return { cityData, country };
+}
 
 export async function generateMetadata({ params }: CityPageProps): Promise<Metadata> {
   const { city } = await params;
-  const cityData = CITY_NAMES[city];
-  if (!cityData) return {};
+  const meta = cityMetadata(city);
+  if (!meta) return {};
+  const { cityData, country } = meta;
   const { locale } = await getI18n();
 
   return {
     title: locale === "ar"
-      ? `اعثر على محترفين موثوقين في ${cityData.ar} — وركرز أرينا`
-      : `Find trusted professionals in ${cityData.en} — WorkersArena`,
+      ? `اعثر على محترفين موثوقين في ${cityData.nameAr} — وركرز أرينا`
+      : `Find trusted professionals in ${cityData.nameEn} — WorkersArena`,
     description: locale === "ar"
-      ? `استأجر عمالاً موثّقين في ${cityData.ar}، ${cityData.country}. سباكون، كهربائيون، نجارون وأكثر من 20 مهنة. تقييمات حقيقية وأسعار شفافة.`
-      : `Hire verified workers in ${cityData.en}, ${cityData.country}. Plumbers, electricians, carpenters, and 20+ trades. Real reviews, transparent pricing.`,
+      ? `استأجر عمالاً موثّقين في ${cityData.nameAr}، ${country.nameAr}. سباكون، كهربائيون، نجارون وأكثر من 20 مهنة. تقييمات حقيقية وأسعار شفافة.`
+      : `Hire verified workers in ${cityData.nameEn}, ${country.nameEn}. Plumbers, electricians, carpenters, and 20+ trades. Real reviews, transparent pricing.`,
     openGraph: {
-      title: `WorkersArena — ${cityData.en}`,
-      description: `Find trusted professionals in ${cityData.en}. Verified workers, real reviews.`,
+      title: `WorkersArena — ${cityData.nameEn}`,
+      description: `Find trusted professionals in ${cityData.nameEn}. Verified workers, real reviews.`,
       type: "website",
       locale: "en_US",
     },
@@ -41,12 +52,13 @@ export async function generateMetadata({ params }: CityPageProps): Promise<Metad
 
 export default async function CityPage({ params }: CityPageProps) {
   const { city } = await params;
-  const cityData = CITY_NAMES[city];
+  const meta = cityMetadata(city);
   const { locale, t } = await getI18n();
 
-  if (!cityData) {
+  if (!meta) {
     notFound();
   }
+  const { cityData, country } = meta;
 
   const categories = await getCategories();
   const cityCoords = CITY_COORDINATES[city];
@@ -55,13 +67,14 @@ export default async function CityPage({ params }: CityPageProps) {
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    name: `WorkersArena — ${cityData.en}`,
-    description: `Find trusted professionals in ${cityData.en}. Verified workers, real reviews.`,
+    name: `WorkersArena — ${cityData.nameEn}`,
+    description: `Find trusted professionals in ${cityData.nameEn}. Verified workers, real reviews.`,
     url: `https://workersarena.com/cities/${city}`,
     address: {
       "@type": "PostalAddress",
-      addressLocality: cityData.en,
-      addressCountry: cityData.country,
+      addressLocality: cityData.nameEn,
+      // SEO region = the country config's ISO code.
+      addressCountry: country.code,
     },
     geo: cityCoords
       ? {
@@ -70,7 +83,7 @@ export default async function CityPage({ params }: CityPageProps) {
           longitude: cityCoords.longitude,
         }
       : undefined,
-    areaServed: cityData.en,
+    areaServed: cityData.nameEn,
     serviceType: "Worker Marketplace",
   };
 
@@ -80,7 +93,7 @@ export default async function CityPage({ params }: CityPageProps) {
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Home", item: "https://workersarena.com" },
       { "@type": "ListItem", position: 2, name: "Cities", item: "https://workersarena.com/cities" },
-      { "@type": "ListItem", position: 3, name: cityData.en },
+      { "@type": "ListItem", position: 3, name: cityData.nameEn },
     ],
   };
 
@@ -102,7 +115,7 @@ export default async function CityPage({ params }: CityPageProps) {
           <span className="mx-2">/</span>
           <Link href="/cities" className="hover:text-ink-600">{locale === "ar" ? "المدن" : "Cities"}</Link>
           <span className="mx-2">/</span>
-          <span className="text-ink-700 dark:text-ink-300">{locale === "ar" ? cityData.ar : cityData.en}</span>
+          <span className="text-ink-700 dark:text-ink-300">{locale === "ar" ? cityData.nameAr : cityData.nameEn}</span>
         </nav>
 
         {/* Hero */}
@@ -110,24 +123,24 @@ export default async function CityPage({ params }: CityPageProps) {
           <div className="flex items-center gap-2 mb-4">
             <MapPin className="size-5 text-brand-500" />
             <span className="text-sm font-medium text-brand-600 dark:text-brand-400">
-              {cityData.country}
+              {locale === "ar" ? country.nameAr : country.nameEn}
             </span>
           </div>
           <h1 className="text-4xl font-black tracking-tight text-ink-900 dark:text-ink-50 sm:text-5xl">
             {locale === "ar" ? "اعثر على محترفين موثوقين في" : "Find trusted professionals in"}{" "}
-            <span className="text-gradient">{locale === "ar" ? cityData.ar : cityData.en}</span>
+            <span className="text-gradient">{locale === "ar" ? cityData.nameAr : cityData.nameEn}</span>
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-ink-500 dark:text-ink-400">
             {locale === "ar"
-              ? `تصفح ${categories.length}+ تصنيفاً مهنياً موثّقاً في ${cityData.ar}. اقرأ التقييمات الحقيقية وقارن الأسعار واستأجر عمالاً موثوقين في دقائق.`
-              : `Browse verified ${categories.length}+ trade categories in ${cityData.en}. Read real reviews, compare prices, and hire trusted workers in minutes.`}
+              ? `تصفح ${categories.length}+ تصنيفاً مهنياً موثّقاً في ${cityData.nameAr}. اقرأ التقييمات الحقيقية وقارن الأسعار واستأجر عمالاً موثوقين في دقائق.`
+              : `Browse verified ${categories.length}+ trade categories in ${cityData.nameEn}. Read real reviews, compare prices, and hire trusted workers in minutes.`}
           </p>
         </div>
 
         {/* Trade Categories Grid */}
         <section className="mb-16">
           <h2 className="mb-6 text-2xl font-bold text-ink-900 dark:text-ink-50">
-            {locale === "ar" ? `تصفح المهن في ${cityData.ar}` : `Browse trades in ${cityData.en}`}
+            {locale === "ar" ? `تصفح المهن في ${cityData.nameAr}` : `Browse trades in ${cityData.nameEn}`}
           </h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {categories.map((cat) => (
@@ -157,8 +170,8 @@ export default async function CityPage({ params }: CityPageProps) {
           <div>
             <h2 className="mb-4 text-2xl font-bold text-ink-900 dark:text-ink-50">
               {locale === "ar"
-                ? `لماذا تختار وركرز أرينا في ${cityData.ar}؟`
-                : `Why choose WorkersArena in ${cityData.en}?`}
+                ? `لماذا تختار وركرز أرينا في ${cityData.nameAr}؟`
+                : `Why choose WorkersArena in ${cityData.nameEn}?`}
             </h2>
             <ul className="space-y-3 text-ink-600 dark:text-ink-300">
               <li className="flex items-start gap-3">
@@ -186,19 +199,19 @@ export default async function CityPage({ params }: CityPageProps) {
           <div>
             <h2 className="mb-4 text-2xl font-bold text-ink-900 dark:text-ink-50">
               {locale === "ar"
-                ? `كيف توظف في ${cityData.ar}`
-                : `How to hire in ${cityData.en}`}
+                ? `كيف توظف في ${cityData.nameAr}`
+                : `How to hire in ${cityData.nameEn}`}
             </h2>
             <ol className="space-y-4">
               {(locale === "ar"
                 ? [
-                    { step: 1, text: `ابحث عن المهنة التي تحتاجها في ${cityData.ar}` },
+                    { step: 1, text: `ابحث عن المهنة التي تحتاجها في ${cityData.nameAr}` },
                     { step: 2, text: "قارن الملفات والتقييمات والأسعار" },
                     { step: 3, text: "تواصل مع العامل مباشرة أو احجز عبر الإنترنت" },
                     { step: 4, text: "أنجز المهمة واكتب تقييماً" },
                   ]
                 : [
-                    { step: 1, text: `Search for the trade you need in ${cityData.en}` },
+                    { step: 1, text: `Search for the trade you need in ${cityData.nameEn}` },
                     { step: 2, text: "Compare profiles, ratings, and prices" },
                     { step: 3, text: "Contact the worker directly or book online" },
                     { step: 4, text: "Get the job done and leave a review" },
@@ -219,8 +232,8 @@ export default async function CityPage({ params }: CityPageProps) {
         <div className="rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 p-8 text-center text-white sm:p-12">
           <h2 className="text-2xl font-bold sm:text-3xl">
             {locale === "ar"
-              ? `هل أنت عامل محترف في ${cityData.ar}؟`
-              : `Are you a professional worker in ${cityData.en}?`}
+              ? `هل أنت عامل محترف في ${cityData.nameAr}؟`
+              : `Are you a professional worker in ${cityData.nameEn}?`}
           </h2>
           <p className="mt-3 text-brand-100">
             {locale === "ar"

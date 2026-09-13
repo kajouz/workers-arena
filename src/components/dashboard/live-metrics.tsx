@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Activity, Users, CalendarCheck, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCompact } from "@/lib/utils";
+import { formatCompact, formatTime } from "@/lib/utils";
 
 interface LiveMetrics {
   timestamp: string;
@@ -92,7 +92,7 @@ export function LiveMetricsPanel({ locale = "en" }: { locale?: string }) {
           {lastUpdate && (
             <span className="text-[10px] text-ink-400">
               {locale === "ar" ? "آخر تحديث:" : "Updated:"}{" "}
-              {lastUpdate.toLocaleTimeString()}
+              {formatTime(lastUpdate, locale === "ar" ? "ar" : "en")}
             </span>
           )}
           <button

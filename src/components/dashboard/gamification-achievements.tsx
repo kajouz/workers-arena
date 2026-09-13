@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import {
   Trophy,
   Flame,
@@ -150,7 +150,7 @@ export function GamificationCard() {
           </div>
           <div className="text-right">
             <div className="text-lg font-bold text-amber-700">
-              {data.totalXP.toLocaleString()} XP
+              {formatNumber(data.totalXP)} XP
             </div>
             <div className="text-xs text-amber-600">
               {data.pointsThisMonth} this month
@@ -438,7 +438,7 @@ export function GamificationCard() {
                   Experience Points
                 </span>
                 <span className="font-medium">
-                  {data.totalXP.toLocaleString()} XP
+                  {formatNumber(data.totalXP)} XP
                 </span>
               </div>
               <div className="h-4 bg-gray-200 rounded-full overflow-hidden">

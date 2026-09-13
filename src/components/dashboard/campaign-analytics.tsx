@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { StatCard } from "./stat-card";
 import { formatCompact } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { intlLocale } from "@/lib/tenant/countries";
 
 interface AnalyticsData {
   summary: {
@@ -259,7 +260,7 @@ export function CampaignAnalytics() {
                       />
                     </div>
                     <span className="text-[10px] text-ink-400">
-                      {new Date(day.date).toLocaleDateString(locale === "ar" ? "ar-SA" : "en-US", { weekday: "short" })}
+                      {new Date(day.date).toLocaleDateString(intlLocale(locale), { weekday: "short" })}
                     </span>
                   </div>
                 ))}

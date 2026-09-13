@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import { TrendingUp, Award, ArrowRight } from "lucide-react";
 
 interface CommissionTier {
@@ -131,7 +131,7 @@ export function CommissionTierCard() {
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-gray-600">Progress to {nextTier.name}</p>
             <p className="text-sm font-medium text-gray-900">
-              ${(nextTier.minBillings - info.lifetimeBillings).toLocaleString()} to go
+              ${formatNumber(nextTier.minBillings - info.lifetimeBillings)} to go
             </p>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -142,10 +142,10 @@ export function CommissionTierCard() {
           </div>
           <div className="flex items-center justify-between mt-1">
             <p className="text-xs text-gray-500">
-              ${info.tier.minBillings.toLocaleString()}
+              ${formatNumber(info.tier.minBillings)}
             </p>
             <p className="text-xs text-gray-500">
-              ${nextTier.minBillings.toLocaleString()}
+              ${formatNumber(nextTier.minBillings)}
             </p>
           </div>
         </div>
@@ -157,7 +157,7 @@ export function CommissionTierCard() {
           <div>
             <p className="text-sm text-gray-500">Lifetime Billings</p>
             <p className="text-xl font-bold text-gray-900">
-              ${info.lifetimeBillings.toLocaleString()}
+              ${formatNumber(info.lifetimeBillings)}
             </p>
           </div>
           <div className="text-right">
@@ -195,7 +195,7 @@ export function CommissionTierCard() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">{tier.name}</p>
                   <p className="text-xs text-gray-500">
-                    ${tier.minBillings.toLocaleString()}+
+                    ${formatNumber(tier.minBillings)}+
                   </p>
                 </div>
               </div>

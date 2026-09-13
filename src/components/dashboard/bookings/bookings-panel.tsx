@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
-import { bucketBookings, formatSlotRange } from "@/lib/data/booking-ui";
+import { bucketBookings, formatDayDate, formatSlotRange } from "@/lib/data/booking-ui";
 import { RECURRING_OCCURRENCE_COUNT } from "@/lib/data/recurring";
 import { respondRecurringBookingAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
@@ -88,13 +88,7 @@ function RecurringContractRow({ contract }: { contract: RecurringBooking }) {
     }
   };
 
-  const dateLabel = first?.startAt
-    ? new Date(first.startAt).toLocaleDateString(locale === "ar" ? "ar-SA" : "en-US", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-      })
-    : "";
+  const dateLabel = first?.startAt ? formatDayDate(first.startAt, locale) : "";
   const total = 1 + RECURRING_OCCURRENCE_COUNT;
 
   return (

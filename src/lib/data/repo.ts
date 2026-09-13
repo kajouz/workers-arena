@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/utils";
 import { categoriesWithCounts, workerById, workerBySlug, WORKERS } from "./workers";
 import { computeResponseRate, hasFreeSlotsThisWeek } from "./booking-ui";
 import { CITIES } from "./cities";
@@ -520,8 +521,10 @@ export async function renewWorkerSubscriptionBySlug(
       type: "subscription",
       titleEn: `Subscription renewed — ${plan}`,
       titleAr: `تم تجديد الاشتراك — ${plan}`,
-      bodyEn: `${w.nameEn}: your ${plan} plan is active until ${new Date(subscription.expiresAt).toLocaleDateString()}.`,
-      bodyAr: `${w.nameAr}: خطتك ${plan} نشطة حتى ${new Date(subscription.expiresAt).toLocaleDateString()}.`,
+      // Each body carries its OWN locale's date (the Lebanese Arabic one spells
+      // آذار/أيار, not the Egyptian مارس/مايو a bare runtime-locale call gave).
+      bodyEn: `${w.nameEn}: your ${plan} plan is active until ${formatDate(subscription.expiresAt, "en")}.`,
+      bodyAr: `${w.nameAr}: خطتك ${plan} نشطة حتى ${formatDate(subscription.expiresAt, "ar")}.`,
       href: "/dashboard",
     },
     { name: w.nameEn, email: w.email, phone: w.phone, locale: primaryLocale(w) }

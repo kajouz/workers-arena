@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatDateTime } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   AlertTriangle,
   Search,
@@ -86,6 +87,7 @@ const priorityColors: Record<string, string> = {
 };
 
 export function DisputeResolution() {
+  const { locale } = useLocale();
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -330,7 +332,7 @@ export function DisputeResolution() {
                   </span>
                 </td>
                 <td className="px-4 py-4 text-sm text-gray-600">
-                  {new Date(dispute.deadline).toLocaleDateString()}
+                  {formatDate(dispute.deadline, locale)}
                 </td>
                 <td className="px-4 py-4">
                   <button className="text-blue-600 hover:text-blue-700">
@@ -422,7 +424,7 @@ export function DisputeResolution() {
                         <p className="text-sm font-medium text-gray-900">{msg.senderName}</p>
                         <p className="text-sm text-gray-700 mt-1">{msg.message}</p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {new Date(msg.createdAt).toLocaleString()}
+                          {formatDateTime(msg.createdAt, locale)}
                         </p>
                       </div>
                     ))}

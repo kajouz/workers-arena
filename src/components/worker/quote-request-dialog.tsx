@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/toast";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { createQuoteRequestAction } from "@/app/actions/bookings";
 import { cn } from "@/lib/utils";
+import { dialPrefix } from "@/lib/tenant/countries";
 import { MAX_QUOTE_WORKERS } from "@/lib/data/types";
 import type { Worker } from "@/lib/data/types";
 
@@ -166,7 +167,7 @@ export function QuoteRequestDialog({
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.phone")}</label>
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+961 7x xxx xxx" dir="ltr" />
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={`${dialPrefix()} 7x xxx xxx`} dir="ltr" />
                 </div>
               </div>
 

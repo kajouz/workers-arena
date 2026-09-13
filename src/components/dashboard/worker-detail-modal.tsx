@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Rating } from "@/components/ui/rating";
-import { formatPrice, formatDate } from "@/lib/utils";
+import { formatPrice, formatDate, formatNumber } from "@/lib/utils";
 
 interface WorkerDetail {
   id: string;
@@ -132,7 +132,7 @@ export function WorkerDetailModal({ worker, isOpen, onClose, locale = "en" }: Wo
                   <p className="text-[10px] text-ink-400">Reviews</p>
                 </div>
                 <div className="rounded-xl bg-ink-50 p-3 text-center dark:bg-ink-800/50">
-                  <p className="text-2xl font-black text-ink-900 dark:text-ink-50">{worker.views.toLocaleString()}</p>
+                  <p className="text-2xl font-black text-ink-900 dark:text-ink-50">{formatNumber(worker.views)}</p>
                   <p className="text-[10px] text-ink-400">Views</p>
                 </div>
                 <div className="rounded-xl bg-ink-50 p-3 text-center dark:bg-ink-800/50">

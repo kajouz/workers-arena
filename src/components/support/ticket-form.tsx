@@ -17,7 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { FadeIn } from "@/components/ui/micro-interactions";
 import { toast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 
 /* ─── Types ─── */
 export type TicketCategory =
@@ -254,6 +255,7 @@ export function TicketForm({
 
 /* ─── Ticket List ─── */
 export function TicketList({ tickets }: { tickets: Ticket[] }) {
+  const { locale } = useLocale();
   if (tickets.length === 0) {
     return (
       <div className="flex flex-col items-center rounded-2xl border border-dashed border-ink-300 py-12 text-center dark:border-ink-700">
@@ -291,7 +293,7 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
                   <span>#{ticket.id.slice(-6)}</span>
                   <span>{categoryInfo?.label}</span>
                   <span className={priorityInfo?.color}>{priorityInfo?.label}</span>
-                  <span>{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                  <span>{formatDate(ticket.createdAt, locale)}</span>
                 </div>
               </div>
               <span className="text-xs text-ink-400">

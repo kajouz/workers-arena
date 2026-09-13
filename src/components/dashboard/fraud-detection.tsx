@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime, formatNumber, formatTime } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   AlertTriangle,
   Shield,
@@ -71,6 +72,7 @@ const typeLabels: Record<string, string> = {
 };
 
 export function FraudDetection() {
+  const { locale } = useLocale();
   const [alerts, setAlerts] = useState<FraudAlert[]>([]);
   const [patterns, setPatterns] = useState<RiskPattern[]>([]);
   const [activeTab, setActiveTab] = useState<"alerts" | "patterns" | "analytics">("alerts");
@@ -93,7 +95,7 @@ export function FraudDetection() {
         severity: "high",
         userId: "u1",
         userName: "Khaled Al Harbi",
-        userEmail: "khaled@plumbfix.sa",
+        userEmail: "khaled@plumbfix.lb",
         description: "Login from unusual location (different country) within 1 hour of previous login",
         evidence: [
           "Login from Beirut, Lebanon at 10:30 AM",
@@ -111,7 +113,7 @@ export function FraudDetection() {
         severity: "critical",
         userId: "u2",
         userName: "Ali Hassan",
-        userEmail: "ali@carpentry.sa",
+        userEmail: "ali@carpentry.lb",
         description: "Multiple failed payment attempts followed by successful charge from different card",
         evidence: [
           "3 failed attempts with card ending 4242",
@@ -131,7 +133,7 @@ export function FraudDetection() {
         severity: "medium",
         userId: "u3",
         userName: "Omar Al Mutairi",
-        userEmail: "omar@ac-tech.sa",
+        userEmail: "omar@ac-tech.lb",
         description: "Suspicious review pattern detected - multiple 5-star reviews from new accounts",
         evidence: [
           "5 reviews posted within 10 minutes",
@@ -150,7 +152,7 @@ export function FraudDetection() {
         severity: "medium",
         userId: "u4",
         userName: "Bilal Mansour",
-        userEmail: "bilal@cleaning.sa",
+        userEmail: "bilal@cleaning.lb",
         description: "Worker completed 12 bookings in 2 hours - possible fake completions",
         evidence: [
           "12 bookings completed between 2 PM - 4 PM",
@@ -170,7 +172,7 @@ export function FraudDetection() {
         severity: "high",
         userId: "u5",
         userName: "Anas Barakat",
-        userEmail: "anas@design.sa",
+        userEmail: "anas@design.lb",
         description: "Customer filed 3 chargebacks in last 30 days",
         evidence: [
           "Chargeback #1: $150 - Service not rendered",
@@ -451,7 +453,7 @@ export function FraudDetection() {
                     {alert.assignedTo && (
                       <span>Assigned to: <span className="font-medium">{alert.assignedTo}</span></span>
                     )}
-                    <span className="ml-4">{new Date(alert.createdAt).toLocaleString()}</span>
+                    <span className="ml-4">{formatDateTime(alert.createdAt, locale)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -510,10 +512,10 @@ export function FraudDetection() {
                     </span>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
-                    {pattern.triggerCount.toLocaleString()}
+                    {formatNumber(pattern.triggerCount)}
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-500">
-                    {new Date(pattern.lastTriggered).toLocaleString()}
+                    {formatDateTime(pattern.lastTriggered, locale)}
                   </td>
                   <td className="px-4 py-4">
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -611,7 +613,7 @@ export function FraudDetection() {
                     <p className="text-xs text-gray-500 truncate">{typeLabels[alert.type]}</p>
                   </div>
                   <span className="text-xs text-gray-400">
-                    {new Date(alert.createdAt).toLocaleTimeString()}
+                    {formatTime(alert.createdAt, locale)}
                   </span>
                 </div>
               ))}

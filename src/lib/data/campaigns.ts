@@ -76,9 +76,9 @@ function seed(): void {
   STORE.payments.clear();
 
   STORE.campaigns.push(
-    { id: "c1", nameEn: "Villa construction — Riyadh", nameAr: "بناء فيلا — الرياض", placement: "Homepage · Banner", adType: "banner", impressions: 48210, clicks: 1284, ctr: 2.66, budget: 5000, spent: 3120, status: "active", created: "2026-03-02T00:00:00.000Z" },
-    { id: "c2", nameEn: "AC maintenance — Jeddah & Riyadh", nameAr: "صيانة مكيفات — جدة والرياض", placement: "Sponsored search", adType: "sponsoredSearch", impressions: 35640, clicks: 1487, ctr: 4.17, budget: 4000, spent: 4010, status: "active", created: "2026-04-11T00:00:00.000Z" },
-    { id: "c3", nameEn: "Deep cleaning — Dubai Marina", nameAr: "تنظيف عميق — مرسى دبي", placement: "Category · Cleaning", adType: "sponsoredCategory", impressions: 21450, clicks: 690, ctr: 3.22, budget: 2500, spent: 1890, status: "active", created: "2026-05-06T00:00:00.000Z" },
+    { id: "c1", nameEn: "Villa construction — Beirut", nameAr: "بناء فيلا — بيروت", placement: "Homepage · Banner", adType: "banner", impressions: 48210, clicks: 1284, ctr: 2.66, budget: 5000, spent: 3120, status: "active", created: "2026-03-02T00:00:00.000Z" },
+    { id: "c2", nameEn: "AC maintenance — Beirut", nameAr: "صيانة مكيفات — بيروت", placement: "Sponsored search", adType: "sponsoredSearch", impressions: 35640, clicks: 1487, ctr: 4.17, budget: 4000, spent: 4010, status: "active", created: "2026-04-11T00:00:00.000Z" },
+    { id: "c3", nameEn: "Deep cleaning — Badaro", nameAr: "تنظيف عميق — بدارو", placement: "Category · Cleaning", adType: "sponsoredCategory", impressions: 21450, clicks: 690, ctr: 3.22, budget: 2500, spent: 1890, status: "active", created: "2026-05-06T00:00:00.000Z" },
     { id: "c4", nameEn: "Interior design showcase", nameAr: "عرض تصميم داخلي", placement: "Featured cards", adType: "featuredCard", impressions: 18920, clicks: 511, ctr: 2.7, budget: 3000, spent: 3000, status: "paused", created: "2026-01-20T00:00:00.000Z" },
     { id: "c5", nameEn: "Pest control promo", nameAr: "عرض مكافحة الحشرات", placement: "Popup · Homepage", adType: "popup", impressions: 29300, clicks: 902, ctr: 3.08, budget: 1800, spent: 1800, status: "ended", created: "2025-12-01T00:00:00.000Z" }
   );

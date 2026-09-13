@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Download, FileText, Table, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { exportToCSV, exportToPDF, exportToJSON } from "@/lib/export/csv-export";
 
 interface AnalyticsData {
@@ -47,7 +47,7 @@ export function AnalyticsExport({
   const [exporting, setExporting] = useState<string | null>(null);
 
   const dateRangeLabel = dateRange
-    ? `${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`
+    ? `${formatDate(dateRange.start, locale)} - ${formatDate(dateRange.end, locale)}`
     : "";
 
   const handleExport = async (section: ExportSection, format: ExportFormat) => {

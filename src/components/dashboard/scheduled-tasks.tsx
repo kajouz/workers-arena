@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime, formatNumber } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   Clock,
   Play,
@@ -78,6 +79,7 @@ const categoryIcons: Record<string, React.ElementType> = {
 };
 
 export function ScheduledTasks() {
+  const { locale } = useLocale();
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [history, setHistory] = useState<TaskHistory[]>([]);
   const [activeTab, setActiveTab] = useState<"tasks" | "history" | "logs">("tasks");
@@ -349,7 +351,7 @@ export function ScheduledTasks() {
               <RefreshCw className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalRuns.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalRuns)}</p>
               <p className="text-sm text-gray-500">Total Runs</p>
             </div>
           </div>
@@ -494,12 +496,12 @@ export function ScheduledTasks() {
                     <div>
                       <p className="text-gray-500">Last Run</p>
                       <p className="font-medium">
-                        {task.lastRun ? new Date(task.lastRun).toLocaleString() : "Never"}
+                        {task.lastRun ? formatDateTime(task.lastRun, locale) : "Never"}
                       </p>
                     </div>
                     <div>
                       <p className="text-gray-500">Next Run</p>
-                      <p className="font-medium">{new Date(task.nextRun).toLocaleString()}</p>
+                      <p className="font-medium">{formatDateTime(task.nextRun, locale)}</p>
                     </div>
                     <div>
                       <p className="text-gray-500">Avg Duration</p>
@@ -510,7 +512,7 @@ export function ScheduledTasks() {
                     <div>
                       <p className="text-gray-500">Runs / Failures</p>
                       <p className="font-medium">
-                        {task.totalRuns.toLocaleString()} / {task.failureRate}%
+                        {formatNumber(task.totalRuns)} / {task.failureRate}%
                       </p>
                     </div>
                   </div>
@@ -542,7 +544,7 @@ export function ScheduledTasks() {
                     <p className="font-medium text-gray-900">{item.taskName}</p>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
-                    {new Date(item.startedAt).toLocaleString()}
+                    {formatDateTime(item.startedAt, locale)}
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
                     {item.duration ? formatDuration(item.duration) : "—"}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatNumber } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   Tag,
   Plus,
@@ -49,6 +50,7 @@ const applicableToLabels: Record<string, string> = {
 };
 
 export function DiscountCodeManager() {
+  const { locale } = useLocale();
   const [codes, setCodes] = useState<DiscountCode[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -252,7 +254,7 @@ export function DiscountCodeManager() {
               <Users className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalRedemptions.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalRedemptions)}</p>
               <p className="text-sm text-gray-500">Redemptions</p>
             </div>
           </div>
@@ -263,7 +265,7 @@ export function DiscountCodeManager() {
               <DollarSign className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">${stats.totalSavings.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">${formatNumber(stats.totalSavings)}</p>
               <p className="text-sm text-gray-500">Total Savings</p>
             </div>
           </div>
@@ -369,8 +371,8 @@ export function DiscountCodeManager() {
             <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {new Date(code.validFrom).toLocaleDateString()}
-                {code.validUntil && ` - ${new Date(code.validUntil).toLocaleDateString()}`}
+                {formatDate(code.validFrom, locale)}
+                {code.validUntil && ` - ${formatDate(code.validUntil, locale)}`}
               </span>
               <span className="flex items-center gap-1">
                 <Users className="w-3 h-3" />

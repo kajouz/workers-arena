@@ -64,11 +64,11 @@ export function CampaignBuilder() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>{t("company.nameEn")}</Label>
-            <Input value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} placeholder="Villa renovation — Riyadh" />
+            <Input value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} placeholder="Villa renovation — Beirut" />
           </div>
           <div className="space-y-1.5">
             <Label>{t("company.nameAr")}</Label>
-            <Input value={form.nameAr} onChange={(e) => setForm({ ...form, nameAr: e.target.value })} placeholder="تجديد فيلا — الرياض" />
+            <Input value={form.nameAr} onChange={(e) => setForm({ ...form, nameAr: e.target.value })} placeholder="تجديد فيلا — بيروت" />
           </div>
           <div className="space-y-1.5">
             <Label>{t("company.placementLabel")}</Label>

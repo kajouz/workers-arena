@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatDateTime } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   Bell,
   Plus,
@@ -74,6 +75,7 @@ const channelIcons: Record<string, React.ElementType> = {
 };
 
 export function SmartAlerts() {
+  const { locale } = useLocale();
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [history, setHistory] = useState<AlertHistory[]>([]);
   const [activeTab, setActiveTab] = useState<"rules" | "history" | "create">("rules");
@@ -460,7 +462,7 @@ export function SmartAlerts() {
                   </div>
                   {rule.lastTriggered && (
                     <div className="text-gray-500">
-                      Last triggered: {new Date(rule.lastTriggered).toLocaleDateString()}
+                      Last triggered: {formatDate(rule.lastTriggered, locale)}
                     </div>
                   )}
                 </div>
@@ -491,7 +493,7 @@ export function SmartAlerts() {
                   <p className="text-sm text-gray-500 mt-1">{alert.message}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-600">{new Date(alert.triggeredAt).toLocaleString()}</p>
+                  <p className="text-sm text-gray-600">{formatDateTime(alert.triggeredAt, locale)}</p>
                   {!alert.acknowledged && (
                     <button
                       onClick={() => handleAcknowledge(alert.id)}
@@ -520,7 +522,7 @@ export function SmartAlerts() {
 
               {alert.acknowledged && (
                 <div className="mt-3 pt-3 border-t border-gray-100 text-sm text-gray-500">
-                  Acknowledged by {alert.acknowledgedBy} at {new Date(alert.acknowledgedAt!).toLocaleString()}
+                  Acknowledged by {alert.acknowledgedBy} at {formatDateTime(alert.acknowledgedAt!, locale)}
                 </div>
               )}
             </div>

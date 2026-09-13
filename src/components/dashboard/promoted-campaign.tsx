@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import { Megaphone, TrendingUp, Eye, MousePointerClick, DollarSign, Pause, Play } from "lucide-react";
 
 interface PromotedCampaign {
@@ -110,7 +110,7 @@ export function PromotedCampaignCard() {
             <Eye className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <p className="text-lg font-bold text-gray-900">{campaign.impressions.toLocaleString()}</p>
+            <p className="text-lg font-bold text-gray-900">{formatNumber(campaign.impressions)}</p>
             <p className="text-xs text-gray-500">Impressions</p>
           </div>
         </div>

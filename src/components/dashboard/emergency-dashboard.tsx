@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/components/providers/locale-provider";
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatTime } from "@/lib/utils";
 
 interface EmergencyBooking {
   id: string;
@@ -153,7 +153,7 @@ export function EmergencyDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-xs text-ink-400">
-            Last updated: {lastRefresh ? lastRefresh.toLocaleTimeString() : "—"}
+            Last updated: {lastRefresh ? formatTime(lastRefresh, locale) : "—"}
           </div>
           <Button
             variant="outline"

@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Users, Eye, TrendingUp, AlertCircle, RefreshCw } from "lucide-react";
 import { getRealtimeRoom } from "@/lib/realtime/room";
 import { MetricCard, RealtimeChart } from "./realtime-chart";
-import { cn } from "@/lib/utils";
+import { cn, formatTime } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 
 interface RealtimeEvent {
   type: string;
@@ -26,6 +27,7 @@ interface ActiveUser {
  * For production, swap with Liveblocks or PartyKit for server-side real-time.
  */
 export function RealtimeDashboard() {
+  const { locale } = useLocale();
   const [events, setEvents] = useState<RealtimeEvent[]>([]);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [pageViews, setPageViews] = useState<Record<string, number>>({});
@@ -218,7 +220,7 @@ export function RealtimeDashboard() {
                   {event.data?.page || event.data?.error || JSON.stringify(event.data).slice(0, 50)}
                 </span>
                 <span className="text-ink-400">
-                  {new Date(event.timestamp).toLocaleTimeString()}
+                  {formatTime(new Date(event.timestamp), locale)}
                 </span>
               </motion.div>
             ))}

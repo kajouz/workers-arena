@@ -7,7 +7,7 @@ import { MessageSquare, Eye, ChevronUp, Pin, Lock, Clock } from "lucide-react";
 import type { ForumPost as ForumPostType, ForumCategory } from "@/lib/forum/types";
 import { FORUM_CATEGORIES } from "@/lib/forum/types";
 import { useLocale } from "@/components/providers/locale-provider";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatDate, formatNumber } from "@/lib/utils";
 
 interface ForumPostProps {
   post: ForumPostType;
@@ -20,7 +20,7 @@ interface ForumPostProps {
 export function ForumPostCard({ post, index = 0 }: ForumPostProps) {
   const { locale } = useLocale();
   const category = FORUM_CATEGORIES[post.category];
-  const timeAgo = getTimeAgo(post.createdAt);
+  const timeAgo = getTimeAgo(post.createdAt, locale);
 
   return (
     <motion.div
@@ -125,6 +125,7 @@ export function ForumAnswer({
   };
   isAccepted: boolean;
 }) {
+  const { locale } = useLocale();
   const [votes, setVotes] = useState(answer.upvotes - answer.downvotes);
 
   return (
@@ -169,7 +170,7 @@ export function ForumAnswer({
               {answer.authorName}
             </span>
             <span>{answer.authorRole}</span>
-            <span>{getTimeAgo(answer.createdAt)}</span>
+            <span>{getTimeAgo(answer.createdAt, locale)}</span>
           </div>
         </div>
       </div>
@@ -220,7 +221,7 @@ export function ForumCategoryFilter({
   );
 }
 
-function getTimeAgo(date: Date): string {
+function getTimeAgo(date: Date, locale: "en" | "ar"): string {
   const now = new Date();
   const diff = now.getTime() - new Date(date).getTime();
   const minutes = Math.floor(diff / 60000);
@@ -231,5 +232,5 @@ function getTimeAgo(date: Date): string {
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
-  return new Date(date).toLocaleDateString();
+  return formatDate(date, locale);
 }

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
+import { cn, durationParts, fillDuration } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { BOOKING_SLA_EXPIRE_HOURS, requestSlaExpiryMs } from "@/lib/data/types";
 import type { Booking, Worker } from "@/lib/data/types";
@@ -99,10 +99,11 @@ export function RespondDialog({ booking, worker }: { booking: Booking; worker: W
         {booking.status === "requested" &&
           (() => {
             const expiryMs = requestSlaExpiryMs(booking);
-            const totalMin = Math.max(0, Math.ceil((expiryMs - now) / 60_000));
-            const hours = Math.floor(totalMin / 60);
-            const minutes = totalMin % 60;
-            const copy = hours >= 1
+            // Shared countdown parts — see durationParts/fillDuration: the hours
+            // choose the copy voice and the digits come from ONE place, so the
+            // worker reads the same numerals as the customer and the admin.
+            const remaining = durationParts(expiryMs - now);
+            const copy = remaining.hours >= 1
               ? t("booking.slaWorkerDialogCountdown")
               : t("booking.slaWorkerDialogSoon");
             // Urgency bar — fraction of the 48h window remaining, scannable at
@@ -122,7 +123,7 @@ export function RespondDialog({ booking, worker }: { booking: Booking; worker: W
                 <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
                   <Hourglass className="mt-px size-3.5 shrink-0" />
                   <span>
-                    {copy.replace("{hours}", String(hours)).replace("{minutes}", String(minutes))}
+                    {fillDuration(copy, remaining)}
                     {booking.slaNudgeSent && <span className="ms-1 font-semibold">· {t("booking.slaNudgeTag")}</span>}
                   </span>
                 </p>

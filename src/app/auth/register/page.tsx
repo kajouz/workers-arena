@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, Eye, EyeOff, UserPlus } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
+import { dialPrefix } from "@/lib/tenant/countries";
 import { Logo } from "@/components/shared/logo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -105,7 +106,7 @@ export default function RegisterPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="phone">{t("auth.phone")}</Label>
-              <Input id="phone" type="tel" placeholder="+961 7X XXX XXX" {...register("phone")} />
+              <Input id="phone" type="tel" placeholder={`${dialPrefix()} 7X XXX XXX`} {...register("phone")} />
             </div>
 
             <div className="space-y-1.5">

@@ -11,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { useLocale } from "@/components/providers/locale-provider";
-import { formatSlotRange } from "@/lib/data/booking-ui";
+import { formatDayDate, formatSlotRange } from "@/lib/data/booking-ui";
+import { dialPrefix } from "@/lib/tenant/countries";
 import { cancelRecurringContractAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
 import { QuoteRequestCard } from "./quote-request-card";
@@ -41,8 +42,7 @@ function RecurringContractCard({ row }: { row: CustomerRecurringRow }) {
   const upcoming = contract.occurrences.filter((o) => UPCOMING.includes(o.status)).slice(0, 3);
   // Occurrences are always slot-bound (the cadence materializes real slots),
   // so startAt is guaranteed — the non-null assertion mirrors that invariant.
-  const nextDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(locale === "ar" ? "ar-SA" : "en-US", { weekday: "short", day: "numeric", month: "short" });
+  const nextDate = (iso: string) => formatDayDate(iso, locale);
 
   const cancel = async () => {
     if (busy) return;
@@ -159,7 +159,12 @@ export function BookingsClient({
           <h3 className="mt-4 text-lg font-bold text-ink-900 dark:text-ink-50">{t("booking.guestLookupTitle")}</h3>
           <p className="mt-1.5 max-w-sm text-sm text-ink-500 dark:text-ink-400">{t("booking.guestLookupBody")}</p>
           <form method="get" className="mt-6 flex w-full max-w-sm gap-2">
-            <Input name="phone" placeholder={t("booking.guestLookupPlaceholder")} required dir="ltr" />
+            <Input
+              name="phone"
+              placeholder={`${dialPrefix()} ${t("booking.guestLookupPlaceholder")}`}
+              required
+              dir="ltr"
+            />
             <Button type="submit">
               <Search className="size-4" />
               {t("booking.guestLookup")}

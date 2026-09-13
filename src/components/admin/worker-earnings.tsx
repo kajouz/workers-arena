@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import { DollarSign, TrendingUp, TrendingDown, Wallet, Clock, Download, Eye, ChevronDown, ChevronRight } from "lucide-react";
 
 interface WorkerEarning {
@@ -27,8 +27,8 @@ export function WorkerEarnings() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-gray-900">${workers.reduce((s, w) => s + w.totalEarnings, 0).toLocaleString()}</p><p className="text-sm text-gray-500">Total Earnings</p></div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-orange-600">${workers.reduce((s, w) => s + w.pendingPayouts, 0).toLocaleString()}</p><p className="text-sm text-gray-500">Pending Payouts</p></div>
+        <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-gray-900">${formatNumber(workers.reduce((s, w) => s + w.totalEarnings, 0))}</p><p className="text-sm text-gray-500">Total Earnings</p></div>
+        <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-orange-600">${formatNumber(workers.reduce((s, w) => s + w.pendingPayouts, 0))}</p><p className="text-sm text-gray-500">Pending Payouts</p></div>
         <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-green-600">{workers.reduce((s, w) => s + w.completedBookings, 0)}</p><p className="text-sm text-gray-500">Completed Bookings</p></div>
         <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-yellow-600">{(workers.reduce((s, w) => s + w.averageRating, 0) / workers.length).toFixed(1)} ⭐</p><p className="text-sm text-gray-500">Avg Rating</p></div>
       </div>
@@ -37,7 +37,7 @@ export function WorkerEarnings() {
           <div key={worker.id} className="border-b border-gray-200 last:border-b-0">
             <button onClick={() => setExpandedWorker(expandedWorker === worker.id ? null : worker.id)} className="w-full flex items-center justify-between p-4 hover:bg-gray-50">
               <div className="flex items-center gap-4"><div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">{worker.workerName.charAt(0)}</div><div className="text-left"><p className="font-medium text-gray-900">{worker.workerName}</p><p className="text-sm text-gray-500">{worker.workerNameAr}</p></div></div>
-              <div className="flex items-center gap-8 text-sm"><div className="text-right"><p className="font-bold text-green-600">${worker.totalEarnings.toLocaleString()}</p><p className="text-gray-500">Earnings</p></div><div className="text-right"><p className="font-bold text-orange-600">${worker.pendingPayouts.toLocaleString()}</p><p className="text-gray-500">Pending</p></div><div className="text-right"><p className="font-bold">{worker.completedBookings}</p><p className="text-gray-500">Bookings</p></div>{expandedWorker === worker.id ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}</div>
+              <div className="flex items-center gap-8 text-sm"><div className="text-right"><p className="font-bold text-green-600">${formatNumber(worker.totalEarnings)}</p><p className="text-gray-500">Earnings</p></div><div className="text-right"><p className="font-bold text-orange-600">${formatNumber(worker.pendingPayouts)}</p><p className="text-gray-500">Pending</p></div><div className="text-right"><p className="font-bold">{worker.completedBookings}</p><p className="text-gray-500">Bookings</p></div>{expandedWorker === worker.id ? <ChevronDown className="w-5 h-5 text-gray-400" /> : <ChevronRight className="w-5 h-5 text-gray-400" />}</div>
             </button>
             {expandedWorker === worker.id && (
               <div className="p-4 bg-gray-50 border-t border-gray-200">

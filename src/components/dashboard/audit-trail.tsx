@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatDateTime, formatNumber } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   History,
   User,
@@ -70,6 +71,7 @@ const roleColors: Record<string, string> = {
 };
 
 export function AuditTrail() {
+  const { locale } = useLocale();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
@@ -231,7 +233,11 @@ export function AuditTrail() {
     return matchesSearch && matchesCategory && matchesActor;
   });
 
-  const formatDate = (dateString: string) => {
+  /** Relative for the last week, an absolute (locale-aware) date beyond it.
+   * Named `formatRelative` so it cannot shadow the shared `formatDate` from
+   * `@/lib/utils` — the shadowing is what made the fallback below render a
+   * runtime-locale date on the Arabic page. */
+  const formatRelative = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -243,7 +249,7 @@ export function AuditTrail() {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    return formatDate(date, locale);
   };
 
   const formatAction = (action: string) => {
@@ -260,7 +266,7 @@ export function AuditTrail() {
               <History className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalActions.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalActions)}</p>
               <p className="text-sm text-gray-500">Total Actions</p>
             </div>
           </div>
@@ -386,7 +392,7 @@ export function AuditTrail() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-600">{entry.actor.name}</p>
-                    <p className="text-xs text-gray-400">{formatDate(entry.timestamp)}</p>
+                    <p className="text-xs text-gray-400">{formatRelative(entry.timestamp)}</p>
                   </div>
                   {isExpanded ? (
                     <ChevronDown className="w-5 h-5 text-gray-400" />
@@ -411,7 +417,7 @@ export function AuditTrail() {
                         </div>
                         <div>
                           <p className="text-gray-500">Timestamp</p>
-                          <p className="text-gray-600">{new Date(entry.timestamp).toLocaleString()}</p>
+                          <p className="text-gray-600">{formatDateTime(entry.timestamp, locale)}</p>
                         </div>
                         <div>
                           <p className="text-gray-500">Status</p>

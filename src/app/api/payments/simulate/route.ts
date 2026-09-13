@@ -39,6 +39,27 @@ type SignedParams = {
   success: string | null;
 };
 
+/**
+ * The PUBLIC origin of the incoming request.
+ *
+ * `new URL(req.url)` inside a route handler carries the host the server is
+ * BOUND to (typically `localhost`), not the host the client used — so a
+ * redirect built from it points at a different origin whenever the app is
+ * reached by another host: `127.0.0.1:3001` (the local preview and the e2e
+ * suite), a LAN address (testing the PWA from a phone), or a preview domain.
+ * The browser then refuses the navigation — `form-action 'self'` rejects the
+ * cross-origin redirect, so the customer is left on the interstitial with the
+ * payment already confirmed server-side and never sees /bookings?paid=1.
+ * Prefer the forwarded host/proto, then the actual Host header, then req.url.
+ */
+function requestOrigin(req: Request): string {
+  const url = new URL(req.url);
+  const first = (value: string | null): string | undefined => value?.split(",")[0]?.trim() || undefined;
+  const host = first(req.headers.get("x-forwarded-host")) ?? req.headers.get("host") ?? url.host;
+  const proto = first(req.headers.get("x-forwarded-proto")) ?? url.protocol.replace(/:$/, "");
+  return `${proto}://${host}`;
+}
+
 /** Same-origin relative redirect targets only — the HMAC does NOT cover the
  * `success` param, so an absolute or protocol-relative value (crafted by
  * anyone holding a valid signed URL) must never become the redirect. */
@@ -112,8 +133,10 @@ export async function POST(req: Request) {
   }
 
   const fallback = verified.campaignId ? "/company?paid=1" : "/bookings?paid=1";
+  // The target stays a same-origin relative path; only the ORIGIN it is
+  // resolved against comes from the request (see requestOrigin).
   return NextResponse.redirect(
-    new URL(safeTarget(params.success, fallback), new URL(req.url).origin),
+    new URL(safeTarget(params.success, fallback), requestOrigin(req)),
     302
   );
 }

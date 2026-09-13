@@ -10,7 +10,8 @@ import { GradientAvatar } from "@/components/ui/avatar";
 const TESTIMONIALS = [
   {
     name: "Sara Al-Mansouri",
-    role: "Homeowner · Riyadh",
+    roleEn: "Homeowner · Achrafieh, Beirut",
+    roleAr: "مالكة منزل · الأشرفية، بيروت",
     rating: 5,
     quoteEn:
       "I found a plumber in under a minute. He arrived the same day, fixed the leak, and the price matched the quote exactly. This is how hiring should work.",
@@ -19,7 +20,8 @@ const TESTIMONIALS = [
   },
   {
     name: "James Carter",
-    role: "Facility Manager · Dubai",
+    roleEn: "Facility Manager · Badaro, Beirut",
+    roleAr: "مدير منشآت · بدارو، بيروت",
     rating: 5,
     quoteEn:
       "We manage 40+ apartments and WorkersArena is our go-to for technicians. Verified profiles save us hours of vetting every week.",
@@ -28,7 +30,8 @@ const TESTIMONIALS = [
   },
   {
     name: "Layla Haddad",
-    role: "Restaurant Owner · Amman",
+    roleEn: "Restaurant Owner · Gemmayzeh, Beirut",
+    roleAr: "صاحبة مطعم · الجميزة، بيروت",
     rating: 5,
     quoteEn:
       "The pest control pro we booked was brilliant — thorough, on time, and family-safe products. The review system actually works.",
@@ -62,7 +65,7 @@ export function Testimonials() {
               <GradientAvatar name={item.name} hue={i * 90 + 20} />
               <div>
                 <p className="text-sm font-bold text-ink-900 dark:text-ink-50">{item.name}</p>
-                <p className="text-xs text-ink-400">{item.role}</p>
+                <p className="text-xs text-ink-400">{locale === "ar" ? item.roleAr : item.roleEn}</p>
               </div>
             </figcaption>
           </motion.figure>

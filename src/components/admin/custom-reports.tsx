@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import { Calendar, Download, BarChart3, TrendingUp, Users, DollarSign, Filter } from "lucide-react";
 
 interface ReportData { label: string; value: number; change: number; }
@@ -42,7 +42,7 @@ export function CustomReports() {
         {(metrics[selectedMetric] || []).map((m) => (
           <div key={m.label} className="bg-white rounded-xl p-4 border border-gray-200">
             <p className="text-sm text-gray-500">{m.label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{typeof m.value === "number" && m.value > 999 ? `$${(m.value / 1000).toFixed(1)}k` : m.value.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">{typeof m.value === "number" && m.value > 999 ? `$${(m.value / 1000).toFixed(1)}k` : formatNumber(m.value)}</p>
             <p className={cn("text-sm mt-1", m.change > 0 ? "text-green-600" : "text-red-600")}>{m.change > 0 ? "+" : ""}{m.change}% vs previous period</p>
           </div>
         ))}

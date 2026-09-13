@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { intlLocale } from "@/lib/tenant/countries";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +76,7 @@ export function AdminMaskedNumbers() {
   };
 
   const formatDate = (date: string) => {
-    return new Intl.DateTimeFormat(locale === "ar" ? "ar-LB" : "en-US", {
+    return new Intl.DateTimeFormat(intlLocale(locale), {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(new Date(date));

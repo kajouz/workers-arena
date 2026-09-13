@@ -10,6 +10,8 @@
  * - Feedback with haptic/audio cues
  */
 
+import { speechLocale } from "@/lib/tenant/countries";
+
 export interface VoiceCommand {
   id: string;
   patterns: string[];
@@ -70,7 +72,7 @@ export class VoiceCommandsManager {
     this.recognition = new SpeechRecognition();
     this.recognition.continuous = this.config.continuous ?? false;
     this.recognition.interimResults = this.config.interimResults ?? false;
-    this.recognition.lang = this.config.language === "ar" ? "ar-LB" : "en-US";
+    this.recognition.lang = speechLocale(this.config.language);
 
     this.recognition.onresult = (event: any) => {
       const last = event.results.length - 1;

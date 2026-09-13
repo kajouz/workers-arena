@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import {
   Target,
   FlaskConical,
@@ -436,7 +436,7 @@ export function PromotedEnhancedCard() {
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
                   <div className="text-2xl font-bold text-blue-600">
-                    {data.estimatedReach.toLocaleString()}
+                    {formatNumber(data.estimatedReach)}
                   </div>
                   <div className="text-xs text-gray-500">Reach</div>
                 </div>

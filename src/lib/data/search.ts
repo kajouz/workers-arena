@@ -200,6 +200,10 @@ export function searchWorkers(filters: SearchFilters): SearchResult {
       case "experience":
         return b.yearsExp - a.yearsExp;
       case "nearest":
+        // No city → there is no centre to measure from, so "nearest" cannot
+        // mean anything: fall back to RATING order (deterministic, and the same
+        // list the rating sort yields) rather than silently re-ordering by the
+        // query score. Pinned in tests/search.test.ts.
         if (!city) return b.rating - a.rating;
         return (
           distanceKm(a.lat, a.lng, city.lat, city.lng) - distanceKm(b.lat, b.lng, city.lat, city.lng)

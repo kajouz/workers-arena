@@ -58,9 +58,9 @@ interface PaymentOptions {
   walletTopUps: WalletTopUp[];
   businessAccounts: BusinessAccount[];
   paymentMethods: PaymentMethod[];
+  // Tenant lb: single-currency USD — the wallet has no second balance.
   walletBalance: {
     usd: number;
-    lbp: number;
   };
 }
 
@@ -266,7 +266,6 @@ export async function GET() {
       paymentMethods: generatePaymentMethods(),
       walletBalance: {
         usd: 125.5,
-        lbp: 11295000,
       },
     };
 

@@ -14,7 +14,8 @@ import { toast } from "@/components/ui/toast";
 import { ServicePicker } from "./service-picker";
 import { SlotPicker } from "./slot-picker";
 import { requestBookingAction, requestRecurringBookingAction } from "@/app/actions/bookings";
-import { cn } from "@/lib/utils";
+import { cn, durationParts, fillDuration } from "@/lib/utils";
+import { dialPrefix } from "@/lib/tenant/countries";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS, BOOKING_SLA_EXPIRE_HOURS } from "@/lib/data/types";
 import type { BookingSlot, RecurringFrequency, Worker } from "@/lib/data/types";
@@ -278,7 +279,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.phone")}</label>
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+961 7x xxx xxx" dir="ltr" />
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={`${dialPrefix()} 7x xxx xxx`} dir="ltr" />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.email")}</label>
@@ -403,7 +404,7 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                   <div>
                     <p className="text-xs font-black text-ink-900 dark:text-ink-50">{t("booking.cancelPolicyTitle")}</p>
                     <p className="mt-0.5 text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
-                      {t("booking.cancelPolicyBody").replace(/\{hours\}/g, String(BOOKING_CANCEL_REFUND_WINDOW_MS / 3_600_000))}
+                      {fillDuration(t("booking.cancelPolicyBody"), durationParts(BOOKING_CANCEL_REFUND_WINDOW_MS))}
                     </p>
                   </div>
                 </div>
@@ -417,9 +418,10 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                     rows recompute from the real creation event. */}
                 {selectedSlot && slaExpiryAt !== null &&
                   (() => {
-                    const totalMin = Math.max(0, Math.ceil((slaExpiryAt - now) / 60_000));
-                    const hours = Math.floor(totalMin / 60);
-                    const minutes = totalMin % 60;
+                    // Shared countdown parts (durationParts) — the SAME split the
+                    // post-submit rows show, so the pre-request clock and the
+                    // booking row can never disagree.
+                    const remaining = durationParts(slaExpiryAt - now);
                     // Urgency bar — fraction of THIS request's window remaining
                     // (expiry − capture, at most the 48h policy). Starts full
                     // green at step entry and drains as time passes; a slot
@@ -439,9 +441,10 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
                           <div>
                             <p className="text-xs font-black text-ink-900 dark:text-ink-50">{t("booking.slaDialogTitle")}</p>
                             <p className="mt-0.5 text-[11px] leading-relaxed text-ink-500 dark:text-ink-400">
-                              {hours >= 1
-                                ? t("booking.slaDialogCountdown").replace("{hours}", String(hours)).replace("{minutes}", String(minutes))
-                                : t("booking.slaDialogSoon").replace("{minutes}", String(minutes))}
+                              {fillDuration(
+                                remaining.hours >= 1 ? t("booking.slaDialogCountdown") : t("booking.slaDialogSoon"),
+                                remaining
+                              )}
                             </p>
                           </div>
                         </div>

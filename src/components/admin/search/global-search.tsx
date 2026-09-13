@@ -115,7 +115,7 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
         id: "i1",
         type: "invoice",
         title: "WA-2024-00123",
-        subtitle: "Khaled Al-Harbi • SAR 119",
+        subtitle: "Khaled Al-Harbi • $119",
         status: "paid",
         url: "/admin/invoices?search=WA-2024",
       },

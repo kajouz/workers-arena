@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import { Mail, Bell, Plus, Edit, Trash2, Eye, Copy } from "lucide-react";
 
 interface Template { id: string; name: string; type: "email" | "push" | "sms"; subject?: string; body: string; lastUpdated: string; }
 
 export function NotificationTemplates() {
+  const { locale } = useLocale();
   const [templates] = useState<Template[]>([
     { id: "1", name: "Booking Confirmation", type: "email", subject: "Your booking is confirmed! 🎉", body: "Dear {{customerName}}, your booking {{bookingNumber}} with {{workerName}} has been confirmed...", lastUpdated: "2025-01-15T10:00:00Z" },
     { id: "2", name: "Payment Received", type: "email", subject: "Payment received for {{bookingNumber}}", body: "We've received your payment of {{amount}} {{currency}} for booking {{bookingNumber}}...", lastUpdated: "2025-01-14T10:00:00Z" },
@@ -27,7 +29,7 @@ export function NotificationTemplates() {
             <p className="font-medium text-gray-900">{t.name}</p>
             {t.subject && <p className="text-sm text-gray-500 mt-1">{t.subject}</p>}
             <p className="text-sm text-gray-400 mt-2 line-clamp-2">{t.body}</p>
-            <p className="text-xs text-gray-400 mt-2">Updated: {new Date(t.lastUpdated).toLocaleDateString()}</p>
+            <p className="text-xs text-gray-400 mt-2">Updated: {formatDate(t.lastUpdated, locale)}</p>
           </div>
         ))}
       </div>

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { dialPrefix } from "@/lib/tenant/countries";
 import {
   type VerificationChannel,
   sendVerification,
@@ -42,13 +43,13 @@ const CHANNELS: {
     id: "phone",
     label: "Phone",
     icon: Phone,
-    placeholder: "+961 71 123 456",
+    placeholder: `${dialPrefix()} 71 123 456`,
   },
   {
     id: "whatsapp",
     label: "WhatsApp",
     icon: MessageCircle,
-    placeholder: "+961 71 123 456",
+    placeholder: `${dialPrefix()} 71 123 456`,
   },
 ];
 

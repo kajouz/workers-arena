@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { speechLocale } from "@/lib/tenant/countries";
 
 interface SpeechRecognitionLike {
   lang: string;
@@ -25,27 +26,45 @@ export function useVoiceSearch(onResult: (transcript: string) => void) {
   const [supported, setSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
+  /**
+   * The callback is read through a ref so the subscription effect below depends
+   * on NOTHING. Both call sites pass an inline arrow (a new identity on every
+   * render), and with `onResult` in the dep list the effect re-ran — and
+   * re-called `setSupported(true)` — on each render, which queued another
+   * render: React aborted with "Maximum update depth exceeded" the moment a
+   * search re-render landed (toggling the fee-waived filter was enough) and the
+   * page stopped responding. Re-subscribing also discarded the live recognition
+   * object mid-session, so an in-flight utterance was lost.
+   */
+  const onResultRef = useRef(onResult);
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
+
   useEffect(() => {
     const Ctor = getSpeechRecognition();
     if (Ctor) {
-      setSupported(true);
       const rec = new Ctor();
-      rec.lang = "ar-SA";
+      // Arabic voice search — the tag comes from the country registry like
+      // every other speech locale (it used to hardcode the Saudi tag).
+      rec.lang = speechLocale("ar");
       rec.interimResults = false;
       rec.maxAlternatives = 1;
       rec.continuous = false;
       rec.onresult = (event) => {
         const transcript = event.results[0]?.[0]?.transcript ?? "";
-        if (transcript) onResult(transcript);
+        if (transcript) onResultRef.current(transcript);
       };
       rec.onend = () => setListening(false);
       rec.onerror = () => setListening(false);
       recognitionRef.current = rec;
+      setSupported(true);
     }
     return () => {
       recognitionRef.current?.stop();
+      recognitionRef.current = null;
     };
-  }, [onResult]);
+  }, []);
 
   const toggle = useCallback(() => {
     const rec = recognitionRef.current;

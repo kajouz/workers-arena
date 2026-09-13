@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { normalize, searchWorkers } from "@/lib/data/search";
 import { WORKERS, workerBySlug } from "@/lib/data/workers";
+import { cityBySlug } from "@/lib/data/cities";
+import { distanceKm } from "@/lib/utils";
 import { getWorkerBySlug, getWorkers } from "@/lib/data/repo";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
 
@@ -107,6 +109,25 @@ describe("searchWorkers — sorting", () => {
     for (let i = 1; i < items.length; i++) {
       expect(items[i - 1].yearsExp).toBeGreaterThanOrEqual(items[i].yearsExp);
     }
+  });
+
+  it("nearest ranks by distance to the selected city's centre", () => {
+    const centre = cityBySlug("beirut")!;
+    const d = searchWorkers({ city: "beirut", sort: "nearest" }).items.map((w) =>
+      distanceKm(w.lat, w.lng, centre.lat, centre.lng)
+    );
+    expect(d.length).toBeGreaterThan(1);
+    for (let i = 1; i < d.length; i++) expect(d[i - 1]).toBeLessThanOrEqual(d[i]);
+  });
+
+  it("nearest WITHOUT a city degrades to rating — it does not pretend to sort by distance", () => {
+    // There is no centre to measure from, so the distance branch is unreachable;
+    // the deterministic fallback is rating order (NOT relevance, which would
+    // re-order by the query score). Pinned so the behaviour is a decision rather
+    // than an accident of the comparator.
+    const nearest = searchWorkers({ sort: "nearest" }).items;
+    const rating = searchWorkers({ sort: "rating" }).items;
+    expect(nearest.map((w) => w.id)).toEqual(rating.map((w) => w.id));
   });
 });
 

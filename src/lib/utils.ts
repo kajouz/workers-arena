@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { NUMBER_LOCALE, intlLocale } from "@/lib/tenant/countries";
 
 /** Weekday display names (index 0 = Sunday) — shared by profile hours & slot pickers. */
 export const DAYS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -10,35 +11,130 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Format a number with locale-aware separators (keeps Latin digits in both locales). */
-export function formatNumber(n: number, locale = "en"): string {
-  return new Intl.NumberFormat(locale === "ar" ? "en-US" : locale).format(n);
+/**
+ * Format a number with grouped separators — ALWAYS ASCII digits.
+ *
+ * THE digit convention (see `NUMBER_LOCALE` in `@/lib/tenant/countries`): only
+ * calendar/clock output follows the locale's digit system; every other number
+ * the app formats is ASCII in both languages — so this takes NO locale argument.
+ * There is deliberately nothing to pass and get wrong: `formatNumber(1500)` is
+ * "1,500" whether the reader is on an English or an Arabic page, and it can
+ * never drift into "١٬٥٠٠" the way a locale-derived tag would.
+ */
+export function formatNumber(n: number): string {
+  return new Intl.NumberFormat(NUMBER_LOCALE).format(n);
 }
 
-/** Compact numbers: 12.4K */
+/** Compact numbers: 12.4K — ASCII digits, same rule as `formatNumber`. */
 export function formatCompact(n: number): string {
-  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+  return new Intl.NumberFormat(NUMBER_LOCALE, { notation: "compact", maximumFractionDigits: 1 }).format(n);
 }
 
-export type CurrencyCode = "USD";
-
-const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
-  USD: "$",
-};
-
-/** USD-only price formatting — single tenant lb. Future tenants re-open this union. */
-export function formatPrice(amount: number, _currency: CurrencyCode = "USD", _locale: "en" | "ar" = "en"): string {
-  const num = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(amount);
-  return `$${num}`;
+/** The two display parts of a countdown/deadline: hours and whole minutes. */
+export interface DurationParts {
+  /** Whole hours remaining. */
+  hours: number;
+  /** Minutes past the last whole hour (0–59). */
+  minutes: number;
 }
+
+/**
+ * Split a remaining-milliseconds deadline into countdown parts — the ONE
+ * arithmetic every countdown shares, so the SLA banner (admin), the customer
+ * /bookings row, the worker dashboard card and the two pre-request dialogs can
+ * never disagree about how many hours a deadline has left.
+ *
+ * Rounds UP to the next whole minute (`ceil`): a deadline 30s away still reads
+ * "1 د" rather than "0", matching how the copy says the request is about to
+ * expire rather than already expired. Negative remainders clamp to zero.
+ */
+export function durationParts(remainingMs: number): DurationParts {
+  const totalMinutes = Math.max(0, Math.ceil(remainingMs / 60_000));
+  return { hours: Math.floor(totalMinutes / 60), minutes: totalMinutes % 60 };
+}
+
+/**
+ * Fill a countdown/duration translation's `{hours}` / `{minutes}` placeholders.
+ *
+ * This is the digit convention's enforcement point for durations: both parts go
+ * through `formatNumber`, so the numbers are ASCII in BOTH languages. It takes no
+ * locale at all — a duration has no locale knob to get wrong, which is what the
+ * four hand-rolled `copy.replace("{hours}", String(hours))` sites used to get
+ * subtly wrong (and any future `.toLocaleString()` there would have gone back to
+ * Arabic-Indic digits beside the Latin ones in the same row). A placeholder the
+ * copy does not use (e.g. a `{hours}`-only policy line) is simply left alone.
+ */
+export function fillDuration(copy: string, parts: DurationParts): string {
+  return copy
+    .replace(/\{hours\}/g, formatNumber(parts.hours))
+    .replace(/\{minutes\}/g, formatNumber(parts.minutes));
+}
+
+/**
+ * The currency type and price formatter live in `@/lib/currency` — the single
+ * source of truth — and are re-exported here so the many `@/lib/utils` import
+ * sites keep working without a second, drifting definition.
+ */
+export { formatPrice, type CurrencyCode } from "./currency";
 
 /** Format a date for a given locale. */
 export function formatDate(date: Date | string, locale: "en" | "ar" = "en"): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-US", {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     year: "numeric",
     month: "short",
     day: "numeric",
+  }).format(d);
+}
+
+/**
+ * Day + month only (e.g. "٥ آذار" / "Mar 5") — the compact label used by
+ * message-day separators, availability headers and chart axes.
+ *
+ * Shares the country-aware locale with `formatDate`, so every spelled-out month
+ * name in the UI comes from ONE vocabulary — switching a country's Intl tag can
+ * never leave two surfaces disagreeing (tests/arabic-dates.test.ts pins the
+ * rendered Arabic months for this reason).
+ */
+export function formatMonthDay(date: Date | string, locale: "en" | "ar" = "en"): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat(intlLocale(locale), {
+    month: "short",
+    day: "numeric",
+  }).format(d);
+}
+
+/**
+ * Date + time for a given locale ("Mar 5, 2026, 10:30 AM" / "٥ آذار ٢٠٢٦، ١٠:٣٠ ص").
+ *
+ * The locale is REQUIRED — deliberately no default. This is the shared
+ * replacement for the bare `new Date(x).toLocaleString()` that ~40 admin and
+ * dashboard artifacts used, which took the RUNTIME locale: on an Arabic page it
+ * rendered an English date (M/D/YYYY, 10:30:00 AM) while the row beside it showed
+ * a Levantine one, and it disagreed between the server render and the client
+ * whenever the two ran on different machines. Requiring the argument makes
+ * "which locale?" a compile-time question rather than an invisible one.
+ */
+export function formatDateTime(date: Date | string, locale: "en" | "ar"): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat(intlLocale(locale), {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(d);
+}
+
+/**
+ * Clock time only for a given locale ("10:30 AM" / "١٠:٣٠ ص") — the replacement
+ * for a bare `toLocaleTimeString()`. Same required-locale contract as
+ * `formatDateTime`; seconds are dropped because every existing surface that used
+ * `toLocaleTimeString()` shows a "last updated" style timestamp where they are
+ * noise.
+ */
+export function formatTime(date: Date | string, locale: "en" | "ar"): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat(intlLocale(locale), {
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(d);
 }
 
@@ -67,8 +163,11 @@ export function timeAgo(date: Date | string, locale: "en" | "ar" = "en"): string
     unitEn = en;
     unitAr = ar;
   }
-  if (locale === "ar") return `منذ ${value} ${unitAr}`;
-  return `${value} ${unitEn}${value === 1 ? "" : "s"} ago`;
+  // The count goes through formatNumber, not bare interpolation: a relative time
+  // is a duration (non-date) number, so it renders ASCII digits in both locales.
+  const count = formatNumber(value);
+  if (locale === "ar") return `منذ ${count} ${unitAr}`;
+  return `${count} ${unitEn}${value === 1 ? "" : "s"} ago`;
 }
 
 /** Deterministic initials from a name (used by gradient avatars). */

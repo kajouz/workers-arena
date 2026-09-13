@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { type CurrencyCode, formatPrice, getExchangeRates } from "@/lib/currency";
+import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
 
 interface CurrencyContextType {
   currency: CurrencyCode;
@@ -20,18 +21,26 @@ export function useCurrency() {
   return ctx;
 }
 
-// Tenant lb: single currency USD. Future tenants switch via provider prop, not auto-detect.
-export function CurrencyProvider({ children }: { children: ReactNode; defaultCurrency?: CurrencyCode }) {
+// Tenant lb: single currency USD, taken from the country registry. A future
+// country tenant passes the currency (or relies on the default) instead of
+// having it hardcoded here — the prop used to be accepted and IGNORED.
+export function CurrencyProvider({
+  children,
+  defaultCurrency = DEFAULT_COUNTRY.currency,
+}: {
+  children: ReactNode;
+  defaultCurrency?: CurrencyCode;
+}) {
   const value = useMemo<CurrencyContextType>(
     () => ({
-      currency: "USD",
+      currency: defaultCurrency,
       setCurrency: () => {},
       convert: (amount) => amount,
-      format: (amount) => formatPrice(amount, "USD"),
+      format: (amount) => formatPrice(amount, defaultCurrency),
       rates: getExchangeRates(),
-      available: ["USD"],
+      available: [defaultCurrency],
     }),
-    []
+    [defaultCurrency]
   );
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }

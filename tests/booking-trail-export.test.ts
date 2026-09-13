@@ -118,8 +118,15 @@ describe("renderBookingTrailsPrint", () => {
     const doc = renderBookingTrailsPrint(bookings, { locale: "ar", workerNames: WORKERS });
     expect(doc).toContain('<html lang="ar" dir="rtl">');
     expect(doc).toContain("سجلات تدقيق الحجوزات");
-    // ar-EG digits in the count (the shared formatter).
-    expect(doc).toContain("٢ حجز");
+    // ASCII digits in the count — the numeral convention (NUMBER_LOCALE,
+    // tests/number-digits.test.ts): only calendar/clock output follows the
+    // Arabic locale, so a COUNT stays ASCII in the same document that prints
+    // ASCII money and row indices. It used to render "٢ حجز" (Arabic-Indic)
+    // beside them, because this builder counted with
+    // `Intl.NumberFormat(intlLocale(locale))` while the rest of the document
+    // used ASCII — the exact mixing the convention removed.
+    expect(doc).toContain("2 حجز");
+    expect(doc).not.toContain("٢ حجز");
     expect(doc).toContain("بانتظار الرد");
     expect(doc).toContain("العميل");
     expect(doc).toContain("السبب");

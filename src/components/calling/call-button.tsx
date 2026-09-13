@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { intlLocale } from "@/lib/tenant/countries";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -109,7 +110,7 @@ export function CallButton({ bookingId, partyType, partyName, className }: CallB
   };
 
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat(locale === "ar" ? "ar-LB" : "en-US", {
+    return new Intl.DateTimeFormat(intlLocale(locale), {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(new Date(date));

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn, timeAgo } from "@/lib/utils";
+import { intlLocale } from "@/lib/tenant/countries";
 import { useLocale } from "@/components/providers/locale-provider";
 import { BookingPrintButton } from "./booking-print-button";
 import type { Booking } from "@/lib/data/types";
@@ -29,7 +30,7 @@ const ACTOR_LABEL_KEY: Record<string, string> = {
 
 /** The exact timestamp of an event, localized — the audit line's \"when\". */
 function eventTimestamp(time: string, locale: "en" | "ar"): string {
-  return new Date(time).toLocaleString(locale === "ar" ? "ar-EG" : "en-US", {
+  return new Date(time).toLocaleString(intlLocale(locale), {
     dateStyle: "medium",
     timeStyle: "short",
   });

@@ -12,7 +12,7 @@ import { toast } from "@/components/ui/toast";
 import { useLocale } from "@/components/providers/locale-provider";
 import { formatSlotRange } from "@/lib/data/booking-ui";
 import { availableSlotsAction, selectQuoteAction } from "@/app/actions/bookings";
-import { cn } from "@/lib/utils";
+import { cn, durationParts, fillDuration } from "@/lib/utils";
 import { QUOTE_SLA_MS } from "@/lib/data/types";
 import { useSsrSafeNow } from "@/hooks/use-ssr-safe-now";
 import { SlaUrgencyBar } from "./sla-urgency-bar";
@@ -127,12 +127,9 @@ export function QuoteRequestCard({
           QUOTE_SLA_MS deadline, so the customer sees the quote expire the way
           they see the request auto-cancel. */}
       {open && closesAt !== null && (() => {
-        const totalMin = Math.max(0, Math.ceil((closesAt - now) / 60_000));
-        const hours = Math.floor(totalMin / 60);
-        const minutes = totalMin % 60;
-        const copy = t("booking.quotesExpires")
-          .replace("{hours}", String(hours))
-          .replace("{minutes}", String(minutes));
+        // Same countdown arithmetic and digits as the request-SLA clock: a quote
+        // window is a duration, so it renders ASCII numerals in both languages.
+        const copy = fillDuration(t("booking.quotesExpires"), durationParts(closesAt - now));
         return (
           <div className="mt-2.5 w-full">
             <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">

@@ -71,16 +71,16 @@ interface Invoice {
 
 /* ─── Demo Data ─── */
 const DEMO_WORKERS = [
-  { id: "w1", name: "Khaled Al-Harbi", nameAr: "خالد الحربي", email: "khaled@plumbfix.sa", hue: 294 },
-  { id: "w2", name: "Ali Hassan", nameAr: "علي حسن", email: "ali@carpentry.sa", hue: 299 },
-  { id: "w3", name: "Omar Al-Mutairi", nameAr: "عمر المطيري", email: "omar@ac-tech.sa", hue: 260 },
+  { id: "w1", name: "Khaled Al-Harbi", nameAr: "خالد الحربي", email: "khaled@plumbfix.lb", hue: 294 },
+  { id: "w2", name: "Ali Hassan", nameAr: "علي حسن", email: "ali@carpentry.lb", hue: 299 },
+  { id: "w3", name: "Omar Al-Mutairi", nameAr: "عمر المطيري", email: "omar@ac-tech.lb", hue: 260 },
   { id: "w4", name: "Bilal Mansour", nameAr: "بلال منصور", email: "bilal@clean.pro", hue: 275 },
   { id: "w5", name: "Anas Barakat", nameAr: "أنس بركات", email: "anas@design.studio", hue: 23 },
 ];
 
 const DEMO_INVOICES: Invoice[] = [
   {
-    id: "inv-1", number: "INV-2024-001", workerName: "Khaled Al-Harbi", workerNameAr: "خالد الحربي", workerEmail: "khaled@plumbfix.sa",
+    id: "inv-1", number: "INV-2024-001", workerName: "Khaled Al-Harbi", workerNameAr: "خالد الحربي", workerEmail: "khaled@plumbfix.lb",
     type: "subscription", amount: 11900, tax: 1785, currency: "USD", status: "paid", issuedAt: "2024-01-15", paidAt: "2024-01-15", dueDate: "2024-02-15", hue: 294,
     lineItems: [
       { id: "li-1", description: "Premium Plan — Monthly", quantity: 1, unitPrice: 11900, total: 11900 },
@@ -91,7 +91,7 @@ const DEMO_INVOICES: Invoice[] = [
     ],
   },
   {
-    id: "inv-2", number: "INV-2024-002", workerName: "Ali Hassan", workerNameAr: "علي حسن", workerEmail: "ali@carpentry.sa",
+    id: "inv-2", number: "INV-2024-002", workerName: "Ali Hassan", workerNameAr: "علي حسن", workerEmail: "ali@carpentry.lb",
     type: "subscription", amount: 5900, tax: 885, currency: "USD", status: "paid", issuedAt: "2024-01-20", paidAt: "2024-01-20", dueDate: "2024-02-20", hue: 299,
     lineItems: [
       { id: "li-2", description: "Professional Plan — Monthly", quantity: 1, unitPrice: 5900, total: 5900 },
@@ -102,7 +102,7 @@ const DEMO_INVOICES: Invoice[] = [
     ],
   },
   {
-    id: "inv-3", number: "INV-2024-003", workerName: "Omar Al-Mutairi", workerNameAr: "عمر المطيري", workerEmail: "omar@ac-tech.sa",
+    id: "inv-3", number: "INV-2024-003", workerName: "Omar Al-Mutairi", workerNameAr: "عمر المطيري", workerEmail: "omar@ac-tech.lb",
     type: "verification", amount: 2900, tax: 435, currency: "USD", status: "pending", issuedAt: "2024-02-01", dueDate: "2024-03-01", hue: 260,
     lineItems: [
       { id: "li-3", description: "Identity Verification Fee", quantity: 1, unitPrice: 1500, total: 1500 },
@@ -126,7 +126,7 @@ const DEMO_INVOICES: Invoice[] = [
     ],
   },
   {
-    id: "inv-5", number: "INV-2024-005", workerName: "BuildCo Ltd", workerNameAr: "شركة بلدت ك", workerEmail: "ads@buildco.sa",
+    id: "inv-5", number: "INV-2024-005", workerName: "BuildCo Ltd", workerNameAr: "شركة بلدت ك", workerEmail: "ads@buildco.lb",
     type: "campaign", amount: 29900, tax: 4485, currency: "USD", status: "paid", issuedAt: "2024-02-05", paidAt: "2024-02-05", dueDate: "2024-03-05", hue: 156,
     lineItems: [
       { id: "li-7", description: "Enterprise Campaign — Monthly", quantity: 1, unitPrice: 29900, total: 29900 },
@@ -314,7 +314,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
     setGenType("subscription");
     setGenAmount("");
     setGenTax("15");
-    setGenCurrency("SAR");
+    setGenCurrency("USD");
     setGenDueDate("");
     setGenNotes("");
     setGenLineItems([{ description: "", quantity: 1, unitPrice: 0 }]);
@@ -864,11 +864,9 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                         onChange={(e) => setGenCurrency(e.target.value)}
                         className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
                       >
-                        <option value="SAR">SAR (Saudi Riyal)</option>
-                        <option value="AED">AED (UAE Dirham)</option>
-                        <option value="EGP">EGP (Egyptian Pound)</option>
+                        {/* Tenant lb: single-currency USD — the invoice generator
+                            can only mint in the currency the platform transacts in. */}
                         <option value="USD">USD (US Dollar)</option>
-                        <option value="LBP">LBP (Lebanese Pound)</option>
                       </select>
                     </div>
                     <div>

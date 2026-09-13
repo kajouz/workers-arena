@@ -1,6 +1,7 @@
 import { Link2 } from "lucide-react";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import { getI18n } from "@/lib/i18n/server";
+import { formatPrice } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { OMTIcon } from "@/components/payments/icons/omt-icon";
@@ -24,7 +25,7 @@ export default async function ManualPaymentPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { locale, t } = await getI18n();
+  const { t } = await getI18n();
   const raw = await searchParams;
   const one = (k: string) => (Array.isArray(raw[k]) ? raw[k]![0] : raw[k]);
 
@@ -91,7 +92,7 @@ export default async function ManualPaymentPage({
           <div className="rounded-xl bg-ink-50 p-4 dark:bg-ink-800">
             <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">{t("payments.manualAmount")}</p>
             <p className="mt-1 text-2xl font-black text-ink-900 dark:text-ink-50">
-              {`$${(amount / 100).toLocaleString(locale === "ar" ? "en-US" : "en-US")}`}
+              {formatPrice(amount / 100)}
             </p>
             {description && <p className="mt-1 text-xs text-ink-400">{description}</p>}
           </div>

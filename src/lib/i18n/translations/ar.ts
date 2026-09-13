@@ -134,7 +134,8 @@ export const ar: Dictionary = {
     title: "الأرقام خلف الثقة",
     workers: "محترف نشط",
     companies: "شركة شريكة",
-    cities: "مدينة نخدمها",
+    cities: "مدن نخدمها",
+    citiesOne: "مدينة نخدمها",
     satisfaction: "رضا العملاء",
   },
   testimonials: {
@@ -776,7 +777,8 @@ export const ar: Dictionary = {
     emptyBody: "اطلب حجزاً من ملف أي عامل وسيظهر هنا.",
     guestLookupTitle: "ابحث عن حجوزاتك",
     guestLookupBody: "أدخل رقم الهاتف الذي استخدمته عند الحجز.",
-    guestLookupPlaceholder: "+961 7x xxx xxx",
+    // National-format only — the UI prepends the served country's dial code.
+    guestLookupPlaceholder: "7x xxx xxx",
     guestLookup: "ابحث عن حجوزاتي",
     guestLookupNone: "لا توجد حجوزات مطابقة لهذا الرقم.",
     bookingWith: "حجز مع",

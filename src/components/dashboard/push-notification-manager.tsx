@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatNumber } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   Bell,
   Send,
@@ -64,6 +65,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function PushNotificationManager() {
+  const { locale } = useLocale();
   const [notifications, setNotifications] = useState<PushNotification[]>([]);
   const [subscriptions, setSubscriptions] = useState<PushSubscription[]>([]);
   const [activeTab, setActiveTab] = useState<"notifications" | "subscribers" | "settings">("notifications");
@@ -200,7 +202,7 @@ export function PushNotificationManager() {
               <Smartphone className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalSubscribers.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalSubscribers)}</p>
               <p className="text-sm text-gray-500">Subscribers</p>
             </div>
           </div>
@@ -211,7 +213,7 @@ export function PushNotificationManager() {
               <Send className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalSent.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalSent)}</p>
               <p className="text-sm text-gray-500">Total Sent</p>
             </div>
           </div>
@@ -349,7 +351,7 @@ export function PushNotificationManager() {
                       </span>
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-600">
-                      {notification.recipientCount.toLocaleString()}
+                      {formatNumber(notification.recipientCount)}
                     </td>
                     <td className="px-4 py-4">
                       {notification.deliveryRate !== undefined ? (
@@ -421,7 +423,7 @@ export function PushNotificationManager() {
                     </span>
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-600">
-                    {new Date(sub.lastActive).toLocaleDateString()}
+                    {formatDate(sub.lastActive, locale)}
                   </td>
                   <td className="px-4 py-4">
                     <span className={cn(

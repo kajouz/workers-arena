@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatTime } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   Smartphone,
   Bell,
@@ -73,6 +74,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export function MobileFeaturesCard() {
+  const { locale } = useLocale();
   const [features, setFeatures] = useState<MobileFeatures | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<
@@ -299,7 +301,7 @@ export function MobileFeaturesCard() {
             </h4>
             <p className="text-sm text-gray-600">
               Your balance is cached locally for offline access. Last synced:{" "}
-              {new Date(features.offlineBalance.lastSynced).toLocaleTimeString()}
+              {formatTime(features.offlineBalance.lastSynced, locale)}
             </p>
 
             <div className="grid grid-cols-2 gap-3">

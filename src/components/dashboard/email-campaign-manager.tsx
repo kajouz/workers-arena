@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import {
   Mail,
   Send,
@@ -196,7 +196,7 @@ export function EmailCampaignManager() {
               <Send className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalSent.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalSent)}</p>
               <p className="text-sm text-gray-500">Total Sent</p>
             </div>
           </div>
@@ -207,7 +207,7 @@ export function EmailCampaignManager() {
               <Eye className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalOpened.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalOpened)}</p>
               <p className="text-sm text-gray-500">Opened</p>
             </div>
           </div>
@@ -218,7 +218,7 @@ export function EmailCampaignManager() {
               <TrendingUp className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalClicked.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalClicked)}</p>
               <p className="text-sm text-gray-500">Clicked</p>
             </div>
           </div>
@@ -344,7 +344,7 @@ export function EmailCampaignManager() {
                       </span>
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-600">
-                      {campaign.recipientCount.toLocaleString()}
+                      {formatNumber(campaign.recipientCount)}
                     </td>
                     <td className="px-4 py-4">
                       {campaign.openRate !== undefined ? (

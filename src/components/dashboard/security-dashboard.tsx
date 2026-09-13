@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate, formatDateTime, formatNumber } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 import {
   Shield,
   Lock,
@@ -73,6 +74,7 @@ const statusColors: Record<string, string> = {
 };
 
 export function SecurityDashboard() {
+  const { locale } = useLocale();
   const [loginHistory, setLoginHistory] = useState<LoginHistory[]>([]);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [settings, setSettings] = useState<SecuritySettings>({
@@ -102,7 +104,7 @@ export function SecurityDashboard() {
         id: "1",
         userId: "u1",
         userName: "Khaled Al Harbi",
-        email: "khaled@plumbfix.sa",
+        email: "khaled@plumbfix.lb",
         ipAddress: "192.168.1.105",
         userAgent: "Chrome 121 / macOS",
         location: "Beirut, Lebanon",
@@ -115,10 +117,10 @@ export function SecurityDashboard() {
         id: "2",
         userId: "u2",
         userName: "Ali Hassan",
-        email: "ali@carpentry.sa",
+        email: "ali@woodcraft.lb",
         ipAddress: "10.0.0.52",
         userAgent: "Safari 17 / iOS",
-        location: "Dubai, UAE",
+        location: "Beirut, Lebanon",
         status: "success",
         method: "2fa",
         timestamp: "2025-01-17T09:15:00Z",
@@ -141,10 +143,10 @@ export function SecurityDashboard() {
         id: "4",
         userId: "u4",
         userName: "Omar Al Mutairi",
-        email: "omar@ac-tech.sa",
+        email: "omar@coolair.lb",
         ipAddress: "172.16.0.15",
         userAgent: "Chrome 121 / Android",
-        location: "Riyadh, Saudi Arabia",
+        location: "Beirut, Lebanon",
         status: "success",
         method: "magic_link",
         timestamp: "2025-01-17T07:20:00Z",
@@ -185,7 +187,7 @@ export function SecurityDashboard() {
         device: "iPhone 15 Pro",
         browser: "Safari 17",
         ipAddress: "10.0.0.52",
-        location: "Dubai, UAE",
+        location: "Beirut, Lebanon",
         lastActive: "2025-01-17T09:15:00Z",
         createdAt: "2025-01-17T07:30:00Z",
       },
@@ -196,7 +198,7 @@ export function SecurityDashboard() {
         device: "Samsung Galaxy S24",
         browser: "Chrome 121",
         ipAddress: "172.16.0.15",
-        location: "Riyadh, Saudi Arabia",
+        location: "Beirut, Lebanon",
         lastActive: "2025-01-17T07:20:00Z",
         createdAt: "2025-01-16T22:00:00Z",
       },
@@ -240,7 +242,7 @@ export function SecurityDashboard() {
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalLogins.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalLogins)}</p>
               <p className="text-sm text-gray-500">Total Logins</p>
             </div>
           </div>
@@ -417,7 +419,7 @@ export function SecurityDashboard() {
                       </span>
                     </td>
                     <td className="px-4 py-4 text-sm text-gray-500">
-                      {new Date(login.timestamp).toLocaleString()}
+                      {formatDateTime(login.timestamp, locale)}
                     </td>
                   </tr>
                 ))}
@@ -468,7 +470,7 @@ export function SecurityDashboard() {
                       <p className="text-sm text-gray-600">{session.device} · {session.browser}</p>
                       <p className="text-sm text-gray-500">{session.ipAddress} · {session.location}</p>
                       <p className="text-xs text-gray-400 mt-1">
-                        Last active: {new Date(session.lastActive).toLocaleString()}
+                        Last active: {formatDateTime(session.lastActive, locale)}
                       </p>
                     </div>
                   </div>
@@ -506,7 +508,7 @@ export function SecurityDashboard() {
             <div className="flex items-center justify-between py-4 border-b border-gray-100">
               <div>
                 <p className="font-medium text-gray-900">Password Last Changed</p>
-                <p className="text-sm text-gray-500">Last updated: {new Date(settings.passwordLastChanged).toLocaleDateString()}</p>
+                <p className="text-sm text-gray-500">Last updated: {formatDate(settings.passwordLastChanged, locale)}</p>
               </div>
               <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
                 Change Password

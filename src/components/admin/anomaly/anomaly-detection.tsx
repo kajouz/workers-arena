@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Info
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
 
 interface Anomaly {
   id: string;
@@ -37,6 +38,7 @@ interface AnomalyDetectionProps {
  * Highlight unusual spikes/drops in bookings, revenue, churn
  */
 export function AnomalyDetection({ className }: AnomalyDetectionProps) {
+  const { locale } = useLocale();
   const [anomalies, setAnomalies] = useState<Anomaly[]>([
     {
       id: "a1",
@@ -161,7 +163,7 @@ export function AnomalyDetection({ className }: AnomalyDetectionProps) {
     if (hours < 24) {
       return `${hours}h ago`;
     }
-    return date.toLocaleDateString();
+    return formatDate(date, locale);
   };
 
   const unacknowledgedCount = anomalies.filter((a) => !a.acknowledged).length;
