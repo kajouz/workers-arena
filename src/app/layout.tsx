@@ -25,6 +25,20 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { CurrencyProvider } from "@/components/providers/currency-provider";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
+const DEFAULT_APP_URL = "https://workersarena.com";
+
+function getMetadataBase(): URL {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!configured) return new URL(DEFAULT_APP_URL);
+
+  try {
+    return new URL(configured);
+  } catch {
+    // A malformed dashboard value must not make every route fail to build.
+    return new URL(DEFAULT_APP_URL);
+  }
+}
+
 export const metadata: Metadata = {
   title: {
     default: "WorkersArena — Find trusted professionals near you",
@@ -41,7 +55,7 @@ export const metadata: Metadata = {
     "كهربائي",
     "عمال محترفون",
   ],
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001"),
+  metadataBase: getMetadataBase(),
   applicationName: "WorkersArena",
   appleWebApp: {
     capable: true,

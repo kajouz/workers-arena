@@ -397,7 +397,11 @@ jobs:
         run: |
           cp .env.example .env
           echo 'DEMO_MODE=true' >> .env
-          echo 'NEXT_PUBLIC_APP_URL=https://workersarena.com' >> .env
+          # Keep the canonical URL deterministic in the checked-out build. The
+          # Vercel project may contain an unset/legacy value; `vercel pull`
+          # writes it into .env.production.local and Next loads that file over
+          # .env unless the build environment explicitly wins.
+          sed -i 's|^NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL="https://workersarena.com"|' .env
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -413,11 +417,15 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          # Explicitly override any malformed/stale value pulled from the
+          # Vercel project. Next's process environment takes precedence over
+          # .env.production.local when evaluating app/layout.tsx metadataBase.
+          NEXT_PUBLIC_APP_URL: https://workersarena.com
+          APP_URL: https://workersarena.com
 
       - name: Deploy to Vercel (production)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          prebuilt: true
+        run: npx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          NEXT_TELEMETRY_DISABLED: "1"
