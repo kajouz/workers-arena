@@ -1,23 +1,16 @@
 import type { NextConfig } from "next";
 
+import { buildCsp } from "./src/lib/security/csp";
+
 // NEXT_DIST_DIR isolates the build/dev cache (used by the E2E hydration smoke
 // test so its `next dev` can't clash with a concurrently running preview).
 // NOTE: Next treats distDir as a project-relative NAME — an absolute path is
 // not honored and yields a confusing split build. Use a relative scratch name
 // like `tmp/…` (git- and lint-ignored) when isolation is needed.
-const CSP = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://fonts.googleapis.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://res.cloudinary.com https://*.sentry.io",
-  "connect-src 'self' https://vitals.vercel-insights.com https://*.sentry.io https://*.ingest.sentry.io",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-  "upgrade-insecure-requests",
-].join("; ");
+//
+// CSP is single-sourced with src/proxy.ts's dynamic header — see
+// src/lib/security/csp.ts (the dev-only unsafe-eval allowance lives there).
+const CSP = buildCsp();
 
 const nextConfig: NextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),

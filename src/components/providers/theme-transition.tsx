@@ -13,20 +13,31 @@ export function ThemeTransition() {
   useEffect(() => {
     const root = document.documentElement;
 
-    const observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        if (m.attributeName === "class") {
-          root.classList.add("theme-transitioning");
-          clearTimeout((root as any)._ttTimer);
-          (root as any)._ttTimer = setTimeout(() => {
-            root.classList.remove("theme-transitioning");
-          }, 300);
-        }
-      }
+    // Only the SCHEME (`dark` on <html>) is worth transitioning — and applying
+    // our own marker below is itself a class mutation, so react to a scheme
+    // CHANGE rather than to "a class mutation happened". Reacting to our own
+    // add/remove re-entered the observer with no way to settle: the task queue
+    // never drained, so the first theme click froze the page outright (it also
+    // wedged the dev-server preview, which mutates <html>'s class while
+    // hydrating). Comparing the scheme terminates: our own add/remove records
+    // read back the same `dark` state and are ignored.
+    let isDark = root.classList.contains("dark");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const observer = new MutationObserver(() => {
+      const next = root.classList.contains("dark");
+      if (next === isDark) return;
+      isDark = next;
+      root.classList.add("theme-transitioning");
+      clearTimeout(timer);
+      timer = setTimeout(() => root.classList.remove("theme-transitioning"), 300);
     });
 
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
   }, []);
 
   return (

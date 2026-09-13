@@ -4,30 +4,30 @@ import { hasSessionCookie } from "@/lib/session-cookie";
 import { hasPersonalizationCookie } from "@/lib/personalization-cookie";
 import { checkRateLimit } from "@/lib/rate-limit";
 
-// Content Security Policy — hardened: no unsafe-eval (Sentry v10 doesn't need it;
-// next via Turbopack also works without). unsafe-inline kept for the theme
-// blocking script in src/app/layout.tsx:102 + Next's style tags — next step is
-// nonce-per-request. Also covers static assets via next.config.ts headers() fallback.
-const CSP_DIRECTIVES = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://fonts.googleapis.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://res.cloudinary.com https://*.sentry.io",
-  "connect-src 'self' https://vitals.vercel-insights.com https://*.sentry.io https://*.ingest.sentry.io",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-  "upgrade-insecure-requests",
-].join("; ");
+import { buildCsp } from "@/lib/security/csp";
+
+// Content Security Policy — single-sourced in @/lib/security/csp (shared with
+// next.config.ts's static fallback for _next assets, which this matcher skips).
+// Hardened for production: no unsafe-eval. `next dev` additionally allows eval
+// because React's development build requires it for its dev diagnostics.
+//
+// Both variants are built once, then chosen per request: `upgrade-insecure-
+// requests` may only go out on a document actually served over HTTPS, or the
+// browser rewrites same-origin form submissions/redirects to https and
+// `form-action 'self'` blocks them (see the csp module's note).
+const CSP_HTTPS = buildCsp();
+const CSP_HTTP = buildCsp(undefined, false);
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const response = NextResponse.next();
 
+  // Behind a proxy/TLS terminator (Vercel) the scheme arrives as a header.
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const secure = request.nextUrl.protocol === "https:" || forwardedProto === "https";
+
   // Security headers
-  response.headers.set("Content-Security-Policy", CSP_DIRECTIVES);
+  response.headers.set("Content-Security-Policy", secure ? CSP_HTTPS : CSP_HTTP);
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-XSS-Protection", "1; mode=block");
@@ -94,12 +94,25 @@ export async function proxy(request: NextRequest) {
   }
 
   // Rate limiting for form submissions (POST requests)
+  //
+  // Next.js SERVER ACTIONS are POSTs to the CURRENT PAGE ROUTE (they carry a
+  // `next-action` header), so counting them as form submissions throttled the
+  // app's own UI: ten button presses on /dashboard inside a minute — accept a
+  // booking, block a slot, send a chat message, renew — returned 429 and the
+  // action failed client-side with "An unexpected response was received from
+  // the server.", leaving the page looking broken. A worker reaches that in
+  // ordinary use (blocking slots is one POST per click), and the e2e suite hit
+  // it on every run.
+  //
+  // Actions therefore get their own, far looser bucket; a genuine form POST
+  // (no `next-action` header — a contact form, a signup) keeps the strict one.
   if (request.method === "POST" && !pathname.startsWith("/api/")) {
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous";
-    const key = `form:${ip}:${pathname}`;
+    const isAction = request.headers.has("next-action");
+    const key = `${isAction ? "action" : "form"}:${ip}:${pathname}`;
 
-    if (!(await checkRateLimit(key, 10, 60_000))) {
+    if (!(await checkRateLimit(key, isAction ? 120 : 10, 60_000))) {
       return NextResponse.json(
         { error: "rate_limited", retryAfter: 60 },
         { status: 429 }
