@@ -14,6 +14,12 @@ freebuff
 .vercel
 coverage
 test-results
+playwright-report
+
+# Scratch — isolated dist dirs and repro copies live here (gitignored, and
+# routinely ~1.5GB: a CLI `vercel --prod` was uploading the lot before it
+# aborted). CI deploys a clean checkout, but the local CLI path needs this.
+tmp
 
 # Environment & secrets
 .env
