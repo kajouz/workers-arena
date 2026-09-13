@@ -119,6 +119,11 @@ jobs:
         run: npx prisma generate
 
       - name: Run Playwright tests against a production build
+        # PW_PROD boots `npm run build:prod && next start` (production server)
+        # instead of `next dev`. The dev server crashes under the load of 289
+        # tests x 4 workers (Error: aborted / destination stream closed), which
+        # cascades into "element not found" on every subsequent test. The
+        # nightly-pwa job already uses PW_PROD=1 and is stable.
         # NEXT_DISABLE_STANDALONE lets `next start` serve the build (standalone
         # output refuses it); PW_PORT must match the config's webServer port.
         # --workers=4 pins the config's CI default explicitly: 4 headless
@@ -130,6 +135,7 @@ jobs:
         env:
           CI: "true"
           PW_PORT: "3001"
+          PW_PROD: "1"
           NEXT_DISABLE_STANDALONE: "1"
           NEXT_TELEMETRY_DISABLED: "1"
 

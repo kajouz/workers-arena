@@ -48,8 +48,8 @@ test.describe("Admin Customer Management", () => {
     await expect(page.getByText("Total Spent")).toBeVisible();
 
     // Verify customers are displayed
-    await expect(page.getByText("Fatima Al-Saud")).toBeVisible();
-    await expect(page.getByText("Ahmed Hassan")).toBeVisible();
+    await expect(page.getByText("Rana Khoury")).toBeVisible();
+    await expect(page.getByText("Hassan Fawaz")).toBeVisible();
   });
 
   test("Add Customer button opens modal", async ({ page }) => {
@@ -157,15 +157,15 @@ test.describe("Admin Customer Management", () => {
     await page.waitForLoadState("networkidle");
 
     // Verify all customers are shown initially
-    await expect(page.getByText("Fatima Al-Saud")).toBeVisible();
-    await expect(page.getByText("Ahmed Hassan")).toBeVisible();
+    await expect(page.getByText("Rana Khoury")).toBeVisible();
+    await expect(page.getByText("Hassan Fawaz")).toBeVisible();
 
     // Type in search box
-    await page.getByPlaceholder("Search customers...").fill("Fatima");
+    await page.getByPlaceholder("Search customers...").fill("Rana");
 
-    // Only Fatima should be visible
-    await expect(page.getByText("Fatima Al-Saud")).toBeVisible();
-    await expect(page.getByText("Ahmed Hassan")).not.toBeVisible();
+    // Only Rana should be visible
+    await expect(page.getByText("Rana Khoury")).toBeVisible();
+    await expect(page.getByText("Hassan Fawaz")).not.toBeVisible();
   });
 
   test("search filters customers by email", async ({ page }) => {
@@ -174,11 +174,11 @@ test.describe("Admin Customer Management", () => {
     await page.waitForLoadState("networkidle");
 
     // Type email in search
-    await page.getByPlaceholder("Search customers...").fill("ahmed@example.com");
+    await page.getByPlaceholder("Search customers...").fill("hassan@example.com");
 
-    // Only Ahmed should be visible
-    await expect(page.getByText("Ahmed Hassan")).toBeVisible();
-    await expect(page.getByText("Fatima Al-Saud")).not.toBeVisible();
+    // Only Hassan should be visible
+    await expect(page.getByText("Hassan Fawaz")).toBeVisible();
+    await expect(page.getByText("Rana Khoury")).not.toBeVisible();
   });
 
   test("status filter works", async ({ page }) => {
@@ -189,9 +189,9 @@ test.describe("Admin Customer Management", () => {
     // Filter by suspended status
     await page.locator("select").selectOption("suspended");
 
-    // Only Khalid (suspended) should be visible
-    await expect(page.getByText("Khalid Nasser")).toBeVisible();
-    await expect(page.getByText("Fatima Al-Saud")).not.toBeVisible();
+    // Only Karim (suspended) should be visible
+    await expect(page.getByText("Karim Awwad")).toBeVisible();
+    await expect(page.getByText("Rana Khoury")).not.toBeVisible();
   });
 
   test("status filter shows banned users", async ({ page }) => {
@@ -202,9 +202,9 @@ test.describe("Admin Customer Management", () => {
     // Filter by banned status
     await page.locator("select").selectOption("banned");
 
-    // Only Mohammed Ali (banned) should be visible
-    await expect(page.getByText("Mohammed Ali")).toBeVisible();
-    await expect(page.getByText("Fatima Al-Saud")).not.toBeVisible();
+    // Only Nadim (banned) should be visible
+    await expect(page.getByText("Nadim Chammas")).toBeVisible();
+    await expect(page.getByText("Rana Khoury")).not.toBeVisible();
   });
 
   test("clicking customer card expands details", async ({ page }) => {
@@ -212,11 +212,11 @@ test.describe("Admin Customer Management", () => {
     await page.goto("/admin/customers");
     await page.waitForLoadState("networkidle");
 
-    // Click on Fatima's card
-    await page.getByText("Fatima Al-Saud").click();
+    // Click on Rana's card
+    await page.getByText("Rana Khoury").click();
 
     // Verify expanded details show
-    await expect(page.getByText("+961 70 123 4567")).toBeVisible();
+    await expect(page.getByText("+961 70 123 456")).toBeVisible();
     await expect(page.getByText(/Joined/)).toBeVisible();
   });
 

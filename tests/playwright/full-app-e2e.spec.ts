@@ -232,9 +232,9 @@ test.describe("Admin Role", () => {
   test("customer search filters by name", async ({ page }) => {
     await page.goto("/admin/customers");
     await page.waitForLoadState("domcontentloaded");
-    await page.getByPlaceholder("Search customers...").fill("Fatima");
-    await expect(page.getByText("Fatima Al-Saud")).toBeVisible();
-    await expect(page.getByText("Ahmed Hassan")).not.toBeVisible();
+    await page.getByPlaceholder("Search customers...").fill("Rana");
+    await expect(page.getByText("Rana Khoury")).toBeVisible();
+    await expect(page.getByText("Hassan Fawaz")).not.toBeVisible();
   });
 
   test("customer status filter works", async ({ page }) => {
@@ -242,12 +242,12 @@ test.describe("Admin Role", () => {
     await page.goto("/admin/customers");
     await page.waitForLoadState("domcontentloaded");
     // Wait for the customer list to load
-    await expect(page.getByText("Fatima Al-Saud").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Rana Khoury").first()).toBeVisible({ timeout: 10000 });
     // Now apply the filter (use first visible select — the status filter)
     await page.locator("select").first().selectOption("banned");
     await page.waitForTimeout(500);
-    await expect(page.getByText("Mohammed Ali")).toBeVisible();
-    await expect(page.getByText("Fatima Al-Saud")).not.toBeVisible();
+    await expect(page.getByText("Nadim Chammas")).toBeVisible();
+    await expect(page.getByText("Rana Khoury")).not.toBeVisible();
   });
 
   test("customer card expands on click", async ({ page }) => {
@@ -255,9 +255,9 @@ test.describe("Admin Role", () => {
     await page.goto("/admin/customers");
     await page.waitForLoadState("domcontentloaded");
     // Wait for customer cards to render
-    await expect(page.getByText("Fatima Al-Saud").first()).toBeVisible({ timeout: 10000 });
-    await page.getByText("Fatima Al-Saud").first().click();
-    await expect(page.getByText("+961 70 123 4567")).toBeVisible();
+    await expect(page.getByText("Rana Khoury").first()).toBeVisible({ timeout: 10000 });
+    await page.getByText("Rana Khoury").first().click();
+    await expect(page.getByText("+961 70 123 456")).toBeVisible();
   });
 
   test("Export CSV downloads file", async ({ page }) => {
