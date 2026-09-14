@@ -16,7 +16,7 @@ interface StructuredDataProps {
 export function WorkerStructuredData({
   worker,
   locale,
-  baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://workersarena.com",
+  baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://workers-arena.vercel.app",
 }: StructuredDataProps) {
   const name = locale === "ar" ? worker.nameAr : worker.nameEn;
   const description = locale === "ar" ? worker.bioAr : worker.bioEn;
@@ -84,7 +84,7 @@ export function WorkerStructuredData({
  * JSON-LD structured data for the homepage.
  */
 export function HomepageStructuredData({
-  baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://workersarena.com",
+  baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://workers-arena.vercel.app",
 }: {
   baseUrl?: string;
 }) {
@@ -116,7 +116,7 @@ export function HomepageStructuredData({
 export function SearchResultsStructuredData({
   query,
   resultCount,
-  baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://workersarena.com",
+  baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://workers-arena.vercel.app",
 }: {
   query: string;
   resultCount: number;
@@ -144,7 +144,7 @@ export function SearchResultsStructuredData({
  */
 export function BreadcrumbStructuredData({
   items,
-  baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://workersarena.com",
+  baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://workers-arena.vercel.app",
 }: {
   items: { name: string; url: string }[];
   baseUrl?: string;

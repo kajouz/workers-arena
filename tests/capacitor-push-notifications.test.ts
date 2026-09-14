@@ -106,7 +106,7 @@ describe("Deep Links", () => {
 
   it("parseDeepLink handles standard HTTPS URLs", async () => {
     const mod = await import("@/lib/mobile/deep-links");
-    const result = mod.parseDeepLink("https://workersarena.com/workers/khaled-plumbing");
+    const result = mod.parseDeepLink("https://workers-arena.vercel.app/workers/khaled-plumbing");
     expect(result.path).toBe("/workers/khaled-plumbing");
     expect(result.search).toBe("");
   });
@@ -120,7 +120,7 @@ describe("Deep Links", () => {
 
   it("parseDeepLink handles URLs with search params", async () => {
     const mod = await import("@/lib/mobile/deep-links");
-    const result = mod.parseDeepLink("https://workersarena.com/search?category=plumbing&city=beirut");
+    const result = mod.parseDeepLink("https://workers-arena.vercel.app/search?category=plumbing&city=beirut");
     expect(result.path).toBe("/search");
     expect(result.search).toBe("?category=plumbing&city=beirut");
   });
@@ -176,7 +176,7 @@ describe("Deep Links", () => {
 
   it("handleDeepLink processes full URLs", async () => {
     const mod = await import("@/lib/mobile/deep-links");
-    const result = mod.handleDeepLink("https://workersarena.com/workers/test-worker");
+    const result = mod.handleDeepLink("https://workers-arena.vercel.app/workers/test-worker");
     expect(result).toBe("/workers/test-worker");
   });
 

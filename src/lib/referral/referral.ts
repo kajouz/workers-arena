@@ -206,7 +206,7 @@ export function getShareUrls(code: string, userName: string): {
   twitter: string;
   copy: string;
 } {
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://workersarena.com";
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://workers-arena.vercel.app";
   const referralUrl = `${baseUrl}/auth/register?ref=${code}`;
   const message = `Join WorkersArena using my referral code ${code} and get started! ${referralUrl}`;
 

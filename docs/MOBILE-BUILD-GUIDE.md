@@ -1,6 +1,6 @@
 # Mobile Build Guide — WorkersArena (Capacitor)
 
-WorkersArena uses [Capacitor](https://capacitorjs.com) to wrap the Next.js web app as a native iOS and Android application. The app loads from the live Vercel deployment (`https://workersarena.com`) so all server-side features (API routes, authentication, database) work identically to the web version.
+WorkersArena uses [Capacitor](https://capacitorjs.com) to wrap the Next.js web app as a native iOS and Android application. The app loads from the live Vercel deployment (`https://workers-arena.vercel.app`) so all server-side features (API routes, authentication, database) work identically to the web version.
 
 ---
 
@@ -159,7 +159,7 @@ In Android Studio:
 
 ### Key design decisions
 
-- **Hybrid rendering**: The app loads from `https://workersarena.com`, so all Next.js server features (SSR, API routes, middleware) work identically to the web version
+- **Hybrid rendering**: The app loads from `https://workers-arena.vercel.app`, so all Next.js server features (SSR, API routes, middleware) work identically to the web version
 - **Native plugins**: Capacitor bridges native features (push notifications, status bar, keyboard) that aren't available in a browser
 - **Offline support**: The service worker caches shell assets and key pages for offline viewing (same PWA as web)
 - **Dynamic imports**: All Capacitor imports are dynamic, so the web bundle remains tree-shakeable and doesn't load native code when running in a browser
@@ -203,7 +203,7 @@ npx cap sync android
 Check that your Xcode version matches your macOS version.
 
 ### White screen on launch
-The app loads from `https://workersarena.com`. Ensure:
+The app loads from `https://workers-arena.vercel.app`. Ensure:
 1. The device has internet access
 2. The URL is not blocked by a firewall
 3. The server is returning HTTP 200
@@ -222,7 +222,7 @@ The Capacitor config is at `capacitor.config.ts`:
 ```typescript
 // Production URL (default)
 server: {
-  url: "https://workersarena.com",
+  url: "https://workers-arena.vercel.app",
   cleartext: false,
 }
 

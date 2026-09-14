@@ -329,7 +329,7 @@ jobs:
         run: |
           cp .env.example .env
           echo 'DEMO_MODE=true' >> .env
-          echo 'NEXT_PUBLIC_APP_URL=https://workersarena.com' >> .env
+          echo 'NEXT_PUBLIC_APP_URL=https://workers-arena.vercel.app' >> .env
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -337,7 +337,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_APP_URL: https://workersarena.com
+          NEXT_PUBLIC_APP_URL: https://workers-arena.vercel.app
 
       - name: Upload Sentry source maps
         if: success()
@@ -382,7 +382,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
-      url: https://workersarena.com
+      url: https://workers-arena.vercel.app
     steps:
       - uses: actions/checkout@v4
 
@@ -401,7 +401,7 @@ jobs:
           # Vercel project may contain an unset/legacy value; `vercel pull`
           # writes it into .env.production.local and Next loads that file over
           # .env unless the build environment explicitly wins.
-          sed -i 's|^NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL="https://workersarena.com"|' .env
+          sed -i 's|^NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL="https://workers-arena.vercel.app"|' .env
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -411,6 +411,6 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          NEXT_PUBLIC_APP_URL: https://workersarena.com
-          APP_URL: https://workersarena.com
+          NEXT_PUBLIC_APP_URL: https://workers-arena.vercel.app
+          APP_URL: https://workers-arena.vercel.app
           NEXT_TELEMETRY_DISABLED: "1"

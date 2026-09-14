@@ -104,13 +104,13 @@ Download WorkersArena today and find the right professional for every job!`,
 We're excited to bring WorkersArena to the App Store! Your feedback helps us improve.`,
 
   // Privacy Policy URL
-  privacyPolicyUrl: "https://workersarena.com/privacy",
+  privacyPolicyUrl: "https://workers-arena.vercel.app/privacy",
   
   // Support URL
-  supportUrl: "https://workersarena.com/support",
+  supportUrl: "https://workers-arena.vercel.app/support",
   
   // Marketing URL
-  marketingUrl: "https://workersarena.com",
+  marketingUrl: "https://workers-arena.vercel.app",
   
   // App Rating
   appRating: {
@@ -189,7 +189,7 @@ Download WorkersArena today and find the right professional for every job!`,
   contentRating: "Everyone",
   
   // Privacy Policy
-  privacyPolicyUrl: "https://workersarena.com/privacy",
+  privacyPolicyUrl: "https://workers-arena.vercel.app/privacy",
   
   // Features
   features: [

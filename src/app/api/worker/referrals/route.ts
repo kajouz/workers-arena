@@ -256,7 +256,7 @@ export async function GET() {
 
     const program: ReferralProgram = {
       referralCode: "KHALED2026",
-      referralLink: "https://workersarena.com/ref/KHALED2026",
+      referralLink: "https://workers-arena.vercel.app/ref/KHALED2026",
       totalReferred: referrals.length,
       activeReferred: referrals.filter(
         (r) => r.status === "completed" || r.status === "rewarded"

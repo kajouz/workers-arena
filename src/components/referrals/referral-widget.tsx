@@ -46,7 +46,7 @@ export function ReferralWidget({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const referralLink = `https://workersarena.com/register?ref=${stats.code}`;
+  const referralLink = `https://workers-arena.vercel.app/register?ref=${stats.code}`;
 
   return (
     <div className="rounded-2xl border border-brand-500/30 bg-gradient-to-br from-brand-500/5 to-violet-500/5 p-6">

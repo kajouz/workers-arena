@@ -25,7 +25,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { CurrencyProvider } from "@/components/providers/currency-provider";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
-const DEFAULT_APP_URL = "https://workersarena.com";
+const DEFAULT_APP_URL = "https://workers-arena.vercel.app";
 
 function getMetadataBase(): URL {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();

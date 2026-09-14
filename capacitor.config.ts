@@ -9,7 +9,7 @@ const config: CapacitorConfig = {
   server: {
     // M9 fix: env-driven so `cap run` in dev doesn't hit production by accident.
     // NEXT_PUBLIC_APP_URL is the same origin the web app uses.
-    url: process.env.NEXT_PUBLIC_APP_URL ?? process.env.CAP_SERVER_URL ?? "https://workersarena.com",
+    url: process.env.NEXT_PUBLIC_APP_URL ?? process.env.CAP_SERVER_URL ?? "https://workers-arena.vercel.app",
     cleartext: (process.env.NEXT_PUBLIC_APP_URL ?? "").startsWith("http://"),
     androidScheme: "https",
   },

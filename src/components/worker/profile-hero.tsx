@@ -41,7 +41,7 @@ export function ProfileHero({ worker }: { worker: Worker }) {
   const [qrOpen, setQrOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const name = locale === "ar" ? worker.nameAr : worker.nameEn;
-  const profileUrl = typeof window !== "undefined" ? window.location.href : `https://workersarena.com/workers/${worker.slug}`;
+  const profileUrl = typeof window !== "undefined" ? window.location.href : `https://workers-arena.vercel.app/workers/${worker.slug}`;
 
   const copyLink = async () => {
     try {

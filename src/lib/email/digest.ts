@@ -123,7 +123,7 @@ function generateSponsoredSection(content: SponsoredContent, locale: "en" | "ar"
   const name = locale === "ar" ? content.nameAr : content.nameEn;
   const desc = locale === "ar" ? (content.descriptionAr ?? "عرض خاص لك") : (content.descriptionEn ?? "Special offer for you");
   const cta = locale === "ar" ? "المزيد" : "Learn More";
-  const url = content.ctaUrl ?? "https://workersarena.com/company";
+  const url = content.ctaUrl ?? "https://workers-arena.vercel.app/company";
 
   return `
   <div style="margin: 24px 0; border: 2px dashed #d946ef; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #fdf4ff, #faf5ff);">
@@ -143,7 +143,7 @@ function generateSponsoredSection(content: SponsoredContent, locale: "en" | "ar"
 }
 
 function generateTrackingPixel(adId: string): string {
-  return `<img src="https://workersarena.com/api/ads/${adId}/impression" width="1" height="1" style="display:none" alt="" />`;
+  return `<img src="https://workers-arena.vercel.app/api/ads/${adId}/impression" width="1" height="1" style="display:none" alt="" />`;
 }
 
 export function generateWorkerDigestHTML(data: WorkerDigestData, sponsoredContent?: SponsoredContent[]): string {
@@ -249,7 +249,7 @@ export function generateWorkerDigestHTML(data: WorkerDigestData, sponsoredConten
       ` : ""}
 
       <div style="text-align: center; margin-top: 24px;">
-        <a href="https://workersarena.com/dashboard" class="cta-button">
+        <a href="https://workers-arena.vercel.app/dashboard" class="cta-button">
           ${data.locale === "ar" ? "عرض لوحة التحكم" : "View Dashboard"}
         </a>
       </div>
@@ -258,7 +258,7 @@ export function generateWorkerDigestHTML(data: WorkerDigestData, sponsoredConten
     <div class="footer">
       <p>© ${new Date().getFullYear()} WorkersArena</p>
       <p>
-        <a href="https://workersarena.com/settings/notifications">${data.locale === "ar" ? "إدارة تفضيلات الإشعارات" : "Manage notification preferences"}</a>
+        <a href="https://workers-arena.vercel.app/settings/notifications">${data.locale === "ar" ? "إدارة تفضيلات الإشعارات" : "Manage notification preferences"}</a>
       </p>
     </div>
   </div>
@@ -373,7 +373,7 @@ export function generateCustomerDigestHTML(data: CustomerDigestData, sponsoredCo
       ` : ""}
 
       <div style="text-align: center; margin-top: 24px;">
-        <a href="https://workersarena.com/bookings" class="cta-button">
+        <a href="https://workers-arena.vercel.app/bookings" class="cta-button">
           ${data.locale === "ar" ? "عرض الحجوزات" : "View Bookings"}
         </a>
       </div>
@@ -382,7 +382,7 @@ export function generateCustomerDigestHTML(data: CustomerDigestData, sponsoredCo
     <div class="footer">
       <p>© ${new Date().getFullYear()} WorkersArena</p>
       <p>
-        <a href="https://workersarena.com/settings/notifications">${data.locale === "ar" ? "إدارة تفضيلات الإشعارات" : "Manage notification preferences"}</a>
+        <a href="https://workers-arena.vercel.app/settings/notifications">${data.locale === "ar" ? "إدارة تفضيلات الإشعارات" : "Manage notification preferences"}</a>
       </p>
     </div>
   </div>
@@ -408,7 +408,7 @@ export async function fetchSponsoredContentForEmail(
         nameAr: "تخفيض على الأدوات المتميزة - 30%",
         descriptionEn: "Professional-grade tools at wholesale prices. Limited time offer.",
         descriptionAr: "أدوات احترافية بأسعار الجملة. عرض لفترة محدودة.",
-        ctaUrl: "https://workersarena.com/company",
+        ctaUrl: "https://workers-arena.vercel.app/company",
       },
       {
         id: "email-sponsor-2",
@@ -416,7 +416,7 @@ export async function fetchSponsoredContentForEmail(
         nameAr: "وركرز أرينا برو - عزز ملفك الشخصي",
         descriptionEn: "Get 3x more leads with a Pro subscription.",
         descriptionAr: "احصل على 3 أضعاف المزيد من العملاء مع اشتراك برو.",
-        ctaUrl: "https://workersarena.com/company",
+        ctaUrl: "https://workers-arena.vercel.app/company",
       },
     ];
     return sampleAds.slice(0, 1); // Return 1 ad per email

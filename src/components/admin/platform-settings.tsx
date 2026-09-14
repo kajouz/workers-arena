@@ -58,7 +58,7 @@ export function PlatformSettings() {
         icon: Settings,
         settings: [
           { id: "site_name", label: "Site Name", description: "Your platform name", type: "text", value: "WorkersArena" },
-          { id: "site_url", label: "Site URL", description: "Your platform URL", type: "text", value: "https://workersarena.com" },
+          { id: "site_url", label: "Site URL", description: "Your platform URL", type: "text", value: "https://workers-arena.vercel.app" },
           { id: "maintenance_mode", label: "Maintenance Mode", description: "Enable to show maintenance page", type: "toggle", value: false, requiresRestart: true },
           { id: "registration_enabled", label: "Allow New Registrations", description: "Allow new users to register", type: "toggle", value: true },
           { id: "default_language", label: "Default Language", description: "Default language for new users", type: "select", value: "en", options: [{ label: "English", value: "en" }, { label: "Arabic", value: "ar" }] },

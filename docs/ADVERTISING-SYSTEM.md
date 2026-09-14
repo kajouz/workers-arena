@@ -438,7 +438,7 @@ ROAS = Estimated Revenue / Total Spent
 **Impression Pixel:**
 ```html
 <img 
-  src="https://workersarena.com/api/ads/{adId}/impression" 
+  src="https://workers-arena.vercel.app/api/ads/{adId}/impression" 
   width="1" 
   height="1" 
   style="display:none" 

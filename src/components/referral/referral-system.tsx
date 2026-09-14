@@ -112,7 +112,7 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
       totalRewardsEarned: 180,
       currentBalance: 120,
       referralCode: "KHALED2025",
-      referralLink: "https://workersarena.com/ref/KHALED2025",
+      referralLink: "https://workers-arena.vercel.app/ref/KHALED2025",
     });
 
     setReferrals([

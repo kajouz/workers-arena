@@ -69,7 +69,7 @@ export default async function CityPage({ params }: CityPageProps) {
     "@type": "LocalBusiness",
     name: `WorkersArena — ${cityData.nameEn}`,
     description: `Find trusted professionals in ${cityData.nameEn}. Verified workers, real reviews.`,
-    url: `https://workersarena.com/cities/${city}`,
+    url: `https://workers-arena.vercel.app/cities/${city}`,
     address: {
       "@type": "PostalAddress",
       addressLocality: cityData.nameEn,
@@ -91,8 +91,8 @@ export default async function CityPage({ params }: CityPageProps) {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: "https://workersarena.com" },
-      { "@type": "ListItem", position: 2, name: "Cities", item: "https://workersarena.com/cities" },
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://workers-arena.vercel.app" },
+      { "@type": "ListItem", position: 2, name: "Cities", item: "https://workers-arena.vercel.app/cities" },
       { "@type": "ListItem", position: 3, name: cityData.nameEn },
     ],
   };

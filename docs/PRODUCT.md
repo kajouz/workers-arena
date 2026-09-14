@@ -292,7 +292,7 @@ Key decisions:
 
 ### 5.5 Mobile-specific backlog (all 📱, sequenced)
 - [ ] M1: offline shell + install prompt polish
-- [ ] M1: universal deep links (`https://workersarena.com/workers/:slug` → app)
+- [ ] M1: universal deep links (`https://workers-arena.vercel.app/workers/:slug` → app)
 - [ ] M2: Capacitor + iOS/Android projects in repo (`/mobile`)
 - [ ] M2: FCM/APNs providers in the notification seam + device registration endpoint
 - [ ] M2: biometric unlock + secure token storage

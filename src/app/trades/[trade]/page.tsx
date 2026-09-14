@@ -134,11 +134,11 @@ export default async function TradePage({ params }: TradePageProps) {
     "@type": "Service",
     name: `${category.nameEn} Services — WorkersArena`,
     description: tradeInfo?.description ?? `Hire verified ${category.professionEn}s.`,
-    url: `https://workersarena.com/trades/${trade}`,
+    url: `https://workers-arena.vercel.app/trades/${trade}`,
     provider: {
       "@type": "Organization",
       name: "WorkersArena",
-      url: "https://workersarena.com",
+      url: "https://workers-arena.vercel.app",
     },
     serviceType: category.nameEn,
     areaServed: "MENA Region",

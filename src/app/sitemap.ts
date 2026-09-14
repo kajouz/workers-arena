@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getWorkers, getCategories, getCities } from "@/lib/data/repo";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workersarena.com";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workers-arena.vercel.app";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages

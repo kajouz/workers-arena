@@ -56,8 +56,8 @@ const structuredData = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "WorkersArena",
-  url: "https://workersarena.com",
-  logo: "https://workersarena.com/icon.svg",
+  url: "https://workers-arena.vercel.app",
+  logo: "https://workers-arena.vercel.app/icon.svg",
   description:
     "WorkersArena connects customers with verified professional workers across the Middle East.",
   sameAs: [],

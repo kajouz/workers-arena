@@ -262,7 +262,7 @@ Mirror the existing web-push hygiene:
 
 1. **In-app** — Next.js handles the path natively (it's the same web app).
 2. **Notification taps** — web push: `sw.js` reads `data.url` and navigates. Native: FCM `data.url` / APNs `aps`-payload `url` are handed to the Capacitor `App`/`DeepLinks` plugin, which calls `window.location` (or `router.push`) on the WebView.
-3. **OS links (cold start / QR / shared)** — iOS **Universal Links** (`https://workersarena.com/...` + `apple-app-site-association`) and Android **App Links** (`assetlinks.json`). Register `https://{NEXT_PUBLIC_APP_URL}/{path}` → app. QR codes already on profiles (`/workers/[slug]`) become install-bait: same URL opens the app when installed.
+3. **OS links (cold start / QR / shared)** — iOS **Universal Links** (`https://workers-arena.vercel.app/...` + `apple-app-site-association`) and Android **App Links** (`assetlinks.json`). Register `https://{NEXT_PUBLIC_APP_URL}/{path}` → app. QR codes already on profiles (`/workers/[slug]`) become install-bait: same URL opens the app when installed.
 
 ### 4.3 Capacitor wiring (sketch)
 

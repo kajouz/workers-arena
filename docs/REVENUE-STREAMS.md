@@ -407,7 +407,7 @@ src/components/dashboard/mobile-features.tsx  ← Mobile features card
 
 ### Access Points
 
-1. **Direct URL:** `https://workersarena.com/admin/revenue-settings`
+1. **Direct URL:** `https://workers-arena.vercel.app/admin/revenue-settings`
 2. **Admin Dashboard Quick Navigation:** "Revenue Streams" button
 3. **Mobile Sidebar:** "Revenue Streams" menu item
 

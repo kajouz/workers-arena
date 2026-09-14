@@ -177,7 +177,7 @@ export function getInitialDeepLink(): string | null {
  * Generate a deep-link URL for sharing
  */
 export function generateDeepLink(path: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://workersarena.com";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://workers-arena.vercel.app";
   return `${baseUrl}${path}`;
 }
 

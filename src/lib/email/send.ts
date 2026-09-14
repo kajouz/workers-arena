@@ -150,7 +150,7 @@ export async function sendTemplatedEmail(
           <li>Book services with trusted professionals</li>
           <li>Leave reviews to help others</li>
         </ul>
-        <p><a href="https://workersarena.com/search">Start exploring →</a></p>
+        <p><a href="https://workers-arena.vercel.app/search">Start exploring →</a></p>
       `,
     },
     "booking-confirmed": {
@@ -161,7 +161,7 @@ export async function sendTemplatedEmail(
         <p><strong>Service:</strong> ${data.jobTitle}</p>
         <p><strong>Date:</strong> ${data.date}</p>
         <p><strong>Time:</strong> ${data.time}</p>
-        <p><a href="https://workersarena.com/bookings">View booking details →</a></p>
+        <p><a href="https://workers-arena.vercel.app/bookings">View booking details →</a></p>
       `,
     },
     "booking-reminder": {
@@ -172,7 +172,7 @@ export async function sendTemplatedEmail(
         <p><strong>Worker:</strong> ${data.workerName}</p>
         <p><strong>Service:</strong> ${data.jobTitle}</p>
         <p><strong>Time:</strong> ${data.time}</p>
-        <p><a href="https://workersarena.com/bookings">View details →</a></p>
+        <p><a href="https://workers-arena.vercel.app/bookings">View details →</a></p>
       `,
     },
     "weekly-digest": {
