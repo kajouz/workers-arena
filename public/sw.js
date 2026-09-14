@@ -264,6 +264,24 @@ self.addEventListener("fetch", (event) => {
   // Data endpoints: never cached — always hit the network.
   if (url.pathname.startsWith("/api/")) return;
 
+  // RSC flight requests (router.refresh(), server-action revalidation,
+  // <Link> prefetches) are per-user, per-cookie renders — never serve them
+  // from any cache and never store them. The asset branch below is
+  // stale-while-revalidate (`cached || network`): a cached EN flight from
+  // before a language switch would resurrect the old locale after the
+  // switch, flipping the whole page back to English with no network
+  // request in between (e2e-smoke "verification banner badge → pending"
+  // timeout: the post-resubmit refresh applied the renewal-era EN
+  // dashboard flight). Flights carry one of these headers; without the
+  // guard they also match the asset branch by URL and get stored.
+  if (
+    request.headers.get("RSC") === "1" ||
+    request.headers.has("Next-Router-State-Tree") ||
+    request.headers.has("Next-Action")
+  ) {
+    return;
+  }
+
   if (request.mode === "navigate") {
     const isProfile = PROFILE_PATH_RE.test(url.pathname);
     event.respondWith(

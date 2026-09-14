@@ -143,8 +143,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <AnalyticsClients>
           <Toaster />
           </AnalyticsClients>
-          <Analytics />
-          <SpeedInsights />
+          {/* Vercel-only: off Vercel (localhost, CI, Capacitor, other hosts)
+              /_vercel/insights/script.js and /_vercel/speed-insights/script.js
+              404 as text/html, and the blocked script + the packages'
+              console.error/console.log ("Failed to load script… be sure to
+              enable Web Analytics") pollute every page. Vercel sets VERCEL=1
+              on its builds/deploys, so gate on that. (If the scripts still
+              404 on the production deployment itself, enable Web Analytics
+              + Speed Insights for the project in the Vercel dashboard.) */}
+          {process.env.VERCEL === "1" && (
+            <>
+              <Analytics />
+              <SpeedInsights />
+            </>
+          )}
           <InstallBanner />
           <ServiceWorkerRegistrar />
           <OnboardingOverlay />
