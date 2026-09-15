@@ -22,6 +22,7 @@
     "validate:diagrams": "node scripts/validate-diagrams.mjs",
     "diagrams:render": "node scripts/validate-diagrams.mjs --emit",
     "docs:manual": "node scripts/generate-user-manual.mjs",
+    "docs:revenue-guide": "node scripts/generate-revenue-test-guide.mjs",
     "pwa:icons": "node scripts/generate-pwa-icons.mjs",
     "precache:sw": "node scripts/generate-sw-precache.mjs",
     "prebuild": "npx prisma generate 2>/dev/null || true; npm run precache:sw",
