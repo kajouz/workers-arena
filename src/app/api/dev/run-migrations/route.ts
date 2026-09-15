@@ -14,6 +14,8 @@ const MIGRATIONS: Array<{ name: string; statements: string[] }> = [
     name: "20260914180000_quote_request_is_emergency",
     statements: [
       'ALTER TABLE "QuoteRequest" ADD COLUMN "isEmergency" BOOLEAN NOT NULL DEFAULT false',
+      'ALTER TABLE "Booking" ADD COLUMN "isEmergency" BOOLEAN NOT NULL DEFAULT false',
+      'ALTER TABLE "Booking" ADD COLUMN "contactDetailsReleasedAt" TIMESTAMP(3)',
     ],
   },
   {
