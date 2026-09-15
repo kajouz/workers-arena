@@ -1142,6 +1142,11 @@ export const en = {
     cta: "View your completed jobs, fees, and net payouts",
     view: "View Earnings",
   },
+  whatsapp: {
+    sendLead: "Send WhatsApp",
+    sendBatch: "Notify All Workers",
+    sent: "WhatsApp notification sent.",
+  },
   disputes: {
     title: "File a Dispute",
     bookingNumber: "Booking #{number}",

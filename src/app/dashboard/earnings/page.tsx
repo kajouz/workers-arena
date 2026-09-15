@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth-demo";
-import { getWorkerBySlug, getWorkerBookings } from "@/lib/data/repo";
+import { getWorkerBySlug, getWorkerBookings, getWorkerPayouts } from "@/lib/data/repo";
 import { getWorkerLeadRebates } from "@/lib/data/lead-rebate";
 import { computeEarningsStatement, type EarningsMonth } from "@/lib/data/worker-earnings";
 import { EarningsStatementView } from "@/components/dashboard/earnings-statement";
@@ -39,14 +39,16 @@ export default async function EarningsPage({
   const monthKey = params.month ?? roiMonthKeyOf(now);
   const month = monthFromKey(monthKey);
 
-  const [bookings, rebates] = await Promise.all([
+  const [bookings, rebates, payouts] = await Promise.all([
     getWorkerBookings(worker.id),
     getWorkerLeadRebates(worker.id, 200),
+    getWorkerPayouts(worker.id),
   ]);
 
   const statement = computeEarningsStatement({
     bookings,
     rebates,
+    payouts,
     month,
   });
 

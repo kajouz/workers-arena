@@ -13,7 +13,7 @@
  *   4. Balance snapshot (start of month → end of month)
  */
 
-import type { Booking } from "./types";
+import type { Booking, LedgerEntry } from "./types";
 import type { LeadRebate } from "./lead-rebate";
 
 /* ─────────────────────────────────── Input ─────────────────────────────────── */
@@ -32,6 +32,8 @@ export interface EarningsStatementInput {
   rebates: LeadRebate[];
   /** The month to summarise. */
   month: EarningsMonth;
+  /** Worker's payout ledger entries (withdrawals). */
+  payouts?: LedgerEntry[];
   /** Reporting currency. */
   currency?: string;
 }
@@ -85,12 +87,25 @@ export interface EarningsStatement {
   /* Payouts */
   payoutsMinor: number;
   payoutsCount: number;
+  /** Breakdown of individual payout lines. */
+  payoutLines: PayoutLine[];
 
   /* Derived */
   /** Average earnings per completed job. */
   avgEarningsPerJobMinor: number;
   /** Effective fee rate (effective fees / GMV), in basis points. */
   effectiveFeeRateBps: number;
+  /** Net balance = netEarnings − payouts. */
+  netBalanceMinor: number;
+}
+
+/** A single payout (withdrawal) line in the statement. */
+export interface PayoutLine {
+  entryId: string;
+  status: LedgerEntry["status"];
+  amountMinor: number; // always positive for display
+  reason: string;
+  time: string;
 }
 
 /* ────────────────────────────────── Helpers ────────────────────────────────── */
@@ -185,11 +200,24 @@ export function computeEarningsStatement(
   const effectiveFeesMinor = Math.max(0, feesMinor - rebatesMinor);
   const netEarningsMinor = gmvMinor - effectiveFeesMinor;
 
-  // Payouts — ledger withdrawals processed this month
-  // (The caller passes bookings only; payouts come from the ledger.
-  //  We count them from the input if available, otherwise 0.)
-  const payoutsMinor = 0;
-  const payoutsCount = 0;
+  // Payouts — ledger withdrawals (kind === "withdrawal") in this month
+  const payoutLines: PayoutLine[] = [];
+  let payoutsMinor = 0;
+  for (const entry of input.payouts ?? []) {
+    if (entry.kind !== "withdrawal") continue;
+    if (!inWindow(entry.time, month)) continue;
+    const abs = Math.abs(entry.amount);
+    payoutLines.push({
+      entryId: entry.id,
+      status: entry.status,
+      amountMinor: abs,
+      reason: entry.reason ?? "",
+      time: entry.time,
+    });
+    payoutsMinor += abs;
+  }
+  payoutLines.sort((a, b) => b.time.localeCompare(a.time));
+  const payoutsCount = payoutLines.length;
 
   const completedCount = completedJobs.length;
   const avgEarningsPerJobMinor =
@@ -212,7 +240,9 @@ export function computeEarningsStatement(
     rebatesFromLeadsMinor,
     payoutsMinor,
     payoutsCount,
+    payoutLines,
     avgEarningsPerJobMinor,
     effectiveFeeRateBps,
+    netBalanceMinor: netEarningsMinor - payoutsMinor,
   };
 }

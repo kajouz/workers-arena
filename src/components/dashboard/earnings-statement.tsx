@@ -18,10 +18,10 @@ import {
   Receipt,
   Target,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatPrice, formatDate } from "@/lib/utils";
 import { useLocale } from "@/components/providers/locale-provider";
-import { formatPrice } from "@/lib/utils";
-import type { EarningsStatement, CompletedJobLine } from "@/lib/data/worker-earnings";
+import { Badge } from "@/components/ui/badge";
+import type { EarningsStatement, CompletedJobLine, PayoutLine } from "@/lib/data/worker-earnings";
 import { shiftRoiMonth, recentRoiMonthKeys } from "@/lib/data/worker-roi";
 
 interface Props {
@@ -142,6 +142,34 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
           </div>
         )}
 
+        {/* Payouts */}
+        {statement.payoutsCount > 0 && (
+          <div className="rounded-xl border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 px-5 py-3">
+              <h2 className="text-sm font-semibold text-gray-700">
+                Payouts ({statement.payoutsCount}) — {fmt(statement.payoutsMinor)} total
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100 text-left text-gray-500">
+                    <th className="px-5 py-2 font-medium">Date</th>
+                    <th className="px-3 py-2 font-medium">Status</th>
+                    <th className="px-3 py-2 font-medium">Reason</th>
+                    <th className="px-3 py-2 text-right font-medium">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statement.payoutLines.map((payout) => (
+                    <PayoutRow key={payout.entryId} payout={payout} fmt={fmt} locale={locale} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Completed Jobs Table */}
         <div className="rounded-xl border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-5 py-3">
@@ -195,6 +223,15 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
               </table>
             </div>
           )}
+        </div>
+
+        {/* Net Balance */}
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+          <p className="text-xs font-medium text-emerald-700">Net Balance (earnings − payouts)</p>
+          <p className="mt-1 text-3xl font-black tabular-nums text-emerald-800">{fmt(statement.netBalanceMinor)}</p>
+          <p className="mt-0.5 text-[11px] text-emerald-600">
+            {fmt(statement.netEarningsMinor)} earned − {fmt(statement.payoutsMinor)} withdrawn
+          </p>
         </div>
 
         {/* Stats Footer */}
@@ -293,6 +330,38 @@ function JobRow({
           <span className="text-[10px] text-gray-400">direct</span>
         )}
       </td>
+    </tr>
+  );
+}
+
+function PayoutRow({
+  payout,
+  fmt,
+  locale,
+}: {
+  payout: PayoutLine;
+  fmt: (minor: number) => string;
+  locale: "en" | "ar";
+}) {
+  return (
+    <tr className="border-b border-gray-50 hover:bg-gray-50">
+      <td className="px-5 py-2 text-gray-600">{formatDate(payout.time, locale)}</td>
+      <td className="px-3 py-2">
+        <Badge
+          variant={
+            payout.status === "processed"
+              ? "success"
+              : payout.status === "rejected"
+                ? "danger"
+                : "outline"
+          }
+          className="text-[10px]"
+        >
+          {payout.status}
+        </Badge>
+      </td>
+      <td className="px-3 py-2 text-gray-500">{payout.reason || "—"}</td>
+      <td className="px-3 py-2 text-right font-semibold text-red-600">-{fmt(payout.amountMinor)}</td>
     </tr>
   );
 }

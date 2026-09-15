@@ -16,7 +16,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Coins, Handshake, Save, ShieldCheck, Users } from "lucide-react";
+import { Coins, Handshake, MessageCircle, Save, ShieldCheck, Users } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import type { LeadRebate } from "@/lib/data/lead-rebate";
 import type { CreditLedgerEntry } from "@/lib/data/credit-ledger";
 import type { FeeRuleSet } from "@/lib/data/fee-rules";
 import { grantWorkerCreditsAction, saveLeadMarketConfigAction } from "@/app/actions/leads";
+import { sendWhatsAppLeadNotification, sendBatchWhatsAppNotifications } from "@/app/actions/whatsapp-leads";
 
 const WEIGHT_KEYS: Array<keyof MatchingWeights> = [
   "category",
@@ -405,10 +406,13 @@ export function LeadMarketPanel({
                   >
                     {offer.status}
                   </Badge>
-                  <span>
+                  <span className="flex-1">
                     {offer.leadNumber} · {t(`leadMarket.grade.${offer.grade}`)} · match {offer.matchScore} ·{" "}
                     {offer.priceCredits} {t("promotions.credits")} · {formatDate(offer.offeredAt, locale)}
                   </span>
+                  {offer.status === "offered" && (
+                    <WhatsAppNotifyButton offer={offer} workerName={offer.workerId} />
+                  )}
                 </li>
               ))}
             </ul>
@@ -505,5 +509,48 @@ export function LeadMarketPanel({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+/* ─── WhatsApp per-offer notify button ─── */
+
+function WhatsAppNotifyButton({
+  offer,
+  workerName,
+}: {
+  offer: Pick<LeadOffer, "id" | "leadNumber" | "grade" | "priceCredits" | "matchScore" | "workerId">;
+  workerName: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const { t } = useLocale();
+
+  const handleClick = async () => {
+    if (busy) return;
+    setBusy(true);
+    const res = await sendWhatsAppLeadNotification({
+      workerId: offer.workerId,
+      offerId: offer.id,
+    });
+    setBusy(false);
+    if (res.ok && res.notifications.length > 0) {
+      const link = res.notifications[0];
+      window.open(link.url, "_blank", "noopener");
+    } else if (!res.ok) {
+      toast("error", res.error);
+    } else {
+      toast("error", "No phone number");
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={busy}
+      className="inline-flex items-center gap-1 rounded bg-emerald-500 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+      title={t("whatsapp.notifyWorker")}
+    >
+      <MessageCircle className="h-3 w-3" />
+      {busy ? "…" : "WA"}
+    </button>
   );
 }

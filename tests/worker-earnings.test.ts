@@ -4,7 +4,7 @@ import {
   type EarningsMonth,
   type EarningsStatementInput,
 } from "../src/lib/data/worker-earnings";
-import type { Booking } from "../src/lib/data/types";
+import type { Booking, LedgerEntry } from "../src/lib/data/types";
 import type { LeadRebate } from "../src/lib/data/lead-rebate";
 
 const MONTH: EarningsMonth = {
@@ -62,6 +62,10 @@ describe("worker earnings statement engine", () => {
     expect(stmt.gmvMinor).toBe(0);
     expect(stmt.netEarningsMinor).toBe(0);
     expect(stmt.completedJobs).toHaveLength(0);
+    expect(stmt.payoutsMinor).toBe(0);
+    expect(stmt.payoutsCount).toBe(0);
+    expect(stmt.payoutLines).toHaveLength(0);
+    expect(stmt.netBalanceMinor).toBe(0);
   });
 
   it("counts completed jobs in the window", () => {
@@ -241,5 +245,121 @@ describe("worker earnings statement engine", () => {
     });
     expect(stmt.feesMinor).toBe(0);
     expect(stmt.netEarningsMinor).toBe(10_000);
+  });
+
+  it("counts processed withdrawals as payouts in the window", () => {
+    const booking = makeBooking({
+      quote: 10_000,
+      platformFee: 700,
+      events: [
+        { status: "completed", actorType: "system", time: "2026-09-05T14:00:00Z" },
+      ],
+    });
+    const withdrawal: LedgerEntry = {
+      id: "le-1",
+      workerId: "w1",
+      kind: "withdrawal",
+      status: "processed",
+      amount: -5_000,
+      balanceAfter: 4_300,
+      currency: "USD",
+      reason: "Cash withdrawal",
+      time: "2026-09-10T12:00:00Z",
+    };
+    const stmt = computeEarningsStatement({
+      bookings: [booking],
+      rebates: [],
+      payouts: [withdrawal],
+      month: MONTH,
+    });
+    expect(stmt.payoutsMinor).toBe(5_000);
+    expect(stmt.payoutsCount).toBe(1);
+    expect(stmt.payoutLines).toHaveLength(1);
+    expect(stmt.payoutLines[0].status).toBe("processed");
+    expect(stmt.payoutLines[0].amountMinor).toBe(5_000);
+    // netBalance = netEarnings - payouts = 9300 - 5000 = 4300
+    expect(stmt.netBalanceMinor).toBe(4_300);
+  });
+
+  it("excludes withdrawals outside the month window", () => {
+    const booking = makeBooking({
+      quote: 10_000,
+      platformFee: 700,
+      events: [
+        { status: "completed", actorType: "system", time: "2026-09-05T14:00:00Z" },
+      ],
+    });
+    const outOfWindow: LedgerEntry = {
+      id: "le-2",
+      workerId: "w1",
+      kind: "withdrawal",
+      status: "processed",
+      amount: -3_000,
+      balanceAfter: 7_000,
+      currency: "USD",
+      time: "2026-08-15T12:00:00Z",
+    };
+    const stmt = computeEarningsStatement({
+      bookings: [booking],
+      rebates: [],
+      payouts: [outOfWindow],
+      month: MONTH,
+    });
+    expect(stmt.payoutsMinor).toBe(0);
+    expect(stmt.payoutsCount).toBe(0);
+    expect(stmt.netBalanceMinor).toBe(9_300);
+  });
+
+  it("includes pending withdrawals in payout count", () => {
+    const pending: LedgerEntry = {
+      id: "le-3",
+      workerId: "w1",
+      kind: "withdrawal",
+      status: "pending",
+      amount: -2_000,
+      balanceAfter: 8_000,
+      currency: "USD",
+      time: "2026-09-20T12:00:00Z",
+    };
+    const stmt = computeEarningsStatement({
+      bookings: [],
+      rebates: [],
+      payouts: [pending],
+      month: MONTH,
+    });
+    expect(stmt.payoutsMinor).toBe(2_000);
+    expect(stmt.payoutsCount).toBe(1);
+    expect(stmt.payoutLines[0].status).toBe("pending");
+  });
+
+  it("ignores earning entries in payouts input", () => {
+    const earning: LedgerEntry = {
+      id: "le-4",
+      workerId: "w1",
+      kind: "earning",
+      status: "posted",
+      amount: 5_000,
+      balanceAfter: 5_000,
+      currency: "USD",
+      time: "2026-09-10T12:00:00Z",
+    };
+    const stmt = computeEarningsStatement({
+      bookings: [],
+      rebates: [],
+      payouts: [earning],
+      month: MONTH,
+    });
+    expect(stmt.payoutsMinor).toBe(0);
+    expect(stmt.payoutsCount).toBe(0);
+  });
+
+  it("handles undefined payouts gracefully", () => {
+    const stmt = computeEarningsStatement({
+      bookings: [],
+      rebates: [],
+      month: MONTH,
+    });
+    expect(stmt.payoutsMinor).toBe(0);
+    expect(stmt.netBalanceMinor).toBe(0);
   });
 });

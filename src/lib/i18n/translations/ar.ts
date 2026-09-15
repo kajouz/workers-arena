@@ -1139,6 +1139,11 @@ export const ar: Dictionary = {
     cta: "عرض الأعمال المكتملة والرسوم والصافي",
     view: "عرض الأرباح",
   },
+  whatsapp: {
+    sendLead: "إرسال واتساب",
+    sendBatch: "إشعار جميع العمال",
+    sent: "تم إرسال إشعار واتساب.",
+  },
   disputes: {
     title: "تقديم شكوى",
     bookingNumber: "رقم الحجز #{number}",
