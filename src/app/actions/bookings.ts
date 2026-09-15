@@ -570,6 +570,7 @@ export async function createQuoteRequestAction(
     jobTitle: formData.get("jobTitle"),
     note: formData.get("note") || undefined,
     serviceItemName: formData.get("serviceItemName") || undefined,
+    isEmergency: formData.get("isEmergency") || undefined,
   });
   if (!parsed.success) return { ok: false, error: "invalid" };
   if (workerSlugs.length < 1 || workerSlugs.length > MAX_QUOTE_WORKERS) return { ok: false, error: "too-many" };
@@ -600,6 +601,10 @@ export async function createQuoteRequestAction(
       jobTitle: cleanQrJobTitle,
       note: cleanQrNote,
       serviceItem,
+      // §12 — the urgency flag rides the request into the data layer: it drives
+      // immediate masked calling AND the lead marketplace's EMERGENCY grade
+      // (docs/lead-marketplace.md §7), so it must not be dropped here.
+      isEmergency: parsed.data.isEmergency === "true",
       categorySlug: first.categorySlug,
       citySlug: first.citySlug,
     },

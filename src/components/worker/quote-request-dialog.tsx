@@ -39,6 +39,7 @@ export function QuoteRequestDialog({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
+  const [isEmergency, setIsEmergency] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -57,6 +58,7 @@ export function QuoteRequestDialog({
     setPhone("");
     setEmail("");
     setNote("");
+    setIsEmergency(false);
     setSubmitting(false);
     setDone(false);
     setOpen(true);
@@ -73,6 +75,10 @@ export function QuoteRequestDialog({
     fd.set("customerEmail", email.trim());
     fd.set("jobTitle", jobTitle.trim());
     fd.set("note", note.trim());
+    // §12 — the urgency flag is part of the REQUEST: it enables immediate masked
+    // calling AND makes the marketplace grade this lead as EMERGENCY, which is
+    // the difference between a $20 lead and a $35 one for the workers who see it.
+    fd.set("isEmergency", isEmergency ? "true" : "false");
     const res = await createQuoteRequestAction(picked, fd);
     setSubmitting(false);
     if (res.ok) {
@@ -180,6 +186,44 @@ export function QuoteRequestDialog({
                 <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.jobNote")}</label>
                 <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("booking.jobNotePlaceholder")} rows={3} />
               </div>
+
+              {/* Emergency toggle — only for workers who offer 24/7 service. It
+                  flags the request as urgent (immediate masked calling) and
+                  grades the lead as EMERGENCY in the marketplace. */}
+              {candidates.some((w) => w.emergency) && (
+                <button
+                  type="button"
+                  onClick={() => setIsEmergency((v) => !v)}
+                  aria-pressed={isEmergency}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-start transition-colors",
+                    isEmergency
+                      ? "border-red-500/40 bg-red-500/10"
+                      : "border-ink-100 bg-white hover:border-red-300 dark:border-ink-800 dark:bg-ink-900 dark:hover:border-red-700"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-lg text-lg",
+                      isEmergency ? "bg-red-500/20" : "bg-ink-100 dark:bg-ink-800"
+                    )}
+                  >
+                    🚨
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={cn("block text-sm font-bold", isEmergency ? "text-red-700 dark:text-red-300" : "text-ink-900 dark:text-ink-50")}>
+                      {t("calling.emergency") || "Emergency"}
+                    </span>
+                    <span className="block text-[11px] text-ink-400">{t("calling.emergencyDescription")}</span>
+                  </span>
+                  <span
+                    className={cn(
+                      "size-5 shrink-0 rounded-full border-2 transition-colors",
+                      isEmergency ? "border-red-500 bg-red-500" : "border-ink-300 dark:border-ink-600"
+                    )}
+                  />
+                </button>
+              )}
             </div>
 
             <Button onClick={submit} disabled={!canSubmit || submitting} size="lg" className="w-full">

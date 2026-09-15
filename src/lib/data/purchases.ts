@@ -19,6 +19,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 import { formatDate } from "@/lib/utils";
+import { applyPromotionCreditGrant, demoGrantCredits } from "./credit-ledger";
 import { workerBySlug } from "./workers";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { pushNotification } from "./notifications";
@@ -108,6 +109,8 @@ function purchaseDescription(
       return { en: `${w.nameEn} — Featured slot`, ar: `${w.nameAr} — بطاقة مميزة` };
     case "emergency":
       return { en: `${w.nameEn} — Emergency marker`, ar: `${w.nameAr} — علامة طوارئ` };
+    case "credit":
+      return { en: `${w.nameEn} — Platform credits top-up`, ar: `${w.nameAr} — شحن أرصدة المنصة` };
   }
 }
 
@@ -217,6 +220,10 @@ export async function demoConfirmPurchase(
       const period = payment.meta.period ?? "monthly";
       const { subscription, invoice } = renewSubscription(w, plan, period);
       demoAddInvoice(invoice);
+      // §24 — a live campaign that promises a credit bonus pays out here, once
+      // per worker per promotion (the ledger enforces it). Silent no-op when no
+      // campaign matches; a bonus can never break the purchase it rides on.
+      await applyPromotionCreditGrant({ workerId: w.id, plan, createdBy: actor });
       await pushNotification(
         {
           type: "subscription",
@@ -272,6 +279,30 @@ export async function demoConfirmPurchase(
           titleAr: "علامة الطوارئ نشطة",
           bodyEn: `${w.nameEn}: customers can now book you for urgent 24/7 jobs.`,
           bodyAr: `${w.nameAr}: يمكن للعملاء الآن حجزك للطوارئ على مدار الساعة.`,
+          href: "/dashboard",
+        },
+        { name: w.nameEn, email: w.email, phone: w.phone, locale: w.languages[0]?.code === "ar" ? "ar" : "en" }
+      );
+      break;
+    }
+    case "credit": {
+      // Grant the purchased credits — credits = payment amount / 100 (whole credits)
+      const creditsToGrant = Math.floor(payment.amount / 100);
+      if (creditsToGrant > 0) {
+        demoGrantCredits({
+          workerId: w.id,
+          amount: creditsToGrant,
+          reason: `Credit top-up: $${creditsToGrant} purchased (${payment.method})`,
+          createdBy: actor,
+        });
+      }
+      await pushNotification(
+        {
+          type: "system",
+          titleEn: `Credits purchased — ${creditsToGrant}`,
+          titleAr: `تم شراء الأرصدة — ${creditsToGrant}`,
+          bodyEn: `${w.nameEn}: ${creditsToGrant} credits have been added to your balance.`,
+          bodyAr: `${w.nameAr}: تمت إضافة ${creditsToGrant} أرصدة إلى رصيدك.`,
           href: "/dashboard",
         },
         { name: w.nameEn, email: w.email, phone: w.phone, locale: w.languages[0]?.code === "ar" ? "ar" : "en" }

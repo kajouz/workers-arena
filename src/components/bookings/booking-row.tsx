@@ -7,10 +7,11 @@ import { CalendarClock, CheckCircle2, CreditCard, ExternalLink, FileText, Shield
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { BookingStatusBadge } from "./booking-status-badge";
 import { useLocale } from "@/components/providers/locale-provider";
 import { toast } from "@/components/ui/toast";
-import { durationParts, fillDuration, formatDate, formatNumber } from "@/lib/utils";
+import { durationParts, fillDuration, formatDate, formatNumber, formatPrice } from "@/lib/utils";
 import { Price } from "@/components/shared/price";
 import { confirmCompletionAction, payBookingAction } from "@/app/actions/bookings";
 import { RescheduleDialog } from "./reschedule-dialog";
@@ -41,6 +42,9 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
   const { booking, worker } = row;
   const name = locale === "ar" ? worker?.nameAr : worker?.nameEn;
   const needsPayment = booking.status === "pendingPayment" && booking.deposit !== undefined;
+  // §11 — the part of the stamped fee given back because this job came from a
+  // lead the worker bought (0 for every other job).
+  const rebateMinor = booking.leadRebateMinor ?? 0;
 
   const startCheckout = () => {
     if (paying) return;
@@ -140,18 +144,36 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
                 returns 0 for exempt — the min-clamp guarantees it), so the
                 row says the fee is waived instead of hiding the line. */}
             {booking.platformFee ? (
-              <p className="mt-1.5 text-[11px] text-ink-400">
-                {t("booking.includesFee")}{" "}
-                <Price amount={booking.platformFee / 100} currency={booking.currency} locale={locale} className="font-bold" />
-                <span className="mx-1 text-ink-300 dark:text-ink-600">·</span>
-                {t("booking.workerReceives")}{" "}
-                <Price
-                  amount={((booking.quote ?? 0) - booking.platformFee) / 100}
-                  currency={booking.currency}
-                  locale={locale}
-                  className="font-bold"
-                />
-              </p>
+              <>
+                <p className="mt-1.5 text-[11px] text-ink-400">
+                  {t("booking.includesFee")}{" "}
+                  <Price amount={booking.platformFee / 100} currency={booking.currency} locale={locale} className="font-bold" />
+                  <span className="mx-1 text-ink-300 dark:text-ink-600">·</span>
+                  {/* §11 — with a lead rebate the fee that was stamped is not the
+                      fee that was kept, so "worker receives" must reflect the
+                      EFFECTIVE fee or the row understates the payout. */}
+                  {t("booking.workerReceives")}{" "}
+                  <Price
+                    amount={((booking.quote ?? 0) - (booking.platformFee - rebateMinor)) / 100}
+                    currency={booking.currency}
+                    locale={locale}
+                    className="font-bold"
+                  />
+                </p>
+                {rebateMinor > 0 && (
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+                    <Badge variant="success" className="text-[10px] tabular-nums">
+                      {t("leadMarket.rebateBadge", { amount: formatPrice(rebateMinor / 100, booking.currency, locale) })}
+                    </Badge>
+                    <span>
+                      {t("leadMarket.rebateEffectiveFee", {
+                        fee: formatPrice(booking.platformFee / 100, booking.currency, locale),
+                        effective: formatPrice((booking.platformFee - rebateMinor) / 100, booking.currency, locale),
+                      })}
+                    </span>
+                  </p>
+                )}
+              </>
             ) : booking.platformFee === 0 ? (
               <p className="mt-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                 {t("booking.feeWaivedNote")}

@@ -409,6 +409,10 @@ model Worker {
   reviews           Review[]
   favorites         Favorite[]
   ledger            WorkerLedgerEntry[]
+  creditLedger      WorkerCreditEntry[]
+  leadOffers        LeadOffer[]
+  leadRebates       LeadRebate[]
+  leadRatings       LeadRating[]
   leads             Lead[]
   views             WorkerView[]
   slots             BookingSlot[]
@@ -1055,6 +1059,10 @@ model Booking {
   // recomputed from a later rate change. Exempt plans store 0 + the rate.
   platformFee        Int?
   platformFeeRateBps Int?
+  // §11 lead rebate (docs/lead-marketplace.md) — the part of `platformFee` given
+  // back at completion because this job came from a BOUGHT lead. Denormalized
+  // from the LeadRebate row for display; 0 = no rebate applied.
+  leadRebateMinor    Int          @default(0)
   currency           String @default("USD")
 
   // Idempotency marker for the "job starts tomorrow" reminder (same pattern
@@ -1099,6 +1107,10 @@ model Booking {
   events   BookingEvent[]
   messages BookingMessage[]
   ledger   WorkerLedgerEntry[]
+  leadRebate LeadRebate?
+  // §6 — the immutable platform-fee snapshot stamped at accept-with-quote
+  // (one per booking, like the ledger's one-earning-per-booking rule).
+  feeSnapshot PlatformFeeSnapshot?
 
   // W2 recurring — one occurrence per contract per start: the generation cron
   // and the accept-time materializer both guard on this unique (createMany
@@ -1130,12 +1142,18 @@ model QuoteRequest {
   serviceItem   ServiceItem? @relation(fields: [serviceItemId], references: [id], onDelete: SetNull)
   categorySlug  String // platform-match hint (city comes from the customer city)
   citySlug      String
+  /// §12 — 24/7 urgent request. Drives immediate masked calling on the invited
+  /// bookings AND the lead marketplace's EMERGENCY grade (§7), so the flag lives
+  /// on the REQUEST, not only on its bookings.
+  isEmergency   Boolean      @default(false)
   status        QuoteStatus  @default(OPEN)
   expiresAt     DateTime? // QUOTE_SLA_MS after creation — the SLA cron clears it
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  bookings Booking[] // the invited workers' Bookings (via Booking.quoteRequestId)
+  bookings   Booking[] // the invited workers' Bookings (via Booking.quoteRequestId)
+  leadOffers LeadOffer[] // §7–§10 the platform-matched, paid lead offers
+  leadRatings LeadRating[] // §12 worker feedback ratings
 
   @@index([customerId, status])
   @@index([status, createdAt])
@@ -1235,6 +1253,189 @@ model WorkerLedgerEntry {
   @@unique([bookingId]) // EARNING rows only — one credit per completed booking
   @@index([workerId, createdAt])
   @@index([status])
+}
+
+/// §11 — the lead rebate: what a converted lead gave back. APPEND-ONLY, unique
+/// per booking (one rebate per completed job, exactly like the EARNING ledger
+/// row it is folded into), so a redelivered completion can never rebate twice.
+/// Records the whole derivation — what the lead cost, the fee it reduced, the
+/// share and ceiling that limited it, and the rule version in force — so any
+/// rebate can be re-derived and audited after the policy changes.
+model LeadRebate {
+  id              String   @id @default(cuid())
+  bookingId       String   @unique
+  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  leadId          String // the QuoteRequest the job came from
+  offerId         String // the LeadOffer the worker bought
+  workerId        String
+  worker          Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  leadCostCredits Int // credits paid for the lead
+  leadCostMinor   Int // ...as money (credits × 100)
+  feeMinor        Int // the fee stamped on the job
+  rebateMinor     Int // what was given back
+  effectiveFeeMinor Int // feeMinor − rebateMinor (what the platform kept)
+  pctBps          Int // policy in force
+  maxMinor        Int? // policy ceiling, null = none
+  limitedBy       String // disabled | no-lead | fee | lead-cost | ceiling
+  ruleId          String
+  ruleVersion     Int
+  currency        String   @default("USD")
+  createdAt       DateTime @default(now())
+
+  @@index([workerId, createdAt])
+  @@index([leadId])
+  @@index([offerId])
+}
+
+/// §7–§10 — one worker's offer on one qualified lead (the monetization plan's
+/// lead marketplace). A lead is a QuoteRequest; the platform grades it, matches
+/// the few best-suited workers, and offers each of them the chance to BUY it
+/// with platform credits. `priceCredits` is locked at offer time (a later price
+/// change never re-prices an outstanding offer) and `expiresAt` bounds the
+/// offer. `creditEntryId` points at the ledger row that paid for it, which is
+/// also the debit's idempotency key. Statuses: offered | purchased | expired |
+/// revoked | declined — `revoked` is what an exclusive purchase does to the
+/// other pending offers on the same lead (§9).
+model LeadOffer {
+  id            String       @id @default(cuid())
+  leadId        String
+  lead          QuoteRequest @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadNumber    String
+  workerId      String
+  worker        Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  grade         String // bronze | silver | gold | emergency
+  matchScore    Int // §8 match score that earned this offer
+  priceCredits  Int // credits owed, locked when the offer was created
+  status        String       @default("offered")
+  exclusive     Boolean      @default(true)
+  contactReveal String? // what the buyer may see after purchase (§10)
+  rating        LeadRating?
+  offeredAt     DateTime     @default(now())
+  expiresAt     DateTime
+  purchasedAt   DateTime?
+  creditEntryId String?
+
+  @@unique([leadId, workerId])
+  @@index([workerId, status, expiresAt])
+  @@index([leadId, status])
+  @@index([status, expiresAt])
+}
+
+// ─────────────────── Lead quality rating (worker feedback loop) ────────────────
+// Workers rate the leads they buy after the job completes (or doesn't).
+// The aggregate signal feeds back into per-grade pricing adjustments and
+// matching weight calibration (docs/lead-marketplace.md §12).
+
+model LeadRating {
+  id         String    @id @default(cuid())
+  offerId    String    @unique // one rating per purchased lead
+  offer      LeadOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  workerId   String
+  worker     Worker    @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  leadId     String
+  lead       QuoteRequest @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  grade      String    // bronze | silver | gold | emergency — snapshot at rating time
+  // 1–5 quality stars: 1=bad lead (wrong area, fake, unresponsive), 5=perfect
+  quality    Int       // 1–5
+  // Why the worker chose that rating (free text, optional)
+  reason     String?
+  reasonAr   String?   // Arabic translation (worker can provide, or platform translates)
+  // Whether the lead converted to a booking (the conversion signal)
+  converted  Boolean   @default(false)
+  // Whether the customer was reachable (contacted within 24h)
+  reachable  Boolean?
+  createdAt  DateTime  @default(now())
+
+  @@index([workerId, createdAt])
+  @@index([grade, quality])
+  @@index([leadId])
+}
+
+// ─────────────────── Platform fees (monetization §5/§6) ───────────────────
+// Configurable take-rate rules + the immutable per-quote snapshot that makes
+// every historical fee auditable (docs/fee-rules.md).
+
+/// A versioned, admin-editable platform fee rule set. APPEND-ONLY: every save
+/// inserts version+1 and deactivates the previous row, so a historical fee
+/// snapshot can always be re-derived from the exact rules that produced it.
+/// `config` holds the FeeRuleSet payload (normalized by normalizeFeeRuleSet
+/// before the write — a hand-edited row can never charge an absurd rate).
+model FeeRuleSet {
+  id          String   @id @default(cuid())
+  version     Int      @unique
+  currency    String   @default("USD")
+  config      Json
+  label       String?
+  isActive    Boolean  @default(true)
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([isActive, version(sort: Desc)])
+}
+
+/// §5/§6 — the IMMUTABLE fee snapshot stamped at accept-with-quote. Written
+/// once and never updated: every input of the calculation (rule version, rate,
+/// floor, cap, fixed component, plan, currency, timestamp) lives here, so the
+/// fee stays reproducible and auditable even after the admin re-prices the
+/// platform. Mirrors WorkerLedgerEntry's one-row-per-booking invariant.
+model PlatformFeeSnapshot {
+  id            String   @id @default(cuid())
+  bookingId     String   @unique
+  booking       Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  jobId         String
+  quoteId       String
+  workerId      String
+  customerId    String?
+  plan          String?
+  planTier      String
+  ruleId        String
+  ruleVersion   Int
+  rateBps       Int
+  minMinor      Int
+  maxMinor      Int?
+  fixedMinor    Int      @default(0)
+  subtotalMinor Int
+  feeMinor      Int
+  netMinor      Int
+  minApplied    Boolean  @default(false)
+  maxApplied    Boolean  @default(false)
+  exempt        Boolean  @default(false)
+  sources       String[] @default([])
+  promotionId   String?
+  currency      String   @default("USD")
+  computedAt    DateTime @default(now())
+
+  @@index([workerId, computedAt])
+  @@index([ruleVersion])
+  @@index([computedAt])
+}
+
+/// Platform credit ledger (§20 seed, docs/fee-rules.md → promotions).
+/// APPEND-ONLY: rows are never updated or deleted and the balance is always
+/// DERIVED (Σ amount), so a replay or a retry can't desync a worker's credits.
+/// `amount` is SIGNED whole credits (grants +, spends/expiries −) and
+/// `balanceAfter` snapshots the running balance for audit — the same shape and
+/// discipline as WorkerLedgerEntry. The unique (workerId, promotionId) index
+/// makes a promotional grant idempotent: one bonus per worker per campaign.
+model WorkerCreditEntry {
+  id           String   @id @default(cuid())
+  workerId     String
+  worker       Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  kind         String // grant | spend | expire | adjustment
+  amount       Int // signed whole credits
+  balanceAfter Int
+  reason       String
+  promotionId  String? // the §24 campaign that granted it, when any
+  offerId      String? // the lead offer a spend paid for (§7–§10), when any
+  createdBy    String? // acting admin name/id for manual adjustments
+  createdAt    DateTime @default(now())
+
+  @@unique([workerId, promotionId])
+  @@unique([workerId, offerId])
+  @@index([workerId, createdAt])
+  @@index([promotionId])
+  @@index([offerId])
 }
 
 // ───────────────────────── Masked Calling ─────────────────────────

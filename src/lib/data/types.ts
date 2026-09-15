@@ -1,4 +1,5 @@
 import type { CurrencyCode } from "@/lib/utils";
+import type { PlatformFeeSnapshot } from "./fee-rules";
 
 /**
  * Payment method domain values (mirror of the provider seam's
@@ -28,7 +29,7 @@ export function toDomainPaymentMethod(method?: string | null): PaymentMethod | u
 /** The paid-upgrade scopes a manual payment can confirm (docs/BUSINESS-MODEL.md
  * §5.1 — the revenue-first levers that need no Stripe): a worker pays via
  * OMT/Whish and the admin's confirm flips the purchased capability live. */
-export type PurchaseScope = "subscription" | "verification" | "featured" | "emergency";
+export type PurchaseScope = "subscription" | "verification" | "featured" | "emergency" | "credit";
 
 /**
  * Booking reminder window (M4): a CONFIRMED booking whose start is within the
@@ -423,6 +424,21 @@ export interface Booking {
   platformFee?: number;
   /** The take-rate basis points in force when platformFee was set (audit). */
   platformFeeRateBps?: number;
+  /**
+   * §11 lead rebate (docs/lead-marketplace.md) — the part of `platformFee`
+   * given back at completion because this job came from a lead the worker
+   * BOUGHT. Set on the completed flip; 0/absent = no rebate, so the effective
+   * fee is `platformFee − leadRebateMinor`.
+   */
+  leadRebateMinor?: number;
+  /**
+   * §5/§6 — the full immutable fee snapshot behind `platformFee`: the rule
+   * version, plan tier, rate/floor/cap/fixed components and the provenance
+   * layers that produced the number (docs/fee-rules.md). Present whenever a
+   * quoted accept stamped a fee; `platformFee` stays the money field every
+   * existing surface reads, so nothing had to change to consume this.
+   */
+  feeSnapshot?: PlatformFeeSnapshot;
   currency: CurrencyCode;
   /** Set once a deposit checkout exists (M3) — see BookingPayment. */
   paymentId?: string;

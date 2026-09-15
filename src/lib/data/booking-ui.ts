@@ -1,5 +1,6 @@
 import type { Booking, BookingEmailContext, BookingSlot } from "./types";
 import { intlLocale } from "@/lib/tenant/countries";
+import { DEFAULT_FEE_RULE_SET, computeFee, resolveFeeRule, type FeeRuleSet } from "./fee-rules";
 
 /**
  * Pure helpers for the booking slot picker — kept free of React so the
@@ -162,37 +163,49 @@ export function computeResponseRate(bookings: Pick<Booking, "status">[]): number
 }
 
 /**
- * M5 take rate (docs/booking-take-rate.md §1) — the platform's cut of a
- * quoted booking, snapshot ONCE at accept-with-quote (never recomputed from a
- * later rate change). Shared by both adapters so demo and DB can never drift.
+ * M5 take rate (docs/booking-take-rate.md §1) — the platform's cut of a quoted
+ * booking, snapshot ONCE at accept-with-quote (never recomputed from a later
+ * rate change).
+ *
+ * As of the monetization wave (§5/§6, docs/fee-rules.md) the rate is part of a
+ * VERSIONED, admin-configurable rule set: the constants below are now the
+ * shipped DEFAULT rule set (the 7% / min $5 / max $300 policy that was live),
+ * and the adapters price through `resolveFeeRule` + `computeFee` in
+ * `fee-rules.ts`. These exports stay for the surfaces that read the baseline
+ * policy (search's fee-waived filter, badges, the admin table) — the effective
+ * fee at accept time always comes from the ENGINE.
  */
-export const PLATFORM_FEE_RATE_BPS = 700; // 7.0% take rate
+export const PLATFORM_FEE_RATE_BPS = DEFAULT_FEE_RULE_SET.defaults.rateBps; // 700 = 7.0%
 /** Floor, minor units ($5). */
-export const PLATFORM_FEE_MIN_MINOR = 500;
+export const PLATFORM_FEE_MIN_MINOR = DEFAULT_FEE_RULE_SET.defaults.minMinor;
 /** Cap per job, minor units ($300). */
-export const PLATFORM_FEE_MAX_MINOR = 30_000;
-/** Subscription plans that waive the platform fee (BUSINESS-MODEL §5.2). */
+export const PLATFORM_FEE_MAX_MINOR = DEFAULT_FEE_RULE_SET.defaults.maxMinor ?? 0;
+/** Subscription plans that waive the platform fee (BUSINESS-MODEL §5.2) — the
+ * plans mapped to the exempt tier of the DEFAULT rule set. */
 export const FEE_EXEMPT_PLANS: readonly string[] = ["enterprise"];
 
 /** True when a subscription plan waives the platform fee (case-insensitive —
- * the prisma side passes the DB enum, e.g. "ENTERPRISE"). */
-export function isPlanFeeExempt(plan?: string): boolean {
-  return Boolean(plan && FEE_EXEMPT_PLANS.includes(plan.toLowerCase()));
+ * the prisma side passes the DB enum, e.g. "ENTERPRISE"). Resolved through the
+ * fee engine against the DEFAULT rule set, so the exemption policy has exactly
+ * one definition; pass `ruleSet` to evaluate the live configuration instead. */
+export function isPlanFeeExempt(plan?: string, ruleSet: FeeRuleSet = DEFAULT_FEE_RULE_SET): boolean {
+  return resolveFeeRule(ruleSet, { plan }).rule.exempt;
 }
 
 /**
  * M5 — the platform fee on a quote (minor units): round-half-up percentage,
- * then clamped to [MIN, MAX]. Zero for an exempt plan, a non-finite quote, or
- * a non-positive quote. Pure — the RespondDialog preview and both adapters
- * call the SAME function, so what the worker sees is exactly what is stored.
+ * then clamped to [MIN, MAX]. Zero for an exempt plan, a non-finite quote, or a
+ * non-positive quote. Delegates to the fee engine's calculator with the
+ * default rule, so the legacy constant-based callers and the engine can never
+ * diverge; new code should call `priceJob`/`computeFee` with the ACTIVE rule
+ * set (the only path that reaches a stored snapshot).
  */
 export function computePlatformFee(
   quoteMinor: number,
   opts: { exempt?: boolean } = {}
 ): number {
-  if (opts.exempt || !Number.isFinite(quoteMinor) || quoteMinor <= 0) return 0;
-  const raw = Math.round((quoteMinor * PLATFORM_FEE_RATE_BPS) / 10_000);
-  return Math.min(Math.max(raw, PLATFORM_FEE_MIN_MINOR), PLATFORM_FEE_MAX_MINOR);
+  if (opts.exempt) return 0;
+  return computeFee(quoteMinor, DEFAULT_FEE_RULE_SET.defaults).feeMinor;
 }
 
 /** The "this week" window used by hasFreeSlotsThisWeek (7 days from now). */

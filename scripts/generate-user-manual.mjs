@@ -536,6 +536,30 @@ children.push(
   STEP(4, "If the network drops, failed navigations show the bilingual offline page with a Try again button instead of a browser error."),
 );
 
+// 3.17
+children.push(
+  H2("3.17 Lead marketplace (qualified leads)"),
+  P("The platform also sells the match the customer never made: a posted request is graded by how qualified it is and offered to only a few best-matched professionals, who can pay platform credits to unlock the customer's contact details and quote the job directly. The customer experience is unchanged."),
+  ROLES("Worker (buys leads at /dashboard/leads) · Admin (sets prices, matching, ownership and privacy at /admin/revenue-settings) · Customer (posts the request; never charged)"),
+  H3("Functionality"),
+  B("Grading: every request is scored and bucketed BRONZE (a trade and little else), SILVER (service, area, real detail), GOLD (verified customer, priced service, long description, photos) or EMERGENCY (24/7 urgent — wins outright)."),
+  B("Matching: weighted signals (trade 30, area/city 20, rating 12, response rate 10, availability 8, review volume 6, plan tier 6, emergency 5, verified 3) rank the pool; only the configured number of workers (3 by default) ever see the request. A different trade, an inactive worker, or a non-emergency worker on an emergency lead is filtered out."),
+  B("Paid, exclusive, expiring leads: each offer carries a locked credit price (defaults 5 / 9 / 20 / 35 credits for bronze → emergency). Buying it debits the platform credit ledger once, withdraws the competing offers when the lead is exclusive, and expires after the configured window (2 hours by default)."),
+  B("Contact reveal: the customer's name, phone and email are hidden or partly masked (last two digits / first letter + domain) until the worker buys the lead — and a FREE-plan buyer stays at the partial reveal (the subscription lever). A lead that becomes a booking always reveals."),
+  B("Lead rebate: when a job whose lead you BOUGHT is completed, the lead's value is credited back to you as a reduction of the platform fee on that job — so buying a lead lowers the effective take rate on the work it wins. The rebate can never exceed the fee on the job or the price you paid for the lead."),
+  B("Workers the customer invited directly are never charged: they already hold the job, so the marketplace only sells the matches the customer did not make."),
+  B("Admin audit: recent offers (grade, match score, price, status) and the full credit ledger, plus an adjustment form to grant or claw back credits."),
+  H3("Step by step"),
+  STEP(1, "As the worker, open /dashboard/leads from the dashboard's Lead marketplace card and check your credit balance."),
+  STEP(2, "Review the Available tab: each row shows the grade, the lead number, the job, the price in credits, the match score, why you were matched, and a live countdown."),
+  STEP(3, "Click Unlock for N credits on the lead you want; the credits are debited once and the customer's contact details appear under Purchased."),
+  STEP(4, "Quote the customer directly and run the job through the normal booking flow (3.4 – 3.7)."),
+  STEP(5, "As the admin, open /admin/revenue-settings → Lead marketplace to set the prices per grade, how many workers see a request, the offer window, exclusivity, the four contact-reveal rules and the matching weights, then publish (this appends a new rule version — offers already created keep their price)."),
+  STEP(6, "Complete a job that came from a lead you bought and check your booking row: the platform fee is shown with the lead rebate applied, and the net payout reflects it."),
+  STEP(7, "As the admin, turn the lead rebate on or off, set the share of the fee it may return and any per-job ceiling, and audit what has been given back."),
+  STEP(8, "Audit the marketplace in the same panel: the recent-offers list, the credit ledger, and the grant-credits form for goodwill or corrections."),
+);
+
 // 4. Cross-party workflows
 children.push(
   H1("4. Cross-party interaction workflows"),

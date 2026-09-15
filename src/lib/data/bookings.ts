@@ -7,7 +7,8 @@ import {
 } from "./booking-notifications";
 import { pushNotification } from "./notifications";
 import { quoteNotification } from "./quote-notifications";
-import { computePlatformFee, isPlanFeeExempt, PLATFORM_FEE_RATE_BPS } from "./booking-ui";
+import { priceQuoteForSnapshot, recordDemoFeeSnapshot } from "./fee-rules-store";
+import { demoRecordLeadRebate, resolveLeadRebate } from "./lead-rebate";
 import { resetChatPresence } from "./chat-presence";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import {
@@ -506,15 +507,37 @@ export function demoGetWorkerBalance(workerId: string): WorkerBalance {
 }
 
 /**
- * Credit a completed booking's net earnings (quote − platform fee) to the
- * worker's ledger — idempotent, one EARNING per booking (mirrors the prisma
- * adapter's @@unique([bookingId])). Quote-less or fee-0-exempt bookings whose
- * net is 0 get no entry.
+ * Credit a completed booking's net earnings (quote − platform fee, PLUS any
+ * §11 lead rebate) to the worker's ledger — idempotent, one EARNING per booking
+ * (mirrors the prisma adapter's @@unique([bookingId])). Bookings with nothing to
+ * credit at all (no quote, or a fee-waived quote with no rebate) get no entry.
+ *
+ * The rebate rides the SAME entry rather than a second one: `WorkerLedgerEntry`
+ * is unique per booking, and a job should have exactly one earnings row for a
+ * payout screen to reconcile.
  */
-function creditEarnings(booking: Booking): void {
-  const net = (booking.quote ?? 0) - (booking.platformFee ?? 0);
-  if (net <= 0) return;
+async function creditEarnings(booking: Booking): Promise<void> {
   if (STORE.ledger.some((e) => e.bookingId === booking.id)) return;
+  const net = (booking.quote ?? 0) - (booking.platformFee ?? 0);
+
+  // §11 — a job that came from a lead this worker BOUGHT gives part of the
+  // platform fee back, so the effective take rate on the work it wins falls by
+  // what the lead cost. Attribution is the purchased offer (lead-market-store),
+  // and the amount is bounded by the fee itself.
+  const rebate = await resolveLeadRebate({
+    bookingId: booking.id,
+    workerId: booking.workerId,
+    leadId: booking.quoteRequestId,
+    feeMinor: booking.platformFee ?? 0,
+    currency: booking.currency,
+  });
+  if (rebate) {
+    demoRecordLeadRebate(rebate.rebate);
+    booking.leadRebateMinor = rebate.rebate.rebateMinor;
+  }
+
+  const amount = net + (rebate?.creditMinor ?? 0);
+  if (amount <= 0) return;
   const before = demoGetWorkerBalance(booking.workerId);
   STORE.ledgerSeq += 1;
   STORE.ledger.push({
@@ -523,9 +546,11 @@ function creditEarnings(booking: Booking): void {
     bookingId: booking.id,
     kind: "earning",
     status: "posted",
-    amount: net,
-    balanceAfter: before.availableMinor + net,
+    amount,
+    balanceAfter: before.availableMinor + amount,
     currency: booking.currency,
+    // The reason names the rebate so a payout statement explains itself.
+    ...(rebate ? { reason: `Lead rebate −$${(rebate.rebate.rebateMinor / 100).toFixed(2)} (fee $${(rebate.rebate.feeMinor / 100).toFixed(2)} → $${(rebate.rebate.effectiveFeeMinor / 100).toFixed(2)})` } : {}),
     time: new Date().toISOString(),
   });
 }
@@ -699,14 +724,25 @@ export async function demoAcceptChatQuote(
   if (!message || message.senderRole !== "worker" || message.quote === undefined) return null;
 
   // Same conversion as the worker's respond path — the quoted amount becomes
-  // the booking's agreed price, the slot is claimed, and the fee is a
-  // snapshot of the CURRENT plan (Enterprise waives it).
+  // the booking's agreed price, the slot is claimed, and the fee is priced by
+  // the ACTIVE fee rule set (§5) and stamped as an immutable snapshot (§6).
+  // The chat message IS the quote, so its id is the snapshot's quoteId.
   booking.status = "confirmed";
   booking.quote = message.quote;
-  booking.platformFee = computePlatformFee(message.quote, {
-    exempt: isPlanFeeExempt(workerById(booking.workerId)?.subscription.plan),
+  const chatWorker = workerById(booking.workerId);
+  const { snapshot } = await priceQuoteForSnapshot({
+    jobId: booking.id,
+    quoteId: message.id,
+    workerId: booking.workerId,
+    customerId: booking.customerId,
+    plan: chatWorker?.subscription.plan,
+    subtotalMinor: message.quote,
+    context: { categorySlug: chatWorker?.categorySlug, emergency: booking.isEmergency },
   });
-  booking.platformFeeRateBps = PLATFORM_FEE_RATE_BPS;
+  booking.platformFee = snapshot.feeMinor;
+  booking.platformFeeRateBps = snapshot.rateBps;
+  booking.feeSnapshot = snapshot;
+  recordDemoFeeSnapshot(snapshot);
   const slot = STORE.slots.find((s) => s.bookingId === bookingId);
   if (slot) slot.status = "booked";
   booking.events.push({
@@ -983,9 +1019,10 @@ export async function demoConfirmBookingCompletion(bookingId: string): Promise<B
     console.error("[booking] Failed to release masked numbers:", e);
   }
   booking.events.push({ status: "completed", actorType: "customer", time: new Date().toISOString() });
-  // Payouts (docs/payouts.md) — net earnings (quote − platform fee) credit the
-  // ledger on the CONFIRMED flip (mirrors the prisma adapter's in-tx credit).
-  creditEarnings(booking);
+  // Payouts (docs/payouts.md) — net earnings (quote − platform fee, plus any
+  // §11 lead rebate) credit the ledger on the CONFIRMED flip (mirrors the
+  // prisma adapter's in-tx credit).
+  await creditEarnings(booking);
   await notifyWorker(booking, "worker-completion-confirmed");
   return booking;
 }
@@ -1011,7 +1048,7 @@ export async function demoAutoConfirmCompletions(now = new Date()): Promise<numb
     console.error("[booking] Failed to release masked numbers:", e);
   }
     booking.events.push({ status: "completed", actorType: "system", time: now.toISOString() });
-    creditEarnings(booking);
+    await creditEarnings(booking);
     await notifyCustomer(booking, "customer-completed");
     autoConfirmed += 1;
   }
@@ -1479,15 +1516,29 @@ export async function demoRespondToBooking(
     booking.status = input.deposit ? "pendingPayment" : "confirmed";
     booking.quote = input.quote;
     booking.deposit = input.deposit;
-    // M5 take rate (docs/booking-take-rate.md) — the fee is a snapshot of the
-    // quote (minor units), computed from the worker's CURRENT plan so an
-    // Enterprise subscription waives it. The same computePlatformFee the
-    // RespondDialog previews — no drift. Accept-without-quote stays fee-free.
+    // M5 take rate (docs/booking-take-rate.md) upgraded to the versioned fee
+    // engine (§5): the fee is resolved from the ACTIVE rule set — plan tier,
+    // category, emergency and promotion layers — and stamped as the immutable
+    // snapshot (§6) that carries the rule version, floor, cap and rate. The
+    // RespondDialog previews the same numbers through the same module, so what
+    // the worker sees is exactly what is stored. Accept-without-quote stays
+    // fee-free. Accept-with-quote remains the single stamp point: nothing ever
+    // recomputes a fee later.
     if (input.quote) {
-      booking.platformFee = computePlatformFee(input.quote, {
-        exempt: isPlanFeeExempt(workerById(booking.workerId)?.subscription.plan),
+      const acceptWorker = workerById(booking.workerId);
+      const { snapshot } = await priceQuoteForSnapshot({
+        jobId: booking.id,
+        quoteId: booking.id,
+        workerId: booking.workerId,
+        customerId: booking.customerId,
+        plan: acceptWorker?.subscription.plan,
+        subtotalMinor: input.quote,
+        context: { categorySlug: acceptWorker?.categorySlug, emergency: booking.isEmergency },
       });
-      booking.platformFeeRateBps = PLATFORM_FEE_RATE_BPS;
+      booking.platformFee = snapshot.feeMinor;
+      booking.platformFeeRateBps = snapshot.rateBps;
+      booking.feeSnapshot = snapshot;
+      recordDemoFeeSnapshot(snapshot);
     }
     if (input.deposit) {
       // M3 — every deposit gets a Payment row so the checkout can attach to it.
@@ -1589,6 +1640,14 @@ export async function demoCreateQuoteRequest(
     jobTitle: input.jobTitle,
     note: input.note,
     serviceItem: input.serviceItem,
+    // §12 — preserved on the REQUEST (not only the per-worker bookings), because
+    // the lead marketplace grades a request by its urgency
+    // (docs/lead-marketplace.md §7): dropping it here made every request
+    // non-emergency, so an emergency lead could never be graded as one.
+    // Coerced to a boolean (never left undefined) so the demo and Prisma
+    // adapters read back identically — the Prisma column defaults to false and
+    // maps through Boolean().
+    isEmergency: Boolean(input.isEmergency),
     categorySlug: input.categorySlug,
     citySlug: input.citySlug,
     status: "open",

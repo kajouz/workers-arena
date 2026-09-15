@@ -253,6 +253,17 @@ export const ACTION_CODES = {
   // changed whose plan from → to (the copy carries worker + from/to plan,
   // meta.actor the admin, actorId the real admin FK).
   ADMIN_PLAN_CHANGED: "ADMIN_PLAN_CHANGED",
+  // Admin published a new platform fee rule set (§5 configurable take rate) —
+  // a pricing change is a money mutation, so it leaves the same kind of trail
+  // as a refund or a plan correction: who published which version, at what
+  // take rate. The version itself is the immutable record
+  // (FeeRuleSet.version → PlatformFeeSnapshot.ruleVersion).
+  FEE_RULES_UPDATED: "FEE_RULES_UPDATED",
+  // §7–§10 qualified lead marketplace — money leaving a worker's credit
+  // balance (they bought a lead): the audit trail records which lead, at what
+  // grade, for how many credits, and how many competing offers exclusivity
+  // revoked. The immutable record is the LeadOffer row itself.
+  LEAD_PURCHASED: "LEAD_PURCHASED",
   // Generic fallbacks for callers that don't pass an explicit code (kept for
   // backward compatibility with legacy rows / untyped call sites).
   SYSTEM: "SYSTEM",

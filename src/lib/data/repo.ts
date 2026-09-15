@@ -4,7 +4,7 @@ import { computeResponseRate, hasFreeSlotsThisWeek } from "./booking-ui";
 import { CITIES } from "./cities";
 import { getAnalytics } from "./analytics";
 import { getFeaturedWorkers, getRelatedWorkers, getSuggestions, POPULAR_SEARCHES, searchWorkers } from "./search";
-import { applyPlanChange, PLANS, renewSubscription } from "./subscriptions";
+import { applyPlanChange, periodMonths, PLANS, renewSubscription } from "./subscriptions";
 import {
   getNotifications,
   getUnreadCount,
@@ -84,6 +84,52 @@ import {
   demoPurchasePayment,
   type VerificationTier,
 } from "./purchases";
+import {
+  leadBoardItemFor,
+  leadCandidateFromWorker,
+  leadCandidatesFromWorkers,
+  leadMarketConfig,
+  matchReasonsFor,
+  scoreLeadCandidate,
+  splitLeadBoard,
+  type LeadBoardItem,
+  type LeadMarketConfig,
+  type LeadGradeResult,
+  type WorkerLike,
+} from "./lead-market";
+import {
+  getLeadOffers as getLeadOffersStore,
+  getWorkerLeadOffers as getWorkerLeadOffersStore,
+  listLeadOffers as listLeadOffersStore,
+  offerQualifiedLead,
+  purchaseLeadOffer as purchaseLeadOfferStore,
+  expireLeadOffers as expireLeadOffersStore,
+  type LeadPurchaseResult,
+} from "./lead-market-store";
+import { getWorkerCreditBalance, type WorkerCreditBalance } from "./credit-ledger";
+import { getWorkerLeadRebates } from "./lead-rebate";
+import {
+  submitLeadRating as submitLeadRatingStore,
+  getWorkerLeadRatings as getWorkerLeadRatingsStore,
+  getOfferRating as getOfferRatingStore,
+  getAllLeadRatings as getAllLeadRatingsStore,
+  getLeadRatingSummary as getLeadRatingSummaryStore,
+  getRatingPriceMultipliers as getRatingPriceMultipliersStore,
+} from "./lead-market-store";
+import { validateLeadRating, type LeadRating, type GradeRatingSummary } from "./lead-rating";
+import {
+  computeWorkerRoiSeries,
+  recentRoiMonthKeys,
+  roiMonthKeyOf,
+  roiMonthWindow,
+  totalWorkerRoi,
+  type RoiMonth,
+  type RoiSubscription,
+  type WorkerRoi,
+} from "./worker-roi";
+import { leadOfferNotification } from "./lead-notifications";
+import { loadActiveFeeRuleSet } from "./fee-rules-store";
+import { planTierFor } from "./fee-rules";
 import type {
   AnalyticsOverview,
   BillingPeriod,
@@ -1002,9 +1048,279 @@ export async function createQuoteRequest(
   input: QuoteRequestInput,
   workerIds: string[]
 ): Promise<QuoteRequest | { error: "invalid" | "too-many" | "duplicate" | "unknown-worker" }> {
-  return realDataEnabled
-    ? (await prismaRepo()).prismaCreateQuoteRequest(input, workerIds)
-    : demoCreateQuoteRequest(input, workerIds);
+  const result = realDataEnabled
+    ? await (await prismaRepo()).prismaCreateQuoteRequest(input, workerIds)
+    : await demoCreateQuoteRequest(input, workerIds);
+  // §7–§10 — the marketplace arm of the same post: grade the request and offer
+  // it to the few best-matched workers the customer did NOT invite. Excluded
+  // workers hold a free invite, so selling them the lead would be charging for
+  // what they already have. Never fatal: a matching failure must not lose a
+  // customer's request, so it logs and returns whatever happened.
+  if (!("error" in result)) {
+    try {
+      await distributeQualifiedLead(result, workerIds);
+    } catch (error) {
+      console.error("[lead-market] distribution failed", error);
+    }
+  }
+  return result;
+}
+
+/* ────────────── Qualified lead marketplace (§7–§10) ────────────── */
+
+/**
+ * How many search pages of the category the matcher may consider. The public
+ * search page shows `PAGE_SIZE` workers per page, so a few pages is a real pool
+ * without turning a customer's post into a table scan.
+ */
+const LEAD_POOL_PAGES = 3;
+
+/**
+ * Distribute one freshly posted request: grade it (§7), match the pool (§8), and
+ * create the paid offers (§9) — notifying exactly the workers this call added.
+ * Returns the grade + offers so callers can surface it (a demo/dev seed, an
+ * admin view, a future "your request was sent to 3 more pros" message).
+ */
+export async function distributeQualifiedLead(
+  request: QuoteRequest,
+  invitedWorkerIds: string[] = []
+): Promise<{ grade: LeadGradeResult; created: number; offers: number } | null> {
+  const pool: WorkerLike[] = [];
+  const seen = new Set<string>();
+  for (let page = 1; page <= LEAD_POOL_PAGES; page += 1) {
+    const result = await getWorkers({
+      category: request.categorySlug,
+      city: request.citySlug,
+      sort: "rating",
+      page,
+    });
+    for (const worker of result.items) {
+      if (seen.has(worker.id)) continue;
+      seen.add(worker.id);
+      pool.push(worker);
+    }
+    if (pool.length === 0 || pool.length >= result.total) break;
+  }
+  if (pool.length === 0) return null;
+
+  const ruleSet = await loadActiveFeeRuleSet();
+  const { grade, offers, created } = await offerQualifiedLead({
+    lead: {
+      id: request.id,
+      number: request.number,
+      jobTitle: request.jobTitle,
+      note: request.note,
+      categorySlug: request.categorySlug,
+      citySlug: request.citySlug,
+      serviceItem: request.serviceItem ? { nameEn: request.serviceItem.nameEn, price: request.serviceItem.price } : undefined,
+      customerId: request.customerId,
+      customerEmail: request.customerEmail,
+      isEmergency: request.isEmergency,
+    },
+    candidates: leadCandidatesFromWorkers(pool),
+    invitedWorkerIds,
+    ruleSet,
+  });
+
+  for (const offer of created) {
+    const worker = await getWorkerById(offer.workerId);
+    if (!worker) continue;
+    await pushNotification(leadOfferNotification(offer, "lead-offer"), {
+      name: worker.nameEn,
+      email: worker.email,
+      phone: worker.phone,
+      locale: worker.languages[0]?.code === "ar" ? "ar" : "en",
+    });
+  }
+
+  return { grade, created: created.length, offers: offers.length };
+}
+
+/** What the worker's lead board renders (loaded server-side, one round trip). */
+export interface WorkerLeadBoard {
+  /** Buyable now — best match first. */
+  live: LeadBoardItem[];
+  /** Already bought (the customer's details are unlocked per policy). */
+  owned: LeadBoardItem[];
+  /** Expired / revoked / declined history. */
+  past: LeadBoardItem[];
+  balance: WorkerCreditBalance;
+  /** The policy in force — the board explains the prices from THIS object. */
+  config: LeadMarketConfig;
+  /** §11 — what this worker's bought leads have given back in total (money). */
+  rebates: { totalMinor: number; count: number };
+}
+
+/**
+ * The worker's lead board: offers + the lead as far as the §10 contact-reveal
+ * policy allows, priced from the ACTIVE rule set. The reveal decision is made
+ * by the pure engine (`leadBoardItemFor`), so the board cannot be the surface
+ * that leaks a customer's phone number.
+ */
+export async function getWorkerLeadBoard(workerId: string, now = new Date()): Promise<WorkerLeadBoard> {
+  const [offers, ruleSet, balance, worker, bookings, rebates] = await Promise.all([
+    getWorkerLeadOffersStore(workerId, now),
+    loadActiveFeeRuleSet(),
+    getWorkerCreditBalance(workerId),
+    getWorkerById(workerId),
+    getWorkerBookings(workerId),
+    // §11 — the rebates this worker's leads have already returned, keyed by lead
+    // so each owned row can show whether that lead has paid for itself.
+    getWorkerLeadRebates(workerId, 100),
+  ]);
+  const config = leadMarketConfig(ruleSet);
+  const planTier = planTierFor(worker?.subscription.plan);
+  const nowMs = now.getTime();
+  const rebateByLead = new Map<string, number>();
+  for (const rebate of rebates) {
+    rebateByLead.set(rebate.leadId, (rebateByLead.get(rebate.leadId) ?? 0) + rebate.rebateMinor);
+  }
+
+  const items: LeadBoardItem[] = [];
+  for (const offer of offers) {
+    const lead = await getQuoteRequest(offer.leadId);
+    if (!lead) continue;
+    // §10 — a lead that became a real booking reveals its contact (the
+    // customer chose this worker), so the board keeps working after the sale.
+    const booking = bookings.find((b) => b.quoteRequestId === lead.id);
+    const booked = Boolean(
+      booking && booking.status !== "quoting" && booking.status !== "declined" && booking.status !== "cancelled"
+    );
+    items.push(
+      leadBoardItemFor({
+        offer,
+        lead: {
+          id: lead.id,
+          number: lead.number,
+          jobTitle: lead.jobTitle,
+          note: lead.note,
+          categorySlug: lead.categorySlug,
+          citySlug: lead.citySlug,
+          isEmergency: lead.isEmergency,
+          serviceNameEn: lead.serviceItem?.nameEn,
+          serviceNameAr: lead.serviceItem?.nameAr,
+          createdAt: lead.createdAt,
+        },
+        policy: config.reveal,
+        planTier,
+        booked,
+        rebateMinor: rebateByLead.get(lead.id) ?? 0,
+        customer: { name: lead.customerName, phone: lead.customerPhone, email: lead.customerEmail },
+        // "Why you were matched" — the SAME scoring function that ranked the
+        // pool when the offer was created, re-run for this one worker, so the
+        // explanation is arithmetic rather than a display-side guess.
+        ...(worker
+          ? {
+              reasons: matchReasonsFor(
+                scoreLeadCandidate(
+                  leadCandidateFromWorker(worker),
+                  { categorySlug: lead.categorySlug, citySlug: lead.citySlug, isEmergency: lead.isEmergency },
+                  config.weights
+                )?.breakdown ?? []
+              ),
+            }
+          : {}),
+        now: nowMs,
+      })
+    );
+  }
+
+  return {
+    ...splitLeadBoard(items),
+    balance,
+    config,
+    rebates: {
+      totalMinor: rebates.reduce((sum, r) => sum + r.rebateMinor, 0),
+      count: rebates.length,
+    },
+  };
+}
+
+/**
+ * Buy a lead offer with platform credits. Side effects (the debit, the exclusive
+ * revoke, the audit entry) live in the store; this wrapper resolves the buyer's
+ * plan tier so the §10 reveal the buyer gets matches the policy exactly.
+ */
+export async function buyLeadOffer(offerId: string, workerId: string): Promise<LeadPurchaseResult> {
+  const worker = await getWorkerById(workerId);
+  return purchaseLeadOfferStore(offerId, workerId, { planTier: planTierFor(worker?.subscription.plan) });
+}
+
+/** Every offer on one lead (admin audit / the customer's own job page). */
+export async function getLeadOffers(leadId: string) {
+  return getLeadOffersStore(leadId);
+}
+
+/** One worker's lead offers, live ones first (the dashboard's lead CTA). */
+export async function getWorkerLeadOffers(workerId: string, now = new Date()) {
+  return getWorkerLeadOffersStore(workerId, now);
+}
+
+/** Recent offers, newest first (admin audit list). */
+export async function listLeadOffers(limit = 50) {
+  return listLeadOffersStore(limit);
+}
+
+/** Expire offers past their window — the cron twin of the quote SLA sweep. */
+export async function expireLeadOffers(now = new Date()): Promise<number> {
+  return expireLeadOffersStore(now);
+}
+
+// ──────────────────── Lead rating repo seam (§12) ────────────────────
+
+/** Submit a worker's rating for a purchased lead. */
+export async function submitLeadRating(input: {
+  offerId: string;
+  workerId: string;
+  quality: number;
+  reason?: string;
+  reasonAr?: string;
+  converted?: boolean;
+  reachable?: boolean;
+}): Promise<{ ok: true; rating: LeadRating } | { ok: false; error: string }> {
+  if (realDataEnabled) {
+    const { prismaSubmitLeadRating } = await import("./lead-rating-prisma");
+    return prismaSubmitLeadRating(input);
+  }
+  return submitLeadRatingStore(input);
+}
+
+/** All ratings for a specific worker. */
+export async function getWorkerLeadRatings(workerId: string): Promise<LeadRating[]> {
+  if (realDataEnabled) {
+    const { prismaGetWorkerLeadRatings } = await import("./lead-rating-prisma");
+    return prismaGetWorkerLeadRatings(workerId);
+  }
+  return getWorkerLeadRatingsStore(workerId);
+}
+
+/** A rating for a specific offer (or null). */
+export async function getOfferRating(offerId: string): Promise<LeadRating | null> {
+  if (realDataEnabled) {
+    const { prismaGetOfferRating } = await import("./lead-rating-prisma");
+    return prismaGetOfferRating(offerId);
+  }
+  return getOfferRatingStore(offerId);
+}
+
+/** All ratings in the system (admin). */
+export async function getAllLeadRatings(): Promise<LeadRating[]> {
+  if (realDataEnabled) {
+    const { prismaGetAllLeadRatings } = await import("./lead-rating-prisma");
+    return prismaGetAllLeadRatings();
+  }
+  return getAllLeadRatingsStore();
+}
+
+/** Aggregate per-grade rating stats. */
+export async function getLeadRatingSummary(): Promise<GradeRatingSummary> {
+  // Summary is always computed from the full set — no Prisma shortcut needed.
+  return getLeadRatingSummaryStore();
+}
+
+/** Per-grade pricing multipliers from the rating signal. */
+export async function getRatingPriceMultipliers(): Promise<Record<string, number>> {
+  return getRatingPriceMultipliersStore();
 }
 
 /** A quote job by id or number — ownership enforced when an identifier is given. */
@@ -1412,4 +1728,90 @@ export async function getPurchasePaymentReference(paymentId: string): Promise<st
     return rows.find((r) => r.id === paymentId)?.reference ?? null;
   }
   return demoPurchasePayment(paymentId)?.providerRef ?? null;
+}
+
+/**
+ * The worker's monthly ROI report (docs/worker-roi.md) — what the marketplace
+ * cost them and what it returned.
+ *
+ * The GATHERING is this seam: whichever adapter is live supplies the same two
+ * facts (the worker's bookings with their audit trails, and their lead offers),
+ * and the pure engine (`worker-roi.ts`) does all of the arithmetic. Nothing is
+ * stored or cached, so the page can never disagree with the records it reads.
+ */
+export interface WorkerRoiReport {
+  /** The month actually summarised (never null — a bad key falls back). */
+  month: RoiMonth;
+  /** The raw `?month=` value the caller asked for, echoed for the picker. */
+  requested: string;
+  /** False when `requested` was absent or malformed and the current month was used. */
+  monthValid: boolean;
+  /** True when the selected month is the one we are living in. */
+  isCurrentMonth: boolean;
+  /** The month's summary. */
+  roi: WorkerRoi;
+  /** The trailing window ending at the selected month, oldest first. */
+  series: WorkerRoi[];
+  /** The series summed, for the period footer. */
+  total: WorkerRoi;
+  /** The plan in force, for the cost line (null = no subscription). */
+  plan: string | null;
+}
+
+/**
+ * Build the ROI report for `workerId`. `month` is a `YYYY-MM` key; an absent or
+ * malformed one falls back to the current UTC month (`monthValid: false`, so the
+ * UI can say so rather than silently answering a different question).
+ *
+ * Returns null when the worker does not exist.
+ */
+export async function getWorkerRoi(
+  workerId: string,
+  opts: { month?: string; months?: number; now?: Date } = {}
+): Promise<WorkerRoiReport | null> {
+  const now = opts.now ?? new Date();
+  const currentKey = roiMonthKeyOf(now);
+  const requested = (opts.month ?? "").trim();
+  const month = roiMonthWindow(requested) ?? roiMonthWindow(currentKey);
+  if (!month) return null;
+
+  const [worker, bookings, offers] = await Promise.all([
+    getWorkerById(workerId),
+    getWorkerBookings(workerId),
+    getWorkerLeadOffers(workerId, now),
+  ]);
+  if (!worker) return null;
+
+  // The worker's plan, priced per MONTH so one annual invoice can't distort a
+  // single month's multiple (the engine reports the cash separately). `price` is
+  // USD major units; the engine works in minor units throughout.
+  const sub = worker.subscription;
+  const subscription: RoiSubscription | null = sub
+    ? {
+        plan: sub.plan,
+        priceMinor: Math.round(sub.price * 100),
+        periodMonths: periodMonths(sub.period ?? "monthly"),
+        startedAt: sub.startedAt,
+        expiresAt: sub.expiresAt,
+      }
+    : null;
+
+  const base = { offers, bookings, subscription };
+  const seriesMonths: RoiMonth[] = [];
+  for (const key of recentRoiMonthKeys(month.key, opts.months ?? 6)) {
+    const window = roiMonthWindow(key);
+    if (window) seriesMonths.push(window);
+  }
+  const series = computeWorkerRoiSeries(base, seriesMonths);
+
+  return {
+    month,
+    requested,
+    monthValid: roiMonthWindow(requested) !== null,
+    isCurrentMonth: month.key === currentKey,
+    roi: series[series.length - 1],
+    series,
+    total: totalWorkerRoi(series),
+    plan: sub?.plan ?? null,
+  };
 }

@@ -45,9 +45,13 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 import { getPrisma } from "@/lib/server/prisma";
-import { PLATFORM_FEE_RATE_BPS, computePlatformFee, isPlanFeeExempt, responseRateFromCounts } from "./booking-ui";
+import { responseRateFromCounts } from "./booking-ui";
 import type { Prisma, $Enums } from "@prisma/client";
 import { FEE_EXEMPT_PLANS } from "./booking-ui";
+import { loadActiveFeeRuleSet, priceQuoteForSnapshot } from "./fee-rules-store";
+import { resolveLeadRebate, type LeadRebateResolution } from "./lead-rebate";
+import { applyPromotionCreditGrant } from "./credit-ledger";
+import { feeSnapshotCreateData } from "./fee-rules-prisma";
 import { categoryBySlug as demoCategoryBySlug } from "./categories";
 import { CITIES, cityBySlug } from "./cities";
 import { addMonths, planPrice, PLANS, subscriptionStatus } from "./subscriptions";
@@ -776,6 +780,8 @@ export interface PrismaBookingRow {
   deposit: number | null;
   platformFee: number | null;
   platformFeeRateBps: number | null;
+  /** §11 — optional so pre-migration fixtures still typecheck. */
+  leadRebateMinor?: number | null;
   currency: string;
   paymentId: string | null;
   /** Set when this booking is an occurrence of a recurring contract (W2). */
@@ -845,6 +851,8 @@ export interface PrismaQuoteRequestRow {
   categorySlug: string;
   citySlug: string;
   status: string;
+  /** §12 — optional so pre-migration fixtures still typecheck. */
+  isEmergency?: boolean | null;
   expiresAt: Date | null;
   createdAt: Date;
   serviceItem?: {
@@ -877,6 +885,9 @@ export function toDomainQuoteRequest(row: PrismaQuoteRequestRow): QuoteRequest {
       : undefined,
     categorySlug: row.categorySlug,
     citySlug: row.citySlug,
+    // §12 — the urgency flag drives masked calling and the lead marketplace's
+    // EMERGENCY grade, so it round-trips like every other request field.
+    isEmergency: Boolean(row.isEmergency),
     status: QUOTE_STATUS_DB_TO_APP[row.status] ?? "open",
     expiresAt: row.expiresAt?.toISOString(),
     createdAt: row.createdAt.toISOString(),
@@ -909,6 +920,9 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
     // rate rides alongside (the customer row derives net = quote − fee).
     platformFee: row.platformFee ?? undefined,
     platformFeeRateBps: row.platformFeeRateBps ?? undefined,
+    // §11 — the lead rebate is display data (0/undefined = none), so the row
+    // can show the effective fee without a second read.
+    ...(row.leadRebateMinor ? { leadRebateMinor: row.leadRebateMinor } : {}),
     currency,
     paymentId: row.paymentId ?? undefined,
     // M3 receipt — the Invoice row tied to the deposit Payment. Amount is
@@ -1226,10 +1240,16 @@ export async function prismaAcceptChatQuote(
 ): Promise<Booking | null> {
   const prisma = getPrisma();
   try {
+    // §5/§6 — the active fee rule set is loaded BEFORE the transaction, so the
+    // resolution that prices this accept is stable for the whole tx.
+    const ruleSet = await loadActiveFeeRuleSet();
     const result = await prisma.$transaction(async (tx) => {
       const row = await tx.booking.findUnique({
         where: { id: bookingId },
-        include: { slot: true, worker: { include: { subscription: true } } },
+        include: {
+          slot: true,
+          worker: { include: { subscription: true, category: { select: { slug: true } } } },
+        },
       });
       if (!row || row.status !== "REQUESTED") return null;
       const message = await tx.bookingMessage.findUnique({
@@ -1237,20 +1257,32 @@ export async function prismaAcceptChatQuote(
       });
       if (!message || message.quote === null) return null;
 
-      // M5 take rate — the fee is a snapshot of the validated quote (minor
-      // units) from the worker's CURRENT plan, same compute as respond.
-      const exempt = isPlanFeeExempt(row.worker.subscription?.plan);
-      const platformFee = computePlatformFee(message.quote, { exempt });
+      // M5 take rate → §5 versioned fee engine: the validated quote (minor
+      // units) is priced through the plan-tier / category / emergency /
+      // promotion layers, and §6 stamps the immutable snapshot in the SAME
+      // transaction as the status CAS — one fee per booking, reproducible from
+      // its rule version forever (the chat message id is the snapshot's quote id).
+      const { snapshot } = await priceQuoteForSnapshot({
+        jobId: bookingId,
+        quoteId: message.id,
+        workerId: row.workerId,
+        customerId: row.customerId ?? undefined,
+        plan: row.worker.subscription?.plan,
+        subtotalMinor: message.quote,
+        ruleSet,
+        context: { categorySlug: row.worker.category?.slug, emergency: row.isEmergency },
+      });
       const updated = await tx.booking.updateMany({
         where: { id: bookingId, status: "REQUESTED" },
         data: {
           status: "CONFIRMED",
           quote: message.quote,
-          platformFee,
-          platformFeeRateBps: PLATFORM_FEE_RATE_BPS,
+          platformFee: snapshot.feeMinor,
+          platformFeeRateBps: snapshot.rateBps,
         },
       });
       if (updated.count === 0) return null;
+      await tx.platformFeeSnapshot.create({ data: feeSnapshotCreateData(snapshot, bookingId) });
       if (row.slot) await tx.bookingSlot.update({ where: { id: row.slot.id }, data: { status: "BOOKED" } });
       await tx.bookingEvent.create({
         data: {
@@ -1440,17 +1472,52 @@ function toDomainLedgerEntry(row: {
 }
 
 /**
- * Credit a completed booking's net earnings (quote − platform fee) inside the
- * transition tx. Idempotent via @@unique([bookingId]): a concurrent or
- * redelivered completion's insert hits P2002 and is swallowed — the tx still
- * commits, the worker is never double-credited.
+ * Credit a completed booking's net earnings (quote − platform fee, PLUS any
+ * §11 lead rebate) inside the transition tx. Idempotent via
+ * @@unique([bookingId]): a concurrent or redelivered completion's insert hits
+ * P2002 and is swallowed — the tx still commits, the worker is never
+ * double-credited.
+ *
+ * The rebate is resolved INSIDE the transaction, from the purchased offer read
+ * with the same client: attribution and money move together, so a job can never
+ * be credited against a lead purchase that had not committed, and a retried
+ * completion cannot rebate twice (the LeadRebate row is unique per booking too,
+ * and the whole tx aborts if anything throws).
  */
 async function creditEarningsInTx(
   tx: Prisma.TransactionClient,
-  row: { id: string; workerId: string; quote: number | null; platformFee: number | null; currency: string }
+  row: {
+    id: string;
+    workerId: string;
+    quote: number | null;
+    platformFee: number | null;
+    currency: string;
+    quoteRequestId?: string | null;
+  }
 ): Promise<void> {
   const net = (row.quote ?? 0) - (row.platformFee ?? 0);
-  if (net <= 0) return; // quote-less accept or fee-waived 0 — nothing earned
+
+  // §11 — read the purchased offer off the SAME client the credit will use.
+  let rebate: LeadRebateResolution | null = null;
+  if (row.quoteRequestId && (row.platformFee ?? 0) > 0) {
+    const ruleSet = await loadActiveFeeRuleSet();
+    const offer = await tx.leadOffer.findFirst({
+      where: { workerId: row.workerId, leadId: row.quoteRequestId, status: "purchased" },
+      select: { id: true, leadId: true, priceCredits: true },
+    });
+    rebate = await resolveLeadRebate({
+      bookingId: row.id,
+      workerId: row.workerId,
+      leadId: row.quoteRequestId,
+      feeMinor: row.platformFee ?? 0,
+      currency: row.currency || "USD",
+      ruleSet,
+      purchasedOffer: offer ? { offerId: offer.id, leadId: offer.leadId, priceCredits: offer.priceCredits } : null,
+    });
+  }
+
+  const amount = net + (rebate?.creditMinor ?? 0);
+  if (amount <= 0) return; // quote-less accept or fee-waived 0 — nothing earned
   try {
     const sum = await tx.workerLedgerEntry.aggregate({
       where: { workerId: row.workerId, status: { in: ["POSTED", "PROCESSED"] } },
@@ -1463,13 +1530,43 @@ async function creditEarningsInTx(
         bookingId: row.id,
         kind: "EARNING",
         status: "POSTED",
-        amount: net,
-        balanceAfter: balance + net,
+        amount,
+        balanceAfter: balance + amount,
         currency: row.currency || "USD",
+        reason: rebate
+          ? `Lead rebate −$${(rebate.rebate.rebateMinor / 100).toFixed(2)} (fee $${(rebate.rebate.feeMinor / 100).toFixed(2)} → $${(rebate.rebate.effectiveFeeMinor / 100).toFixed(2)})`
+          : null,
       },
     });
   } catch (err) {
     if ((err as { code?: string })?.code !== "P2002") throw err; // idempotency: already credited
+    return; // already credited → the rebate row already exists too
+  }
+
+  if (rebate) {
+    await tx.leadRebate.create({
+      data: {
+        bookingId: rebate.rebate.bookingId,
+        leadId: rebate.rebate.leadId,
+        offerId: rebate.rebate.offerId,
+        workerId: rebate.rebate.workerId,
+        leadCostCredits: rebate.rebate.leadCostCredits,
+        leadCostMinor: rebate.rebate.leadCostMinor,
+        feeMinor: rebate.rebate.feeMinor,
+        rebateMinor: rebate.rebate.rebateMinor,
+        effectiveFeeMinor: rebate.rebate.effectiveFeeMinor,
+        pctBps: rebate.rebate.pctBps,
+        maxMinor: rebate.rebate.maxMinor,
+        limitedBy: rebate.rebate.limitedBy,
+        ruleId: rebate.rebate.ruleId,
+        ruleVersion: rebate.rebate.ruleVersion,
+        currency: rebate.rebate.currency,
+        createdAt: new Date(rebate.rebate.createdAt),
+      },
+    });
+    // Denormalized for display: the booking row shows the effective fee without
+    // a join (the LeadRebate row remains the audit record).
+    await tx.booking.update({ where: { id: row.id }, data: { leadRebateMinor: rebate.rebate.rebateMinor } });
   }
 }
 
@@ -1815,10 +1912,15 @@ export async function prismaRespondToBooking(
 ): Promise<Booking | null> {
   const prisma = getPrisma();
   try {
+    // §5/§6 — the active rule set is resolved once, before the transaction.
+    const ruleSet = await loadActiveFeeRuleSet();
     const result = await prisma.$transaction(async (tx) => {
       const row = await tx.booking.findUnique({
         where: { id: bookingId },
-        include: { slot: true, worker: { include: { subscription: true } } },
+        include: {
+          slot: true,
+          worker: { include: { subscription: true, category: { select: { slug: true } } } },
+        },
       });
       if (!row || row.status !== "REQUESTED") return null;
       const slot = row.slot;
@@ -1826,24 +1928,40 @@ export async function prismaRespondToBooking(
       if (input.accept) {
         // Rule 4 — a deposit flips to PENDING_PAYMENT until paymentId lands.
         const status = input.deposit ? "PENDING_PAYMENT" : "CONFIRMED";
-        // M5 take rate (docs/booking-take-rate.md) — the fee is a snapshot of
-        // the validated quote (minor units), computed inside the tx from the
-        // worker's CURRENT plan so an Enterprise subscription waives it. The
-        // same computePlatformFee the RespondDialog previews — no drift.
+        // M5 take rate (docs/booking-take-rate.md) upgraded to the versioned
+        // fee engine (§5): the validated quote is priced through the plan-tier
+        // / category / emergency / promotion layers, and §6 stamps the
+        // immutable snapshot in the same tx — the RespondDialog previews the
+        // same numbers through the same module, so there is no drift, and no
+        // later pricing change can rewrite this fee. Accept-without-quote
+        // stays fee-free (no snapshot row).
         const quoteMinor = input.quote ?? null;
-        const exempt = isPlanFeeExempt(row.worker.subscription?.plan);
-        const platformFee = quoteMinor ? computePlatformFee(quoteMinor, { exempt }) : null;
+        const priced = quoteMinor
+          ? await priceQuoteForSnapshot({
+              jobId: bookingId,
+              quoteId: bookingId,
+              workerId: row.workerId,
+              customerId: row.customerId ?? undefined,
+              plan: row.worker.subscription?.plan,
+              subtotalMinor: quoteMinor,
+              ruleSet,
+              context: { categorySlug: row.worker.category?.slug, emergency: row.isEmergency },
+            })
+          : null;
         const updated = await tx.booking.updateMany({
           where: { id: bookingId, status: "REQUESTED" },
           data: {
             status,
             quote: quoteMinor,
             deposit: input.deposit ?? null,
-            platformFee,
-            platformFeeRateBps: quoteMinor ? PLATFORM_FEE_RATE_BPS : null,
+            platformFee: priced ? priced.snapshot.feeMinor : null,
+            platformFeeRateBps: priced ? priced.snapshot.rateBps : null,
           },
         });
         if (updated.count === 0) return null;
+        if (priced) {
+          await tx.platformFeeSnapshot.create({ data: feeSnapshotCreateData(priced.snapshot, bookingId) });
+        }
         // M3 — every deposit gets a Payment row (PENDING) so the checkout can
         // attach to it; userId is null for guest (phone-keyed) customers.
         if (input.deposit) {
@@ -2033,6 +2151,9 @@ export async function prismaCreateQuoteRequest(
             serviceItemId: serviceItem?.id ?? null,
             categorySlug: input.categorySlug,
             citySlug: input.citySlug,
+            // §12 — persisted on the request itself (see the schema note): the
+            // lead marketplace grades by it, and the demo adapter does the same.
+            isEmergency: input.isEmergency ?? false,
             status: "OPEN",
             expiresAt: new Date(Date.now() + QUOTE_SLA_MS),
           },
@@ -4270,6 +4391,10 @@ export async function prismaRespondToRecurring(
 
   for (let attempt = 0; attempt < 3; attempt++) {
     let result: PrismaRecurringRow | null = null;
+    // §5/§6 — the active fee rule set is resolved once per attempt, before the
+    // transaction, so the contract and every occurrence it materializes price
+    // under ONE stable rule version.
+    const ruleSet = await loadActiveFeeRuleSet();
     try {
       result = await prisma.$transaction(async (tx): Promise<PrismaRecurringRow | null> => {
         const recurring = await tx.recurringBooking.findUnique({
@@ -4278,7 +4403,10 @@ export async function prismaRespondToRecurring(
             serviceItem: true,
             occurrences: {
               orderBy: { startAt: "asc" as const },
-              include: { slot: true, worker: { include: { subscription: true } } },
+              include: {
+                slot: true,
+                worker: { include: { subscription: true, category: { select: { slug: true } } } },
+              },
             },
           },
         });
@@ -4290,10 +4418,25 @@ export async function prismaRespondToRecurring(
         if (input.accept) {
           // Rule 4 — a deposit flips to PENDING_PAYMENT until paymentId lands.
           const status = input.deposit ? "PENDING_PAYMENT" : "CONFIRMED";
-          // M5 take rate — same snapshot the one-shot accept takes.
+          // M5 take rate → §5/§6 — the per-visit quote is priced once through
+          // the active rule set; the first occurrence and every materialized
+          // occurrence each get their own immutable snapshot (one fee per
+          // booking, enforced by PlatformFeeSnapshot.bookingId @unique).
           const quoteMinor = input.quote ?? null;
-          const exempt = isPlanFeeExempt(first.worker.subscription?.plan);
-          const platformFee = quoteMinor ? computePlatformFee(quoteMinor, { exempt }) : null;
+          const priced = quoteMinor
+            ? await priceQuoteForSnapshot({
+                jobId: first.id,
+                quoteId: first.id,
+                workerId: first.workerId,
+                customerId: first.customerId ?? undefined,
+                plan: first.worker.subscription?.plan,
+                subtotalMinor: quoteMinor,
+                ruleSet,
+                context: { categorySlug: first.worker.category?.slug, emergency: first.isEmergency },
+              })
+            : null;
+          const platformFee = priced ? priced.snapshot.feeMinor : null;
+          const feeRateBps = priced ? priced.snapshot.rateBps : null;
           const updated = await tx.booking.updateMany({
             where: { id: first.id, status: "REQUESTED" },
             data: {
@@ -4301,10 +4444,13 @@ export async function prismaRespondToRecurring(
               quote: quoteMinor,
               deposit: input.deposit ?? null,
               platformFee,
-              platformFeeRateBps: quoteMinor ? PLATFORM_FEE_RATE_BPS : null,
+              platformFeeRateBps: feeRateBps,
             },
           });
           if (updated.count === 0) return null;
+          if (priced) {
+            await tx.platformFeeSnapshot.create({ data: feeSnapshotCreateData(priced.snapshot, first.id) });
+          }
           if (input.deposit) {
             const payment = await tx.payment.create({
               data: {
@@ -4368,11 +4514,21 @@ export async function prismaRespondToRecurring(
                 quote: quoteMinor,
                 deposit: input.deposit ?? null,
                 platformFee,
-                platformFeeRateBps: quoteMinor ? PLATFORM_FEE_RATE_BPS : null,
+                platformFeeRateBps: feeRateBps,
                 currency: first.currency || "USD",
                 recurringBookingId: recurring.id,
               },
             });
+            // Each occurrence carries its own immutable fee snapshot, stamped
+            // with the same rule version the contract was accepted under.
+            if (priced) {
+              await tx.platformFeeSnapshot.create({
+                data: feeSnapshotCreateData(
+                  { ...priced.snapshot, jobId: occ.id, quoteId: occ.id, id: `fee-${occ.id}-v${priced.snapshot.ruleVersion}` },
+                  occ.id
+                ),
+              });
+            }
             await tx.bookingEvent.create({
               data: { bookingId: occ.id, status: "CONFIRMED", actorType: "system", reason: `recurring ${frequency}` },
             });
@@ -4916,6 +5072,8 @@ function purchaseLabel(
       return { en: `${nameEn} — Featured slot`, ar: `${nameAr} — بطاقة مميزة` };
     case "emergency":
       return { en: `${nameEn} — Emergency marker`, ar: `${nameAr} — علامة طوارئ` };
+    case "credit":
+      return { en: `${nameEn} — Platform credits top-up`, ar: `${nameAr} — شحن أرصدة المنصة` };
   }
 }
 
@@ -5097,6 +5255,10 @@ export async function prismaConfirmPurchase(
           },
         });
       }
+      // §24 — a live campaign promising a credit bonus pays out here, once per
+      // worker per promotion (enforced by the ledger's unique index), the
+      // real-mode twin of demoConfirmPurchase's grant.
+      await applyPromotionCreditGrant({ workerId: worker.id, plan: p, createdBy: actor });
       await notify(
         "subscription",
         `Subscription renewed — ${p}`,
@@ -5138,6 +5300,35 @@ export async function prismaConfirmPurchase(
         "علامة الطوارئ نشطة",
         `${worker?.nameEn ?? "Your profile"} can now be booked for urgent 24/7 jobs.`,
         `${worker?.nameAr ?? "ملفك"} متاح الآن لحجوزات الطوارئ على مدار الساعة.`
+      );
+      break;
+    }
+    case "credit": {
+      // Grant the purchased credits to the worker's ledger
+      const creditsToGrant = Math.floor(payment.amount / 100);
+      if (creditsToGrant > 0 && worker) {
+        const balance = await prisma.workerCreditEntry.aggregate({
+          where: { workerId: worker.id },
+          _sum: { amount: true },
+        });
+        const currentBalance = balance._sum.amount ?? 0;
+        await prisma.workerCreditEntry.create({
+          data: {
+            workerId: worker.id,
+            kind: "grant",
+            amount: creditsToGrant,
+            balanceAfter: currentBalance + creditsToGrant,
+            reason: `Credit top-up: $${creditsToGrant} purchased (${payment.method ?? "manual"})`,
+            createdBy: actor,
+          },
+        });
+      }
+      await notify(
+        "system",
+        `Credits purchased — ${Math.floor(payment.amount / 100)}`,
+        `تم شراء الأرصدة — ${Math.floor(payment.amount / 100)}`,
+        `${worker?.nameEn ?? "Your profile"}: ${Math.floor(payment.amount / 100)} credits have been added to your balance.`,
+        `${worker?.nameAr ?? "ملفك"}: تمت إضافة ${Math.floor(payment.amount / 100)} أرصدة إلى رصيدك.`
       );
       break;
     }

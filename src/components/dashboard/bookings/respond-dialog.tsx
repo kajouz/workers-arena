@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Hourglass, XCircle, Loader2 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useCountdownTick } from "@/hooks/use-countdown-tick";
-import { PLATFORM_FEE_MIN_MINOR, PLATFORM_FEE_RATE_BPS, computePlatformFee, isPlanFeeExempt } from "@/lib/data/booking-ui";
+import { DEFAULT_FEE_RULE_SET, priceJob, type FeeRuleSet } from "@/lib/data/fee-rules";
 import { Price } from "@/components/shared/price";
 import { respondBookingAction } from "@/app/actions/bookings";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -24,7 +24,18 @@ import type { Booking, Worker } from "@/lib/data/types";
  * an optional deposit — or decline it with a reason. Submits via
  * respondBookingAction; toasts the outcome and refreshes the dashboard.
  */
-export function RespondDialog({ booking, worker }: { booking: Booking; worker: Worker }) {
+export function RespondDialog({
+  booking,
+  worker,
+  feeRuleSet,
+}: {
+  booking: Booking;
+  worker: Worker;
+  /** §5 — the ACTIVE platform fee rule set (loaded server-side in /dashboard).
+   * Optional: the shipped default (7% take rate, min $5, max $300) is used when
+   * a caller does not thread it, so the preview always has a rule to show. */
+  feeRuleSet?: FeeRuleSet;
+}) {
   const { locale, t } = useLocale();
   const router = useRouter();
 
@@ -187,19 +198,29 @@ export function RespondDialog({ booking, worker }: { booking: Booking; worker: W
               />
               <p className="mt-1 text-[11px] text-ink-400">{t("booking.quoteHint")}</p>
 
-              {/* M5 take rate (docs/booking-take-rate.md §5) — the "you receive
-                  X · platform fee Y" split, recomputed on every keystroke with
-                  the SAME computePlatformFee the adapters store, so the worker
-                  sees exactly what the accept commits to. Exempt plans show
-                  the waiver instead of a number. */}
+              {/* M5 take rate (docs/booking-take-rate.md §5) → §5/§6 fee engine
+                  — the "you receive X · platform fee Y" split, recomputed on
+                  every keystroke with the SAME resolver + calculator the
+                  adapters store, against the SAME rule set version, so the
+                  worker sees exactly what the accept commits to. Exempt plans
+                  show the waiver instead of a number. */}
               {(() => {
                 const q = Number(quote);
                 if (!(q > 0)) return null;
                 const qMinor = Math.round(q * 100);
-                const exempt = isPlanFeeExempt(worker.subscription.plan);
-                // Exempt plans (Enterprise) replace the fee/net split entirely
-                // with a waiver banner — there is no fee to split, so the
-                // worker receives the full quote and the card says so.
+                // Plan tier + category + emergency, exactly as the server
+                // resolves them at accept time (fee-rules.ts is pure, so this
+                // is the same answer the snapshot will carry).
+                const { resolved, computation } = priceJob(feeRuleSet ?? DEFAULT_FEE_RULE_SET, qMinor, {
+                  plan: worker.subscription.plan,
+                  categorySlug: worker.categorySlug,
+                  emergency: booking.isEmergency,
+                });
+                const exempt = resolved.rule.exempt;
+                // Exempt plans (the Business tier by default) replace the
+                // fee/net split entirely with a waiver banner — there is no fee
+                // to split, so the worker receives the full quote and the card
+                // says so.
                 if (exempt) {
                   return (
                     <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs">
@@ -213,7 +234,7 @@ export function RespondDialog({ booking, worker }: { booking: Booking; worker: W
                     </div>
                   );
                 }
-                const feeMinor = computePlatformFee(qMinor);
+                const feeMinor = computation.feeMinor;
                 return (
                   <div className="rounded-xl border border-ink-100 bg-ink-50 px-3 py-2.5 text-xs dark:border-ink-800 dark:bg-ink-800/50">
                     <div className="flex items-center justify-between gap-2">
@@ -224,8 +245,8 @@ export function RespondDialog({ booking, worker }: { booking: Booking; worker: W
                     </div>
                     <p className="mt-0.5 text-[10px] text-ink-400">
                       {t("booking.platformFeeHint")
-                        .replace("{rate}", String(PLATFORM_FEE_RATE_BPS / 100))
-                        .replace("{min}", `${PLATFORM_FEE_MIN_MINOR / 100} ${worker.currency}`)}
+                        .replace("{rate}", String(resolved.rule.rateBps / 100))
+                        .replace("{min}", `${resolved.rule.minMinor / 100} ${worker.currency}`)}
                     </p>
                     <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-ink-100 pt-1.5 dark:border-ink-800">
                       <span className="font-bold text-ink-900 dark:text-ink-50">{t("booking.youReceive")}</span>

@@ -16,6 +16,8 @@ import {
   TrendingUp,
   Receipt,
   Wallet,
+  Target,
+  Coins,
 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
@@ -40,6 +42,9 @@ import { RenewDialog } from "./renew-dialog";
 import { UpgradeDialog } from "./upgrade-dialog";
 import { VerificationBanner } from "./verification-banner";
 import { WorkerRevenueTools } from "./worker-revenue-tools";
+import type { FeeRuleSet } from "@/lib/data/fee-rules";
+import type { WorkerRoiReport } from "@/lib/data/repo";
+import { WorkerRoiCard } from "./worker-roi-card";
 
 export function WorkerDashboard({
   session,
@@ -54,6 +59,9 @@ export function WorkerDashboard({
   balance,
   payouts,
   nowSeed,
+  feeRuleSet,
+  liveLeadCount,
+  roiReport,
 }: {
   session: SessionUser;
   analytics: AnalyticsOverview;
@@ -74,6 +82,14 @@ export function WorkerDashboard({
   payouts: LedgerEntry[];
   /** Date.now() at server render time — the rows' hydration-safe now seed. */
   nowSeed: number;
+  /** §7–§10 — how many qualified leads are buyable right now (the CTA links to
+   * the full board at /dashboard/leads). */
+  liveLeadCount: number;
+  /** §Worker ROI — monthly report, null when no data yet. */
+  roiReport?: WorkerRoiReport | null;
+  /** §5 — the ACTIVE platform fee rule set (loaded server-side in /dashboard),
+   * threaded to the booking rows so the respond preview shows the real fee. */
+  feeRuleSet?: FeeRuleSet;
 }) {
   const { locale, t } = useLocale();
   const sub = worker.subscription;
@@ -125,6 +141,73 @@ export function WorkerDashboard({
       {/* verification + expiry banners */}
       <div className="mt-8 space-y-3">
         <VerificationBanner worker={worker} />
+        {/* §7–§10 — the paid qualified-lead marketplace (docs/lead-marketplace.md). */}
+        <Card className="border-brand-500/30 bg-brand-500/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-500/10 text-brand-700 dark:text-brand-400">
+                <Target className="size-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold">{t("leadMarket.title")}</p>
+                <p className="text-xs text-ink-500 dark:text-ink-400">
+                  {liveLeadCount > 0
+                    ? t("dashboard.leadMarketCta", { count: liveLeadCount })
+                    : t("leadMarket.emptyAvailable")}
+                </p>
+              </div>
+            </div>
+            <Button asChild size="sm">
+              <Link href="/dashboard/leads">
+                {t("leadMarket.navLabel")}
+                <ArrowUpRight className="ms-1.5 size-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Credits CTA */}
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                <Coins className="size-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold">{t("leadMarket.creditsTitle")}</p>
+                <p className="text-xs text-ink-500 dark:text-ink-400">{t("leadMarket.creditsCta")}</p>
+              </div>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/dashboard/credits">
+                {t("leadMarket.buyCredits")}
+                <ArrowUpRight className="ms-1.5 size-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Earnings CTA */}
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                <Receipt className="size-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold">{t("earnings.title")}</p>
+                <p className="text-xs text-ink-500 dark:text-ink-400">{t("earnings.cta")}</p>
+              </div>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/dashboard/earnings">
+                {t("earnings.view")}
+                <ArrowUpRight className="ms-1.5 size-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         {subStatus === "expired" && (
           <Card className="border-red-500/30 bg-red-500/5">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -143,6 +226,16 @@ export function WorkerDashboard({
         )}
       </div>
 
+      {/* Worker ROI — what the marketplace cost and returned this month */}
+      {roiReport && roiReport.roi && (
+        <div className="mt-8">
+          <WorkerRoiCard
+            roi={roiReport.roi}
+            liveLeadCount={liveLeadCount}
+          />
+        </div>
+      )}
+
       {/* Revenue Tools — credits, tokens, commission, promoted profiles */}
       <div className="mt-8">
         <WorkerRevenueTools />
@@ -152,7 +245,7 @@ export function WorkerDashboard({
         {/* chart + reviews */}
         <div className="space-y-6 lg:col-span-2">
           {/* bookings — M1 worker panel (docs/booking-scheduling.md §6) */}
-          <BookingsPanel bookings={bookings} messagesByBooking={messagesByBooking} previewsByBooking={previewsByBooking} recurrings={recurrings} worker={worker} nowSeed={nowSeed} />
+          <BookingsPanel bookings={bookings} messagesByBooking={messagesByBooking} previewsByBooking={previewsByBooking} recurrings={recurrings} worker={worker} nowSeed={nowSeed} feeRuleSet={feeRuleSet} />
 
           <Card>
             <CardHeader className="flex-row items-center justify-between">
@@ -288,7 +381,7 @@ export function WorkerDashboard({
               {payouts.length > 0 ? (
                 <div className="space-y-1.5 border-t border-ink-100 pt-3 dark:border-ink-800">
                   {payouts.slice(0, 4).map((p) => (
-                    <div key={p.id} className="flex items-center justify-between gap-2 text-xs">
+                    <div key={p.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs">
                       <span className="flex items-center gap-2 text-ink-600 dark:text-ink-300">
                         <Badge
                           variant={
@@ -303,6 +396,12 @@ export function WorkerDashboard({
                       <span className="font-bold text-ink-900 dark:text-ink-50">
                         {formatPrice(Math.abs(p.amount) / 100, p.currency, locale)}
                       </span>
+                      {/* §11 — a rebated earning explains itself ("Lead rebate
+                          −$20.00 (fee $21.00 → $1.00)") so the worker can see
+                          why this credit is larger than the quote minus fee. */}
+                      {p.reason ? (
+                        <span className="w-full text-[10px] text-emerald-600 dark:text-emerald-400">{p.reason}</span>
+                      ) : null}
                     </div>
                   ))}
                 </div>

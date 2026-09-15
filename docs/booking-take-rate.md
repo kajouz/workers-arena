@@ -2,6 +2,16 @@
 
 [← Back to docs index](README.md)
 
+> **Superseded in part (September 2026):** the rate/floor/cap is now the DEFAULT
+> rule of the versioned fee engine — see **[fee-rules.md](fee-rules.md)** for
+> per-plan, per-category, emergency and promotional pricing plus the immutable
+> `PlatformFeeSnapshot`. A completed job whose lead the worker BOUGHT also
+> rebates the lead's value against this fee ([lead-marketplace.md §7](lead-marketplace.md)),
+> so the *effective* take rate on work won through the marketplace is lower than
+> the stamped one — the stamped fee itself is never rewritten. This page remains
+> the design record of the original M5 fee; the numbers below are still exactly
+> what the default rule set charges.
+
 > **Status: ✅ implemented.** Migration `20260812075914_booking_platform_fee` (+ `Booking.platformFee` / `platformFeeRateBps`), `computePlatformFee` / `isPlanFeeExempt` in `booking-ui.ts`, the fee stamped at accept-with-quote in both adapters (demo + prisma in-tx), the RespondDialog "you receive X · platform fee Y" preview (waived line for Enterprise), the customer booking-row transparency line, i18n keys, and tests (unit calc, adapter stamps incl. the exempt path, prisma mapper, `db:smoke` assertion). This page documents the original proposal — the implementation follows it as written.
 
 > Original design proposal for the headline revenue lever in `docs/BUSINESS-MODEL.md` §5.2:

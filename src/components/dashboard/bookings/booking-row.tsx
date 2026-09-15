@@ -20,6 +20,7 @@ import { formatDate, cn } from "@/lib/utils";
 import { formatSlotRange } from "@/lib/data/booking-ui";
 import { BookingSlaCountdown } from "@/components/bookings/booking-sla-countdown";
 import { RespondDialog } from "./respond-dialog";
+import type { FeeRuleSet } from "@/lib/data/fee-rules";
 import { CallButton } from "@/components/calling/call-button";
 import { BookingActions } from "./booking-actions";
 import { submitQuoteAction } from "@/app/actions/bookings";
@@ -40,6 +41,7 @@ export function BookingRow({
   emailPreview,
   worker,
   nowSeed,
+  feeRuleSet,
 }: {
   booking: Booking;
   /** §2.3 chat — the booking's negotiation thread (oldest first). */
@@ -52,6 +54,9 @@ export function BookingRow({
   emailPreview: WorkerEmailPreview;
   worker: Worker;
   nowSeed: number;
+  /** §5 — the active platform fee rule set, threaded down to RespondDialog's
+   * live "you receive X" preview (loaded server-side in /dashboard). */
+  feeRuleSet?: FeeRuleSet;
 }) {
   const { locale, t } = useLocale();
   const router = useRouter();
@@ -164,7 +169,7 @@ export function BookingRow({
               scheduled bookings (M4: start/complete/no-show/cancel). */}
           {booking.status === "requested" ? (
             <div className="w-full sm:w-auto">
-              <RespondDialog booking={booking} worker={worker} />
+              <RespondDialog booking={booking} worker={worker} feeRuleSet={feeRuleSet} />
             </div>
           ) : (
             (booking.status === "confirmed" || booking.status === "pendingPayment" || booking.status === "inProgress") && (

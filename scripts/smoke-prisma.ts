@@ -707,6 +707,30 @@ async function main() {
     accepted!.platformFee === 560 && accepted!.platformFeeRateBps === 700,
     "M5 platform fee + audit rate stamped at accept-with-quote"
   );
+  // §5/§6 (docs/fee-rules.md) — the SAME accept writes the immutable
+  // PlatformFeeSnapshot: every input of the calculation (rule version, rate,
+  // floor/cap, subtotal, net, timestamp) persisted once, never updated.
+  const feeSnapshot = await getPrisma().platformFeeSnapshot.findUnique({
+    where: { bookingId: created.id },
+  });
+  assert(feeSnapshot !== null, "§6 fee snapshot row written at accept-with-quote");
+  assert(
+    feeSnapshot!.feeMinor === 560 &&
+      feeSnapshot!.subtotalMinor === 8000 &&
+      feeSnapshot!.netMinor === 7440 &&
+      feeSnapshot!.rateBps === 700 &&
+      feeSnapshot!.ruleVersion >= 1,
+    "§6 snapshot carries the fee, the quote, the net, the rate and the rule version"
+  );
+  console.log(
+    "§6 fee snapshot:",
+    feeSnapshot!.feeMinor,
+    "on",
+    feeSnapshot!.subtotalMinor,
+    "| net",
+    feeSnapshot!.netMinor,
+    "| v" + feeSnapshot!.ruleVersion
+  );
   assert(accepted!.events.at(-1)?.status === "confirmed", "CONFIRMED audit event appended");
   const slotAfterAccept = (await prismaGetWorkerSlots(khaled!.id)).find((s) => s.id === free!.id);
   assert(slotAfterAccept?.status === "booked", "accepted slot is BOOKED");

@@ -7,14 +7,18 @@ import {
   getInvoices,
   getWorkerBookings,
   getBookingMessages,
+  getWorkerLeadOffers,
   getWorkerRecurrings,
   getWorkerSlots,
   getWorkerBalance,
   getWorkerPayouts,
 } from "@/lib/data/repo";
+import { offerIsLive } from "@/lib/data/lead-market";
 import type { BookingMessage, Notification } from "@/lib/data/types";
 import { workerEmailPreviewFor } from "@/lib/data/booking-notifications";
+import { loadActiveFeeRuleSet } from "@/lib/data/fee-rules-store";
 import { WorkerDashboard } from "@/components/dashboard/worker-dashboard";
+import { getWorkerRoi } from "@/lib/data/repo";
 
 /** The worker-facing email a booking's state implies, rendered in BOTH locales
  * (workerEmailPreviewFor — the mirror of the customer rows' preview). */
@@ -72,12 +76,21 @@ export default async function DashboardPage() {
   // completion, null on the system auto-confirm which emails the customer).
   const previewsByBooking: Record<string, WorkerEmailPreview> = {};
   for (const b of bookings) previewsByBooking[b.id] = workerEmailPreviewFor(b, demoWorker);
+  // §5 — the ACTIVE platform fee rule set, so the RespondDialog's "you receive
+  // X · platform fee Y" preview is computed from the same rules (and version)
+  // the accept transaction will stamp into the fee snapshot (§6).
+  const feeRuleSet = await loadActiveFeeRuleSet();
+  // §7–§10 — the qualified leads buyable right now, for the dashboard's
+  // lead-marketplace CTA (the full board lives at /dashboard/leads).
+  const leadOffers = await getWorkerLeadOffers(demoWorker.id);
 
   // Hydration safety (useSsrSafeNow): the booking rows' SLA countdown derives
   // from Date.now(), so the server passes its own render-time clock down as
   // nowSeed — the client renders from it until mount, making the SSR markup
   // and the first client render identical.
   const nowSeed = Date.now();
+  const liveLeadCount = leadOffers.filter((offer) => offerIsLive(offer, nowSeed)).length;
+  const roiReport = await getWorkerRoi(demoWorker.id);
 
   return (
     <WorkerDashboard
@@ -93,6 +106,9 @@ export default async function DashboardPage() {
       balance={balance}
       payouts={payouts}
       nowSeed={nowSeed}
+      feeRuleSet={feeRuleSet}
+      liveLeadCount={liveLeadCount}
+      roiReport={roiReport}
     />
   );
 }
