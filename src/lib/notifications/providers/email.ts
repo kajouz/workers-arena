@@ -78,7 +78,8 @@ class SmtpEmailChannel implements NotificationChannel {
   async send(payload: ChannelPayload): Promise<DispatchResult> {
     try {
       // Lazy import keeps the bundle dependency-free until SMTP is configured.
-      const mod = await import(/* webpackIgnore: true */ "nodemailer");
+      const nodemailerModule = "nodemailer";
+      const mod = await import(/* @vite-ignore */ nodemailerModule);
       const nodemailer = mod.default ?? mod;
       const host = process.env.NOTIFY_SMTP_HOST;
       if (!host) throw new Error("NOTIFY_SMTP_HOST is not configured");
@@ -131,7 +132,8 @@ class ResendEmailChannel implements NotificationChannel {
       if (!apiKey) throw new Error("RESEND_API_KEY is not configured");
       if (!payload.recipient?.email) throw new Error("recipient has no email address");
 
-      const mod = await import(/* webpackIgnore: true */ "resend");
+      const resendModule = "resend";
+      const mod = await import(/* @vite-ignore */ resendModule);
       const { Resend } = mod;
       const resend = new Resend(apiKey);
       const { subject, html, text } = renderForChannel(payload, payload.recipient?.locale ?? "en");

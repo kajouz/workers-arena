@@ -157,7 +157,8 @@ export async function sendEmergencySmsFallback(
       throw new Error("Twilio credentials not configured for emergency SMS");
     }
 
-    const mod = await import(/* webpackIgnore: true */ "twilio");
+    const twilioModule = "twilio";
+    const mod = await import(/* @vite-ignore */ twilioModule);
     const Twilio = mod.default ?? mod;
     const client = new Twilio(accountSid, authToken);
     await client.messages.create({

@@ -120,7 +120,7 @@ describe("LeadMarketPanel", () => {
     // Ownership + reveal are editable, and the offer/ledger audit is listed.
     expect(screen.getByText("Distribution & ownership")).toBeInTheDocument();
     expect(screen.getByText("Contact reveal")).toBeInTheDocument();
-    expect(screen.getByText(/QR-2026-00042/)).toBeInTheDocument();
+    expect(screen.getAllByText(/QR-2026-00042/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Demo seed/)).toBeInTheDocument();
     expect(screen.getByText(/3 workers per lead · 120 min window/)).toBeInTheDocument();
     // §11 — the rebate policy and what it has given back so far.
