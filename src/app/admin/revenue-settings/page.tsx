@@ -5,6 +5,7 @@ import { RevenueSettingsDashboard } from "@/components/admin/revenue-settings";
 import { FeeRulesPanel } from "@/components/admin/fee-rules-panel";
 import { PromotionsPanel } from "@/components/admin/promotions-panel";
 import { LeadMarketPanel } from "@/components/admin/lead-market-panel";
+import { ReferralConfigPanel } from "@/components/admin/referral-config-panel";
 import {
   feePromotionAttribution,
   listFeeRuleSetVersions,
@@ -58,6 +59,7 @@ export default async function RevenueSettingsPage() {
         {/* §7–§10 — the qualified lead marketplace: its policy, the offers it
             created and the credit ledger its purchases debit. */}
         <LeadMarketPanel ruleSet={feeRuleSet} offers={leadOffers} credits={creditLedger} rebates={leadRebates} ratings={getAllLeadRatings()} />
+        <ReferralConfigPanel ruleSet={feeRuleSet} />
         <p className="text-xs text-ink-500">
           <a href="/admin/analytics/lead-quality" className="underline hover:text-ink-700">
             View lead quality analytics →

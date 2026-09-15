@@ -86,6 +86,7 @@ function makeWorkerRow(overrides: Partial<WorkerRow> = {}): WorkerRow {
     verifiedAt: new Date("2026-01-01"),
     joinedAt: new Date("2019-01-15"),
     deletedAt: null,
+    referredByWorkerId: null,
     createdAt: new Date("2019-01-15"),
     updatedAt: new Date("2026-01-01"),
     category: {

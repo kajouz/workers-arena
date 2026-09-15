@@ -45,6 +45,7 @@ import { WorkerRevenueTools } from "./worker-revenue-tools";
 import type { FeeRuleSet } from "@/lib/data/fee-rules";
 import type { WorkerRoiReport } from "@/lib/data/repo";
 import { WorkerRoiCard } from "./worker-roi-card";
+import { ReferralCard } from "./referral-card";
 
 export function WorkerDashboard({
   session,
@@ -207,6 +208,9 @@ export function WorkerDashboard({
             </Button>
           </CardContent>
         </Card>
+
+        {/* Referral CTA */}
+        <ReferralCard />
 
         {subStatus === "expired" && (
           <Card className="border-red-500/30 bg-red-500/5">

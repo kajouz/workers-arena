@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,6 +31,8 @@ type Values = z.infer<typeof schema>;
 
 export default function RegisterPage() {
   const { t } = useLocale();
+  const searchParams = useSearchParams();
+  const referralCode = searchParams.get("ref") ?? "";
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(registerAction, {});
 
@@ -66,6 +69,7 @@ export default function RegisterPage() {
           )}
 
           <form action={formAction} className="mt-6 space-y-4">
+            {referralCode && <input type="hidden" name="referralCode" value={referralCode} />}
             <div className="space-y-1.5">
               <Label htmlFor="name">{t("auth.name")}</Label>
               <Input id="name" placeholder="Ahmed Ali" {...register("name")} />

@@ -419,6 +419,10 @@ model Worker {
   bookings          Booking[]
   recurringBookings RecurringBooking[]
 
+  referredByWorkerId String?
+  referredByWorker   Worker?  @relation("WorkerReferrals", fields: [referredByWorkerId], references: [id], onDelete: SetNull)
+  referredWorkers    Worker[] @relation("WorkerReferrals")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

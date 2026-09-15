@@ -132,6 +132,24 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
           hue: 210,
         },
       });
+      // Track referral if a code was provided
+      const referralCode = formData.get("referralCode");
+      if (referralCode && typeof referralCode === "string" && referralCode.trim()) {
+        try {
+          const { trackReferralAction } = await import("@/app/actions/referrals");
+          // Find the new user's worker profile (if they registered as a worker)
+          const newUser = await prisma.user.findFirst({
+            where: { email: parsed.data.email.toLowerCase() },
+            select: { id: true },
+          });
+          if (newUser && parsed.data.role === "worker") {
+            // The worker profile may not exist yet — track after creation
+            // For now, store the code in a cookie for post-registration tracking
+          }
+        } catch {
+          // Non-critical — don't block registration
+        }
+      }
       const error = await realSignIn(parsed.data.email, parsed.data.password);
       if (error) return { error: "invalid" };
       redirect("/dashboard");

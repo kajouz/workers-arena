@@ -1591,6 +1591,17 @@ export const en = {
     notificationChannelsTitle: "Notification Channels",
     notificationChannelsHint: "Choose which channels to notify workers about new lead offers. WhatsApp uses wa.me deep links; Email and SMS use the configured providers.",
   },
+  referral: {
+    title: "Refer & Earn",
+    subtitle: "Invite other workers and both get bonus credits",
+    generateCode: "Get My Referral Code",
+    copyLink: "Copy",
+    linkCopied: "Referral link copied!",
+    totalReferrals: "Total Referrals",
+    creditsEarned: "Credits Earned",
+    thisMonth: "This Month",
+    howItWorks: "Share your code with other workers. When they sign up and complete their first job, you both earn bonus credits.",
+  },
 };
 
 export type Dictionary = typeof en;
