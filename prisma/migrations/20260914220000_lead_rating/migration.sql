@@ -10,7 +10,7 @@ CREATE TABLE "LeadRating" (
     "reasonAr" TEXT,
     "converted" BOOLEAN NOT NULL DEFAULT false,
     "reachable" BOOLEAN,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "LeadRating_offerId_fkey" FOREIGN KEY ("offerId") REFERENCES "LeadOffer"("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "LeadRating_workerId_fkey" FOREIGN KEY ("workerId") REFERENCES "Worker"("id") ON DELETE CASCADE ON UPDATE CASCADE,
