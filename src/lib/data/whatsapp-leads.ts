@@ -13,7 +13,8 @@
  * pre-filled — one tap to send. No API keys needed.
  */
 
-import type { LeadGrade, LeadOffer } from "./lead-market";
+import type { LeadGrade, LeadOffer, WhatsAppTemplates } from "./lead-market";
+import { DEFAULT_WHATSAPP_TEMPLATES } from "./lead-market";
 import { leadGradeLabel } from "./lead-notifications";
 
 /* ─────────────────────────────────── Input ─────────────────────────────────── */
@@ -29,6 +30,8 @@ export interface WhatsAppLeadMessage {
   adminName: string;
   /** Optional custom message appended after the template. */
   customMessage?: string;
+  /** Admin-configured per-grade templates (falls back to defaults). */
+  templates?: WhatsAppTemplates;
 }
 
 export interface WhatsAppLeadLink {
@@ -50,41 +53,25 @@ export function buildLeadOfferMessage(
   locale: "en" | "ar" = "en"
 ): string {
   const { offer, workerName, adminName, customMessage } = input;
+  const templates = input.templates ?? DEFAULT_WHATSAPP_TEMPLATES;
+  const boardUrl = "https://workers-arena.vercel.app/dashboard/leads";
+
+  // Look up the grade-specific template, fall back to a generic one
+  const template = templates[locale]?.[offer.grade] ?? templates.en[offer.grade] ?? templates.en.bronze;
+
+  // Replace placeholders
   const grade = leadGradeLabel(offer.grade, locale);
+  const result = template
+    .replace(/\{workerName\}/g, workerName)
+    .replace(/\{grade\}/g, grade)
+    .replace(/\{leadNumber\}/g, offer.leadNumber)
+    .replace(/\{matchScore\}/g, String(offer.matchScore))
+    .replace(/\{priceCredits\}/g, String(offer.priceCredits))
+    .replace(/\{boardUrl\}/g, boardUrl)
+    .replace(/\{adminName\}/g, adminName);
 
-  if (locale === "ar") {
-    const parts = [
-      `مرحباً ${workerName} 👋`,
-      ``,
-      `لديك عميل محتمل جديد من 类型 ${grade}:`,
-      `• الرقم: ${offer.leadNumber}`,
-      `• الدرجة: ${grade}`,
-      `• نقاط المطابقة: ${offer.matchScore}/100`,
-      `• التكلفة: ${offer.priceCredits} رصيد`,
-      ``,
-      `افتح اللوحة لشراء هذا العميل قبل انتهاء المدة.`,
-      `https://workers-arena.vercel.app/dashboard/leads`,
-    ];
-    if (customMessage) parts.push(``, customMessage);
-    parts.push(``, `— ${adminName}, فريق WorkersArena`);
-    return parts.join("\n");
-  }
-
-  const parts = [
-    `Hi ${workerName} 👋`,
-    ``,
-    `You have a new ${grade} lead offer:`,
-    `• Lead: ${offer.leadNumber}`,
-    `• Grade: ${grade}`,
-    `• Match score: ${offer.matchScore}/100`,
-    `• Cost: ${offer.priceCredits} credits`,
-    ``,
-    `Open your board to buy this lead before it expires:`,
-    `https://workers-arena.vercel.app/dashboard/leads`,
-  ];
-  if (customMessage) parts.push(``, customMessage);
-  parts.push(``, `— ${adminName}, WorkersArena Team`);
-  return parts.join("\n");
+  if (customMessage) return result + "\n\n" + customMessage;
+  return result;
 }
 
 /**

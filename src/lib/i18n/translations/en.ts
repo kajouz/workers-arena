@@ -1146,6 +1146,12 @@ export const en = {
     sendLead: "Send WhatsApp",
     sendBatch: "Notify All Workers",
     sent: "WhatsApp notification sent.",
+    notifyWorker: "Send WhatsApp notification",
+    templatesTitle: "WhatsApp Message Templates",
+    templatesHint: "Customize the notification message sent to workers for each lead grade. Use placeholders to personalize.",
+    placeholders: "Available placeholders:",
+    preview: "Live preview (with sample data):",
+    resetDefaults: "Reset all templates to defaults",
   },
   disputes: {
     title: "File a Dispute",

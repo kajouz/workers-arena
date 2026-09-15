@@ -466,6 +466,23 @@ export interface LeadMarketConfig {
   weights: MatchingWeights;
   /** §11 what a converted lead gives back (fee rebate). */
   rebate: LeadRebateConfig;
+  /** WhatsApp notification templates per grade (admin-editable). */
+  whatsappTemplates: WhatsAppTemplates;
+}
+
+/** Per-grade WhatsApp notification templates. Admin edits these so each
+ * grade's notification can carry a tailored message. Placeholders:
+ *   {workerName} — the worker's display name
+ *   {grade} — the grade label (Bronze/Silver/Gold/Emergency)
+ *   {leadNumber} — the human-readable lead number
+ *   {matchScore} — the matching score (0–100)
+ *   {priceCredits} — the credit cost of the lead
+ *   {boardUrl} — the deep link to the worker's lead board
+ *   {adminName} — the admin who sent the notification
+ */
+export interface WhatsAppTemplates {
+  en: Record<LeadGrade, string>;
+  ar: Record<LeadGrade, string>;
 }
 
 /** When the customer's details unlock. */
@@ -481,6 +498,21 @@ export interface ContactRevealPolicy {
 }
 
 /** §7 pricing defaults — inside the ranges the plan sketches ($3–5 … $20–50). */
+export const DEFAULT_WHATSAPP_TEMPLATES: WhatsAppTemplates = {
+  en: {
+    bronze: `Hi {workerName} 👋\n\nYou have a new Bronze lead offer:\n• Lead: {leadNumber}\n• Grade: {grade}\n• Match score: {matchScore}/100\n• Cost: {priceCredits} credits\n\nOpen your board to buy this lead before it expires:\n{boardUrl}\n\n— {adminName}, WorkersArena Team`,
+    silver: `Hi {workerName} 👋\n\nYou have a new Silver lead offer:\n• Lead: {leadNumber}\n• Grade: {grade}\n• Match score: {matchScore}/100\n• Cost: {priceCredits} credits\n\nOpen your board to buy this lead before it expires:\n{boardUrl}\n\n— {adminName}, WorkersArena Team`,
+    gold: `Hi {workerName} 👋\n\nYou have a new Gold lead offer:\n• Lead: {leadNumber}\n• Grade: {grade}\n• Match score: {matchScore}/100\n• Cost: {priceCredits} credits\n\nOpen your board to buy this lead before it expires:\n{boardUrl}\n\n— {adminName}, WorkersArena Team`,
+    emergency: `🚨 Hi {workerName}!\n\nURGENT lead offer:\n• Lead: {leadNumber}\n• Grade: EMERGENCY\n• Match score: {matchScore}/100\n• Cost: {priceCredits} credits\n\nThis customer needs help NOW. Buy the lead immediately:\n{boardUrl}\n\n— {adminName}, WorkersArena Team`,
+  },
+  ar: {
+    bronze: `مرحباً {workerName} 👋\n\nلديك عميل محتمل جديد (برونزي):\n• الرقم: {leadNumber}\n• الدرجة: {grade}\n• نقاط المطابقة: {matchScore}/100\n• التكلفة: {priceCredits} رصيد\n\nافتح اللوحة لشراء هذا العميل قبل انتهاء المدة:\n{boardUrl}\n\n— {adminName}, فريق WorkersArena`,
+    silver: `مرحباً {workerName} 👋\n\nلديك عميل محتمل جديد (فضي):\n• الرقم: {leadNumber}\n• الدرجة: {grade}\n• نقاط المطابقة: {matchScore}/100\n• التكلفة: {priceCredits} رصيد\n\nافتح اللوحة لشراء هذا العميل قبل انتهاء المدة:\n{boardUrl}\n\n— {adminName}, فريق WorkersArena`,
+    gold: `مرحباً {workerName} 👋\n\nلديك عميل محتمل جديد (ذهبي):\n• الرقم: {leadNumber}\n• الدرجة: {grade}\n• نقاط المطابقة: {matchScore}/100\n• التكلفة: {priceCredits} رصيد\n\nافتح اللوحة لشراء هذا العميل قبل انتهاء المدة:\n{boardUrl}\n\n— {adminName}, فريق WorkersArena`,
+    emergency: `🚨 مرحباً {workerName}!\n\nعرض عميل عاجل:\n• الرقم: {leadNumber}\n• الدرجة: طوارئ\n• نقاط المطابقة: {matchScore}/100\n• التكلفة: {priceCredits} رصيد\n\nهذا العميل يحتاج مساعدة الآن. اشتري العميل فوراً:\n{boardUrl}\n\n— {adminName}, فريق WorkersArena`,
+  },
+};
+
 export const DEFAULT_LEAD_MARKET_CONFIG: LeadMarketConfig = {
   prices: { bronze: 5, silver: 9, gold: 20, emergency: 35 },
   maxWorkersPerLead: 3,
@@ -494,6 +526,7 @@ export const DEFAULT_LEAD_MARKET_CONFIG: LeadMarketConfig = {
   },
   weights: DEFAULT_MATCHING_WEIGHTS,
   rebate: DEFAULT_LEAD_REBATE,
+  whatsappTemplates: DEFAULT_WHATSAPP_TEMPLATES,
 };
 
 /** The lead-market numbers in force for a rule set (falls back to defaults). */
@@ -672,6 +705,7 @@ export function normalizeLeadMarketConfig(input: Partial<LeadMarketConfig> | und
       afterBooking: keep(reveal.afterBooking, base.reveal.afterBooking),
     },
     weights,
+    whatsappTemplates: input?.whatsappTemplates ?? base.whatsappTemplates,
   };
 }
 

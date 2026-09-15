@@ -27,6 +27,7 @@ import { formatDate } from "@/lib/utils";
 import {
   LEAD_GRADES,
   DEFAULT_LEAD_MARKET_CONFIG,
+  DEFAULT_WHATSAPP_TEMPLATES,
   leadMarketConfig,
   type ContactReveal,
   type ContactRevealPolicy,
@@ -34,6 +35,7 @@ import {
   type LeadOffer,
   type MatchingWeights,
   type LeadMarketConfig,
+  type WhatsAppTemplates,
 } from "@/lib/data/lead-market";
 import type { LeadRebate } from "@/lib/data/lead-rebate";
 import type { CreditLedgerEntry } from "@/lib/data/credit-ledger";
@@ -89,6 +91,11 @@ export function LeadMarketPanel({
   const { locale, t } = useLocale();
   const router = useRouter();
   const [draft, setDraft] = useState<LeadMarketConfig>(() => leadMarketConfig(ruleSet));
+  const [templates, setTemplates] = useState<WhatsAppTemplates>(() =>
+    draft.whatsappTemplates ?? DEFAULT_WHATSAPP_TEMPLATES
+  );
+  const [templateGrade, setTemplateGrade] = useState<LeadGrade>("bronze");
+  const [templateLocale, setTemplateLocale] = useState<"en" | "ar">("en");
   const [busy, setBusy] = useState(false);
   const [grant, setGrant] = useState({ workerId: "", amount: "10", reason: "" });
   const [granting, setGranting] = useState(false);
@@ -115,6 +122,10 @@ export function LeadMarketPanel({
       reveal: draft.reveal,
       weights: { ...draft.weights },
       rebate: draft.rebate,
+      whatsappTemplates: {
+        en: { ...templates.en },
+        ar: { ...templates.ar },
+      },
     });
     setBusy(false);
     if (res.ok) {
@@ -383,6 +394,98 @@ export function LeadMarketPanel({
               </ul>
             </>
           )}
+        </section>
+
+        {/* §WhatsApp — per-grade notification templates */}
+        <section className="space-y-3 border-t border-ink-100 pt-4 dark:border-ink-800">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <MessageCircle className="h-4 w-4" />
+            {t("whatsapp.templatesTitle")}
+          </h3>
+          <p className="text-[11px] text-ink-500 dark:text-ink-400">{t("whatsapp.templatesHint")}</p>
+
+          {/* Grade + locale picker */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1">
+              {LEAD_GRADES.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setTemplateGrade(g)}
+                  className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
+                    templateGrade === g
+                      ? "bg-brand-500 text-white"
+                      : "bg-ink-100 text-ink-600 hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300"
+                  }`}
+                >
+                  {t(`leadMarket.grade.${g}`)}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1">
+              {(["en", "ar"] as const).map((loc) => (
+                <button
+                  key={loc}
+                  onClick={() => setTemplateLocale(loc)}
+                  className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
+                    templateLocale === loc
+                      ? "bg-brand-500 text-white"
+                      : "bg-ink-100 text-ink-600 hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-300"
+                  }`}
+                >
+                  {loc.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Template textarea */}
+          <textarea
+            className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-50"
+            rows={10}
+            value={templates[templateLocale][templateGrade]}
+            onChange={(e) =>
+              setTemplates((prev) => ({
+                ...prev,
+                [templateLocale]: { ...prev[templateLocale], [templateGrade]: e.target.value },
+              }))
+            }
+          />
+
+          {/* Placeholder reference */}
+          <div className="rounded-lg bg-ink-50 p-3 dark:bg-ink-800/50">
+            <p className="text-[11px] font-medium text-ink-600 dark:text-ink-300">{t("whatsapp.placeholders")}</p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {["{workerName}", "{grade}", "{leadNumber}", "{matchScore}", "{priceCredits}", "{boardUrl}", "{adminName}"].map((p) => (
+                <code key={p} className="rounded bg-ink-100 px-1.5 py-0.5 text-[10px] text-ink-700 dark:bg-ink-700 dark:text-ink-300">
+                  {p}
+                </code>
+              ))}
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="rounded-xl border border-ink-200 bg-emerald-50 p-3 dark:border-ink-700 dark:bg-emerald-950/20">
+            <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">{t("whatsapp.preview")}</p>
+            <pre className="mt-1 whitespace-pre-wrap font-mono text-[11px] text-emerald-900 dark:text-emerald-200">
+              {templates[templateLocale][templateGrade]
+                .replace(/\{workerName\}/g, "Ahmad")
+                .replace(/\{grade\}/g, templateGrade)
+                .replace(/\{leadNumber\}/g, "QR-2026-00042")
+                .replace(/\{matchScore\}/g, "85")
+                .replace(/\{priceCredits\}/g, "9")
+                .replace(/\{boardUrl\}/g, "https://workers-arena.vercel.app/dashboard/leads")
+                .replace(/\{adminName\}/g, "Admin")
+              }
+            </pre>
+          </div>
+
+          {/* Reset to defaults */}
+          <button
+            onClick={() => setTemplates(DEFAULT_WHATSAPP_TEMPLATES)}
+            className="text-xs text-ink-400 hover:text-ink-600 dark:hover:text-ink-300"
+          >
+            {t("whatsapp.resetDefaults")}
+          </button>
         </section>
 
         {/* Live offers the marketplace created (audit) */}

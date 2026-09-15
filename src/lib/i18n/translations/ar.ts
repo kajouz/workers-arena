@@ -1143,6 +1143,12 @@ export const ar: Dictionary = {
     sendLead: "إرسال واتساب",
     sendBatch: "إشعار جميع العمال",
     sent: "تم إرسال إشعار واتساب.",
+    notifyWorker: "إرسال إشعار واتساب",
+    templatesTitle: "قوالب رسائل واتساب",
+    templatesHint: "خصّص رسالة الإشعار المرسلة للعمال لكل درجة عميل محتمل. استخدم النائبات للتخصيص.",
+    placeholders: "النائبات المتاحة:",
+    preview: "معاينة مباشرة (بيانات نموذجية):",
+    resetDefaults: "إعادة تعيين جميع القوالب",
   },
   disputes: {
     title: "تقديم شكوى",

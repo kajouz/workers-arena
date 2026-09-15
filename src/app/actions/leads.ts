@@ -95,6 +95,10 @@ const leadMarketSchema = z.object({
     pctBps: z.coerce.number().int().min(0).max(10_000),
     maxMinor: z.union([z.coerce.number().int().min(0).max(10_000_000), z.null()]),
   }),
+  whatsappTemplates: z.object({
+    en: z.record(z.string(), z.string()),
+    ar: z.record(z.string(), z.string()),
+  }).optional(),
 });
 
 export type LeadMarketConfigPayload = z.infer<typeof leadMarketSchema>;
@@ -130,6 +134,7 @@ export async function saveLeadMarketConfigAction(
     reveal: parsed.data.reveal,
     weights: parsed.data.weights as unknown as LeadMarketConfig["weights"],
     rebate: parsed.data.rebate,
+    whatsappTemplates: parsed.data.whatsappTemplates as LeadMarketConfig["whatsappTemplates"] | undefined,
   });
 
   try {
