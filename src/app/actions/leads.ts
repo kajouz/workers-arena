@@ -99,6 +99,19 @@ const leadMarketSchema = z.object({
     en: z.record(z.string(), z.string()),
     ar: z.record(z.string(), z.string()),
   }).optional(),
+  emailTemplates: z.object({
+    en: z.record(z.string(), z.object({ subject: z.string(), body: z.string() })),
+    ar: z.record(z.string(), z.object({ subject: z.string(), body: z.string() })),
+  }).optional(),
+  smsTemplates: z.object({
+    en: z.record(z.string(), z.string()),
+    ar: z.record(z.string(), z.string()),
+  }).optional(),
+  notifyChannels: z.object({
+    whatsapp: z.coerce.boolean(),
+    email: z.coerce.boolean(),
+    sms: z.coerce.boolean(),
+  }).optional(),
 });
 
 export type LeadMarketConfigPayload = z.infer<typeof leadMarketSchema>;
@@ -135,6 +148,9 @@ export async function saveLeadMarketConfigAction(
     weights: parsed.data.weights as unknown as LeadMarketConfig["weights"],
     rebate: parsed.data.rebate,
     whatsappTemplates: parsed.data.whatsappTemplates as LeadMarketConfig["whatsappTemplates"] | undefined,
+    emailTemplates: parsed.data.emailTemplates as LeadMarketConfig["emailTemplates"] | undefined,
+    smsTemplates: parsed.data.smsTemplates as LeadMarketConfig["smsTemplates"] | undefined,
+    notifyChannels: parsed.data.notifyChannels,
   });
 
   try {

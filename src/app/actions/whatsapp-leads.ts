@@ -22,7 +22,8 @@ import {
   buildBatchWhatsAppNotifications,
   type WhatsAppLeadMessage,
 } from "@/lib/data/whatsapp-leads";
-import type { LeadGrade, LeadOffer } from "@/lib/data/lead-market";
+import { dispatchLeadNotification, type LeadDispatchInput } from "@/lib/data/lead-notifications-dispatch";
+import type { LeadGrade, LeadOffer, NotificationChannelConfig } from "@/lib/data/lead-market";
 
 const DEMO_WORKER_SLUG = "khaled-al-harbi-plumbing";
 
@@ -38,6 +39,8 @@ export interface WhatsAppSendResult {
   }>;
   /** How many workers were notified. */
   count: number;
+  /** Email/SMS dispatch results (if channels enabled). */
+  dispatchResults?: Array<{ channel: string; ok: boolean; provider: string; error?: string }>;
 }
 
 export interface WhatsAppSendError {
@@ -52,6 +55,7 @@ export async function sendWhatsAppLeadNotification(input: {
   workerId: string;
   offerId: string;
   customMessage?: string;
+  channels?: NotificationChannelConfig;
 }): Promise<WhatsAppSendResult | WhatsAppSendError> {
   const session = await getSession();
   if (!session || session.role !== "admin") {
@@ -68,6 +72,7 @@ export async function sendWhatsAppLeadNotification(input: {
   if (!offer) return { ok: false, error: "Lead offer not found." };
 
   const adminName = session.name ?? "Admin";
+  const locale = worker.languages?.[0]?.code === "ar" ? "ar" : "en";
   const notification = buildWhatsAppLeadNotification(
     {
       workerPhone: worker.phone,
@@ -81,14 +86,37 @@ export async function sendWhatsAppLeadNotification(input: {
       adminName,
       customMessage: input.customMessage,
     },
-    worker.languages?.[0]?.code === "ar" ? "ar" : "en"
+    locale
   );
 
+  // Dispatch email/SMS notifications via the unified notification system
+  let dispatchResults: Array<{ channel: string; ok: boolean; provider: string; error?: string }> | undefined;
+  if (input.channels) {
+    const dispatchInput: LeadDispatchInput = {
+      workerName: worker.nameEn,
+      workerPhone: worker.phone,
+      workerEmail: worker.email,
+      workerLocale: locale,
+      offer: {
+        leadNumber: offer.leadNumber,
+        grade: offer.grade as LeadGrade,
+        priceCredits: offer.priceCredits,
+        matchScore: offer.matchScore,
+      },
+      adminName,
+      channels: input.channels,
+    };
+    dispatchResults = await dispatchLeadNotification(dispatchInput);
+  }
+
   // Log the activity
+  const channelsDesc = input.channels
+    ? [input.channels.whatsapp ? "WhatsApp" : null, input.channels.email ? "Email" : null, input.channels.sms ? "SMS" : null].filter(Boolean).join(" + ")
+    : "WhatsApp";
   await logAdminActivity({
-    code: ACTION_CODES.LEAD_PURCHASED, // reuse; a more specific code can be added later
-    actionEn: `${adminName} sent WhatsApp notification to ${worker.nameEn} for lead ${offer.leadNumber} (${offer.grade})`,
-    actionAr: `${adminName} أرسل إشعار واتساب إلى ${worker.nameAr} للعميل المحتمل ${offer.leadNumber} (${offer.grade})`,
+    code: ACTION_CODES.LEAD_PURCHASED,
+    actionEn: `${adminName} sent ${channelsDesc} notification to ${worker.nameEn} for lead ${offer.leadNumber} (${offer.grade})`,
+    actionAr: `${adminName} أرسل إشعار ${channelsDesc} إلى ${worker.nameAr} للعميل المحتمل ${offer.leadNumber} (${offer.grade})`,
     actor: adminName,
     type: "payment",
   });
@@ -108,6 +136,7 @@ export async function sendWhatsAppLeadNotification(input: {
       },
     ],
     count: 1,
+    dispatchResults,
   };
 }
 
@@ -118,6 +147,7 @@ export async function sendWhatsAppLeadNotification(input: {
 export async function sendBatchWhatsAppNotifications(input: {
   leadId: string;
   customMessage?: string;
+  channels?: NotificationChannelConfig;
 }): Promise<WhatsAppSendResult | WhatsAppSendError> {
   const session = await getSession();
   if (!session || session.role !== "admin") {
@@ -130,15 +160,48 @@ export async function sendBatchWhatsAppNotifications(input: {
 
   const adminName = session.name ?? "Admin";
   const notifications: WhatsAppSendResult["notifications"] = [];
+  const allDispatchResults: Array<{ channel: string; ok: boolean; provider: string; error?: string }> = [];
 
   for (const offer of offers) {
     const worker = await getWorkerById(offer.workerId);
-    if (!worker?.phone) continue;
+    if (!worker) continue;
 
-    const notification = buildWhatsAppLeadNotification(
-      {
-        workerPhone: worker.phone,
+    const locale = worker.languages?.[0]?.code === "ar" ? "ar" : "en";
+
+    // WhatsApp deep link (always generated)
+    if (worker.phone) {
+      const notification = buildWhatsAppLeadNotification(
+        {
+          workerPhone: worker.phone,
+          workerName: worker.nameEn,
+          offer: {
+            leadNumber: offer.leadNumber,
+            grade: offer.grade as LeadGrade,
+            priceCredits: offer.priceCredits,
+            matchScore: offer.matchScore,
+          },
+          adminName,
+          customMessage: input.customMessage,
+        },
+        locale
+      );
+
+      notifications.push({
+        workerId: worker.id,
         workerName: worker.nameEn,
+        phone: worker.phone,
+        url: notification.url,
+        message: notification.message,
+      });
+    }
+
+    // Email/SMS dispatch via unified notification system
+    if (input.channels) {
+      const dispatchInput: LeadDispatchInput = {
+        workerName: worker.nameEn,
+        workerPhone: worker.phone,
+        workerEmail: worker.email,
+        workerLocale: locale,
         offer: {
           leadNumber: offer.leadNumber,
           grade: offer.grade as LeadGrade,
@@ -146,29 +209,25 @@ export async function sendBatchWhatsAppNotifications(input: {
           matchScore: offer.matchScore,
         },
         adminName,
-        customMessage: input.customMessage,
-      },
-      worker.languages?.[0]?.code === "ar" ? "ar" : "en"
-    );
-
-    notifications.push({
-      workerId: worker.id,
-      workerName: worker.nameEn,
-      phone: worker.phone,
-      url: notification.url,
-      message: notification.message,
-    });
+        channels: input.channels,
+      };
+      const results = await dispatchLeadNotification(dispatchInput);
+      allDispatchResults.push(...results);
+    }
   }
 
-  if (notifications.length === 0) {
-    return { ok: false, error: "No workers with phone numbers found." };
+  if (notifications.length === 0 && allDispatchResults.length === 0) {
+    return { ok: false, error: "No workers with contact details found." };
   }
 
   // Log the batch activity
+  const channelsDesc = input.channels
+    ? [input.channels.whatsapp ? "WhatsApp" : null, input.channels.email ? "Email" : null, input.channels.sms ? "SMS" : null].filter(Boolean).join(" + ")
+    : "WhatsApp";
   await logAdminActivity({
     code: ACTION_CODES.LEAD_PURCHASED,
-    actionEn: `${adminName} sent WhatsApp notifications to ${notifications.length} workers for lead ${input.leadId}`,
-    actionAr: `${adminName} أرسل إشعارات واتساب إلى ${notifications.length} عمال للعميل المحتمل ${input.leadId}`,
+    actionEn: `${adminName} sent ${channelsDesc} notifications to ${notifications.length} workers for lead ${input.leadId}`,
+    actionAr: `${adminName} أرسل إشعارات ${channelsDesc} إلى ${notifications.length} عمال للعميل المحتمل ${input.leadId}`,
     actor: adminName,
     type: "payment",
   });
@@ -180,5 +239,6 @@ export async function sendBatchWhatsAppNotifications(input: {
     ok: true,
     notifications,
     count: notifications.length,
+    dispatchResults: allDispatchResults.length > 0 ? allDispatchResults : undefined,
   };
 }

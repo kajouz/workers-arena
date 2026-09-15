@@ -1588,6 +1588,8 @@ export const en = {
     creditsTitle: "Platform Credits",
     creditsCta: "Buy credits to purchase qualified leads",
     buyCredits: "Buy Credits",
+    notificationChannelsTitle: "Notification Channels",
+    notificationChannelsHint: "Choose which channels to notify workers about new lead offers. WhatsApp uses wa.me deep links; Email and SMS use the configured providers.",
   },
 };
 

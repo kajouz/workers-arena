@@ -1581,5 +1581,7 @@ export const ar: Dictionary = {
     creditsTitle: "أرصدة المنصة",
     creditsCta: "اشترِ أرصدة لشراء العملاء المحتملين المؤهلين",
     buyCredits: "شراء أرصدة",
+    notificationChannelsTitle: "قنوات الإشعار",
+    notificationChannelsHint: "اختر القنوات لإشعار العمال بعروض العملاء المحتملين الجديدة. واتساب يستخدم روابط wa.me؛ البريد الإلكتروني والرسائل القصيرة يستخدمان المزودين المهيأين.",
   },
 };

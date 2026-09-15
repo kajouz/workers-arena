@@ -468,6 +468,12 @@ export interface LeadMarketConfig {
   rebate: LeadRebateConfig;
   /** WhatsApp notification templates per grade (admin-editable). */
   whatsappTemplates: WhatsAppTemplates;
+  /** Email notification templates per grade (admin-editable). */
+  emailTemplates: EmailTemplates;
+  /** SMS notification templates per grade (admin-editable). */
+  smsTemplates: SmsTemplates;
+  /** Which channels to notify (admin-toggleable). */
+  notifyChannels: NotificationChannelConfig;
 }
 
 /** Per-grade WhatsApp notification templates. Admin edits these so each
@@ -485,6 +491,28 @@ export interface WhatsAppTemplates {
   ar: Record<LeadGrade, string>;
 }
 
+/** Per-grade email notification templates. Admin edits these so each
+ * grade's notification can carry a tailored email message. Placeholders
+ * are the same as WhatsApp templates. */
+export interface EmailTemplates {
+  en: Record<LeadGrade, { subject: string; body: string }>;
+  ar: Record<LeadGrade, { subject: string; body: string }>;
+}
+
+/** Per-grade SMS notification templates. Shorter than email — optimized
+ * for 160-char limits. Placeholders are the same as WhatsApp templates. */
+export interface SmsTemplates {
+  en: Record<LeadGrade, string>;
+  ar: Record<LeadGrade, string>;
+}
+
+/** Which notification channels are enabled for lead offers. */
+export interface NotificationChannelConfig {
+  whatsapp: boolean;
+  email: boolean;
+  sms: boolean;
+}
+
 /** When the customer's details unlock. */
 export interface ContactRevealPolicy {
   /** What a worker sees before buying the lead. */
@@ -496,6 +524,62 @@ export interface ContactRevealPolicy {
   /** What everyone sees once the job is actually booked (customer consent). */
   afterBooking: ContactReveal;
 }
+
+/** Default email templates per grade. Subject line is short; body is the full email copy. */
+export const DEFAULT_EMAIL_TEMPLATES: EmailTemplates = {
+  en: {
+    bronze: {
+      subject: "New Bronze Lead Offer — {leadNumber}",
+      body: "Hi {workerName},\n\nYou have a new Bronze lead offer:\n\n• Lead: {leadNumber}\n• Grade: {grade}\n• Match Score: {matchScore}/100\n• Cost: {priceCredits} credits\n\nOpen your board to buy this lead before it expires:\n{boardUrl}\n\n— {adminName}, WorkersArena Team",
+    },
+    silver: {
+      subject: "New Silver Lead Offer — {leadNumber}",
+      body: "Hi {workerName},\n\nYou have a new Silver lead offer:\n\n• Lead: {leadNumber}\n• Grade: {grade}\n• Match Score: {matchScore}/100\n• Cost: {priceCredits} credits\n\nOpen your board to buy this lead before it expires:\n{boardUrl}\n\n— {adminName}, WorkersArena Team",
+    },
+    gold: {
+      subject: "New Gold Lead Offer — {leadNumber}",
+      body: "Hi {workerName},\n\nYou have a new Gold lead offer:\n\n• Lead: {leadNumber}\n• Grade: {grade}\n• Match Score: {matchScore}/100\n• Cost: {priceCredits} credits\n\nOpen your board to buy this lead before it expires:\n{boardUrl}\n\n— {adminName}, WorkersArena Team",
+    },
+    emergency: {
+      subject: "🚨 URGENT Lead Offer — {leadNumber}",
+      body: "Hi {workerName},\n\nURGENT lead offer:\n\n• Lead: {leadNumber}\n• Grade: EMERGENCY\n• Match Score: {matchScore}/100\n• Cost: {priceCredits} credits\n\nThis customer needs help NOW. Buy the lead immediately:\n{boardUrl}\n\n— {adminName}, WorkersArena Team",
+    },
+  },
+  ar: {
+    bronze: {
+      subject: "عرض عميل محتمل جديد (برونزي) — {leadNumber}",
+      body: "مرحباً {workerName},\n\nلديك عميل محتمل جديد (برونزي):\n\n• الرقم: {leadNumber}\n• الدرجة: {grade}\n• نقاط المطابقة: {matchScore}/100\n• التكلفة: {priceCredits} رصيد\n\nافتح اللوحة لشراء هذا العميل قبل انتهاء المدة:\n{boardUrl}\n\n— {adminName}, فريق WorkersArena",
+    },
+    silver: {
+      subject: "عرض عميل محتمل جديد (فضي) — {leadNumber}",
+      body: "مرحباً {workerName},\n\nلديك عميل محتمل جديد (فضي):\n\n• الرقم: {leadNumber}\n• الدرجة: {grade}\n• نقاط المطابقة: {matchScore}/100\n• التكلفة: {priceCredits} رصيد\n\nافتح اللوحة لشراء هذا العميل قبل انتهاء المدة:\n{boardUrl}\n\n— {adminName}, فريق WorkersArena",
+    },
+    gold: {
+      subject: "عرض عميل محتمل جديد (ذهبي) — {leadNumber}",
+      body: "مرحباً {workerName},\n\nلديك عميل محتمل جديد (ذهبي):\n\n• الرقم: {leadNumber}\n• الدرجة: {grade}\n• نقاط المطابقة: {matchScore}/100\n• التكلفة: {priceCredits} رصيد\n\nافتح اللوحة لشراء هذا العميل قبل انتهاء المدة:\n{boardUrl}\n\n— {adminName}, فريق WorkersArena",
+    },
+    emergency: {
+      subject: "🚨 عرض عميل عاجل — {leadNumber}",
+      body: "مرحباً {workerName},\n\nعرض عميل عاجل:\n\n• الرقم: {leadNumber}\n• الدرجة: طوارئ\n• نقاط المطابقة: {matchScore}/100\n• التكلفة: {priceCredits} رصيد\n\nهذا العميل يحتاج مساعدة الآن. اشتري العميل فوراً:\n{boardUrl}\n\n— {adminName}, فريق WorkersArena",
+    },
+  },
+};
+
+/** Default SMS templates per grade — compact for 160-char limit. */
+export const DEFAULT_SMS_TEMPLATES: SmsTemplates = {
+  en: {
+    bronze: "[WA] New Bronze lead {leadNumber}: {priceCredits} credits. Buy now: {boardUrl}",
+    silver: "[WA] New Silver lead {leadNumber}: {priceCredits} credits. Buy now: {boardUrl}",
+    gold: "[WA] New Gold lead {leadNumber}: {priceCredits} credits. Buy now: {boardUrl}",
+    emergency: "[WA] URGENT lead {leadNumber}: {priceCredits} credits. Buy NOW: {boardUrl}",
+  },
+  ar: {
+    bronze: "[WA] عميل جديد {leadNumber}: {priceCredits} رصيد. اشترِ الآن: {boardUrl}",
+    silver: "[WA] عميل جديد {leadNumber}: {priceCredits} رصيد. اشترِ الآن: {boardUrl}",
+    gold: "[WA] عميل جديد {leadNumber}: {priceCredits} رصيد. اشترِ الآن: {boardUrl}",
+    emergency: "[WA] عميل عاجل {leadNumber}: {priceCredits} رصيد. اشترِ الآن: {boardUrl}",
+  },
+};
 
 /** §7 pricing defaults — inside the ranges the plan sketches ($3–5 … $20–50). */
 export const DEFAULT_WHATSAPP_TEMPLATES: WhatsAppTemplates = {
@@ -527,6 +611,9 @@ export const DEFAULT_LEAD_MARKET_CONFIG: LeadMarketConfig = {
   weights: DEFAULT_MATCHING_WEIGHTS,
   rebate: DEFAULT_LEAD_REBATE,
   whatsappTemplates: DEFAULT_WHATSAPP_TEMPLATES,
+  emailTemplates: DEFAULT_EMAIL_TEMPLATES,
+  smsTemplates: DEFAULT_SMS_TEMPLATES,
+  notifyChannels: { whatsapp: true, email: true, sms: false },
 };
 
 /** The lead-market numbers in force for a rule set (falls back to defaults). */
@@ -706,6 +793,13 @@ export function normalizeLeadMarketConfig(input: Partial<LeadMarketConfig> | und
     },
     weights,
     whatsappTemplates: input?.whatsappTemplates ?? base.whatsappTemplates,
+    emailTemplates: input?.emailTemplates ?? base.emailTemplates,
+    smsTemplates: input?.smsTemplates ?? base.smsTemplates,
+    notifyChannels: {
+      whatsapp: input?.notifyChannels?.whatsapp ?? base.notifyChannels.whatsapp,
+      email: input?.notifyChannels?.email ?? base.notifyChannels.email,
+      sms: input?.notifyChannels?.sms ?? base.notifyChannels.sms,
+    },
   };
 }
 

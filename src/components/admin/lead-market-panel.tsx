@@ -28,6 +28,8 @@ import {
   LEAD_GRADES,
   DEFAULT_LEAD_MARKET_CONFIG,
   DEFAULT_WHATSAPP_TEMPLATES,
+  DEFAULT_EMAIL_TEMPLATES,
+  DEFAULT_SMS_TEMPLATES,
   leadMarketConfig,
   type ContactReveal,
   type ContactRevealPolicy,
@@ -36,6 +38,9 @@ import {
   type MatchingWeights,
   type LeadMarketConfig,
   type WhatsAppTemplates,
+  type EmailTemplates,
+  type SmsTemplates,
+  type NotificationChannelConfig,
 } from "@/lib/data/lead-market";
 import type { LeadRebate } from "@/lib/data/lead-rebate";
 import type { CreditLedgerEntry } from "@/lib/data/credit-ledger";
@@ -94,8 +99,18 @@ export function LeadMarketPanel({
   const [templates, setTemplates] = useState<WhatsAppTemplates>(() =>
     draft.whatsappTemplates ?? DEFAULT_WHATSAPP_TEMPLATES
   );
+  const [emailTpls, setEmailTpls] = useState<EmailTemplates>(() =>
+    draft.emailTemplates ?? DEFAULT_EMAIL_TEMPLATES
+  );
+  const [smsTpls, setSmsTpls] = useState<SmsTemplates>(() =>
+    draft.smsTemplates ?? DEFAULT_SMS_TEMPLATES
+  );
+  const [notifyChannels, setNotifyChannels] = useState<NotificationChannelConfig>(() =>
+    draft.notifyChannels ?? { whatsapp: true, email: true, sms: false }
+  );
   const [templateGrade, setTemplateGrade] = useState<LeadGrade>("bronze");
   const [templateLocale, setTemplateLocale] = useState<"en" | "ar">("en");
+  const [templateTab, setTemplateTab] = useState<"whatsapp" | "email" | "sms">("whatsapp");
   const [busy, setBusy] = useState(false);
   const [grant, setGrant] = useState({ workerId: "", amount: "10", reason: "" });
   const [granting, setGranting] = useState(false);
@@ -126,6 +141,15 @@ export function LeadMarketPanel({
         en: { ...templates.en },
         ar: { ...templates.ar },
       },
+      emailTemplates: {
+        en: { ...emailTpls.en },
+        ar: { ...emailTpls.ar },
+      },
+      smsTemplates: {
+        en: { ...smsTpls.en },
+        ar: { ...smsTpls.ar },
+      },
+      notifyChannels,
     });
     setBusy(false);
     if (res.ok) {
@@ -396,13 +420,45 @@ export function LeadMarketPanel({
           )}
         </section>
 
-        {/* §WhatsApp — per-grade notification templates */}
+        {/* §Notification channels + per-grade templates */}
         <section className="space-y-3 border-t border-ink-100 pt-4 dark:border-ink-800">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
             <MessageCircle className="h-4 w-4" />
-            {t("whatsapp.templatesTitle")}
+            {t("leadMarket.notificationChannelsTitle")}
           </h3>
-          <p className="text-[11px] text-ink-500 dark:text-ink-400">{t("whatsapp.templatesHint")}</p>
+          <p className="text-[11px] text-ink-500 dark:text-ink-400">{t("leadMarket.notificationChannelsHint")}</p>
+
+          {/* Channel toggles */}
+          <div className="flex flex-wrap gap-3">
+            {(["whatsapp", "email", "sms"] as const).map((ch) => (
+              <label key={ch} className="flex items-center gap-2 rounded-lg border border-ink-200 px-3 py-2 dark:border-ink-700">
+                <input
+                  type="checkbox"
+                  checked={notifyChannels[ch]}
+                  onChange={(e) => setNotifyChannels((prev) => ({ ...prev, [ch]: e.target.checked }))}
+                  className="size-4 rounded border-ink-300 text-brand-600"
+                />
+                <span className="text-xs font-medium text-ink-700 dark:text-ink-300 capitalize">{ch}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Template tabs */}
+          <div className="flex gap-1 border-b border-ink-100 dark:border-ink-800">
+            {(["whatsapp", "email", "sms"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setTemplateTab(tab)}
+                className={`border-b-2 px-3 py-1.5 text-xs font-medium transition ${
+                  templateTab === tab
+                    ? "border-brand-500 text-brand-600 dark:text-brand-400"
+                    : "border-transparent text-ink-500 hover:text-ink-700 dark:text-ink-400"
+                }`}
+              >
+                {tab === "whatsapp" ? "WhatsApp" : tab === "email" ? "Email" : "SMS"}
+              </button>
+            ))}
+          </div>
 
           {/* Grade + locale picker */}
           <div className="flex flex-wrap items-center gap-2">
@@ -438,18 +494,156 @@ export function LeadMarketPanel({
             </div>
           </div>
 
-          {/* Template textarea */}
-          <textarea
-            className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-50"
-            rows={10}
-            value={templates[templateLocale][templateGrade]}
-            onChange={(e) =>
-              setTemplates((prev) => ({
-                ...prev,
-                [templateLocale]: { ...prev[templateLocale], [templateGrade]: e.target.value },
-              }))
-            }
-          />
+          {/* WhatsApp template textarea */}
+          {templateTab === "whatsapp" && (
+            <>
+              <textarea
+                className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-50"
+                rows={10}
+                value={templates[templateLocale][templateGrade]}
+                onChange={(e) =>
+                  setTemplates((prev) => ({
+                    ...prev,
+                    [templateLocale]: { ...prev[templateLocale], [templateGrade]: e.target.value },
+                  }))
+                }
+              />
+              {/* Preview */}
+              <div className="rounded-xl border border-ink-200 bg-emerald-50 p-3 dark:border-ink-700 dark:bg-emerald-950/20">
+                <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">{t("whatsapp.preview")}</p>
+                <pre className="mt-1 whitespace-pre-wrap font-mono text-[11px] text-emerald-900 dark:text-emerald-200">
+                  {templates[templateLocale][templateGrade]
+                    .replace(/\{workerName\}/g, "Ahmad")
+                    .replace(/\{grade\}/g, templateGrade)
+                    .replace(/\{leadNumber\}/g, "QR-2026-00042")
+                    .replace(/\{matchScore\}/g, "85")
+                    .replace(/\{priceCredits\}/g, "9")
+                    .replace(/\{boardUrl\}/g, "https://workers-arena.vercel.app/dashboard/leads")
+                    .replace(/\{adminName\}/g, "Admin")
+                  }
+                </pre>
+              </div>
+              <button
+                onClick={() => setTemplates(DEFAULT_WHATSAPP_TEMPLATES)}
+                className="text-xs text-ink-400 hover:text-ink-600 dark:hover:text-ink-300"
+              >
+                {t("whatsapp.resetDefaults")}
+              </button>
+            </>
+          )}
+
+          {/* Email template editor */}
+          {templateTab === "email" && (
+            <>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-ink-600 dark:text-ink-300">Subject</span>
+                <input
+                  type="text"
+                  className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-50"
+                  value={emailTpls[templateLocale][templateGrade].subject}
+                  onChange={(e) =>
+                    setEmailTpls((prev) => ({
+                      ...prev,
+                      [templateLocale]: {
+                        ...prev[templateLocale],
+                        [templateGrade]: { ...prev[templateLocale][templateGrade], subject: e.target.value },
+                      },
+                    }))
+                  }
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs font-medium text-ink-600 dark:text-ink-300">Body</span>
+                <textarea
+                  className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-50"
+                  rows={12}
+                  value={emailTpls[templateLocale][templateGrade].body}
+                  onChange={(e) =>
+                    setEmailTpls((prev) => ({
+                      ...prev,
+                      [templateLocale]: {
+                        ...prev[templateLocale],
+                        [templateGrade]: { ...prev[templateLocale][templateGrade], body: e.target.value },
+                      },
+                    }))
+                  }
+                />
+              </label>
+              {/* Preview */}
+              <div className="rounded-xl border border-ink-200 bg-blue-50 p-3 dark:border-ink-700 dark:bg-blue-950/20">
+                <p className="text-[11px] font-medium text-blue-700 dark:text-blue-400">Email Preview</p>
+                <p className="mt-1 font-mono text-xs font-semibold text-blue-900 dark:text-blue-200">
+                  Subject: {emailTpls[templateLocale][templateGrade].subject
+                    .replace(/\{workerName\}/g, "Ahmad")
+                    .replace(/\{grade\}/g, templateGrade)
+                    .replace(/\{leadNumber\}/g, "QR-2026-00042")
+                    .replace(/\{matchScore\}/g, "85")
+                    .replace(/\{priceCredits\}/g, "9")
+                    .replace(/\{boardUrl\}/g, "https://workers-arena.vercel.app/dashboard/leads")
+                    .replace(/\{adminName\}/g, "Admin")
+                  }
+                </p>
+                <pre className="mt-2 whitespace-pre-wrap font-mono text-[11px] text-blue-900 dark:text-blue-200">
+                  {emailTpls[templateLocale][templateGrade].body
+                    .replace(/\{workerName\}/g, "Ahmad")
+                    .replace(/\{grade\}/g, templateGrade)
+                    .replace(/\{leadNumber\}/g, "QR-2026-00042")
+                    .replace(/\{matchScore\}/g, "85")
+                    .replace(/\{priceCredits\}/g, "9")
+                    .replace(/\{boardUrl\}/g, "https://workers-arena.vercel.app/dashboard/leads")
+                    .replace(/\{adminName\}/g, "Admin")
+                  }
+                </pre>
+              </div>
+              <button
+                onClick={() => setEmailTpls(DEFAULT_EMAIL_TEMPLATES)}
+                className="text-xs text-ink-400 hover:text-ink-600 dark:hover:text-ink-300"
+              >
+                {t("whatsapp.resetDefaults")}
+              </button>
+            </>
+          )}
+
+          {/* SMS template editor */}
+          {templateTab === "sms" && (
+            <>
+              <textarea
+                className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-50"
+                rows={4}
+                value={smsTpls[templateLocale][templateGrade]}
+                onChange={(e) =>
+                  setSmsTpls((prev) => ({
+                    ...prev,
+                    [templateLocale]: { ...prev[templateLocale], [templateGrade]: e.target.value },
+                  }))
+                }
+              />
+              <p className="text-[11px] text-ink-400">
+                {smsTpls[templateLocale][templateGrade].length}/160 characters
+              </p>
+              {/* Preview */}
+              <div className="rounded-xl border border-ink-200 bg-amber-50 p-3 dark:border-ink-700 dark:bg-amber-950/20">
+                <p className="text-[11px] font-medium text-amber-700 dark:text-amber-400">SMS Preview</p>
+                <pre className="mt-1 whitespace-pre-wrap font-mono text-[11px] text-amber-900 dark:text-amber-200">
+                  {smsTpls[templateLocale][templateGrade]
+                    .replace(/\{workerName\}/g, "Ahmad")
+                    .replace(/\{grade\}/g, templateGrade)
+                    .replace(/\{leadNumber\}/g, "QR-2026-00042")
+                    .replace(/\{matchScore\}/g, "85")
+                    .replace(/\{priceCredits\}/g, "9")
+                    .replace(/\{boardUrl\}/g, "https://workers-arena.vercel.app/dashboard/leads")
+                    .replace(/\{adminName\}/g, "Admin")
+                  }
+                </pre>
+              </div>
+              <button
+                onClick={() => setSmsTpls(DEFAULT_SMS_TEMPLATES)}
+                className="text-xs text-ink-400 hover:text-ink-600 dark:hover:text-ink-300"
+              >
+                {t("whatsapp.resetDefaults")}
+              </button>
+            </>
+          )}
 
           {/* Placeholder reference */}
           <div className="rounded-lg bg-ink-50 p-3 dark:bg-ink-800/50">
@@ -462,30 +656,6 @@ export function LeadMarketPanel({
               ))}
             </div>
           </div>
-
-          {/* Preview */}
-          <div className="rounded-xl border border-ink-200 bg-emerald-50 p-3 dark:border-ink-700 dark:bg-emerald-950/20">
-            <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">{t("whatsapp.preview")}</p>
-            <pre className="mt-1 whitespace-pre-wrap font-mono text-[11px] text-emerald-900 dark:text-emerald-200">
-              {templates[templateLocale][templateGrade]
-                .replace(/\{workerName\}/g, "Ahmad")
-                .replace(/\{grade\}/g, templateGrade)
-                .replace(/\{leadNumber\}/g, "QR-2026-00042")
-                .replace(/\{matchScore\}/g, "85")
-                .replace(/\{priceCredits\}/g, "9")
-                .replace(/\{boardUrl\}/g, "https://workers-arena.vercel.app/dashboard/leads")
-                .replace(/\{adminName\}/g, "Admin")
-              }
-            </pre>
-          </div>
-
-          {/* Reset to defaults */}
-          <button
-            onClick={() => setTemplates(DEFAULT_WHATSAPP_TEMPLATES)}
-            className="text-xs text-ink-400 hover:text-ink-600 dark:hover:text-ink-300"
-          >
-            {t("whatsapp.resetDefaults")}
-          </button>
         </section>
 
         {/* Live offers the marketplace created (audit) */}
