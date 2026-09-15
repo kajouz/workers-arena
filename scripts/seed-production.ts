@@ -43,9 +43,9 @@ interface WorkerSeed {
 const WORKERS: WorkerSeed[] = [
   { slug: "khaled-al-harbi-plumbing", nameEn: "Khaled Al Harbi", nameAr: "خالد الحربي", categorySlug: "plumbing", citySlug: "beirut", areaSlug: "hamra", phone: "+96170123456", email: "khaled@workersarena.test", plan: "PROFESSIONAL" },
   { slug: "sara-mansour-electrical", nameEn: "Sara Mansour", nameAr: "سارة منصور", categorySlug: "electrical", citySlug: "beirut", areaSlug: "achrafieh", phone: "+96171123456", email: "sara@workersarena.test", plan: "PREMIUM" },
-  { slug: "omar-fadel-hvac", nameEn: "Omar Fadel", nameAr: "عمر فضل", categorySlug: "hvac", citySlug: "beirut", areaSlug: "verdun", phone: "+96176123456", email: "omar@workersarena.test", plan: "PROFESSIONAL" },
-  { slug: "nadia-haddad-painting", nameEn: "Nadia Haddad", nameAr: "نادية حداد", categorySlug: "painting", citySlug: "tripoli", areaSlug: "tall", phone: "+96178123456", email: "nadia@workersarena.test", plan: "BASIC" },
-  { slug: "tarek-hamade-carpentry", nameEn: "Tarek Hamade", nameAr: "طارق حمادة", categorySlug: "carpentry", citySlug: "sidon", areaSlug: "souq", phone: "+96170123789", email: "tarek@workersarena.test", plan: "PROFESSIONAL" },
+  { slug: "omar-fadel-ac-technician", nameEn: "Omar Fadel", nameAr: "عمر فضل", categorySlug: "ac-technician", citySlug: "beirut", areaSlug: "mar-mikhael", phone: "+96176123456", email: "omar@workersarena.test", plan: "PROFESSIONAL" },
+  { slug: "nadia-haddad-painting", nameEn: "Nadia Haddad", nameAr: "نادية حداد", categorySlug: "painting", citySlug: "beirut", areaSlug: "gemmayzeh", phone: "+96178123456", email: "nadia@workersarena.test", plan: "BASIC" },
+  { slug: "tarek-hamade-carpentry", nameEn: "Tarek Hamade", nameAr: "طارق حمادة", categorySlug: "carpentry", citySlug: "beirut", areaSlug: "badaro", phone: "+96170123789", email: "tarek@workersarena.test", plan: "PROFESSIONAL" },
 ];
 
 /* ─── Main ─── */
@@ -145,7 +145,7 @@ async function main() {
     { slug: "khaled-al-harbi-plumbing", title: "Kitchen pipe repair", customerName: "Ahmad Kassem", quote: 12000, fee: 840 },
     { slug: "sara-mansour-electrical", title: "Apartment rewiring", customerName: "Lina Abi Chedid", quote: 45000, fee: 3150 },
     { slug: "khaled-al-harbi-plumbing", title: "Bathroom drain unclogging", customerName: "Rami Farhat", quote: 8000, fee: 560 },
-    { slug: "omar-fadel-hvac", title: "AC unit installation", customerName: "Mona Aoun", quote: 35000, fee: 2450 },
+    { slug: "omar-fadel-ac-technician", title: "AC unit installation", customerName: "Mona Aoun", quote: 35000, fee: 2450 },
     { slug: "tarek-hamade-carpentry", title: "Custom shelving unit", customerName: "George Abou Jaoude", quote: 25000, fee: 1750 },
     { slug: "khaled-al-harbi-plumbing", title: "Water heater replacement", customerName: "Nada Tfayli", quote: 50000, fee: 3500 },
     { slug: "sara-mansour-electrical", title: "Switch panel upgrade", customerName: "Bilal Charara", quote: 18000, fee: 1260 },
@@ -167,9 +167,6 @@ async function main() {
     const completedDaysAgo = 30 - i * 3;
     const completedAt = daysAgo(Math.max(1, completedDaysAgo));
 
-    // Determine categoryId from the worker
-    const worker = await prisma.worker.findUnique({ where: { id: workerId }, select: { categoryId: true } });
-
     const booking = await prisma.booking.create({
       data: {
         number: num,
@@ -177,7 +174,6 @@ async function main() {
         customerName: b.customerName,
         customerPhone: `+9617${String(i).padStart(7, "0")}`,
         jobTitle: b.title,
-        ...(worker ? { categoryId: worker.categoryId } : {}),
         status: "COMPLETED",
         quote: b.quote,
         platformFee: b.fee,
