@@ -64,3 +64,4 @@ backups/
 # Playwright artifacts
 test-results/
 playwright-report/
+.env.production
