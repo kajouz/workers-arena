@@ -13,6 +13,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+import { PLANS } from "../src/lib/data/subscriptions";
 
 const prisma = new PrismaClient();
 
@@ -128,7 +129,9 @@ async function main() {
           create: {
             plan: w.plan,
             status: "ACTIVE",
-            price: w.plan === "BASIC" ? 29 : w.plan === "PROFESSIONAL" ? 99 : w.plan === "PREMIUM" ? 199 : 299,
+            // Price from the canonical catalog — the inline map this replaced
+            // matched no catalog and drifted from what renewals charge.
+            price: Math.round(PLANS[w.plan.toLowerCase() as keyof typeof PLANS].price * 100),
             currency: "USD",
             startedAt: daysAgo(30),
             expiresAt: daysFromNow(w.plan === "PREMIUM" ? 335 : 30),

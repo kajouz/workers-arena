@@ -55,6 +55,7 @@ process.env.DEMO_MODE = "false";
 import { getPrisma } from "../src/lib/server/prisma";
 import type { SubscriptionPlan } from "@prisma/client";
 import { FEE_EXEMPT_PLANS } from "../src/lib/data/booking-ui";
+import { PLANS } from "../src/lib/data/subscriptions";
 import { runBookingReminderEngine } from "../src/lib/notifications/reminders";
 import {
   prismaCancelBooking,
@@ -396,9 +397,23 @@ async function main() {
       Date.parse(s.startAt) <= Date.now() + 7 * 24 * 60 * 60 * 1000
   );
   assert(signalWorker?.availableThisWeek === expectedFree, "availableThisWeek mirrors the AVAILABLE-slot window");
-  // The seed now owns TWO bookings for Khaled: BK-1001 (REQUESTED, unanswered)
-  // + the recurring contract's BK-1002 (CONFIRMED, answered) → 1 of 2 = 50%.
-  assert(signalWorker?.responseRate === 50, "response rate computed from the seeded bookings (BK-1001 requested + BK-1002 confirmed → 50%)");
+  // The engine's rate is the share of Khaled's bookings that are NOT
+  // REQUESTED (answeredByWorker in stampWorkerSignals). The assertion is
+  // self-referential — the expectation is computed from the live rows with
+  // that same rule — so a DB carrying extra legitimate history (e.g. the
+  // production seed's completed BK-9xxx bookings) can't flake it. On the
+  // pristine CI DB this reduces to the documented 1-of-2 = 50%.
+  const khaledRows = await prisma.booking.findMany({
+    where: { workerId: khaled!.id },
+    select: { status: true },
+  });
+  const answered = khaledRows.filter((b) => b.status !== "REQUESTED").length;
+  const expectedRate =
+    khaledRows.length === 0 ? null : Math.round((answered / khaledRows.length) * 100);
+  assert(
+    signalWorker?.responseRate === expectedRate,
+    `response rate matches the answered/total rule (${answered}/${khaledRows.length} → ${expectedRate})`
+  );
   console.log("W1 trust signals: responseRate", signalWorker?.responseRate, "| availableThisWeek", signalWorker?.availableThisWeek);
 
   // ── M5 — fee-waived search filter (real mode, live DB) ────────────────────
@@ -463,9 +478,12 @@ async function main() {
   });
   assert(bilalChanged?.subscription.plan === "premium", "prismaChangeWorkerPlan swaps the tier");
   const bilalRow = await prisma.subscription.findUnique({ where: { workerId: preBilal!.id } });
+  // Expected price derives from the SAME catalog the seam prices from — a
+  // hardcoded literal here desyncs the moment the catalog (or an admin
+  // override) changes.
   assert(
-    bilalRow?.plan === "PREMIUM" && bilalRow.price === 11900,
-    "DB row flipped to PREMIUM at the premium price (119 × 100 minor)"
+    bilalRow?.plan === "PREMIUM" && bilalRow.price === Math.round(PLANS.premium.price * 100),
+    "DB row flipped to PREMIUM at the catalog premium price"
   );
   // The audit trail — the same entry the demo seam writes: code + type worker +
   // actor + real admin FK + from → to copy.
@@ -477,8 +495,11 @@ async function main() {
   const planMeta = (planLog!.meta ?? {}) as { actor?: string; type?: string; actionEn?: string };
   assert(planMeta.actor === "Platform Admin", "feed entry carries the acting admin");
   assert(planMeta.type === "worker", "feed entry typed worker");
+  // Labels come from the SAME PLANS map the seam formats the copy with — a
+  // hardcoded "Enterprise → Premium" here desyncs the moment labels change.
   assert(
-    planMeta.actionEn?.includes("Bilal Mansour") && planMeta.actionEn.includes("Enterprise → Premium"),
+    planMeta.actionEn?.includes("Bilal Mansour") &&
+      planMeta.actionEn.includes(`${PLANS.enterprise.labelEn} → ${PLANS.premium.labelEn}`),
     "feed copy carries worker + from → to plan"
   );
 
@@ -498,15 +519,17 @@ async function main() {
   );
 
   // Restore the seeded rows AND the audit entry so the smoke stays idempotent.
+  // Restore at the catalog prices the seed writes — hardcoded literals here
+  // would leave the "seeded" rows priced differently from a fresh seed.
   await prisma.subscription.update({
     where: { workerId: preBilal!.id },
-    data: { plan: "ENTERPRISE", price: 29900, status: "ACTIVE" },
+    data: { plan: "ENTERPRISE", price: Math.round(PLANS.enterprise.price * 100), status: "ACTIVE" },
   });
   await prisma.subscription.update({
     where: { workerId: preTarek!.id },
     data: {
       plan: "BASIC",
-      price: 2900,
+      price: Math.round(PLANS.basic.price * 100),
       status: "EXPIRED",
       expiresAt: new Date(Date.now() - 6 * 86400000),
     },
@@ -529,6 +552,12 @@ async function main() {
 
   const free = slots.find((s) => s.status === "available");
   assert(free, "an AVAILABLE slot exists for the request flow");
+  // Numbering derives from the TOTAL row count (engine: BK-{1001 + count}), so
+  // the expected number is computed from the live count — an absolute literal
+  // ("BK-1003") only holds on a pristine seed and breaks on any DB with
+  // additional legitimate history (e.g. the production seed's bookings).
+  const preCount = await prisma.booking.count();
+  const expectedNumber = `BK-${1001 + preCount}`;
 
   const created = await prismaCreateBookingRequest({
     workerId: khaled!.id,
@@ -540,8 +569,11 @@ async function main() {
   });
   if ("error" in created) throw new Error(`SMOKE ASSERT FAILED: createBookingRequest → ${created.error}`);
   console.log("created:", created.number, created.status, "| slot now:", (await prismaGetWorkerSlots(khaled!.id)).find((s) => s.id === free!.id)?.status);
-  // Seed bookings: BK-1001 (request) + BK-1002 (recurring occurrence) → next is BK-1003.
-  assert(created.number === "BK-1003", "booking number continues from the seed (BK-1001 + recurring BK-1002)");
+  // The created booking's number continues the count-derived sequence.
+  assert(
+    created.number === expectedNumber,
+    `booking number continues the count-derived sequence (${expectedNumber})`
+  );
   assert(created.status === "requested", "new booking is REQUESTED");
   assert(created.events[0]?.status === "requested", "REQUESTED audit event appended");
 

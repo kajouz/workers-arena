@@ -15,6 +15,7 @@ import {
   REVIEWS_5_EN,
 } from "./templates";
 import type { Area, City, Review, SubscriptionPlan, VerificationStatus, Worker } from "./types";
+import { PLANS } from "./subscriptions";
 import { DEFAULT_COUNTRY, type CountryConfig } from "@/lib/tenant/countries";
 
 /** Deterministic PRNG so the demo dataset is stable across reloads. */
@@ -142,11 +143,15 @@ function buildWorker(recipe: WorkerRecipe, name: { en: string; ar: string }, spo
   const plan: SubscriptionPlan =
     recipe.plan ?? (recipe.premium ? "premium" : recipe.verified ? "professional" : "basic");
   const expiresInDays = recipe.expiresInDays ?? 14 + Math.floor(rnd() * 26);
+  // Prices ride the canonical plan catalog (subscriptions.ts) — NOT a local
+  // copy. A stale local map here desyncs the DB seed from the engine: the seed
+  // persists PLANS prices, while changeWorkerPlan prices from the catalog, and
+  // the data smoke asserts the two agree.
   const planPrices: Record<SubscriptionPlan, number> = {
-    basic: 29,
-    professional: 59,
-    premium: 119,
-    enterprise: 299,
+    basic: PLANS.basic.price,
+    professional: PLANS.professional.price,
+    premium: PLANS.premium.price,
+    enterprise: PLANS.enterprise.price,
   };
 
   return {
