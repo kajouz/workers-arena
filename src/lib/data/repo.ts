@@ -270,8 +270,15 @@ export async function getCities(): Promise<City[]> {
 
 export async function getWorkers(filters: SearchFilters = {}): Promise<SearchResult> {
   if (realDataEnabled) return (await prismaRepo()).prismaSearchWorkers(filters);
+  // In-memory cache: same filters → same result within 60s window.
+  const { searchCache, buildSearchCacheKey } = await import("@/lib/cache/search-cache");
+  const cacheKey = buildSearchCacheKey(filters as Record<string, unknown>);
+  const cached = searchCache.get<SearchResult>(cacheKey);
+  if (cached) return cached;
   const res = searchWorkers(filters);
-  return { ...res, items: withDemoSignals(res.items) };
+  const result = { ...res, items: withDemoSignals(res.items) };
+  searchCache.set(cacheKey, result);
+  return result;
 }
 
 export async function getWorkerBySlug(slug: string): Promise<Worker | null> {
