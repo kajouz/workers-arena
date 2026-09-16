@@ -15,6 +15,10 @@ const CSP = buildCsp();
 const nextConfig: NextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   reactStrictMode: true,
+  // Optional runtime deps that are lazy-imported but not installed in every
+  // environment. Listing them here prevents Turbopack from resolving them at
+  // build time (they are loaded at runtime only when configured).
+  serverExternalPackages: ["twilio", "nodemailer"],
   async headers() {
     return [
       {
