@@ -8,7 +8,7 @@
  * Uses server actions to fetch stats and generate codes.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,10 +32,19 @@ export function ReferralCard({ stats: initialStats }: { stats?: ReferralStats | 
     if (res.ok) setStats(res.stats);
   };
 
-  // Load stats on mount if not provided
-  if (!stats && !loading) {
+  // Load stats on mount if not provided. This MUST be an effect, not a
+  // render-phase call: a render-phase server action that resolves without
+  // producing stats re-fires on the next render — an unbounded POST loop that
+  // tripped the proxy's action rate limit (429) and surfaced as
+  // "An unexpected response was received from the server" page errors in the
+  // e2e matrix. The ref fires it exactly once per mount.
+  const requestedRef = useRef(false);
+  useEffect(() => {
+    if (stats || requestedRef.current) return;
+    requestedRef.current = true;
     loadStats();
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCopyLink = async () => {
     if (!stats) return;

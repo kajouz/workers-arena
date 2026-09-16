@@ -154,7 +154,8 @@ describeLive("lead marketplace — prisma adapter (live DB)", () => {
         candidates: [candidate(worker.id, { reviewCount: 500 })],
       });
       const offer = created.created.find((o) => o.workerId === worker.id)!;
-      expect(await purchaseLeadOffer(offer.id, worker.id, { planTier: "professional" })).toMatchObject({ ok: true });
+      const purchase = await purchaseLeadOffer(offer.id, worker.id, { planTier: "professional" });
+      expect(purchase).toMatchObject({ ok: true });
       const leadCostMinor = offer.priceCredits * 100;
 
       // A job that came from that lead, with a fee already stamped on it.
@@ -210,6 +211,9 @@ describeLive("lead marketplace — prisma adapter (live DB)", () => {
       }
       await prisma.quoteRequest.delete({ where: { id: request.id } }).catch(() => {});
       await prisma.workerCreditEntry.deleteMany({ where: { workerId: worker.id, reason } });
+      // The spend row (reason "Lead QR-… (bronze)") must go too, or every run
+      // leaves −5 on the worker and the next run can't afford the lead.
+      await prisma.workerCreditEntry.deleteMany({ where: { workerId: worker.id, reason: { startsWith: "Lead " } } });
     }
   });
 });

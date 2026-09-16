@@ -2229,8 +2229,9 @@ describeE2E("E2E hydration smoke", () => {
   ): Promise<void> {
     const { baseUrl: b, plan, locale, refreshFallback = false } = opts;
     // Tightly keyed so a typo'd plan fails at compile time, not at runtime.
-    const planEn: Record<typeof plan, string> = { basic: "Basic", professional: "Professional", premium: "Premium", enterprise: "Enterprise" };
-    const planAr: Record<typeof plan, string> = { basic: "أساسية", professional: "احترافية", premium: "مميزة", enterprise: "مؤسسات" };
+    // Labels track the plan catalog (Starter/Growth/Pro/Business).
+    const planEn: Record<typeof plan, string> = { basic: "Starter", professional: "Growth", premium: "Pro", enterprise: "Business" };
+    const planAr: Record<typeof plan, string> = { basic: "مبدأية", professional: "نمو", premium: "احترافي", enterprise: "أعمال" };
     const label = locale === "ar" ? planAr[plan] : planEn[plan];
     const triggerLabel = locale === "ar" ? "جدّد الآن" : "Renew now";
     const toastText = locale === "ar" ? "تم التجديد" : "Subscription renewed — active for";
@@ -3258,7 +3259,7 @@ describeE2E("E2E hydration smoke", () => {
         `Boolean(${bilalRow("Bilal Mansour")}) && ${bilalRow("Bilal Mansour")}.querySelector('select').value === 'enterprise'`,
         "bilal row shows Enterprise in the audit table"
       );
-      // Demote: Enterprise → Premium via his row's plan select (native value
+      // Demote: Business → Pro via his row's plan select (native value
       // setter + change event, the same interaction the live check uses). The
       // change only STAGES — the confirm dialog's Apply commits the action.
       await page.evaluate(`(() => {
@@ -3282,8 +3283,8 @@ describeE2E("E2E hydration smoke", () => {
       await waitFor(
         page,
         `${bilalRow("Bilal Mansour")}.querySelector('select').value === 'premium' &&
-         (document.body.innerText ?? '').includes("changed Bilal Mansour's plan: Enterprise → Premium")`,
-        "bilal demoted to Premium + ADMIN_PLAN_CHANGED in Recent activity",
+         (document.body.innerText ?? '').includes("changed Bilal Mansour's plan: Business → Pro")`,
+        "bilal demoted to Pro + ADMIN_PLAN_CHANGED in Recent activity",
         20_000,
         // The dialog's Apply only appears once React handled the change event,
         // so the click itself cannot be a hydration no-op — what lags here is
@@ -3314,7 +3315,7 @@ describeE2E("E2E hydration smoke", () => {
       await waitFor(
         page,
         `Boolean(${bilalRow("Bilal Mansour")}) && ${bilalRow("Bilal Mansour")}.querySelector('select').value === 'premium'`,
-        "bilal still Premium on reload (store persisted)"
+        "bilal still Pro on reload (store persisted)"
       );
       await page.evaluate(`(() => {
         const row = ${bilalRow("Bilal Mansour")};
@@ -3334,7 +3335,7 @@ describeE2E("E2E hydration smoke", () => {
       await waitFor(
         page,
         `${bilalRow("Bilal Mansour")}.querySelector('select').value === 'enterprise'`,
-        "bilal reverted to Enterprise",
+        "bilal reverted to Business",
         20_000,
         refreshFallback
       );
