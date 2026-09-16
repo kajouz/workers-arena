@@ -1,18 +1,57 @@
 import type { BillingPeriod, Invoice, Subscription, SubscriptionPlan, SubscriptionStatus, Worker } from "./types";
+import {
+  ANNUAL_PAID_MONTHS as NEW_ANNUAL_PAID_MONTHS,
+  ANNUAL_TERM_MONTHS as NEW_ANNUAL_TERM_MONTHS,
+  effectiveMonthlyPrice,
+  getPlanCatalog,
+  categoryPriceMultiplier,
+  planPrice as newPlanPrice,
+  periodMonths as newPeriodMonths,
+  type CategoryTier,
+  CATEGORY_TIER_MAP,
+  CATEGORY_TIER_MULTIPLIER,
+  TRIAL_PERIOD_DAYS,
+  isTrialEligible,
+  effectiveTakeRate,
+  annualSavings,
+  teamMonthlyCost,
+  isTeamPlan,
+  hasUnlimitedLeads,
+  includedLeads,
+  extraLeadPrice,
+} from "./subscription-plans";
+
+// Re-export new catalog helpers for downstream consumers
+export {
+  CATEGORY_TIER_MAP,
+  CATEGORY_TIER_MULTIPLIER,
+  TRIAL_PERIOD_DAYS,
+  isTrialEligible,
+  effectiveTakeRate,
+  annualSavings,
+  teamMonthlyCost,
+  isTeamPlan,
+  hasUnlimitedLeads,
+  includedLeads,
+  extraLeadPrice,
+  categoryPriceMultiplier,
+  effectiveMonthlyPrice,
+  getPlanCatalog,
+  type CategoryTier,
+} from "./subscription-plans";
 
 /** Subscription plan catalog — prices in USD/month. Mirrors the pricing section. */
 export const PLANS: Record<SubscriptionPlan, { price: number; labelEn: string; labelAr: string; hue: number }> = {
-  basic: { price: 29, labelEn: "Basic", labelAr: "أساسية", hue: 205 },
-  professional: { price: 59, labelEn: "Professional", labelAr: "احترافية", hue: 150 },
-  premium: { price: 119, labelEn: "Premium", labelAr: "مميزة", hue: 30 },
-  enterprise: { price: 299, labelEn: "Enterprise", labelAr: "مؤسسات", hue: 265 },
+  basic: { price: 15, labelEn: "Starter", labelAr: "مبدأية", hue: 205 },
+  professional: { price: 39, labelEn: "Growth", labelAr: "نمو", hue: 150 },
+  premium: { price: 99, labelEn: "Pro", labelAr: "احترافي", hue: 30 },
+  enterprise: { price: 199, labelEn: "Business", labelAr: "أعمال", hue: 265 },
 };
 
 /**
- * Annual billing — pay for 10 months, get 12 (2 months free): the annual price
- * is the monthly price × ANNUAL_PAID_MONTHS, and the term is 12 months.
+ * Annual billing — pay for 9 months, get 12 (3 months free = 25% discount).
  */
-export const ANNUAL_PAID_MONTHS = 10;
+export const ANNUAL_PAID_MONTHS = 9;
 export const ANNUAL_TERM_MONTHS = 12;
 
 /** Price of a plan for a billing period (USD, major units). */

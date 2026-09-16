@@ -123,7 +123,7 @@ function makeWorkerRow(overrides: Partial<WorkerRow> = {}): WorkerRow {
       workerId: "w1",
       plan: "PREMIUM",
       status: "ACTIVE",
-      price: 11900,
+      price: 9900,
       currency: "USD",
       periodDays: 30,
       autoRenew: true,
@@ -259,7 +259,7 @@ describe("toDomainWorker (Prisma row → domain)", () => {
 
     // Subscription: minor units (×100) back to major, status derived from expiry.
     expect(w.subscription.plan).toBe("premium");
-    expect(w.subscription.price).toBe(119);
+    expect(w.subscription.price).toBe(99);
     expect(w.subscription.status).toBe("active");
     expect(w.subscription.invoiceNo).toBe("sub1");
 

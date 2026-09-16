@@ -84,7 +84,7 @@ export function RenewDialog({ worker }: { worker: Worker }) {
           >
             {t("plans.annual")}
             <span className="ms-1.5 rounded-full emerald-badge-lg px-1.5 py-0.5 text-[10px] font-black">
-              {t("plans.saveTwoMonths")}
+              {t("plans.saveThreeMonths")}
             </span>
           </button>
         </div>

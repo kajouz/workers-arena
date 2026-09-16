@@ -171,7 +171,7 @@ describe("RespondDialog take-rate display", () => {
 
     expect(screen.getByText("Fee waived by your plan")).toBeInTheDocument();
     expect(
-      screen.getByText("Covered by your Enterprise plan — you receive the full quote.")
+      screen.getByText("Covered by your Business plan — you receive the full quote.")
     ).toBeInTheDocument();
 
     // The split is gone entirely — there is no fee to split.

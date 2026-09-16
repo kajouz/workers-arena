@@ -303,9 +303,9 @@ describe("WorkerManagementTable", () => {
       const text = await captured.blob!.text();
       expect(text.split("\n")).toEqual([
         '"Name","City","Category","Plan","Status"',
-        '"Nasser Al-Qahtani","Beirut","Movers","Professional","Expiring soon"',
-        '"Khaled Al-Harbi","Beirut","Plumbing","Premium","Active"',
-        '"Bilal Mansour","Beirut","Cleaning Services","Enterprise","Active"',
+        '"Nasser Al-Qahtani","Beirut","Movers","Growth","Expiring soon"',
+        '"Khaled Al-Harbi","Beirut","Plumbing","Pro","Active"',
+        '"Bilal Mansour","Beirut","Cleaning Services","Business","Active"',
       ]);
     } finally {
       URL.createObjectURL = origCreate;
@@ -336,8 +336,8 @@ describe("WorkerManagementTable", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent("Change plan?");
     expect(dialog).toHaveTextContent("Bilal Mansour");
-    expect(dialog).toHaveTextContent("from Enterprise to Premium");
-    expect(dialog).toHaveTextContent("The Premium plan is $119/month");
+    expect(dialog).toHaveTextContent("from Business to Pro");
+    expect(dialog).toHaveTextContent("The Pro plan is $99/month");
 
     // Apply commits the staged change.
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
