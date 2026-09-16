@@ -1,5 +1,10 @@
-import { promises as fs } from "node:fs";
 import path from "node:path";
+
+/** Dynamic fs import — avoids Turbopack bundling node:fs into client chunks. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function nodeFs(): Promise<any> {
+  return import(/* turbopackIgnore: true */ "node:fs").then((m: any) => m.promises);
+}
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -105,7 +110,8 @@ interface FileEntry extends PushSubscriptionJson {
 
 async function readFileStore(): Promise<Map<string, FileEntry>> {
   try {
-    const raw = await fs.readFile(/* turbopackIgnore: true */ storePath(), "utf8");
+    const fs = await nodeFs();
+    const raw = await fs.readFile(storePath(), "utf8");
     const arr = JSON.parse(raw) as FileEntry[];
     return new Map(arr.map((s) => [s.endpoint, s]));
   } catch {
@@ -115,6 +121,7 @@ async function readFileStore(): Promise<Map<string, FileEntry>> {
 
 /** Atomic write: temp file + rename so a crash can't corrupt the registry. */
 async function writeFileStore(map: Map<string, PushSubscriptionJson>): Promise<void> {
+  const fs = await nodeFs();
   const p = storePath();
   await fs.mkdir(path.dirname(p), { recursive: true });
   const tmp = `${p}.tmp`;

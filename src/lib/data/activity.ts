@@ -1,5 +1,10 @@
-import { promises as fs } from "node:fs";
 import path from "node:path";
+
+/** Dynamic fs import — avoids Turbopack bundling node:fs into client chunks. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function nodeFs(): Promise<any> {
+  return import(/* turbopackIgnore: true */ "node:fs").then((m: any) => m.promises);
+}
 import type { ActivityEntry, VerificationFunnel } from "./types";
 
 /**
@@ -82,7 +87,8 @@ function feedPath(): string {
 
 async function readFeed(): Promise<ActivityEntry[]> {
   try {
-    const raw = await fs.readFile(/* turbopackIgnore: true */ feedPath(), "utf8");
+    const fs = await nodeFs();
+    const raw = await fs.readFile(feedPath(), "utf8");
     const arr = JSON.parse(raw) as ActivityEntry[];
     return Array.isArray(arr) ? arr : [];
   } catch {
@@ -96,6 +102,7 @@ async function readFeed(): Promise<ActivityEntry[]> {
  * loses the race just means another writer already landed its own — the feed
  * is still the fresh serialized one (last-writer-wins, benign for this file). */
 async function writeFeed(feed: ActivityEntry[]): Promise<void> {
+  const fs = await nodeFs();
   const p = feedPath();
   await fs.mkdir(path.dirname(p), { recursive: true });
   const tmp = `${p}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
