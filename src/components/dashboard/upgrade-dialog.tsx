@@ -24,14 +24,11 @@ type Scope = "verification" | "featured" | "emergency";
 
 /** Derive display prices from the canonical PURCHASE_PRICES constant. */
 const fmt = (minor: number) => `$${minor / 100}`;
-const VERIFICATION_PRICE = `${fmt(PURCHASE_PRICES.verification.basic)} / ${fmt(PURCHASE_PRICES.verification.professional)}`;
-const FEATURED_PRICE = `${fmt(PURCHASE_PRICES.featured)}`;
-const EMERGENCY_PRICE = `${fmt(PURCHASE_PRICES.emergency)}`;
 
-const OPTIONS: { scope: Scope; icon: typeof Crown; price: string; titleKey: string; descKey: string }[] = [
-  { scope: "verification", icon: BadgeCheck, price: VERIFICATION_PRICE, titleKey: "payments.purchaseVerificationTitle", descKey: "payments.purchaseVerificationBasic" },
-  { scope: "featured", icon: Crown, price: FEATURED_PRICE, titleKey: "payments.purchaseFeatured", descKey: "payments.purchaseFeatured" },
-  { scope: "emergency", icon: Siren, price: EMERGENCY_PRICE, titleKey: "payments.purchaseEmergency", descKey: "payments.purchaseEmergency" },
+const OPTIONS: { scope: Scope; icon: typeof Crown; titleKey: string; descKey: string }[] = [
+  { scope: "verification", icon: BadgeCheck, titleKey: "payments.purchaseVerificationTitle", descKey: "payments.purchaseVerificationBasic" },
+  { scope: "featured", icon: Crown, titleKey: "payments.purchaseFeatured", descKey: "payments.purchaseFeatured" },
+  { scope: "emergency", icon: Siren, titleKey: "payments.purchaseEmergency", descKey: "payments.purchaseEmergency" },
 ];
 
 export function UpgradeDialog({ worker }: { worker: Worker }) {
@@ -72,30 +69,37 @@ export function UpgradeDialog({ worker }: { worker: Worker }) {
         </DialogHeader>
 
         <div className="space-y-2">
-          {OPTIONS.map(({ scope: s, icon: Icon, price, titleKey, descKey }) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                setScope(s);
-                if (s !== "verification") setTier("basic");
-              }}
-              disabled={busy}
-              className={cn(
-                "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-start transition-all disabled:opacity-50",
-                scope === s ? "border-brand-500 bg-brand-500/5 ring-1 ring-brand-500" : "border-ink-200 hover:border-brand-500/40 dark:border-ink-700"
-              )}
-            >
-              <span className="flex items-center gap-3">
-                <Icon className="size-4 text-brand-500" />
-                <span>
-                  <span className="block text-sm font-black text-ink-900 dark:text-ink-50">{t(titleKey)}</span>
-                  <span className="text-xs text-ink-400">{t(descKey)}</span>
+          {OPTIONS.map(({ scope: s, icon: Icon, titleKey, descKey }) => {
+            const price = s === "verification"
+              ? fmt(tier === "professional" ? PURCHASE_PRICES.verification.professional : PURCHASE_PRICES.verification.basic)
+              : s === "featured"
+                ? fmt(PURCHASE_PRICES.featured)
+                : fmt(PURCHASE_PRICES.emergency);
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  setScope(s);
+                  if (s !== "verification") setTier("basic");
+                }}
+                disabled={busy}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-start transition-all disabled:opacity-50",
+                  scope === s ? "border-brand-500 bg-brand-500/5 ring-1 ring-brand-500" : "border-ink-200 hover:border-brand-500/40 dark:border-ink-700"
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  <Icon className="size-4 text-brand-500" />
+                  <span>
+                    <span className="block text-sm font-black text-ink-900 dark:text-ink-50">{t(titleKey)}</span>
+                    <span className="text-xs text-ink-400">{t(descKey)}</span>
+                  </span>
                 </span>
-              </span>
-              <span className="text-sm font-black text-brand-600 dark:text-brand-400">{price}</span>
-            </button>
-          ))}
+                <span className="text-sm font-black text-brand-600 dark:text-brand-400">{price}</span>
+              </button>
+            );
+          })}
         </div>
 
         {scope === "verification" && (
