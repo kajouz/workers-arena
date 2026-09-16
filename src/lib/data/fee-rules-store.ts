@@ -18,6 +18,7 @@
 
 import { logAdminActivity, ACTION_CODES } from "./activity";
 import { normalizeLeadMarketConfig, type LeadMarketConfig } from "./lead-market";
+import { DEFAULT_REFERRAL_CONFIG } from "./referral";
 import { normalizePlanCatalogOverrides, type PlanCatalogOverrides, type ResolvedPlanCatalog } from "./plan-catalog-overrides";
 import {
   DEFAULT_FEE_RULE_SET,
@@ -105,6 +106,13 @@ export async function loadPlanCatalog(): Promise<ResolvedPlanCatalog> {
   return normalizePlanCatalogOverrides(ruleSet.planCatalog);
 }
 
+/** Load the admin-editable referral program config (§14). */
+export async function loadReferralConfig(): Promise<import("@/lib/data/referral").ReferralProgramConfig> {
+  const ruleSet = await loadActiveFeeRuleSet();
+  const { DEFAULT_REFERRAL_CONFIG } = await import("@/lib/data/referral");
+  return { ...DEFAULT_REFERRAL_CONFIG, ...(ruleSet.referralConfig ?? {}) };
+}
+
 /** Rule-set history, newest first (admin panel). */
 export async function listFeeRuleSetVersions(limit = 20): Promise<FeeRuleSet[]> {
   const n = Math.max(1, Math.trunc(limit));
@@ -128,6 +136,8 @@ export interface SaveFeeRuleSetInput {
   leadMarket?: Partial<LeadMarketConfig>;
   /** Admin-edited subscription plan pricing (overrides over the shipped catalog). */
   planCatalog?: Partial<PlanCatalogOverrides>;
+  /** Admin-edited referral program config — bonus amounts, caps, qualifying action. */
+  referralConfig?: Partial<import("@/lib/data/referral").ReferralProgramConfig>;
 }
 
 /**
@@ -142,6 +152,7 @@ function withLeadMarketConfig(ruleSet: FeeRuleSet): FeeRuleSet {
     ...ruleSet,
     leadMarket: normalizeLeadMarketConfig(ruleSet.leadMarket),
     planCatalog: normalizePlanCatalogOverrides(ruleSet.planCatalog),
+    referralConfig: { ...DEFAULT_REFERRAL_CONFIG, ...(ruleSet.referralConfig ?? {}) },
   };
 }
 
@@ -183,6 +194,7 @@ export async function saveFeeRuleSet(
     // AFTER the take-rate normalizer (which deliberately knows nothing about
     // the subscription catalog) and clamped on every write.
     planCatalog: normalizePlanCatalogOverrides({ ...current.planCatalog, ...input.planCatalog }),
+    referralConfig: { ...(current.referralConfig ?? DEFAULT_REFERRAL_CONFIG), ...input.referralConfig } as import("@/lib/data/referral").ReferralProgramConfig,
   };
 
   let saved: FeeRuleSet;

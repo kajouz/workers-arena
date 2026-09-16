@@ -53,8 +53,19 @@ export async function generateReferralCodeAction(): Promise<ReferralCodeResult |
     return { ok: false, error: "Only workers can generate referral codes." };
   }
 
-  // Find the worker ID from the session
-  const workerId = (session as any).workerId ?? session.id;
+  // The session carries the User ID, not the Worker ID. Look up the Worker row.
+  let workerId: string | null = null;
+  try {
+    const { getPrisma } = await import("@/lib/server/prisma");
+    const prisma = getPrisma();
+    const worker = await prisma.worker.findFirst({
+      where: { userId: session.id },
+      select: { id: true },
+    });
+    workerId = worker?.id ?? null;
+  } catch {
+    workerId = session.id; // demo mode
+  }
   if (!workerId) return { ok: false, error: "Worker not found." };
 
   try {
@@ -83,7 +94,21 @@ export async function getReferralStatsAction(): Promise<{
     return { ok: false, error: "Only workers can view referral stats." };
   }
 
-  const workerId = (session as any).workerId ?? session.id;
+  // The session carries the User ID, not the Worker ID. Look up the Worker
+  // row by userId so getReferralStats queries the correct referrer.
+  let workerId: string | null = null;
+  try {
+    const { getPrisma } = await import("@/lib/server/prisma");
+    const prisma = getPrisma();
+    const worker = await prisma.worker.findFirst({
+      where: { userId: session.id },
+      select: { id: true },
+    });
+    workerId = worker?.id ?? null;
+  } catch {
+    // Demo mode — no Prisma, fall back to session.id
+    workerId = session.id;
+  }
   if (!workerId) return { ok: false, error: "Worker not found." };
 
   try {

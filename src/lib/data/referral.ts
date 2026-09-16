@@ -49,7 +49,7 @@ export const DEFAULT_REFERRAL_CONFIG: ReferralProgramConfig = {
 
 /** The lead-market numbers in force for a rule set (falls back to defaults). */
 export function referralConfig(ruleSet: FeeRuleSet): ReferralProgramConfig {
-  return (ruleSet as any).referral ?? DEFAULT_REFERRAL_CONFIG;
+  return ruleSet.referralConfig ?? DEFAULT_REFERRAL_CONFIG;
 }
 
 /* ─────────────────────────────────── Code ─────────────────────────────────── */

@@ -141,6 +141,9 @@ export interface FeeRuleSet {
    * shipped `PLAN_CATALOG`. Typed structurally for the same reason as
    * `leadMarket`; the store normalizes it on every read/write. */
   planCatalog?: PlanCatalogOverrides;
+  /** Admin-editable referral program config — bonus amounts, caps, and
+   * qualifying action (§14). Typed structurally for the same reason. */
+  referralConfig?: import("@/lib/data/referral").ReferralProgramConfig;
   updatedAt: string;
   updatedBy?: string;
 }
