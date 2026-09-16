@@ -12,6 +12,7 @@ import { useState } from "react";
 import { BadgeCheck, Crown, Siren } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { Worker } from "@/lib/data/types";
+import { PURCHASE_PRICES } from "@/lib/data/purchases";
 import { purchaseUpgradeAction } from "@/app/actions/business";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -21,10 +22,16 @@ import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/
 
 type Scope = "verification" | "featured" | "emergency";
 
+/** Derive display prices from the canonical PURCHASE_PRICES constant. */
+const fmt = (minor: number) => `$${minor / 100}`;
+const VERIFICATION_PRICE = `${fmt(PURCHASE_PRICES.verification.basic)} / ${fmt(PURCHASE_PRICES.verification.professional)}`;
+const FEATURED_PRICE = `${fmt(PURCHASE_PRICES.featured)}`;
+const EMERGENCY_PRICE = `${fmt(PURCHASE_PRICES.emergency)}`;
+
 const OPTIONS: { scope: Scope; icon: typeof Crown; price: string; titleKey: string; descKey: string }[] = [
-  { scope: "verification", icon: BadgeCheck, price: "$9 / $19", titleKey: "payments.purchaseVerificationTitle", descKey: "payments.purchaseVerificationBasic" },
-  { scope: "featured", icon: Crown, price: "$49", titleKey: "payments.purchaseFeatured", descKey: "payments.purchaseFeatured" },
-  { scope: "emergency", icon: Siren, price: "$9", titleKey: "payments.purchaseEmergency", descKey: "payments.purchaseEmergency" },
+  { scope: "verification", icon: BadgeCheck, price: VERIFICATION_PRICE, titleKey: "payments.purchaseVerificationTitle", descKey: "payments.purchaseVerificationBasic" },
+  { scope: "featured", icon: Crown, price: FEATURED_PRICE, titleKey: "payments.purchaseFeatured", descKey: "payments.purchaseFeatured" },
+  { scope: "emergency", icon: Siren, price: EMERGENCY_PRICE, titleKey: "payments.purchaseEmergency", descKey: "payments.purchaseEmergency" },
 ];
 
 export function UpgradeDialog({ worker }: { worker: Worker }) {
