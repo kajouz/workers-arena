@@ -6,8 +6,8 @@
  * imports them dynamically), so no network or install is needed.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import nodemailer from "nodemailer";
 import { createEmailChannel } from "@/lib/notifications/providers/email";
+import { _setImportFn } from "@/lib/notifications/providers/dynamic-imports";
 import type { ChannelPayload } from "@/lib/notifications/types";
 
 const { sendMailMock, resendInstances } = vi.hoisted(() => ({
@@ -15,18 +15,15 @@ const { sendMailMock, resendInstances } = vi.hoisted(() => ({
   resendInstances: [] as unknown[],
 }));
 
-vi.mock("nodemailer", () => ({
-  default: { createTransport: vi.fn(() => ({ sendMail: sendMailMock })) },
-}));
-
-vi.mock("resend", () => ({
+const nodemailerMock = { default: { createTransport: vi.fn(() => ({ sendMail: sendMailMock })) } };
+const resendMock = {
   Resend: class {
     emails = { send: vi.fn().mockResolvedValue({}) };
     constructor() {
       resendInstances.push(this);
     }
   },
-}));
+};
 
 const pdf = Buffer.from("%PDF-1.4\nfake audit payload");
 
@@ -48,6 +45,12 @@ const payload: ChannelPayload = {
 beforeEach(() => {
   vi.stubEnv("NOTIFY_SMTP_HOST", "smtp.test");
   vi.stubEnv("RESEND_API_KEY", "re_test");
+  // Inject mocked modules so the Function()-based loader returns them.
+  _setImportFn(async (specifier: string) => {
+    if (specifier === "nodemailer") return nodemailerMock;
+    if (specifier === "resend") return resendMock;
+    return null;
+  });
 });
 
 afterEach(() => {
@@ -70,7 +73,7 @@ describe("email channel attachments", () => {
   it("smtp provider passes the attachment through to nodemailer", async () => {
     const result = await createEmailChannel("smtp").send(payload);
     expect(result.ok).toBe(true);
-    const transport = vi.mocked(nodemailer.createTransport).mock.results[0]?.value as {
+    const transport = vi.mocked(nodemailerMock.default.createTransport).mock.results[0]?.value as {
       sendMail: typeof sendMailMock;
     };
     expect(transport).toBeDefined();

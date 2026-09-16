@@ -11,7 +11,7 @@
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function safeImport(specifier: string): Promise<any> {
+async function defaultImport(specifier: string): Promise<any> {
   try {
     // Turbopack can't see through Function() — the import is invisible to it.
     // eslint-disable-next-line no-new-func, @typescript-eslint/no-require-imports
@@ -22,17 +22,27 @@ async function safeImport(specifier: string): Promise<any> {
   }
 }
 
+/** Overridable import function — tests can swap this via the module mock. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export let _importFn: (specifier: string) => Promise<any> = defaultImport;
+
+/** Override the import function (for tests). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function _setImportFn(fn: (specifier: string) => Promise<any>) {
+  _importFn = fn;
+}
+
 /** Lazy-load nodemailer (only when SMTP is configured). */
 export async function loadNodemailer() {
-  return safeImport("nodemailer");
+  return _importFn("nodemailer");
 }
 
 /** Lazy-load twilio (only when Twilio credentials are set). */
 export async function loadTwilio() {
-  return safeImport("twilio");
+  return _importFn("twilio");
 }
 
 /** Lazy-load resend (only when Resend API key is set). */
 export async function loadResend() {
-  return safeImport("resend");
+  return _importFn("resend");
 }
