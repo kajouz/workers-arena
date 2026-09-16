@@ -2678,6 +2678,7 @@ export async function prismaTransitionBooking(
     });
     if (!result) return null;
     if (staged) {
+      // Worker staged completion → notify customer to confirm.
       await pushNotification(
         bookingNotification(toDomainBooking(result), "customer-completion-pending"),
         result.customerEmail
@@ -2685,7 +2686,19 @@ export async function prismaTransitionBooking(
               name: result.customerName,
               email: result.customerEmail,
               phone: result.customerPhone,
-              // The customer's preferred language (User.locale) — not always EN.
+              locale: result.customer?.locale === "ar" ? "ar" : "en",
+            }
+          : undefined
+      );
+    } else if (to === "noShow") {
+      // Worker marked no-show → notify customer so they can rebook.
+      await pushNotification(
+        bookingNotification(toDomainBooking(result), "customer-cancelled"),
+        result.customerEmail
+          ? {
+              name: result.customerName,
+              email: result.customerEmail,
+              phone: result.customerPhone,
               locale: result.customer?.locale === "ar" ? "ar" : "en",
             }
           : undefined
