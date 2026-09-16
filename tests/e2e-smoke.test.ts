@@ -3347,7 +3347,14 @@ describeE2E("E2E hydration smoke", () => {
       if (!ssrAfterRevert.includes("bilal-mansour-cleaning")) {
         pushNote("[plan-change] first searchSsr() missed bilal — reloading search page");
         await page.goto(`${targetBase}/search?feeWaived=1`, { waitUntil: "load", timeout: 120_000 });
-        await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
+        // Wait for hydration + client-side search render (Suspense → results).
+        await waitFor(
+          page,
+          "document.body.innerText.includes('Bilal Mansour')",
+          "bilal reappears in fee-waived search after revert",
+          30_000,
+          refreshFallback
+        );
         ssrAfterRevert = await page.evaluate(() => document.body.innerHTML);
       }
       expect(ssrAfterRevert).toContain("bilal-mansour-cleaning");
