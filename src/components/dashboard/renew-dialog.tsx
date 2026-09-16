@@ -5,6 +5,7 @@ import { CalendarClock, Check } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { BillingPeriod, SubscriptionPlan, Worker } from "@/lib/data/types";
 import { ANNUAL_PAID_MONTHS, ANNUAL_TERM_MONTHS, PLANS, planPrice } from "@/lib/data/subscriptions";
+import { effectiveMonthlyPriceWithOverrides, type ResolvedPlanCatalog } from "@/lib/data/plan-catalog-overrides";
 import { renewSubscriptionAction } from "@/app/actions/business";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 
-export function RenewDialog({ worker, trial = false }: { worker: Worker; /** §Trial — the worker is on the 30-day free trial: the CTA reads "Keep your plan" and the dialog shows the trial banner. */ trial?: boolean }) {
+export function RenewDialog({ worker, trial = false, planCatalog }: { worker: Worker; /** §Trial — the worker is on the 30-day free trial: the CTA reads "Keep your plan" and the dialog shows the trial banner. */ trial?: boolean; planCatalog?: ResolvedPlanCatalog }) {
   const { locale, t } = useLocale();
   const router = useRouter();
   const [plan, setPlan] = useState<SubscriptionPlan>(worker.subscription.plan);
@@ -101,8 +102,12 @@ export function RenewDialog({ worker, trial = false }: { worker: Worker; /** §T
 
         <div className="space-y-2">
           {(Object.keys(PLANS) as SubscriptionPlan[]).map((key) => {
-            const monthly = PLANS[key].price;
-            const price = planPrice(key, period);
+            // Category-adjusted price: the worker's trade multiplier from the
+            // admin-editable catalog (same source the homepage pricing page uses).
+            const monthly = planCatalog
+              ? effectiveMonthlyPriceWithOverrides(planCatalog, key, worker.categorySlug)
+              : PLANS[key].price;
+            const price = period === "annual" ? monthly * ANNUAL_PAID_MONTHS : monthly;
             return (
               <button
                 key={key}

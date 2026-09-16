@@ -28,6 +28,7 @@ export function CreditBalanceCard() {
   const [showPackages, setShowPackages] = useState(false);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [payMethod, setPayMethod] = useState<"OMT" | "WHISH">("OMT");
 
   useEffect(() => {
     fetchData();
@@ -131,6 +132,22 @@ export function CreditBalanceCard() {
       {showPackages && (
         <div className="p-4 border-t border-gray-200">
           <h4 className="font-medium text-gray-900 mb-3">Buy Credit Packages</h4>
+          <div className="flex gap-2 mb-3">
+            {(["OMT", "WHISH"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setPayMethod(m)}
+                className={cn(
+                  "flex-1 py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all",
+                  payMethod === m
+                    ? "border-orange-500 bg-orange-50 text-orange-700"
+                    : "border-gray-200 text-gray-500 hover:border-gray-300"
+                )}
+              >
+                {m === "OMT" ? "🏦 OMT" : "💳 Whish"}
+              </button>
+            ))}
+          </div>
           {purchaseError && (
             <p className="text-xs text-red-600 mb-2">{purchaseError}</p>
           )}
@@ -144,7 +161,7 @@ export function CreditBalanceCard() {
                       const res = await fetch("/api/credits/purchase", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ packageId: pkg.id, method: "OMT" }),
+                        body: JSON.stringify({ packageId: pkg.id, method: payMethod }),
                       });
                       const data = await res.json();
                       if (data.ok) {

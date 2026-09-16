@@ -152,7 +152,10 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
       }
       const error = await realSignIn(parsed.data.email, parsed.data.password);
       if (error) return { error: "invalid" };
-      redirect("/dashboard");
+      // New workers land on the onboarding page to complete their profile
+      // and activate the 30-day free trial. Other roles go straight to
+      // the dashboard.
+      redirect(parsed.data.role === "worker" ? "/dashboard/onboarding" : "/dashboard");
     } catch (e) {
       // Unique-email collision (Prisma P2002) → friendly error; anything else
       // (DB down, etc.) must not be masked as a validation failure.

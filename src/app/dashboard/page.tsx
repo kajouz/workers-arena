@@ -16,7 +16,8 @@ import {
 import { offerIsLive } from "@/lib/data/lead-market";
 import type { BookingMessage, Notification } from "@/lib/data/types";
 import { workerEmailPreviewFor } from "@/lib/data/booking-notifications";
-import { loadActiveFeeRuleSet } from "@/lib/data/fee-rules-store";
+import { loadActiveFeeRuleSet, loadPlanCatalog } from "@/lib/data/fee-rules-store";
+import type { ResolvedPlanCatalog } from "@/lib/data/plan-catalog-overrides";
 import { WorkerDashboard } from "@/components/dashboard/worker-dashboard";
 import { getWorkerRoi } from "@/lib/data/repo";
 
@@ -79,7 +80,10 @@ export default async function DashboardPage() {
   // §5 — the ACTIVE platform fee rule set, so the RespondDialog's "you receive
   // X · platform fee Y" preview is computed from the same rules (and version)
   // the accept transaction will stamp into the fee snapshot (§6).
-  const feeRuleSet = await loadActiveFeeRuleSet();
+  const [feeRuleSet, planCatalog] = await Promise.all([
+    loadActiveFeeRuleSet(),
+    loadPlanCatalog(),
+  ]);
   // §7–§10 — the qualified leads buyable right now, for the dashboard's
   // lead-marketplace CTA (the full board lives at /dashboard/leads).
   const leadOffers = await getWorkerLeadOffers(demoWorker.id);
@@ -107,6 +111,7 @@ export default async function DashboardPage() {
       payouts={payouts}
       nowSeed={nowSeed}
       feeRuleSet={feeRuleSet}
+      planCatalog={planCatalog}
       liveLeadCount={liveLeadCount}
       roiReport={roiReport}
     />
