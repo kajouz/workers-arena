@@ -1,4 +1,5 @@
 import type { BillingPeriod, Invoice, Subscription, SubscriptionPlan, SubscriptionStatus, Worker } from "./types";
+import { effectiveMonthlyPriceWithOverrides, type ResolvedPlanCatalog } from "./plan-catalog-overrides";
 import {
   ANNUAL_PAID_MONTHS as NEW_ANNUAL_PAID_MONTHS,
   ANNUAL_TERM_MONTHS as NEW_ANNUAL_TERM_MONTHS,
@@ -146,20 +147,51 @@ export function applyPlanChange(sub: Subscription, plan: SubscriptionPlan): Subs
 export function renewSubscription(
   w: Worker,
   plan: SubscriptionPlan,
-  period: BillingPeriod = "monthly"
+  period: BillingPeriod = "monthly",
+  /** Admin-editable catalog — when supplied, the price comes from the
+   * overrides layer instead of the shipped PLANS map (they agree unless an
+   * admin has repriced, which is the point). */
+  catalog?: ResolvedPlanCatalog
 ): { subscription: Subscription; invoice: Invoice } {
   const invoice = issueInvoice(w, plan, period);
+  const price = catalog
+    ? effectiveMonthlyPriceWithOverrides(catalog, plan) * (period === "annual" ? ANNUAL_PAID_MONTHS : 1)
+    : planPrice(plan, period);
   const subscription: Subscription = {
     plan,
     status: "active",
     startedAt: new Date().toISOString(),
     expiresAt: addMonths(new Date().toISOString(), periodMonths(period)),
-    price: planPrice(plan, period),
+    price,
     invoiceNo: invoice.number,
     period,
   };
   w.subscription = subscription;
   return { subscription, invoice };
+}
+
+/** The trial: a worker's FIRST plan runs at $0 (default 30 days — the admin
+ * may re-tune it via the plan-catalog overrides; 0 disables the trial).
+ * subscription-plans.ts (TRIAL_PERIOD_DAYS) ships the default so the pricing
+ * page, this engine and the UI all quote the same number. No invoice is issued
+ * for a trial — the worker pays nothing, and the first RENEWAL (via
+ * renewSubscription) is the first bill. */
+export function startTrialSubscription(
+  plan: SubscriptionPlan,
+  at: Date = new Date(),
+  days: number = TRIAL_PERIOD_DAYS
+): Subscription {
+  const startedAt = at.toISOString();
+  return {
+    plan,
+    status: "active",
+    startedAt,
+    // Trial term: the trial is monthly-shaped — expiresAt = start + N days.
+    expiresAt: new Date(at.getTime() + Math.max(1, Math.trunc(days)) * 24 * 60 * 60 * 1000).toISOString(),
+    price: 0,
+    invoiceNo: `TRIAL-${plan.toUpperCase()}`,
+    period: "monthly",
+  };
 }
 
 /** Which reminder (7/3/1 day) a worker is due for, if any — used by the engine. */

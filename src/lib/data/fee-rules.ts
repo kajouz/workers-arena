@@ -29,6 +29,7 @@
 
 import type { CurrencyCode } from "@/lib/utils";
 import type { LeadMarketConfig } from "./lead-market";
+import type { PlanCatalogOverrides } from "./plan-catalog-overrides";
 
 /** The monetization plan's five tiers. This is a CONFIG layer over the
  * existing `SubscriptionPlan` enum (basic/professional/premium/enterprise) —
@@ -136,6 +137,10 @@ export interface FeeRuleSet {
    * keep this module free of a runtime dependency on the lead engine — the
    * store normalizes it with `normalizeLeadMarketConfig` on every read/write. */
   leadMarket?: LeadMarketConfig;
+  /** Admin-editable subscription plan pricing (§5 plans) — overrides over the
+   * shipped `PLAN_CATALOG`. Typed structurally for the same reason as
+   * `leadMarket`; the store normalizes it on every read/write. */
+  planCatalog?: PlanCatalogOverrides;
   updatedAt: string;
   updatedBy?: string;
 }

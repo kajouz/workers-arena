@@ -18,6 +18,7 @@
 
 import { logAdminActivity, ACTION_CODES } from "./activity";
 import { normalizeLeadMarketConfig, type LeadMarketConfig } from "./lead-market";
+import { normalizePlanCatalogOverrides, type PlanCatalogOverrides, type ResolvedPlanCatalog } from "./plan-catalog-overrides";
 import {
   DEFAULT_FEE_RULE_SET,
   buildFeeSnapshot,
@@ -94,6 +95,16 @@ export async function loadActiveFeeRuleSet(): Promise<FeeRuleSet> {
   return withLeadMarketConfig(STORE.active);
 }
 
+/**
+ * The admin-editable subscription plan catalog in force (overrides over the
+ * shipped PLAN_CATALOG), from the same versioned rule set as the take rate.
+ * Demo + real mode return an identical shape; always clamped/normalized.
+ */
+export async function loadPlanCatalog(): Promise<ResolvedPlanCatalog> {
+  const ruleSet = await loadActiveFeeRuleSet();
+  return normalizePlanCatalogOverrides(ruleSet.planCatalog);
+}
+
 /** Rule-set history, newest first (admin panel). */
 export async function listFeeRuleSetVersions(limit = 20): Promise<FeeRuleSet[]> {
   const n = Math.max(1, Math.trunc(limit));
@@ -115,6 +126,8 @@ export interface SaveFeeRuleSetInput {
   promotions?: FeePromotion[];
   /** §7–§10 lead-market policy (prices, matching weights, ownership, reveal). */
   leadMarket?: Partial<LeadMarketConfig>;
+  /** Admin-edited subscription plan pricing (overrides over the shipped catalog). */
+  planCatalog?: Partial<PlanCatalogOverrides>;
 }
 
 /**
@@ -122,10 +135,14 @@ export interface SaveFeeRuleSetInput {
  * prices, weights, caps and the reveal policy are clamped by the engine's
  * normalizer, so a hand-edited jsonb row (or an old version that predates the
  * lead marketplace) can never charge a nonsense price or reveal more than the
- * policy allows.
+ * policy allows. The plan-catalog overrides ride along the same way.
  */
 function withLeadMarketConfig(ruleSet: FeeRuleSet): FeeRuleSet {
-  return { ...ruleSet, leadMarket: normalizeLeadMarketConfig(ruleSet.leadMarket) };
+  return {
+    ...ruleSet,
+    leadMarket: normalizeLeadMarketConfig(ruleSet.leadMarket),
+    planCatalog: normalizePlanCatalogOverrides(ruleSet.planCatalog),
+  };
 }
 
 /**
@@ -162,6 +179,10 @@ export async function saveFeeRuleSet(
   const next: FeeRuleSet = {
     ...normalized,
     leadMarket: normalizeLeadMarketConfig({ ...current.leadMarket, ...input.leadMarket }),
+    // Same carriage as leadMarket: the plan-catalog overrides are attached
+    // AFTER the take-rate normalizer (which deliberately knows nothing about
+    // the subscription catalog) and clamped on every write.
+    planCatalog: normalizePlanCatalogOverrides({ ...current.planCatalog, ...input.planCatalog }),
   };
 
   let saved: FeeRuleSet;

@@ -186,6 +186,11 @@ export async function prismaSaveFeeRuleSet(
           categories: ruleSet.categories,
           emergency: ruleSet.emergency,
           promotions: ruleSet.promotions,
+          // Ride-along configs (lead-market policy, plan-catalog overrides):
+          // these MUST be in the payload or the next read silently resets the
+          // marketplace / plan pricing to the shipped defaults in real mode.
+          ...(ruleSet.leadMarket ? { leadMarket: ruleSet.leadMarket } : {}),
+          ...(ruleSet.planCatalog ? { planCatalog: ruleSet.planCatalog } : {}),
           updatedAt: ruleSet.updatedAt,
           updatedBy: ruleSet.updatedBy,
         } as unknown as Prisma.InputJsonValue,

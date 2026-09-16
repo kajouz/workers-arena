@@ -7,6 +7,7 @@ import { Testimonials } from "@/components/home/testimonials";
 import { Plans } from "@/components/home/plans";
 import { CTA } from "@/components/home/cta";
 import { getCategories, getFeaturedWorkersList, getPopularSearches } from "@/lib/data/repo";
+import { loadPlanCatalog } from "@/lib/data/fee-rules-store";
 import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
 import { getSession } from "@/lib/auth-demo";
 import { PushOnboarding } from "@/components/notifications/push-onboarding";
@@ -15,10 +16,11 @@ export const revalidate = 3600;
 
 export default async function HomePage() {
   const session = await getSession();
-  const [categories, featured, popular] = await Promise.all([
+  const [categories, featured, popular, planCatalog] = await Promise.all([
     getCategories(),
     getFeaturedWorkersList(4),
     getPopularSearches(),
+    loadPlanCatalog(),
   ]);
 
   return (
@@ -29,7 +31,7 @@ export default async function HomePage() {
       <HowItWorks />
       <StatsBand citiesServed={DEFAULT_COUNTRY.cities.length} />
       <Testimonials />
-      <Plans />
+      <Plans catalog={planCatalog} />
       <CTA />
       <PushOnboarding signedIn={Boolean(session)} />
     </>

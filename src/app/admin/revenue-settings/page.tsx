@@ -6,6 +6,7 @@ import { FeeRulesPanel } from "@/components/admin/fee-rules-panel";
 import { PromotionsPanel } from "@/components/admin/promotions-panel";
 import { LeadMarketPanel } from "@/components/admin/lead-market-panel";
 import { ReferralConfigPanel } from "@/components/admin/referral-config-panel";
+import { PlanCatalogPanel } from "@/components/admin/plan-catalog-panel";
 import {
   feePromotionAttribution,
   listFeeRuleSetVersions,
@@ -15,6 +16,7 @@ import {
 import { listCreditLedger } from "@/lib/data/credit-ledger";
 import { listLeadRebates } from "@/lib/data/lead-rebate";
 import { getAllLeadRatings } from "@/lib/data/lead-market-store";
+import { loadPlanCatalog } from "@/lib/data/fee-rules-store";
 import { getCategories, listLeadOffers } from "@/lib/data/repo";
 
 export const metadata: Metadata = {
@@ -33,7 +35,7 @@ export default async function RevenueSettingsPage() {
   // recent fee snapshots, loaded server-side (the panel edits the first and
   // audits the last two). §24 adds the campaigns, their snapshot-derived
   // attribution and the credit ledger the bonuses land in.
-  const [feeRuleSet, feeVersions, feeSnapshots, attribution, creditLedger, categories, leadOffers, leadRebates] =
+  const [feeRuleSet, feeVersions, feeSnapshots, attribution, creditLedger, categories, leadOffers, leadRebates, planCatalog] =
     await Promise.all([
       loadActiveFeeRuleSet(),
       listFeeRuleSetVersions(5),
@@ -43,6 +45,7 @@ export default async function RevenueSettingsPage() {
       getCategories(),
       listLeadOffers(30),
       listLeadRebates(50),
+      loadPlanCatalog(),
     ]);
 
   return (
@@ -60,6 +63,14 @@ export default async function RevenueSettingsPage() {
             created and the credit ledger its purchases debit. */}
         <LeadMarketPanel ruleSet={feeRuleSet} offers={leadOffers} credits={creditLedger} rebates={leadRebates} ratings={getAllLeadRatings()} />
         <ReferralConfigPanel ruleSet={feeRuleSet} />
+        {/* §5 plans — admin-editable subscription pricing (overrides over the shipped catalog). */}
+        <PlanCatalogPanel
+          initial={{
+            plans: planCatalog.plans,
+            trialDays: planCatalog.trialDays,
+            categoryTiers: planCatalog.categoryTiers,
+          }}
+        />
         <p className="text-xs text-ink-500">
           <a href="/admin/analytics/lead-quality" className="underline hover:text-ink-700">
             View lead quality analytics →

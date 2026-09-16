@@ -95,6 +95,10 @@ export function WorkerDashboard({
   const { locale, t } = useLocale();
   const sub = worker.subscription;
   const subStatus = subscriptionStatus(sub);
+  // §Trial — a $0 monthly-shaped subscription stamped TRIAL-<PLAN> is the
+  // 30-day free trial (docs/subscription-trial.md); the card shows trial
+  // copy instead of a price and the renew CTA reads "Keep your plan".
+  const isTrial = !!sub && sub.price === 0 && sub.invoiceNo?.startsWith("TRIAL-");
   const daysLeft = Math.max(0, daysUntil(sub.expiresAt));
   const viewsData = analytics.viewsSeries.slice(0, 18).map((p) => p.value);
   const leadsData = analytics.leadsSeries.slice(0, 18).map((p) => p.value);
@@ -296,14 +300,20 @@ export function WorkerDashboard({
                   <Crown className="size-3" /> {locale === "ar" ? PLANS[sub.plan].labelAr : PLANS[sub.plan].labelEn}
                 </Badge>
                 <Badge variant={subStatus === "expired" ? "danger" : "success"} className="bg-white/15 text-white">
-                  ● {subStatus === "expired" ? t("subscription.expired") : t("dashboard.planStatus")}
+                  ● {subStatus === "expired" ? t("subscription.expired") : isTrial ? t("subscription.trial") : t("dashboard.planStatus")}
                 </Badge>
               </div>
               <p className="mt-4 text-2xl font-black">
-                ${sub.price} {(sub.period === "annual" ? t("plans.perYear") : t("plans.perMonth")).trim()}
+                {isTrial ? (
+                  t("subscription.trialFree")
+                ) : (
+                  <>${sub.price} {(sub.period === "annual" ? t("plans.perYear") : t("plans.perMonth")).trim()}</>
+                )}
               </p>
               <p className="mt-1 text-xs text-white/75">
-                {t("dashboard.planExpires").replace("{date}", formatDate(sub.expiresAt, locale))}
+                {isTrial
+                  ? t("subscription.trialEnds").replace("{date}", formatDate(sub.expiresAt, locale))
+                  : t("dashboard.planExpires").replace("{date}", formatDate(sub.expiresAt, locale))}
               </p>
             </div>
             <CardContent className="space-y-4 pt-5">
@@ -318,7 +328,7 @@ export function WorkerDashboard({
                 </div>
                 <Progress value={subStatus === "expired" ? 0 : Math.min(100, Math.round((daysLeft / (sub.period === "annual" ? 365 : 30)) * 100))} />
               </div>
-              <RenewDialog worker={worker} />
+              <RenewDialog worker={worker} trial={isTrial} />
               {/* §Lebanon — paid upgrades (verification / featured / emergency)
                   paid via the manual OMT/Whish methods (BUSINESS-MODEL §5.1). */}
               <UpgradeDialog worker={worker} />

@@ -24,7 +24,8 @@ import { workerBySlug } from "./workers";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { pushNotification } from "./notifications";
 import { getPaymentProvider } from "@/lib/payments/registry";
-import { planPrice, renewSubscription } from "./subscriptions";
+import { ANNUAL_PAID_MONTHS, planPrice, renewSubscription } from "./subscriptions";
+import { loadPlanCatalog } from "./fee-rules-store";
 import { demoAddInvoice } from "./campaigns";
 import type {
   BillingPeriod,
@@ -140,7 +141,16 @@ export async function demoCreatePurchaseCheckout(
 ): Promise<{ url: string } | null> {
   const w = workerBySlug(input.workerSlug);
   if (!w) return null;
-  const amount = purchaseAmount(input.scope, input);
+  let amount = purchaseAmount(input.scope, input);
+  // Subscription checkouts price through the ADMIN catalog: an admin repriced
+  // plan is charged at the new price (the OMT/Whish instructions must match
+  // what the pricing page shows). Category multipliers intentionally do NOT
+  // apply at checkout — the demo workforce has no per-worker category price.
+  if (input.scope === "subscription" && amount !== null && input.plan) {
+    const catalog = await loadPlanCatalog();
+    const entry = catalog.plans[input.plan];
+    if (entry) amount = entry.monthlyPriceUsd * 100 * (input.period === "annual" ? ANNUAL_PAID_MONTHS : 1);
+  }
   if (amount === null) return null;
 
   STORE.seq += 1;

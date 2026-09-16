@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 
-export function RenewDialog({ worker }: { worker: Worker }) {
+export function RenewDialog({ worker, trial = false }: { worker: Worker; /** §Trial — the worker is on the 30-day free trial: the CTA reads "Keep your plan" and the dialog shows the trial banner. */ trial?: boolean }) {
   const { locale, t } = useLocale();
   const router = useRouter();
   const [plan, setPlan] = useState<SubscriptionPlan>(worker.subscription.plan);
@@ -49,14 +49,21 @@ export function RenewDialog({ worker }: { worker: Worker }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="w-full">
-          <CalendarClock className="size-4" /> {t("dashboard.renewNow")}
+          <CalendarClock className="size-4" /> {trial ? t("subscription.trialKeepPlan") : t("dashboard.renewNow")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("subscription.renewTitle")}</DialogTitle>
-          <DialogDescription>{t("subscription.renewSubtitle")}</DialogDescription>
+          <DialogTitle>{trial ? t("subscription.trialKeepTitle") : t("subscription.renewTitle")}</DialogTitle>
+          <DialogDescription>
+            {trial ? t("subscription.trialKeepSubtitle") : t("subscription.renewSubtitle")}
+          </DialogDescription>
         </DialogHeader>
+        {trial && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+            {t("subscription.trialBanner")}
+          </div>
+        )}
 
         {/* Billing period — annual pays 10 months for 12 (2 months free). */}
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-800">

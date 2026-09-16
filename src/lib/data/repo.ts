@@ -4,7 +4,9 @@ import { computeResponseRate, hasFreeSlotsThisWeek } from "./booking-ui";
 import { CITIES } from "./cities";
 import { getAnalytics } from "./analytics";
 import { getFeaturedWorkers, getRelatedWorkers, getSuggestions, POPULAR_SEARCHES, searchWorkers } from "./search";
-import { applyPlanChange, periodMonths, PLANS, renewSubscription } from "./subscriptions";
+import { applyPlanChange, periodMonths, PLANS, renewSubscription, startTrialSubscription } from "./subscriptions";
+import { TRIAL_PERIOD_DAYS } from "./subscription-plans";
+import { loadPlanCatalog } from "./fee-rules-store";
 import {
   getNotifications,
   getUnreadCount,
@@ -557,10 +559,39 @@ export async function renewWorkerSubscriptionBySlug(
 ): Promise<{ worker: Worker | null; invoice: Invoice | null; days: number }> {
   const w = workerBySlug(slug);
   if (!w) return { worker: null, invoice: null, days: 0 };
+  // ── First plan = free trial (docs/subscription-trial.md) ────────────────
+  // A worker with NO subscription is a new worker; their first plan start is
+  // the trial: the admin-configured number of days at $0 on the chosen plan,
+  // no invoice, no payment rail. trialDays = 0 disables the trial entirely.
+  // Any worker who ever had a plan (active, expiring or expired) pays from day
+  // one — the trial is once per worker, not once per lapse.
+  if (!w.subscription) {
+    const trialDays = (await loadPlanCatalog()).trialDays ?? 30;
+    if (trialDays > 0) {
+      w.subscription = startTrialSubscription(plan, new Date(), trialDays);
+      await pushNotification(
+        {
+          type: "subscription",
+          titleEn: `Free trial started — ${plan}`,
+          titleAr: `بدأت الفترة التجريبية المجانية — ${plan}`,
+          bodyEn: `${w.nameEn}: your ${trialDays}-day free trial of the ${plan} plan is active until ${formatDate(w.subscription.expiresAt, "en")}. No charge — renew any time to keep your plan.`,
+          bodyAr: `${w.nameAr}: فترتك التجريبية المجانية (${trialDays} يوماً) على خطة ${plan} نشطة حتى ${formatDate(w.subscription.expiresAt, "ar")}. بدون رسوم — جدّد في أي وقت للاحتفاظ بخطتك.`,
+          href: "/dashboard",
+        },
+        { name: w.nameEn, email: w.email, phone: w.phone, locale: primaryLocale(w) }
+      );
+      return {
+        worker: w,
+        invoice: null,
+        days: trialDays,
+      };
+    }
+  }
   // renewSubscription issues the invoice internally — don't create a second one.
   // The invoice lands in the shared campaign/invoice store so any graph (the
   // action that renewed, the dashboard page that renders) reads the same list.
-  const { subscription, invoice } = renewSubscription(w, plan, period);
+  // Priced through the ADMIN catalog: a repriced plan charges the new price.
+  const { subscription, invoice } = renewSubscription(w, plan, period, await loadPlanCatalog());
   demoAddInvoice(invoice);
   await pushNotification(
     {
