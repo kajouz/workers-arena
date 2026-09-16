@@ -51,8 +51,9 @@ class TwilioSmsChannel implements NotificationChannel {
       }
 
       // Lazy import keeps the bundle dependency-free until Twilio is configured.
-      const twilioModule = "twilio";
-      const mod = await import(/* @vite-ignore */ twilioModule);
+      const { loadTwilio } = await import("./dynamic-imports");
+      const mod = await loadTwilio();
+      if (!mod) throw new Error("twilio is not installed");
       const Twilio = mod.default ?? mod;
       const client = new Twilio(accountSid, authToken);
       await client.messages.create({
