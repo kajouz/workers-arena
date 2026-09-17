@@ -199,7 +199,7 @@ children.push(
     ["Role", "Who they are", "Their job on the platform", "What it costs"],
     [
       ["Customer / User", "Anyone searching for a service — may book as a guest (name + phone) or create a signed-in account", "Search and compare workers, request quotes from up to 3 workers at once, book a slot, pay deposits, negotiate in the booking chat, confirm job completion, review the worker, follow the audit trail", "Free — no fees of any kind"],
-      ["Worker", "A professional (plumber, electrician, AC tech, carpenter, …) with a public profile and availability slots", "Maintain the profile, respond to requests (accept with a quote / decline), bid in multi-candidate quote jobs, negotiate in chat, complete jobs for customer confirmation, withdraw earnings, buy subscriptions and upgrades", "Subscription $29–$299/mo (Basic / Professional / Premium / Enterprise) + optional add-ons; 7% platform take rate on accepted quotes (waived on Enterprise)"],
+      ["Worker", "A professional (plumber, electrician, AC tech, carpenter, …) with a public profile and availability slots", "Maintain the profile, respond to requests (accept with a quote / decline), bid in multi-candidate quote jobs, negotiate in chat, complete jobs for customer confirmation, withdraw earnings, buy subscriptions, upgrades, and lead credits", "Subscription $15–$199/mo (Starter / Growth / Pro / Business) with 30-day free trial + category-adjusted pricing + optional add-ons; 4–12% platform take rate on accepted quotes (waived on Business); lead marketplace $5–$35 per qualified lead"],
       ["Company", "A business advertising its services to the platform audience", "Create ad campaigns, pay for them (OMT/Whish), monitor impressions / clicks / CTR / budget spend, review invoices, receive refunds", "Campaign budget ($10 CPM / $1 click model) prepaid before the campaign goes live"],
       ["Admin", "Platform operator / support / finance", "Confirm manual payments, approve or reject verifications, change worker plans, approve payouts, cancel or refund bookings, resolve disputes, review the activity feed, audit everything, export trails", "N/A — platform side"],
     ],
@@ -375,8 +375,8 @@ children.push(
   P("Workers grow their business with a paid plan plus a la carte trust and visibility upgrades. All purchases are payable via OMT / Whish and activated on admin confirmation."),
   ROLES("Worker (purchases) · Admin (confirms payments, changes plans, audits)"),
   H3("Functionality"),
-  B("Plans: Basic $29, Professional $59, Premium $119, Enterprise $299 per month (annual billing = 10 paid months for 12)."),
-  B("Expired subscriptions hide the worker from public search — the natural upsell trigger; renewal reminders fire at 7 / 3 / 1 days."),
+  B("Plans: Starter $15, Growth $39, Pro $99, Business $199 per month (annual billing = 9 paid months for 12, 25% discount). Category-adjusted pricing: low-value trades (cleaning, gardening) pay 0.5×, high-value trades (HVAC, mechanic) pay 1.5×. 30-day free trial on any plan."),
+  B("Expired subscriptions hide the worker from public search — the natural upsell trigger; renewal reminders fire at 7 / 3 / 1 days. All plan prices, quotas, and features are admin-editable via /admin/revenue-settings."),
   B("Upgrade dialog: verification tiers (Basic $9 ID check / Professional $19 license + background check, 12-month validity, Verified badge in search), the Featured slot ($49/category/month, homepage + search placement), and the Emergency marker ($9/month)."),
   B("Purchase flow: upgrade → pending manual payment (OMT/Whish instructions page) → admin confirms → the capability activates."),
   B("Admin can change a worker's plan inline (audited as ADMIN_PLAN_CHANGED with the acting admin's identity), reactivate an expired subscription, toggle fee-waived, and export the worker table as CSV."),
@@ -560,6 +560,111 @@ children.push(
   STEP(8, "Audit the marketplace in the same panel: the recent-offers list, the credit ledger, and the grant-credits form for goodwill or corrections."),
 );
 
+// 3.18
+children.push(
+  H2("3.18 Worker ROI dashboard"),
+  P("A per-month breakdown of the worker's marketplace spend and return, so they can see whether buying leads and paying the take rate is worth it."),
+  ROLES("Worker (owner) · Admin (view-only)"),
+  H3("Functionality"),
+  B("Monthly cards: leads bought, quotes sent, jobs won, GMV (gross merchandise value), platform fees paid, subscription cost, total marketplace spend, and the resulting ROI multiple (earnings ÷ spend)."),
+  B("Trend chart showing spend efficiency over time."),
+  B("Accessible from the dashboard's ROI card or /dashboard/roi."),
+  H3("Step by step"),
+  STEP(1, "Open the dashboard and click the ROI card or navigate to /dashboard/roi."),
+  STEP(2, "Select the month to view (defaults to the current month)."),
+  STEP(3, "Review the KPI cards: leads bought, jobs won, GMV, fees, subscription cost, total spend, and ROI multiple."),
+  STEP(4, "Compare months to see whether your marketplace spend is becoming more efficient over time."),
+);
+
+// 3.19
+children.push(
+  H2("3.19 Earnings statement"),
+  P("A monthly financial statement showing completed jobs, platform fees deducted, lead rebates applied, and net earnings — the worker's P&L on the platform."),
+  ROLES("Worker (owner) · Admin (view-only)"),
+  H3("Functionality"),
+  B("Monthly breakdown: completed jobs count, GMV, platform fees, lead rebates, net earnings."),
+  B("Per-job detail: each completed job shows the quote, fee, rebate (if applicable), and net amount."),
+  B("Accessible from the dashboard's Earnings card or /dashboard/earnings."),
+  H3("Step by step"),
+  STEP(1, "Open the dashboard and click the Earnings card or navigate to /dashboard/earnings."),
+  STEP(2, "Select the month to view (defaults to the current month)."),
+  STEP(3, "Review the summary: total jobs, GMV, fees, rebates, and net earnings."),
+  STEP(4, "Expand the per-job detail to see the breakdown for each completed job."),
+);
+
+// 3.20
+children.push(
+  H2("3.20 Lead quality analytics (admin)"),
+  P("An admin dashboard for monitoring lead quality trends, worker feedback, and the impact of the quality feedback loop on pricing and matching."),
+  ROLES("Admin only"),
+  H3("Functionality"),
+  B("Weekly rating trends: average worker ratings per grade over time."),
+  B("Per-grade statistics: conversion rates (lead → booking), average ratings, price multiplier impact."),
+  B("Worker feedback distribution: how many 1-star, 2-star, etc. ratings per grade."),
+  B("Accessible from /admin/analytics/lead-quality."),
+  H3("Step by step"),
+  STEP(1, "Open /admin/analytics/lead-quality to view the lead quality dashboard."),
+  STEP(2, "Review the weekly rating trends chart to see how worker satisfaction is trending."),
+  STEP(3, "Check per-grade stats to see which grades have the best conversion rates and highest ratings."),
+  STEP(4, "Use the insights to adjust grade prices or matching weights in /admin/revenue-settings → Lead marketplace."),
+);
+
+// 3.21
+children.push(
+  H2("3.21 Portfolio builder"),
+  P("Workers can showcase their best work with before/after photos, bilingual titles, and project descriptions — a visual portfolio on their public profile."),
+  ROLES("Worker (owner) · Customer (browses)"),
+  H3("Functionality"),
+  B("Add portfolio items with before/after photos (camera capture on mobile, file upload on web)."),
+  B("Bilingual titles (English + Arabic) and project descriptions."),
+  B("Portfolio items appear on the worker's public profile page."),
+  B("Accessible from the dashboard's Portfolio card."),
+  H3("Step by step"),
+  STEP(1, "Open the dashboard and click the Portfolio card."),
+  STEP(2, "Click Add project and enter the title (EN + AR) and description."),
+  STEP(3, "Upload before/after photos using the camera (mobile) or file picker (web)."),
+  STEP(4, "Save the portfolio item — it appears on your public profile for customers to see."),
+);
+
+// 3.22
+children.push(
+  H2("3.22 Mobile app features"),
+  P("The Capacitor mobile app (Android + iOS) adds native capabilities: camera proof-of-work, geolocation-based search, share sheet, offline awareness, local notifications, and a first-launch onboarding flow."),
+  ROLES("Worker (camera, share, notifications) · Customer (geolocation search, share) · All (onboarding, offline banner)"),
+  H3("Functionality"),
+  B("Camera proof-of-work: workers photograph completed jobs with before/after photos, with client-side resize/compression."),
+  B("Geolocation search: auto-detect user's city and sort by distance; workers can share their profile or completed jobs to social media."),
+  B("Offline banner: shows when connectivity drops, auto-dismisses when reconnected."),
+  B("Local notifications: schedules 30-minute-before reminders for upcoming bookings."),
+  B("Mobile onboarding: 4-step slide-through (name, trade, city, phone) that creates a worker profile + 30-day trial."),
+  B("Push notifications: all 12 booking state transitions send push notifications to the relevant party."),
+  H3("Step by step — camera proof-of-work"),
+  STEP(1, "When completing a booking, the worker sees the Proof Photo Capture component."),
+  STEP(2, "Tap to take 1–3 photos of the completed work (camera or gallery picker)."),
+  STEP(3, "Preview the photos and submit — they're attached to the booking for the customer to see."),
+  H3("Step by step — share sheet"),
+  STEP(1, "On any worker profile or completed job, tap the Share button."),
+  STEP(2, "Choose to share via native share sheet (Instagram, WhatsApp, etc.) or copy the link."),
+);
+
+// 3.23
+children.push(
+  H2("3.23 Referral program"),
+  P("Workers earn platform credits by inviting other workers to join the platform. Both the referrer and the invitee receive bonus credits."),
+  ROLES("Worker (referrer and invitee) · Admin (configures rewards)"),
+  H3("Functionality"),
+  B("Unique referral code per worker, shareable via link or code."),
+  B("Referrer earns 25 credits when the invitee completes their first booking (qualifying action)."),
+  B("Invitee receives 10 credits on signup."),
+  B("Monthly cap: 10 referrals per worker. Lifetime cap: unlimited."),
+  B("Configurable by admin via FeeRuleSet.referral (referrerBonus, inviteeBonus, monthlyCap, lifetimeCap)."),
+  H3("Step by step"),
+  STEP(1, "Open the dashboard and click the Referrals card."),
+  STEP(2, "Copy your unique referral code or share the referral link."),
+  STEP(3, "When someone signs up using your code and completes their first booking, both of you receive credits."),
+  STEP(4, "Track your referrals and earnings in the Referrals card overview."),
+);
+
 // 4. Cross-party workflows
 children.push(
   H1("4. Cross-party interaction workflows"),
@@ -600,9 +705,9 @@ children.push(
   B("Renewal mints an invoice; annual = 10 paid months for a 12-month term."),
   B("Expiry hides the worker from public search — the natural upsell trigger."),
   H2("5.2 From bookings — platform take rate (live)"),
-  B("Rate: 7.0% (700 bps), floor $5, cap $300 per job."),
-  B("Stamped once at accept-with-quote as an immutable snapshot on the booking; Enterprise is exempt (fee 0)."),
-  B("Settlement: worker earnings = quote − platform fee, credited to the ledger at COMPLETED, withdrawn through the admin-reviewed payout queue."),
+  B("Tiered rates: Free 12%, Starter 9%, Growth 7%, Pro 5%, Business 4% (or exempt). Floor $5, cap $300 per job."),
+  B("Stamped once at accept-with-quote as an immutable snapshot on the booking; Business plans can be set fully exempt. Admin can set per-category and per-promotion overrides."),
+  B("Settlement: worker earnings = quote − platform fee + lead rebate (if applicable), credited to the ledger at COMPLETED, withdrawn through the admin-reviewed payout queue."),
   B("Customers see “includes platform fee · worker receives” on the booking row; the worker sees “you receive X · platform fee Y” in the respond dialog."),
   H2("5.3 From companies — advertising (live purchase flow)"),
   B("Purchase: campaign creation → PENDING → pay (OMT/Whish) → admin confirm → ACTIVE + paid advertising invoice."),
@@ -611,6 +716,13 @@ children.push(
   H2("5.4 What the platform does NOT take"),
   B("No customer-side fees of any kind — customers pay only the worker's quote (+ deposit when required)."),
   B("No fee on deposits, no fee on quote requests / multi-candidate bidding, no charge for reviews, favorites, or leads."),
+  H2("5.5 From lead marketplace (live)"),
+  B("Lead grades and pricing: Bronze 5 credits ($5), Silver 9 credits ($9), Gold 20 credits ($20), Emergency 35 credits ($35)."),
+  B("Workers buy credits via OMT/Whish ($25–$150 packages with bonus credits); credits are consumed when buying leads."),
+  B("Lead rebate: when a bought lead converts to a completed job, the lead's cost is rebated against the platform fee — so buying leads lowers the effective take rate on the work they win."),
+  B("Smart pricing: dynamic lead multipliers based on demand (rush hour +15%, weekend +10–20%, holidays +30–35%, seasonal +15–25%)."),
+  H2("5.6 From referrals (live)"),
+  B("Referrer earns 25 credits per successful referral; invitee gets 10 credits on signup. Monthly cap: 10 referrals. Qualifying action: invitee completes first booking."),
 );
 
 // 6. Identifiers
