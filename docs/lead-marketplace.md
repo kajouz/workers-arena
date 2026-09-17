@@ -2,7 +2,7 @@
 
 [← Back to docs index](README.md)
 
-> **Status: ✅ implemented.** `src/lib/data/lead-market.ts` (pure engine: grading, pricing, matching, ownership, reveal, §11 rebate) · `src/lib/data/lead-market-store.ts` (demo store + purchase path) · `src/lib/data/lead-market-prisma.ts` (Postgres adapter) · `src/lib/data/lead-rebate.ts` + `lead-rebate-prisma.ts` (§11: what a converted lead gives back) · `src/lib/data/lead-notifications.ts` (offer/lost/expired payloads) · migrations `20260914150000_lead_offers` (`LeadOffer`), `20260914180000_quote_request_is_emergency` (`QuoteRequest.isEmergency`) and `20260914200000_lead_rebate` (`LeadRebate`) · worker board at `/dashboard/leads` · admin panel at `/admin/revenue-settings` · demo fixture `POST /api/dev/seed-lead-market` · tests `tests/lead-market.test.ts`, `tests/lead-market-panel.test.tsx`, `tests/lead-market-prisma.test.ts`.
+> **Status: ✅ implemented.** `src/lib/data/lead-market.ts` (pure engine: grading, pricing, matching, ownership, reveal, §11 rebate) · `src/lib/data/lead-market-store.ts` (demo store + purchase path) · `src/lib/data/lead-market-prisma.ts` (Postgres adapter) · `src/lib/data/lead-rebate.ts` + `lead-rebate-prisma.ts` (§11: what a converted lead gives back) · `src/lib/data/lead-notifications.ts` (offer/lost/expired payloads) · `src/lib/data/lead-rating.ts` + `lead-rating-prisma.ts` (§12: worker feedback on leads) · `src/lib/pricing/smart-pricing.ts` (dynamic lead pricing) · migrations `20260914150000_lead_offers` (`LeadOffer`), `20260914180000_quote_request_is_emergency` (`QuoteRequest.isEmergency`), `20260914200000_lead_rebate` (`LeadRebate`), `20260914220000_lead_rating` (`LeadRating`) · worker board at `/dashboard/leads` · admin panel at `/admin/revenue-settings` · demo fixture `POST /api/dev/seed-lead-market` · tests `tests/lead-market.test.ts`, `tests/lead-market-panel.test.tsx`, `tests/lead-market-prisma.test.ts`.
 >
 > **Two bugs found while building this, both fixed:** (1) `QuoteRequest.isEmergency` was accepted by the create action but never persisted — both adapters dropped it and the Prisma model had no column, so no posted request could ever grade as an EMERGENCY lead (the flag now rides the request, reaches the marketplace, and the customer's quote dialog can set it); (2) `normalizeFeeRuleSet` silently dropped `leadMarket`, so publishing a take-rate change reset the whole marketplace policy back to the shipped defaults. Both are covered by regression tests.
 >
@@ -32,11 +32,13 @@ Worker buys            credits debited once, rivals withdrawn
 Quote → job            the existing booking pipeline takes over
       ↓
 §11 complete the job   the lead's value comes back as a fee rebate
+      ↓
+§12 rate the lead      worker feedback feeds back into pricing & matching
 ```
 
 The customer experience is unchanged — they still post a request and receive quotes. What changes is that the workers the customer *didn't* think to invite can now pay to compete for it.
 
-**A lead is a commercial asset**, so it is graded, priced, capped, expires, and is owned exclusively once bought.
+**A lead is a commercial asset**, so it is graded, priced, capped, expires, is owned exclusively once bought, and is rated by the worker who bought it.
 
 ---
 
@@ -60,6 +62,24 @@ The emergency grade depends on `QuoteRequest.isEmergency`, which is set by the c
 The result carries a **breakdown**, so any surface can explain a grade ("why is this gold?") without re-deriving it.
 
 A bare request is a bronze *by construction*: it scores 0, so price, ownership and reveal rules all follow from what the customer actually provided.
+
+### Smart Pricing Multipliers
+
+Lead prices are dynamically adjusted by `smart-pricing.ts` based on context:
+
+| Factor | Multiplier | Effect |
+|--------|-----------|--------|
+| Rush hour (6–9 AM, 5–8 PM) | +15% | Higher demand periods |
+| Weekend (Sat–Sun) | +10–20% | Reduced worker availability |
+| Summer (AC jobs) | +25% | Seasonal demand spike |
+| Winter (plumbing jobs) | +15% | Seasonal demand spike |
+| Holidays (Ramadan, Eid) | +30–35% | Peak demand |
+| High demand (few workers) | Up to 2.0× | Supply/demand ratio |
+| Low demand (many workers) | Down to 0.7× | Supply/demand ratio |
+
+**Clamped to [0.7, 2.0] range** — prices never go below 70% or above 200% of base.
+
+---
 
 ## 3. §8 — Matching
 
@@ -90,6 +110,8 @@ Ties break on review volume, then rating, then worker id — the order is **dete
 
 A **lapsed subscription earns no tier weight** (an expired plan is invisible in search too), so the ranking lever cannot be farmed by letting a plan lapse.
 
+---
+
 ## 4. §9 — Ownership, caps and expiry
 
 | Setting | Default | Meaning |
@@ -103,6 +125,8 @@ A **lapsed subscription earns no tier weight** (an expired plan is invisible in 
 - Workers the customer **invited directly are excluded** from the offer pool on purpose: they already hold a free invite to the same job, so selling them the lead would be charging for something they already have. What the marketplace sells is the match the customer never made.
 
 `LeadOffer` is unique on `(leadId, workerId)`, so re-running a match never duplicates (or re-prices) an offer.
+
+---
 
 ## 5. §10 — Contact reveal
 
@@ -123,6 +147,8 @@ Order matters, and it is enforced in one function so no surface can be the leaky
 
 The decision happens **server-side**, before the payload leaves the server: the worker's board never receives a phone number it may not show. `leadBoardItemFor()` builds each row through that policy, and the client re-fetches after a purchase rather than unmasking anything locally.
 
+---
+
 ## 6. The money path
 
 `purchaseLeadOffer(offerId, workerId)` is ordered so that a refusal at any earlier step leaves no trace:
@@ -132,6 +158,8 @@ offer exists AND belongs to this worker
         ↓   (never leak someone else's offer)
 still live (status offered AND inside its window)
         ↓
+smart pricing applied    demand/holiday/seasonal multiplier
+        ↓
 debit the credit ledger      idempotent by offerId — a retry cannot double-charge
         ↓                        and an insufficient balance is a refusal, never a negative row
 offer → purchased            status CAS
@@ -140,10 +168,26 @@ revoke rivals                only when the lead is exclusive (§9)
         ↓
 record the reveal            the state the buyer now has (§10)
         ↓
+send notifications           WhatsApp + email to the buyer
+        ↓
 audit entry                  LEAD_PURCHASED
 ```
 
-Credits come from the **append-only platform credit ledger** (`WorkerCreditEntry`, [fee-rules.md §7](fee-rules.md)) — granted by campaigns, admin adjustment, or (in production) a top-up. The balance is always *derived* from the rows, never stored. 1 credit = $1 by convention.
+Credits come from the **append-only platform credit ledger** (`WorkerCreditEntry`, [fee-rules.md §7](fee-rules.md)) — granted by campaigns, admin adjustment, or (in production) a top-up via OMT/Whish. The balance is always *derived* from the rows, never stored. 1 credit = $1 by convention.
+
+### Credit Purchase Flow
+
+Workers can buy credits through the OMT/Whish manual rails:
+
+1. Worker clicks "Buy More" on the credit balance card
+2. Selects a credit package (Starter/Popular/Professional/Enterprise)
+3. Chooses payment method (OMT or Whish)
+4. Receives payment instructions (reference number, amount, recipient)
+5. Pays offline at an OMT agent or via Whish app
+6. Admin confirms receipt from `/admin` pending-payments card
+7. Credits are granted to the worker's ledger balance
+
+---
 
 ## 7. §11 — The lead rebate: what a lead gives back when it converts
 
@@ -176,7 +220,72 @@ The platform can therefore never pay out more than it earned on the job, and att
 
 **Surfaces.** The worker's booking row shows the effective fee (stamped fee − rebate) beside the quote; the lead board marks a lead that has already paid for itself; and `/admin/revenue-settings` → Lead marketplace carries the on/off switch, the share and the ceiling, plus the granted-rebate audit and summary.
 
-## 8. Surface area
+---
+
+## 8. §12 — Lead quality feedback
+
+Workers rate leads 1–5 stars after purchase, feeding back into pricing and matching:
+
+### Rating Collection
+
+- Workers rate leads on the lead board after purchase
+- Ratings include a quality score (1–5) and optional reason
+- Ratings track whether the lead converted to a booking
+- Ratings are stored in `LeadRating` model (migration `20260914220000_lead_rating`)
+
+### Feedback Loop
+
+| Signal | Effect |
+|--------|--------|
+| **Per-grade pricing multiplier** | Low ratings → 0.8× discount, high ratings → 1.2× surcharge |
+| **Matching weight adjustments** | Quality signal influences candidate ranking |
+| **Admin visibility** | Lead quality analytics dashboard shows trends |
+| **Worker ROI** | Ratings factor into worker's marketplace spend efficiency |
+
+### Pricing Impact
+
+The `leadPrice()` function accepts an optional `ratingMultiplier` parameter:
+- Default: 1.0 (no adjustment)
+- Low quality grade: 0.8× (20% discount)
+- High quality grade: 1.2× (20% surcharge)
+- Clamped to [0.5, 1.5] range
+
+---
+
+## 9. Notifications
+
+Lead offers trigger notifications across multiple channels:
+
+### Notification Types
+
+| Type | When | Recipient |
+|------|------|-----------|
+| `lead-offer` | New lead matched to worker | Worker |
+| `lead-offer-lost` | Exclusive purchase withdrew your offer | Worker |
+| `lead-offer-expired` | Offer window closed | Worker |
+
+### Channels
+
+| Channel | Status | Notes |
+|---------|--------|-------|
+| **WhatsApp** | ✅ Built | Deep links to WhatsApp Web/App |
+| **Email** | ✅ Built | Full HTML emails with templates |
+| **SMS** | ✅ Built | 160-char compact messages |
+
+### Templates
+
+Admin-editable templates per grade (bronze/silver/gold/emergency) with placeholders:
+- `{workerName}` — worker's display name
+- `{grade}` — grade label
+- `{leadNumber}` — human-readable lead number
+- `{matchScore}` — matching score (0–100)
+- `{priceCredits}` — credit cost
+- `{boardUrl}` — deep link to lead board
+- `{adminName}` — admin who sent notification
+
+---
+
+## 10. Surface area
 
 **Worker — `/dashboard/leads`**
 
@@ -193,23 +302,29 @@ The platform can therefore never pay out more than it earned on the job, and att
 - The ten matching weights.
 - The audit: recent offers (grade, match, price, status) and the credit ledger, plus an admin adjustment form.
 - **Publishing appends a new rule version** — an offer already created keeps the price it was quoted at.
+- **WhatsApp/email/SMS templates** — admin-editable per grade.
+- **Notification channels** — toggle WhatsApp, email, SMS on/off.
+- **Rebate config** — enabled, share (pctBps), ceiling.
 
-**Notifications** reuse the existing `lead` type (no enum migration): `lead-offer`, `lead-offer-lost` (an exclusive purchase withdrew your offer), `lead-offer-expired`.
+---
 
-## 9. Demo mode
+## 11. Demo mode
 
 `POST /api/dev/seed-lead-market` (demo-only, 404 in production) posts four requests of deliberately different grades through the **real** `createQuoteRequest` seam, so distribution grades, matches and offers them exactly as production would; it also grants the demo worker credits so a purchase can be exercised end to end. It is idempotent on its marker email.
 
-## 10. What is not built yet
+---
+
+## 12. What is not built yet
 
 - **Promo-code redemption at purchase** — the ledger and code scoping exist ([fee-rules.md](fee-rules.md) §7), but the marketplace does not yet accept a code that discounts a lead.
-- **Credit top-up checkout** — `/api/credits/packages` is a catalog; there is no purchase flow into the ledger (credits arrive by grant/adjustment today).
 - **Buyer refunds** — an admin can claw credits back with an adjustment row, but there is no consumer-facing dispute path for a lead whose customer never replied.
 - **Worker preferences** (categories, budget floor, do-not-disturb windows) — the matcher reads the worker row, not declared preferences.
-- **Lead quality feedback** — nothing yet feeds "this lead was junk" back into a worker's pricing or the grader's weights.
 - **A rebate timeline on the lead board** — the total a lead has given back is shown, but not the individual rebates behind it.
+- **Stripe integration** — credit purchases currently go through OMT/Whish manual rails; Stripe checkout would automate the flow.
 
-## 11. Related
+---
+
+## 13. Related
 
 - [fee-rules.md](fee-rules.md) — the versioned rule set the prices/weights/rebate policy live in, and the credit ledger lead purchases debit.
 - [booking-take-rate.md](booking-take-rate.md) — the take rate the rebate reduces.
@@ -217,3 +332,8 @@ The platform can therefore never pay out more than it earned on the job, and att
 - [PRIVACY-COMMUNICATION-FLOW.md](PRIVACY-COMMUNICATION-FLOW.md) — the platform's other contact-privacy mechanism (masked calling).
 - [BUSINESS-MODEL.md](BUSINESS-MODEL.md) — where lead revenue sits in the model.
 - [INTERACTION-WORKFLOWS.md](INTERACTION-WORKFLOWS.md) — the party-pair map this adds a Worker ⇄ platform flow to.
+- [BUSINESS-MODEL-SUMMARY.md](BUSINESS-MODEL-SUMMARY.md) — the complete revenue architecture overview.
+
+---
+
+*Last updated: September 17, 2026*

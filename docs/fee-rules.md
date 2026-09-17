@@ -22,6 +22,9 @@ The engine keeps that exact policy as its **default rule set** (so enabling it c
 | Promotions / campaigns | `promotions[]` (windowed, scoped, optional code) |
 | Flat fee / floor / cap | `fixedMinor` / `minMinor` / `maxMinor` |
 | Waived plans | `planTiers[tier].exempt` |
+| Referral config | `referral.referrerBonus`, `inviteeBonus`, `monthlyCap`, `lifetimeCap` |
+| Lead marketplace | `leadMarket.prices`, `weights`, `reveal`, `rebate` |
+| Plan catalog | `planCatalog` (admin-editable pricing) |
 
 Everything is **basis points and minor units** — integer money, no floats.
 
@@ -54,17 +57,17 @@ default → plan tier → category → emergency → promotion → (exemption sh
 
 > **Floor economics to keep in mind:** the shipped `minMinor` ($5) means any rate below ~6.25% is invisible on a job under $80 — a 4% Business rate on an $80 job charges $5, not $3.20. The admin preview shows this honestly (it renders the floor), and the rule is configurable per tier, so a low rate for small jobs means lowering the floor, not just the percentage.
 
-Plan tier mapping (a **config layer** over the existing `SubscriptionPlan` enum — no enum migration, as agreed):
+Plan tier mapping (a **config layer** over the existing `SubscriptionPlan` enum — no enum migration):
 
-| Subscription plan | Monetization tier |
-|---|---|
-| *(none)* | `free` |
-| Basic | `starter` |
-| Professional | `professional` |
-| Premium | `growth` |
-| Enterprise | `business` |
+| Subscription plan | Monetization tier | Fee rate |
+|---|---|---|
+| *(none)* | `free` | 12% |
+| Basic | `starter` | 9% |
+| Professional | `professional` | 7% |
+| Premium | `growth` | 5% |
+| Enterprise | `business` | 4% (or exempt) |
 
-The **recommended ladder** from the monetization plan (12 / 9 / 7 / 5 / 4%) ships as a one-click preset in the admin panel (`FEE_LADDER_PRESET`). Adopting it is a pricing decision, not a code change.
+The **recommended ladder** (12 / 9 / 7 / 5 / 4%) ships as the default rule set. Adopting it is a pricing decision, not a code change.
 
 ---
 
@@ -88,7 +91,6 @@ Accept **without** a quote stays fee-free and writes no snapshot.
 
 ## 5. Admin flow (`/admin/revenue-settings`)
 
-
 1. Edit the baseline rule and/or any tier (rate %, min $, max $, fixed $, waiver).
 2. The panel shows, per tier, **what a sample $80 job costs and what the worker receives** — computed with the same `computeFee` the server stores.
 3. "Publish new version" appends version N+1, deactivates the previous row, and logs a `FEE_RULES_UPDATED` activity entry with the acting admin.
@@ -111,7 +113,9 @@ Validation is server-side (zod + `normalizeFeeRuleSet`): rates are clamped to 0�
 | `src/lib/data/credit-ledger.ts` + `credit-ledger-prisma.ts` | the append-only platform credit ledger + `applyPromotionCreditGrant` |
 | `src/components/admin/promotions-panel.tsx` | the campaign editor, economics preview, snapshot attribution and grant list |
 | `prisma/schema.prisma` + `20260914090000_platform_fee_rules` | `FeeRuleSet`, `PlatformFeeSnapshot` |
-| `prisma/schema.prisma` + `20260914120000_worker_credit_ledger` | `WorkerCreditEntry` |
+| `src/lib/data/subscription-plans.ts` | Plan catalog (admin-editable pricing, category multipliers, trial) |
+| `src/lib/data/referral.ts` | Referral program config (referrer/invitee bonuses, caps) |
+| `src/lib/data/lead-market.ts` | Lead marketplace config (grade prices, matching weights, reveal policy) |
 
 > **Deploy note:** apply the migration before shipping the code (`npx prisma migrate deploy`). The snapshot write is part of the accept transaction, so a missing table fails the accept rather than silently dropping the fee.
 
@@ -149,15 +153,80 @@ Publishing campaigns replaces the whole list in one new rule-set version, so the
 
 ---
 
-## 8. Next steps this unlocks
+## 8. Referral config
+
+The referral program configuration lives inside the versioned rule set (`FeeRuleSet.referral`), following the same pattern as `leadMarket` and `planCatalog`:
+
+| Field | Default | Meaning |
+|---|---|---|
+| `referrerBonus` | 25 | Credits granted to the referrer on qualifying action |
+| `inviteeBonus` | 10 | Credits granted to the invitee on signup |
+| `monthlyCap` | 10 | Max referrals per referrer per month (0 = unlimited) |
+| `lifetimeCap` | 0 | Max total referrals per referrer (0 = unlimited) |
+| `qualifyingAction` | `"firstBooking"` | What the invitee must do to trigger the referrer's bonus |
+
+**Admin editing:** the referral config is editable via the same fee-rules admin panel as the take rate, promotions, and lead marketplace. Publishing a change appends a new rule version, so old snapshots keep working.
+
+---
+
+## 9. Lead marketplace config
+
+The lead marketplace configuration lives inside the versioned rule set (`FeeRuleSet.leadMarket`):
+
+| Field | Default | Meaning |
+|---|---|---|
+| `prices.bronze` | 5 | Credits for a bronze lead |
+| `prices.silver` | 9 | Credits for a silver lead |
+| `prices.gold` | 20 | Credits for a gold lead |
+| `prices.emergency` | 35 | Credits for an emergency lead |
+| `maxWorkersPerLead` | 3 | How many workers see one lead |
+| `offerTtlMinutes` | 120 | How long an offer stays buyable |
+| `exclusive` | true | Buying revokes rivals |
+| `reveal.beforePurchase` | masked | What non-buyers see |
+| `reveal.afterPurchase` | revealed | What buyers see |
+| `reveal.afterPurchaseFreeTier` | masked | What free-plan buyers see |
+| `reveal.afterBooking` | revealed | What booked workers see |
+| `weights` | (see §8) | Matching signal weights |
+| `rebate.enabled` | true | Whether rebates are active |
+| `rebate.pctBps` | 10000 | Share of fee to rebate (basis points) |
+| `rebate.maxMinor` | null | Per-job rebate ceiling |
+
+**Admin editing:** all lead marketplace settings are editable via `/admin/revenue-settings` → Lead marketplace. Publishing a change appends a new rule version.
+
+---
+
+## 10. Plan catalog config
+
+The subscription plan catalog lives inside the versioned rule set (`FeeRuleSet.planCatalog`):
+
+| Plan | Label (EN) | Label (AR) | Monthly Price | Leads/mo | Fee Exempt |
+|------|-----------|-----------|---------------|----------|------------|
+| basic | Starter | مبدأية | $15 | 3 | No |
+| professional | Growth | نمو | $39 | 10 | No |
+| premium | Pro | احترافي | $99 | 25 | No |
+| enterprise | Business | أعمال | $199 | Unlimited | Yes |
+
+**Category-adjusted pricing:**
+- Low-value (cleaning, gardening): 0.5×
+- Mid-value (plumbing, electrical): 1.0×
+- High-value (HVAC, mechanic): 1.5×
+
+**Annual billing:** 9 months paid for 12 months (25% discount).
+
+**Trial period:** 30 days free on any plan.
+
+---
+
+## 11. Next steps this unlocks
 
 - Per-category and emergency pricing are already resolvable — an admin can set them today.
 - **Cash jobs** (§21): the snapshot is payment-method agnostic, so a cash settlement flow can invoice `platformFee` from the same record — and spend credits against it.
 - **Lead pricing** (§7–§10): ✅ shipped — [lead-marketplace.md](lead-marketplace.md) prices each grade from THIS rule set (`FeeRuleSet.leadMarket`) and debits the platform credit ledger on purchase, so one versioned configuration governs the take rate and the marketplace together.
 - **Lead rebate** (§11): ✅ shipped — a job whose lead was BOUGHT credits the lead's value back as a fee reduction on that job (`FeeRuleSet.leadMarket.rebate`), so the effective take rate on the work a lead wins falls by what the lead cost. Priced by `leadRebateFor`, applied inside the completion transaction, bounded by the fee, and recorded append-only per booking ([lead-marketplace.md §7](lead-marketplace.md)).
-- **Emergency / B2B pricing** (§12–§15): price those products through `priceJob` with a different rule set id, and every charge inherits the same snapshot + audit guarantees.
+- **Referral config** (§12): ✅ shipped — `referrerBonus`, `inviteeBonus`, `monthlyCap`, `lifetimeCap` are part of the versioned rule set, admin-editable via the same panel.
+- **Emergency / B2B pricing** (§13–§15): price those products through `priceJob` with a different rule set id, and every charge inherits the same snapshot + audit guarantees.
 - **Promo code redemption** (§24): `promoCode` scoping and the credit ledger are live; the customer/worker-facing code entry + redemption accounting is the remaining half.
 
 ---
 
-*Last updated: September 2026*
+*Last updated: September 17, 2026*

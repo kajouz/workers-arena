@@ -1,6 +1,6 @@
 # WorkersArena — Business Model, Revenue & Improvement Plan
 
-> Last updated: September 15, 2026
+> Last updated: September 17, 2026
 
 ---
 
@@ -12,14 +12,20 @@ WorkersArena is a **bilingual Arabic RTL / English LTR** local-services marketpl
 
 | # | Revenue Stream | Status | Monthly Potential |
 |---|---------------|--------|-------------------|
-| 1 | **Worker Subscriptions** | ✅ Live | $29–$299/worker |
+| 1 | **Worker Subscriptions** | ✅ Live | $15–$199/worker |
 | 2 | **Platform Fee (Take Rate)** | ✅ Built & wired | 4–12% of booking GMV |
 | 3 | **Lead Marketplace** | ✅ Built & wired | $5–$35 per lead |
-| 4 | **Credit Purchases (Lead Credits)** | ✅ Built, OMT/Whish only | $25–$150 per package |
+| 4 | **Credit Purchases (Lead Credits)** | ✅ Built, OMT/Whish only | $10–$100 per package |
 | 5 | **Company Advertising** | ⚠️ Built, needs gateway | $100–$5,000/campaign |
 | 6 | **Lead Rebates** | ✅ Built (loyalty loop) | Reduces fee by lead cost |
-| 7 | **Promotions Engine** | ✅ Built (§24) | Campaign-driven credit bonuses |
-| 8 | **Paid Verification** | ⚠️ UI exists, not monetized | $50–$200/worker |
+| 7 | **Promotions Engine** | ✅ Built | Campaign-driven credit bonuses |
+| 8 | **Paid Verification** | ✅ Built, OMT/Whish only | $9–$19/worker |
+| 9 | **Featured / Emergency Add-ons** | ✅ Built, OMT/Whish only | $9–$49/worker |
+| 10 | **Referral Program** | ✅ Built | 25 referrer + 10 invitee credits |
+| 11 | **Worker ROI Dashboard** | ✅ Built | Visibility tool |
+| 12 | **Earnings Statement** | ✅ Built | Worker financial transparency |
+| 13 | **Lead Quality Analytics** | ✅ Built | Admin feedback loop |
+| 14 | **Smart Pricing** | ✅ Built | Demand-based lead multipliers |
 
 ---
 
@@ -27,18 +33,28 @@ WorkersArena is a **bilingual Arabic RTL / English LTR** local-services marketpl
 
 ### 2.1 Worker Subscriptions (LIVE — the only cash-collecting stream)
 
-Four tiers, USD/month:
+Four tiers, USD/month (admin-editable via plan catalog):
 
-| Plan | Monthly | Annual (10mo) | Key Perks |
-|------|---------|---------------|-----------|
-| **Basic** | $29 | $290 | Profile, search listing |
-| **Professional** | $59 | $590 | + Featured placement, lead access |
-| **Premium** | $119 | $1,190 | + Priority matching, analytics |
-| **Enterprise** | $299 | $2,990 | + Fee exemption, CRM tools |
+| Plan | Monthly | Annual (9mo) | Key Perks |
+|------|---------|-------------|-----------|
+| **Starter** | $15 | $135 | Profile, search listing, 3 leads/mo |
+| **Growth** | $39 | $351 | + Featured placement, 10 leads/mo, verification |
+| **Pro** | $99 | $891 | + Priority matching, analytics, 25 leads/mo, emergency |
+| **Business** | $199 | $1,791 | + Fee exemption, unlimited leads, team management |
+
+**Category-adjusted pricing** — trades are classified by average job value:
+- **Low-value** (cleaning, gardening, pest control): 0.5× multiplier → Starter $7.50/mo
+- **Mid-value** (plumbing, electrical, carpentry): 1.0× multiplier → Starter $15/mo
+- **High-value** (HVAC, satellite, mechanic): 1.5× multiplier → Starter $22.50/mo
+
+**30-day free trial** — new workers get their first month free on any plan. The trial is auto-applied during onboarding.
+
+**Annual billing** — pay for 9 months, get 12 (25% discount, 3 months free).
 
 - **Visibility gating**: expired subscription → worker removed from public search
 - **Payment methods**: OMT/Whish manual (admin-confirmed) + Stripe (planned)
 - **Renewal reminders**: 7d, 3d, 1d before expiry
+- **Admin-editable**: plan prices, lead quotas, features, and category multipliers are all configurable via `/admin/revenue-settings`
 
 ### 2.2 Platform Fee / Take Rate (BUILT — collects on every completed job)
 
@@ -48,8 +64,8 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 |-----------|------|-----|-----|
 | Free | 12% | $5 | $300 |
 | Starter | 9% | $5 | $300 |
-| Professional | 7% | $5 | $300 |
-| Growth | 5% | $5 | $300 |
+| Growth | 7% | $5 | $300 |
+| Pro | 5% | $5 | $300 |
 | Business | 4% (or exempt) | $5 | $300 |
 
 - Applied at **accept-with-quote** (immutable snapshot)
@@ -64,10 +80,10 @@ Customer requests are **graded** (bronze/silver/gold/emergency) and offered to a
 
 | Grade | Price | Trigger |
 |-------|-------|---------|
-| **Bronze** | $5 (5 credits) | Basic info, no email |
-| **Silver** | $9 (9 credits) | Email + category + location |
-| **Gold** | $20 (20 credits) | Full profile + photos + signed in |
-| **Emergency** | $35 (35 credits) | 24/7 urgent request |
+| **Bronze** | 5 credits ($5) | Basic info, no email |
+| **Silver** | 9 credits ($9) | Email + category + location |
+| **Gold** | 20 credits ($20) | Full profile + photos + signed in |
+| **Emergency** | 35 credits ($35) | 24/7 urgent request |
 
 **Matching engine**: weighted scoring (trade 30%, area 12%, city 8%, rating 12%, reviews 6%, response rate 10%, availability 8%, plan tier 6%, emergency 5%, verified 3%)
 
@@ -99,6 +115,7 @@ When a bought lead converts to a completed job:
 - **Payment**: OMT/Whish manual rails (admin confirms → credits granted)
 - **Stripe**: planned but not yet connected
 - Credits are consumed when buying leads (1 credit = $1)
+- Admin can adjust credit packages via `/admin/revenue-settings`
 
 ### 2.6 Company Advertising (BUILT — not yet monetized)
 
@@ -107,17 +124,54 @@ When a bought lead converts to a completed job:
 - Payment infrastructure exists (checkout → webhook → activate)
 - **Missing**: real gateway connection (Stripe/OMT for companies)
 
-### 2.7 Worker ROI Dashboard (BUILT)
+### 2.7 Paid Verification (BUILT — OMT/Whish only)
+
+| Tier | Price | What's included |
+|------|-------|----------------|
+| **Basic** | $9 | ID check only |
+| **Professional** | $19 | License + background check |
+
+- 12-month validity
+- Badge in search results
+- Admin confirms payment → flips `verified` flag
+
+### 2.8 Featured / Emergency Add-ons (BUILT — OMT/Whish only)
+
+| Add-on | Price | What's included |
+|--------|-------|----------------|
+| **Featured slot** | $49/category/mo | Homepage featured placement |
+| **Emergency marker** | $9/mo | 24/7 urgent job availability |
+
+### 2.9 Referral Program (BUILT)
+
+- **Referrer bonus**: 25 credits per successful referral
+- **Invitee bonus**: 10 credits on signup
+- **Monthly cap**: 10 referrals/month
+- **Lifetime cap**: unlimited
+- **Qualifying action**: invitee must complete first booking
+- Configurable via `FeeRuleSet.referral` (admin-editable)
+
+### 2.10 Worker ROI Dashboard (BUILT)
 
 Shows per-month: leads bought, quotes sent, jobs won, GMV, platform fees, subscription cost, total marketplace spend, and the resulting multiple.
 
-### 2.8 Earnings Statement (BUILT)
+### 2.11 Earnings Statement (BUILT)
 
 Monthly breakdown: completed jobs, GMV, fees, rebates, net earnings, per-job detail.
 
-### 2.9 Lead Quality Analytics (BUILT)
+### 2.12 Lead Quality Analytics (BUILT)
 
 Admin dashboard: weekly trends, per-grade stats, conversion rates, price multiplier impact.
+
+### 2.13 Smart Pricing (BUILT)
+
+Dynamic lead price multiplier based on:
+- **Rush hour** (6–9 AM, 5–8 PM): +15%
+- **Weekend** (Sat–Sun): +10–20%
+- **Seasonal** (AC in summer +25%, plumbing in winter +15%)
+- **Holidays** (Ramadan, Eid, Christmas): +30–35%
+- **Supply/demand ratio**: adjusts based on available workers vs. pending leads
+- **Clamped** to [0.7, 2.0] range
 
 ---
 
@@ -136,25 +190,25 @@ Customer books job → Worker accepts with quote → Job completes
 
 ### Revenue Per Worker Per Month (Estimated)
 
-| Metric | Basic | Professional | Premium |
-|--------|-------|-------------|---------|
+| Metric | Starter | Growth | Pro |
+|--------|---------|--------|-----|
 | Avg jobs/month | 5 | 12 | 25 |
 | Avg job value | $80 | $150 | $200 |
 | GMV | $400 | $1,800 | $5,000 |
-| Platform fee (12%/7%/5%) | $48 | $126 | $250 |
-| Subscription cost | $29 | $59 | $119 |
+| Platform fee (9%/7%/5%) | $36 | $126 | $250 |
+| Subscription cost | $15 | $39 | $99 |
 | Leads purchased (5/mo) | $25 | $45 | $100 |
-| **Net earnings** | **$298** | **$1,570** | **$4,531** |
-| **ROI (earnings / spend)** | **4.3×** | **15.5×** | **22.7×** |
+| **Net earnings** | **$324** | **$1,590** | **$4,551** |
+| **ROI (earnings / spend)** | **6.0×** | **17.1×** | **23.0×** |
 
 ### Platform Revenue Per Worker Per Month
 
-| Stream | Basic | Professional | Premium |
-|--------|-------|-------------|---------|
-| Subscription | $29 | $59 | $119 |
-| Take rate | $48 | $126 | $250 |
+| Stream | Starter | Growth | Pro |
+|--------|---------|--------|-----|
+| Subscription | $15 | $39 | $99 |
+| Take rate | $36 | $126 | $250 |
 | Lead credits | $12.50 | $22.50 | $50 |
-| **Total platform revenue** | **$89.50** | **$207.50** | **$419** |
+| **Total platform revenue** | **$63.50** | **$187.50** | **$399** |
 
 ---
 
@@ -183,12 +237,11 @@ Customer books job → Worker accepts with quote → Job completes
 
 | # | Issue | Impact | Status |
 |---|-------|--------|--------|
-| 10 | **No referral program** | Missed viral growth | Code stubs exist |
-| 11 | **No gamification/achievements** | Missed retention | API stubs exist |
-| 12 | **No SaaS marketplace** | Missed B2B revenue | API stubs exist |
-| 13 | **No background check monetization** | Missed trust premium | Types exist, not wired |
-| 14 | **No company CRM** | Missed B2B expansion | Not started |
-| 15 | **No milestone payments** | Missed escrow for large jobs | Not started |
+| 10 | **No gamification/achievements** | Missed retention | API stubs exist |
+| 11 | **No SaaS marketplace** | Missed B2B revenue | API stubs exist |
+| 12 | **No background check monetization** | Missed trust premium | Types exist, not wired |
+| 13 | **No company CRM** | Missed B2B expansion | Not started |
+| 14 | **No milestone payments** | Missed escrow for large jobs | Not started |
 
 ---
 
@@ -219,7 +272,6 @@ Customer books job → Worker accepts with quote → Job completes
 
 | Task | Effort | Impact |
 |------|--------|--------|
-| Worker referral program (credits for invites) | 3 days | CAC reduction |
 | Paid verification ladder (ID → license → background) | 4 days | New revenue stream |
 | Company CRM / lead routing subscription | 5 days | B2B ARR |
 | Gamification (badges, streaks, leaderboards) | 3 days | Retention |
@@ -253,7 +305,7 @@ Customer books job → Worker accepts with quote → Job completes
 
 | Strategy | Expected Impact |
 |----------|----------------|
-| **Paid verification** ($50–$200 per tier) | $5–$20K/month at 100 workers |
+| **Paid verification** ($9–$19 per tier) | $5–$20K/month at 100 workers |
 | **Company advertising self-serve** | $2–$10K/month at 20 advertisers |
 | **Referral program** (credit bonuses) | -30% CAC, +20% organic growth |
 | **Escrow for large jobs** (trust → higher values) | +25% average job value |
@@ -275,18 +327,18 @@ Customer books job → Worker accepts with quote → Job completes
 
 | Month | Workers | Subs Rev | Take Rate Rev | Lead Rev | Ads Rev | Total |
 |-------|---------|----------|---------------|----------|---------|-------|
-| 1 | 50 | $2,500 | $2,000 | $500 | $0 | $5,000 |
-| 3 | 150 | $8,000 | $8,000 | $3,000 | $1,000 | $20,000 |
-| 6 | 400 | $22,000 | $25,000 | $10,000 | $5,000 | $62,000 |
-| 12 | 1,000 | $55,000 | $70,000 | $30,000 | $15,000 | $170,000 |
+| 1 | 50 | $1,500 | $1,800 | $500 | $0 | $3,800 |
+| 3 | 150 | $5,000 | $7,000 | $2,500 | $1,000 | $15,500 |
+| 6 | 400 | $14,000 | $20,000 | $8,000 | $4,000 | $46,000 |
+| 12 | 1,000 | $35,000 | $55,000 | $25,000 | $12,000 | $127,000 |
 
 ### 6.5 Key Metrics to Track
 
 | Metric | Target | Current |
 |--------|--------|---------|
-| Monthly Recurring Revenue (MRR) | $50K by month 6 | $0 (manual payments) |
-| Average Revenue Per Worker (ARPU) | $150/month | ~$30 (subscription only) |
-| Lead marketplace GMV | $10K/month | $0 (no production data) |
+| Monthly Recurring Revenue (MRR) | $30K by month 6 | $0 (manual payments) |
+| Average Revenue Per Worker (ARPU) | $120/month | ~$15 (subscription only) |
+| Lead marketplace GMV | $8K/month | $0 (no production data) |
 | Worker retention (monthly) | >85% | Unknown |
 | Lead purchase conversion | >40% | Unknown |
 | Time to first job (new worker) | <7 days | Unknown |
@@ -303,7 +355,7 @@ Customer books job → Worker accepts with quote → Job completes
 - **Auth**: NextAuth.js v5 (demo cookie mode)
 - **Payments**: OMT/Whish manual rails (live), Stripe (planned)
 - **Deployment**: Vercel (auto-deploy from GitHub)
-- **Mobile**: Capacitor (PWA → native, planned)
+- **Mobile**: Capacitor (PWA → native, Android + iOS)
 
 ### Data Models (Monetization)
 - `WorkerCreditEntry` — append-only credit ledger
@@ -313,9 +365,11 @@ Customer books job → Worker accepts with quote → Job completes
 - `FeeRuleSet` — versioned fee configuration
 - `PlatformFeeSnapshot` — immutable fee audit per booking
 - `WorkerLedgerEntry` — earnings/withdrawals ledger
+- `Subscription` — worker subscription with plan, period, expiry
+- `PlanCatalogOverrides` — admin-editable plan pricing
 
 ### Test Coverage
-- **96 test files / 1,344 tests** (all passing)
+- **97 test files / 1,371+ tests** (all passing)
 - Covers: fee rules, lead market, credit ledger, ROI engine, earnings, ratings, analytics
 
 ---
@@ -324,6 +378,7 @@ Customer books job → Worker accepts with quote → Job completes
 
 - **Production URL**: https://workers-arena.vercel.app
 - **Database**: PostgreSQL at `localhost:5432/workers_arena_v2` (local) + Vercel Postgres (production)
-- **Migrations**: All 33 applied (including 6 new monetization migrations)
+- **Migrations**: All applied (including lead offers, rebates, ratings, fee rules, credit ledger)
 - **CI/CD**: GitHub Actions → Vercel auto-deploy
-- **Token**: Vercel token refreshed (September 15, 2026)
+- **Mobile**: Capacitor 8 (Android + iOS) with push notifications, camera, geolocation, share sheet
+- **Build**: `next build` passes clean with zero errors and zero warnings

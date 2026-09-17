@@ -2,9 +2,9 @@
 
 ## Overview
 
-WorkersArena implements **12 configurable revenue streams** that generate income from the platform. Each stream can be individually enabled/disabled by the admin, with real-time analytics and per-stream configuration.
+WorkersArena implements **14 configurable revenue streams** that generate income from the platform. Each stream can be individually enabled/disabled by the admin, with real-time analytics and per-stream configuration.
 
-The revenue system is designed for the **Lebanon/MENA market** and supports multiple payment methods including Wish and OMT.
+The revenue system is designed for the **Lebanon/MENA market** and supports multiple payment methods including OMT and Whish.
 
 ---
 
@@ -13,393 +13,341 @@ The revenue system is designed for the **Lebanon/MENA market** and supports mult
 ### Data Layer
 
 ```
-src/lib/data/revenue-settings.ts   ← Central config store (in-memory, upgradeable to DB)
-src/app/api/admin/revenue-settings/route.ts  ← Admin API (GET/PUT/POST)
-src/app/api/credits/*/route.ts     ← Credit system APIs
-src/app/api/tokens/*/route.ts      ← Token system APIs
-src/app/api/commission-tier/route.ts  ← Commission tier API
-src/app/api/saas/tools/route.ts    ← SaaS marketplace API
-src/app/api/promoted/*/route.ts    ← Promoted profiles API
-src/app/api/payouts/tiers/route.ts ← Payout tier API
-src/app/api/background-checks/*/route.ts  ← Background check API
-src/app/api/worker/analytics/route.ts  ← Worker analytics API
-src/app/api/worker/notifications/route.ts  ← Smart notifications API
-src/app/api/worker/promoted-enhanced/route.ts  ← Enhanced promotion API
-src/app/api/worker/referrals/route.ts  ← Referral program API
-src/app/api/worker/payment-options/route.ts  ← Flexible payments API
-src/app/api/worker/gamification/route.ts  ← Gamification API
-src/app/api/worker/mobile-features/route.ts  ← Mobile features API
+src/lib/data/subscription-plans.ts    ← Plan catalog (admin-editable pricing)
+src/lib/data/subscriptions.ts         ← Subscription engine (renewal, trial, invoicing)
+src/lib/data/fee-rules.ts             ← Platform fee engine (take rate, snapshots)
+src/lib/data/fee-rules-store.ts       ← Fee rule persistence (demo + Prisma)
+src/lib/data/lead-market.ts           ← Lead marketplace engine (grading, matching, pricing)
+src/lib/data/lead-market-store.ts     ← Lead offer persistence (demo + Prisma)
+src/lib/data/lead-market-prisma.ts    ← Prisma adapter for lead offers
+src/lib/data/lead-rebate.ts           ← Lead rebate engine (loyalty loop)
+src/lib/data/lead-rebate-prisma.ts    ← Prisma adapter for rebates
+src/lib/data/lead-rating.ts           ← Lead quality feedback engine
+src/lib/data/lead-rating-prisma.ts    ← Prisma adapter for ratings
+src/lib/data/credit-ledger.ts         ← Platform credit ledger (append-only)
+src/lib/data/credit-ledger-prisma.ts  ← Prisma adapter for credits
+src/lib/data/purchases.ts             ← Paid upgrades (verification, featured, emergency)
+src/lib/data/revenue-settings.ts      ← Revenue stream configs (credits, tokens, etc.)
+src/lib/data/referral.ts              ← Referral program engine
+src/lib/data/worker-roi.ts            ← Worker ROI dashboard engine
+src/lib/data/earnings.ts              ← Earnings statement engine
+src/lib/data/lead-quality-analytics.ts← Lead quality analytics engine
+src/lib/pricing/smart-pricing.ts      ← Dynamic lead pricing (demand, holidays, rush hour)
+src/lib/data/plan-catalog-overrides.ts← Admin-editable plan pricing overrides
 ```
 
 ### UI Layer
 
 ```
-src/components/admin/revenue-settings.tsx    ← Admin dashboard (12 streams)
-src/components/dashboard/worker-revenue-tools.tsx  ← Worker dashboard (13 tabs)
-src/components/dashboard/credit-balance.tsx  ← Lead credits card
-src/components/dashboard/token-wallet.tsx    ← Application tokens card
-src/components/dashboard/commission-tier.tsx ← Commission tier card
-src/components/dashboard/promoted-campaign.tsx  ← Promoted profiles card
-src/components/dashboard/saas-marketplace.tsx  ← SaaS tools card
-src/components/dashboard/revenue-analytics.tsx  ← Revenue analytics card
-src/components/dashboard/smart-notifications.tsx  ← Smart notifications card
-src/components/dashboard/promoted-enhanced.tsx  ← Enhanced promotion card
-src/components/dashboard/referral-revenue.tsx  ← Referral revenue card
-src/components/dashboard/flexible-payments.tsx  ← Flexible payments card
-src/components/dashboard/gamification-achievements.tsx  ← Gamification card
-src/components/dashboard/mobile-features.tsx  ← Mobile features card
+src/components/home/plans.tsx                    ← Public pricing page
+src/components/dashboard/renew-dialog.tsx        ← Subscription renewal dialog
+src/components/dashboard/upgrade-dialog.tsx      ← Paid upgrades dialog
+src/components/dashboard/credit-balance.tsx      ← Credit balance card
+src/components/dashboard/worker-dashboard.tsx    ← Worker dashboard (main)
+src/components/dashboard/worker-roi-dashboard.tsx← ROI dashboard
+src/components/dashboard/worker-roi-card.tsx     ← ROI summary card
+src/components/dashboard/earnings-statement.tsx  ← Earnings statement
+src/components/dashboard/portfolio-manager.tsx   ← Portfolio builder
+src/components/dashboard/referral-card.tsx       ← Referral program card
+src/components/dashboard/network-banner.tsx      ← Offline/online banner
+src/components/mobile/proof-photo-capture.tsx    ← Camera proof-of-work
+src/components/mobile/mobile-onboarding.tsx      ← Mobile onboarding flow
+src/components/admin/fee-rules-panel.tsx         ← Fee rules admin editor
+src/components/admin/promotions-panel.tsx        ← Promotions admin editor
+src/components/admin/lead-market-panel.tsx       ← Lead marketplace admin
+src/components/admin/lead-quality-panel.tsx      ← Lead quality analytics
+src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 ```
 
 ### API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/admin/revenue-settings` | GET | Fetch all stream configs + analytics |
-| `/api/admin/revenue-settings` | PUT | Update stream enable/disable + settings |
-| `/api/admin/revenue-settings` | POST | Bulk update multiple streams |
 | `/api/credits/balance` | GET | Worker's credit balance |
 | `/api/credits/packages` | GET | Available credit packages |
-| `/api/tokens/balance` | GET | Worker's token balance |
-| `/api/tokens/packages` | GET | Available token packages |
-| `/api/commission-tier` | GET | Worker's commission tier + all tiers |
-| `/api/saas/tools` | GET | Available SaaS tools |
-| `/api/promoted/click` | POST | Track ad click for promoted profiles |
-| `/api/payouts/tiers` | GET | Payout tier thresholds |
-| `/api/background-checks/types` | GET | Available background check types |
-| `/api/worker/analytics` | GET | Worker revenue analytics |
-| `/api/worker/notifications` | GET | Smart notifications |
-| `/api/worker/promoted-enhanced` | GET | Enhanced promotion data |
-| `/api/worker/referrals` | GET | Referral program data |
-| `/api/worker/payment-options` | GET | Flexible payment options |
-| `/api/worker/gamification` | GET | Gamification data |
-| `/api/worker/mobile-features` | GET | Mobile-exclusive features |
+| `/api/credits/purchase` | POST | Initiate credit purchase (OMT/Whish) |
+| `/api/admin/revenue-settings` | GET | Fetch all stream configs + analytics |
+| `/api/admin/revenue-settings` | PUT | Update stream enable/disable + settings |
+| `/api/dev/seed-lead-market` | POST | Seed demo lead marketplace data |
+| `/api/dev/seed-production` | POST | Seed production database |
+| `/api/cron/recurring` | POST | Materialize recurring job occurrences |
 
 ---
 
-## Revenue Streams (12 Total)
+## Revenue Streams (14 Total)
 
-### 1. Pay-Per-Lead Credits 💳
+### 1. Worker Subscriptions 💳
 
-**What it is:** Workers buy credits to send quotes/messages to customers. Each lead costs 1 credit.
+**What it is:** Monthly/annual subscription plans that gate visibility and unlock features.
+
+**Current Pricing (admin-editable):**
+
+| Plan | Monthly | Annual (9mo) | Leads/mo | Key Perks |
+|------|---------|-------------|----------|-----------|
+| **Starter** | $15 | $135 | 3 | Profile, search listing |
+| **Growth** | $39 | $351 | 10 | + Featured, verification |
+| **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
+| **Business** | $199 | $1,791 | Unlimited | + Fee exemption, team mgmt |
+
+**Category-Adjusted Pricing:**
+- Low-value trades (cleaning, gardening): 0.5× → Starter $7.50/mo
+- Mid-value trades (plumbing, electrical): 1.0× → Starter $15/mo
+- High-value trades (HVAC, mechanic): 1.5× → Starter $22.50/mo
+
+**Trial Period:** 30 days free on any plan (auto-applied at registration).
+
+**Key Mechanics:**
+- **Visibility gating**: expired subscription → worker removed from public search
+- **Renewal reminders**: 7d, 3d, 1d before expiry
+- **Invoicing**: every renewal mints an invoice
+- **Admin-editable**: all prices, quotas, and features configurable via `/admin/revenue-settings`
+
+---
+
+### 2. Platform Fee (Take Rate) 💹
+
+**What it is:** A percentage fee collected on every completed job.
+
+**Current Rates (admin-editable):**
+
+| Plan Tier | Rate | Min | Max |
+|-----------|------|-----|-----|
+| Free | 12% | $5 | $300 |
+| Starter | 9% | $5 | $300 |
+| Growth | 7% | $5 | $300 |
+| Pro | 5% | $5 | $300 |
+| Business | 4% (or exempt) | $5 | $300 |
+
+**Key Mechanics:**
+- Applied at **accept-with-quote** (immutable snapshot)
+- Collected at **booking completion**
+- Admin can set per-category, per-promotion overrides
+- Fee snapshot is auditable (`PlatformFeeSnapshot` model)
+
+---
+
+### 3. Lead Marketplace 🎯
+
+**What it is:** Workers buy qualified leads (customer requests) to compete for jobs.
+
+**Lead Grades & Pricing:**
+
+| Grade | Price | Trigger |
+|-------|-------|---------|
+| **Bronze** | 5 credits ($5) | Basic info, no email |
+| **Silver** | 9 credits ($9) | Email + category + location |
+| **Gold** | 20 credits ($20) | Full profile + photos + signed in |
+| **Emergency** | 35 credits ($35) | 24/7 urgent request |
+
+**Matching Engine:**
+- Weighted scoring (trade 30%, area 12%, city 8%, rating 12%, reviews 6%, response rate 10%, availability 8%, plan tier 6%, emergency 5%, verified 3%)
+- Limited distribution (max 3 workers per lead)
+- Exclusive ownership (buying revokes rivals)
+- Time-based expiry (2-hour window)
+
+**Contact Reveal:**
+- Before purchase: masked (partial phone/email)
+- After purchase (paid plan): revealed (full contact)
+- After purchase (free plan): masked (tier lever)
+- After booking: revealed (customer consent)
+
+**Quality Feedback Loop:**
+- Workers rate leads 1–5 stars after purchase
+- Ratings feed into per-grade pricing multipliers (0.8×–1.2×)
+- Ratings influence matching weights
+- Admin dashboard shows quality trends
+
+---
+
+### 4. Platform Credits 💰
+
+**What it is:** Workers buy credits to purchase leads.
+
+**Credit Packages (admin-editable):**
+
+| Package | Credits | Price | Bonus | Total |
+|---------|---------|-------|-------|-------|
+| Starter | 10 | $25 | 0 | 10 |
+| Popular | 25 | $50 | 5 | 30 |
+| Professional | 50 | $90 | 15 | 65 |
+| Enterprise | 100 | $150 | 30 | 130 |
+
+**Payment Methods:**
+- OMT (admin-confirmed)
+- Whish (admin-confirmed)
+- Stripe (planned)
+
+**Key Mechanics:**
+- 1 credit = $1 by convention
+- Credits consumed when buying leads
+- Append-only ledger (`WorkerCreditEntry`)
+- Admin can adjust balances manually
+
+---
+
+### 5. Lead Rebates 🔄
+
+**What it is:** When a bought lead converts to a completed job, the lead's cost is rebated against the platform fee.
 
 **How it works:**
-- Workers purchase credit packages (10, 30, 65, or 130 credits)
-- Each credit costs $1.15–$2.50 depending on package size
-- Credits are spent when a worker responds to a customer inquiry
-- Larger packages include bonus credits (e.g., +15 bonus on 65 credits)
+- `rebate = min(fee × pctBps/10000, lead cost, ceiling)`
+- Default: 100% of fee share, no ceiling
+- Recorded in `LeadRebate` model (append-only)
+- Shown on worker booking row and lead board
 
-**Packages:**
-
-| Package | Credits | Price | Per Credit | Bonus |
-|---------|---------|-------|-----------|-------|
-| Starter | 10 | $25 | $2.50 | — |
-| Popular | 30 | $50 | $1.67 | — |
-| Value | 65 | $90 | $1.38 | +15 bonus |
-| Pro | 130 | $150 | $1.15 | +30 bonus |
-
-**Admin Configuration:**
-- Enable/disable the stream
-- Set package pricing
-- Configure credit expiration rules
-- Set refund policies
-
-**Worker Dashboard:** "Lead Credits" card with balance, purchase history, and "Buy More" button.
+**Example:**
+- 7% of $300 = $21 fee
+- Gold lead cost $20
+- Rebate $20 → platform keeps $1, worker nets $299
 
 ---
 
-### 2. Application Tokens 🎟️
+### 6. Paid Verification 🔍
 
-**What it is:** Workers spend virtual tokens to apply for jobs posted by companies.
+**What it is:** One-time fee for worker identity verification.
 
-**How it works:**
-- Workers earn tokens through activity (completing bookings, getting reviews)
-- Workers can also purchase token packages
-- Each job application costs tokens
-- Tokens expire after 90 days if unused
+**Tiers:**
 
-**Earning Tokens (Free):**
-- Complete a booking: +2 tokens
-- Get a 5-star review: +1 token
-- Monthly activity bonus: +5 tokens
+| Tier | Price | What's included |
+|------|-------|----------------|
+| **Basic** | $9 | ID check only |
+| **Professional** | $19 | License + background check |
 
-**Purchase Packages:**
-
-| Package | Tokens | Price | Popular |
-|---------|--------|-------|---------|
-| Basic | 20 | $15 | — |
-| Standard | 60 | $30 | ✅ |
-| Premium | 125 | $50 | +25 bonus |
-
-**Admin Configuration:**
-- Enable/disable the stream
-- Set token costs per action
-- Configure earning rules
-- Set expiration periods
-
-**Worker Dashboard:** "Application Tokens" card with balance, earn/spend history, and "Buy More" button.
+**Key Mechanics:**
+- 12-month validity
+- Badge in search results
+- Admin confirms payment → flips `verified` flag
+- Purchasable via OMT/Whish
 
 ---
 
-### 3. Sliding Commissions 💹
+### 7. Featured Slot 📈
 
-**What it is:** A percentage fee that decreases as a worker's lifetime billings grow.
+**What it is:** Monthly add-on for homepage featured placement.
 
-**How it works:**
-- All workers start at Bronze tier (15% commission)
-- As lifetime billings increase, workers move to lower-commission tiers
-- Lower commission = more take-home pay for workers
-- Incentivizes long-term platform engagement
+**Pricing:** $49/category/mo
 
-**Commission Tiers:**
-
-| Tier | Lifetime Billings | Commission Rate | Worker Keeps |
-|------|-------------------|----------------|--------------|
-| Bronze | $0+ | 15% | 85% |
-| Silver | $5,001+ | 12% | 88% |
-| Gold | $15,001+ | 10% | 90% |
-| Platinum | $50,001+ | 7% | 93% |
-
-**Admin Configuration:**
-- Enable/disable sliding commissions
-- Adjust tier thresholds
-- Modify commission rates per tier
-- Set grace periods for tier changes
-
-**Worker Dashboard:** "Commission Tier" card showing current tier, progress bar to next tier, lifetime billings, and all tier comparisons.
+**Key Mechanics:**
+- Homepage featured section visibility
+- Purchasable via OMT/Whish
+- Admin confirms payment → flips `featured` flag
 
 ---
 
-### 4. Background Check Fees 🔍
+### 8. Emergency Marker 🚨
 
-**What it is:** One-time onboarding fee for worker vetting/screening.
+**What it is:** Monthly add-on for 24/7 urgent job availability.
 
-**How it works:**
-- Workers pay a fee to undergo background verification
-- Checks include identity, criminal record, and trade certification
-- Verified workers get a "Verified" badge on their profile
-- Badge increases customer trust and booking rates
+**Pricing:** $9/mo
 
-**Check Types:**
-
-| Check | Description | Fee |
-|-------|-------------|-----|
-| Identity Verification | Government ID validation | $15 |
-| Criminal Record | Background screening | $25 |
-| Trade Certification | Skill verification | $35 |
-| Full Package | All checks combined | $60 |
-
-**Admin Configuration:**
-- Enable/disable the stream
-- Set pricing per check type
-- Configure verification partners
-- Set badge display rules
-
-**Worker Dashboard:** Available in "Premium Tools" tab under WorkerRevenueTools.
+**Key Mechanics:**
+- Shows "Available 24/7" badge
+- Receives emergency lead offers
+- Purchasable via OMT/Whish
+- Admin confirms payment → flips `emergency` flag
 
 ---
 
-### 5. Instant Payout Fees ⚡
+### 9. Referral Program 🤝
 
-**What it is:** Charge for same-day fund transfers to workers.
+**What it is:** Earn credits by referring other workers.
 
-**How it works:**
-- Standard payouts are free but take 3-5 business days
-- Workers can pay a fee for instant same-day transfer
-- Fee is a percentage of the payout amount
-- Minimum payout amount applies
+**Rewards:**
 
-**Pricing:**
+| Action | Reward |
+|--------|--------|
+| Referrer (successful referral) | 25 credits |
+| Invitee (signup) | 10 credits |
+| Monthly cap | 10 referrals |
+| Lifetime cap | Unlimited |
+| Qualifying action | Invitee completes first booking |
 
-| Payout Size | Instant Fee | Standard |
-|-------------|-------------|----------|
-| $10-$50 | $2.50 (flat) | Free |
-| $50-$200 | 5% | Free |
-| $200+ | 4% | Free |
-
-**Admin Configuration:**
-- Enable/disable instant payouts
-- Set fee percentages
-- Configure minimum/maximum payout amounts
-- Set instant payout cutoff times
+**Key Mechanics:**
+- Unique referral code per worker
+- Configurable via `FeeRuleSet.referral` (admin-editable)
+- Credits granted on qualifying action
 
 ---
 
-### 6. SaaS Subscriptions 🛠️
+### 10. Smart Pricing 📊
 
-**What it is:** Premium tools (invoicing, CRM, analytics) available as monthly subscriptions.
+**What it is:** Dynamic lead price multiplier based on demand and context.
 
-**How it works:**
-- Workers can subscribe to premium tool bundles
-- Tools include invoicing, CRM, advanced analytics, priority support
-- Monthly subscription with tiered pricing
-- Free trial available (14 days)
+**Multipliers:**
 
-**Subscription Tiers:**
+| Factor | Multiplier |
+|--------|-----------|
+| Rush hour (6–9 AM, 5–8 PM) | +15% |
+| Weekend (Sat–Sun) | +10–20% |
+| Summer (AC jobs) | +25% |
+| Winter (plumbing jobs) | +15% |
+| Holidays (Ramadan, Eid) | +30–35% |
+| High demand (few workers available) | Up to 2.0× |
+| Low demand (many workers available) | Down to 0.7× |
 
-| Tier | Price/Month | Features |
-|------|-------------|----------|
-| Basic | $19 | Invoicing, basic analytics |
-| Professional | $49 | CRM, advanced analytics, priority support |
-| Enterprise | $99 | All features, API access, custom branding |
-
-**Admin Configuration:**
-- Enable/disable SaaS tools
-- Configure subscription tiers
-- Set feature access per tier
-- Manage trial periods
-
-**Worker Dashboard:** "SaaS Marketplace" card in the "Tools" tab with available subscriptions.
+**Clamped to [0.7, 2.0] range.**
 
 ---
 
-### 7. Promoted Profiles 📈
+### 11. Company Advertising 📢
 
-**What it is:** CPC bidding for search visibility — workers pay to appear higher in search results.
+**What it is:** CPC/CPM campaigns for businesses.
 
-**How it works:**
-- Workers set a daily budget and max CPC bid
-- Their profile appears in "Promoted" slots in search results
-- They pay only when someone clicks their profile
-- Performance tracked with impressions, clicks, CTR
+**Status:** Built, needs gateway for live payments.
 
-**Campaign Settings:**
+**Pricing (demo):**
+- CPM: $10
+- CPC: $1
 
-| Setting | Description |
-|---------|-------------|
-| Max CPC Bid | Maximum cost per click (e.g., $2.50) |
-| Daily Budget | Maximum daily spend (e.g., $25) |
-| Target Category | Which search categories to appear in |
-| Schedule | Time-of-day and day-of-week targeting |
-
-**Performance Metrics:**
-- Impressions (how many times shown)
-- Clicks (how many profile visits)
-- CTR (click-through rate)
-- Total Spent
-- Average CPC
-
-**Admin Configuration:**
-- Enable/disable promoted profiles
-- Set minimum/maximum bid amounts
-- Configure ad placement slots
-- Set daily budget caps
-
-**Worker Dashboard:** "Promoted Profile" card with campaign stats, settings editor, and performance metrics.
+**Key Mechanics:**
+- Campaign creation with budget, targeting, creative
+- Impression + click tracking
+- Payment infrastructure exists (checkout → webhook → activate)
 
 ---
 
-### 8. Premium Support 🎧
+### 12. Worker Analytics 📈
 
-**What it is:** Priority customer support for workers.
+**What it is:** Comprehensive spending analytics, ROI calculations, and conversion tracking.
 
-**What's included:**
-- Dedicated support queue (faster response times)
-- Phone support availability
-- Account manager for high-value workers
-- Priority dispute resolution
+**Metrics:**
+- Views, leads, completed jobs, GMV
+- Conversion rate, avg job value
+- Rating, response rate
+- Performance insights with actionable recommendations
 
-**Pricing:** $29/month
-
-**Admin Configuration:**
-- Enable/disable premium support
-- Set pricing
-- Configure support tiers
-- Manage support queue priorities
+**Dashboard:** `/dashboard/analytics`
 
 ---
 
-### 9. Insurance Marketplace 🛡️
+### 13. Earnings Statement 📄
 
-**What it is:** Connect workers with insurance providers for liability and equipment coverage.
+**What it is:** Monthly breakdown of completed jobs, fees, rebates, and net payouts.
 
-**How it works:**
-- Partner with insurance providers
-- Workers browse and purchase insurance policies
-- Platform earns referral commission
-- Policies cover liability, equipment, and workers' comp
+**Metrics:**
+- Completed jobs count
+- GMV (gross merchandise value)
+- Platform fees deducted
+- Lead rebates applied
+- Net earnings
+- Per-job detail
 
-**Insurance Types:**
-
-| Type | Coverage | Monthly Premium |
-|------|----------|-----------------|
-| General Liability | Up to $1M | $45 |
-| Equipment Coverage | Up to $10K | $25 |
-| Workers' Comp | State-mandated | $60 |
-
-**Admin Configuration:**
-- Enable/disable insurance marketplace
-- Set referral commission rates
-- Configure insurance partners
-- Manage policy displays
+**Dashboard:** `/dashboard/earnings`
 
 ---
 
-### 10. Training & Certification 📚
+### 14. Lead Quality Analytics 📊
 
-**What it is:** Online courses and certifications for worker skill development.
+**What it is:** Admin dashboard for monitoring lead quality trends.
 
-**How it works:**
-- Platform offers courses in various trades
-- Workers complete courses and earn certifications
-- Certifications displayed on worker profiles
-- Platform earns course fees
+**Metrics:**
+- Weekly rating trends
+- Per-grade statistics
+- Conversion rates
+- Price multiplier impact
+- Worker feedback distribution
 
-**Course Categories:**
-- Safety & Compliance
-- Trade Skills (plumbing, electrical, etc.)
-- Customer Service
-- Business Management
-
-**Admin Configuration:**
-- Enable/disable training marketplace
-- Set course pricing
-- Configure certification requirements
-- Manage course content
-
----
-
-### 11. Equipment Marketplace 🏪
-
-**What it is:** Buy/sell/rent trade equipment between workers.
-
-**How it works:**
-- Workers list equipment for sale or rent
-- Other workers browse and purchase/rent
-- Platform takes a transaction fee
-- Includes tools, vehicles, and materials
-
-**Transaction Fees:**
-- Sales: 5% of sale price
-- Rentals: 10% of rental fee
-
-**Admin Configuration:**
-- Enable/disable equipment marketplace
-- Set transaction fees
-- Configure listing rules
-- Manage dispute resolution
-
----
-
-### 12. White-Label Solutions 🏢
-
-**What it is:** License the WorkersArena platform to other businesses.
-
-**How it works:**
-- Other companies can rebrand and deploy the platform
-- Includes full source code license
-- Ongoing support and updates
-- Customization services available
-
-**Pricing:**
-- Setup fee: $5,000
-- Monthly license: $500
-- Customization: $150/hour
-
-**Admin Configuration:**
-- Enable/disable white-label offerings
-- Set licensing terms
-- Configure support tiers
-- Manage partner onboarding
+**Dashboard:** `/admin/analytics/lead-quality`
 
 ---
 
@@ -407,45 +355,37 @@ src/components/dashboard/mobile-features.tsx  ← Mobile features card
 
 ### Access Points
 
-1. **Direct URL:** `https://workers-arena.vercel.app/admin/revenue-settings`
-2. **Admin Dashboard Quick Navigation:** "Revenue Streams" button
-3. **Mobile Sidebar:** "Revenue Streams" menu item
+1. **Direct URL:** `https://workers-arena.vercel.app/admin`
+2. **Revenue Settings:** `/admin/revenue-settings`
 
 ### Features
 
-- **Overview Cards:** Monthly Revenue, Active Streams, Average Growth
-- **Stream List:** All 12 streams with enable/disable toggles
-- **Per-Stream Analytics:** Total Revenue, Transactions, Avg. Value, Growth %
-- **Settings Panel:** Editable configuration per stream
-- **Save Changes:** Bulk update all modified settings
-- **Bilingual:** English + Arabic names and descriptions
+- **Fee Rules Editor:** Plan-tier ladder, category pricing, promotions
+- **Lead Marketplace Config:** Grade prices, matching weights, contact reveal
+- **Credit Packages:** Enable/disable, adjust pricing
+- **Promotions Panel:** Campaign creation, credit bonuses
+- **Lead Quality Analytics:** Rating trends, conversion rates
+- **Pending Payments:** OMT/Whish confirmation queue
+- **Audit Trail:** All changes logged with admin attribution
 
 ---
 
 ## Worker Dashboard
 
-### Access
+### Revenue Tools
 
-Workers access revenue tools from their dashboard at `/dashboard`.
-
-### Tab Navigation
-
-| Tab | Icon | Content |
-|-----|------|---------|
-| Overview | TrendingUp | 2×2 grid of all 4 active cards |
-| Credits | Coin | Full Lead Credits card + packages |
-| Tokens | Zap | Full Token Wallet + packages |
-| Commission | Percent | Full Commission Tier + progress |
-| Tools | Box | SaaS Marketplace |
-| Promote | Megaphone | Full Promoted Campaign management |
-
-### Interactive Features
-
-- **Buy More** buttons expand package selection grids
-- **Edit** buttons open configuration modals
-- **Pause/Play** toggles for promoted campaigns
-- **Progress bars** show tier advancement
-- **Stats grids** display balance, transactions, and growth
+| Tab | Content |
+|-----|---------|
+| **Overview** | 2×2 grid of main cards |
+| **Lead Credits** | Balance, purchase history, "Buy More" |
+| **Commission** | Tier progress, lifetime billings |
+| **Analytics** | Spending history, ROI, conversion |
+| **Alerts** | Low balance, expiry warnings |
+| **Referrals** | Code, earnings, leaderboard |
+| **Earnings** | Monthly statement, net payouts |
+| **ROI** | Leads bought, jobs won, multiple |
+| **Portfolio** | Before/after photos, project showcase |
+| **Rewards** | Badges, streaks, challenges |
 
 ---
 
@@ -455,14 +395,13 @@ Workers access revenue tools from their dashboard at `/dashboard`.
 
 | Method | Type | Processing Time |
 |--------|------|-----------------|
-| Wish | Mobile Wallet | Instant |
-| OMT | Money Transfer | 1-2 hours |
-| Credit Card | Visa/Mastercard | Instant |
-| Bank Transfer | Wire Transfer | 1-3 days |
+| OMT | Money Transfer | 1-2 hours (admin confirmed) |
+| Whish | Mobile Wallet | Instant (admin confirmed) |
+| Stripe | Credit Card | Instant (planned) |
 
 ### Currency Support
 
-- **Tenant currency:** USD (United States Dollar) — tenant lb is single-currency
+- **Tenant currency:** USD (United States Dollar)
 - **FX:** the exchange-rate seam (`src/lib/currency.ts`) remains a stub for a future country tenant
 
 ---
@@ -477,14 +416,21 @@ Workers access revenue tools from their dashboard at `/dashboard`.
 4. Configure stream-specific settings
 5. Click "Save Changes"
 
-### Disabling a Revenue Stream
+### Updating Subscription Plans
 
 1. Navigate to `/admin/revenue-settings`
-2. Find the stream in the list
-3. Toggle the enable switch OFF
-4. Click "Save Changes"
+2. Edit plan prices, quotas, and features
+3. Publish new version (creates audit trail)
+4. Workers see updated prices on next renewal
 
-**Note:** Disabling a stream does not affect existing transactions or balances. Workers can still use purchased credits/tokens until depleted.
+### Configuring Lead Marketplace
+
+1. Navigate to `/admin/revenue-settings` → Lead marketplace
+2. Set grade prices (credits)
+3. Adjust matching weights
+4. Configure contact reveal policy
+5. Set rebate rules (enabled, share, ceiling)
+6. Publish new version
 
 ---
 
@@ -497,11 +443,11 @@ Workers access revenue tools from their dashboard at `/dashboard`.
 - **Average Value:** Mean transaction amount
 - **Growth:** Month-over-month percentage change
 
-### Dashboard Analytics
+### Worker Metrics
 
-- **Monthly Revenue:** Total across all active streams
-- **Active Streams:** Count of enabled streams (X/12)
-- **Average Growth:** Mean growth rate across streams
+- **ROI Multiple:** earnings ÷ marketplace spend
+- **Lead Conversion:** leads bought → jobs won
+- **Effective Take Rate:** (subscription + fees) ÷ GMV
 
 ---
 
@@ -509,314 +455,15 @@ Workers access revenue tools from their dashboard at `/dashboard`.
 
 ### Planned Features
 
-1. **Real-Time Dashboard:** Live metrics with WebSocket updates
-2. **Revenue Forecasting:** AI-powered revenue predictions
-3. **A/B Testing:** Test different pricing strategies
-4. **Dynamic Pricing:** Adjust prices based on demand
-5. **Loyalty Program:** Reward long-term workers with bonuses
-6. **Referral System:** Earn credits for referring new workers
-7. **Invoice Generation:** Auto-generate invoices for subscriptions
-8. **Tax Reporting:** Automated tax document generation
-
-### Integration Roadmap
-
-- **Stripe:** Full payment processing integration
-- **SendGrid/Resend:** Transactional email delivery
-- **Meilisearch:** Advanced search for equipment marketplace
-- **Liveblocks:** Real-time collaboration features
-- **Sentry:** Error tracking and performance monitoring
+1. **Stripe Integration:** Full payment processing for subscriptions + credits
+2. **MENA Gateways:** MyFatoorah, Tap, STC Pay for regional expansion
+3. **Escrow for Large Jobs:** Hold deposits until completion
+4. **Company Self-Serve Portal:** Campaign creation without admin
+5. **Multi-City Expansion:** Tripoli, Sidon, Jounieh
+6. **Mobile Monetization:** In-app purchases, push-driven dispatch
 
 ---
 
-## Revenue System Enhancements (7 New Features)
-
-### Enhancement 1: Revenue Analytics for Workers 📊
-
-**What it is:** Comprehensive spending analytics, ROI calculations, and conversion tracking for workers.
-
-**Features:**
-- **Spending History:** 12-month trend showing credits, tokens, and promoted spend
-- **ROI by Tool:** Calculate return on investment for each revenue tool
-- **Conversion Tracking:** Leads → Bookings conversion rate
-- **Smart Recommendations:** AI-powered suggestions to optimize spending
-
-**Worker Dashboard Tab:** "Analytics" (BarChart3 icon)
-
-**API Endpoint:** `GET /api/worker/analytics`
-
-**Usage Guide:**
-1. Navigate to Worker Dashboard → Analytics tab
-2. View Overview for monthly spending trend and conversion rate
-3. Check Spending tab for detailed month-by-month breakdown
-4. Review ROI tab to see which tools provide best return
-5. Read Recommendations tab for personalized optimization tips
-
----
-
-### Enhancement 2: Smart Notifications & Alerts 🔔
-
-**What it is:** Proactive notifications for low balance, token expiry, tier changes, and achievements.
-
-**Notification Types:**
-- **Low Balance:** Warns when credits/tokens are running low
-- **Token Expiry:** Alerts before tokens expire (30-day warning)
-- **Tier Change:** Celebrates tier upgrades, warns of downgrades
-- **Achievement:** Unlocked badge notifications
-- **Campaign:** Promoted profile status updates
-- **Promo:** Special offers and bonus opportunities
-
-**Severity Levels:**
-- **Urgent (Red):** Requires immediate action
-- **Warning (Amber):** Should be addressed soon
-- **Success (Green):** Positive achievements
-- **Info (Blue):** General information
-
-**Worker Dashboard Tab:** "Alerts" (Bell icon)
-
-**API Endpoint:** `GET /api/worker/notifications`
-
-**Usage Guide:**
-1. Navigate to Worker Dashboard → Alerts tab
-2. View urgent alerts banner at top (red background)
-3. Review warning alerts (amber background)
-4. Click action buttons to resolve issues
-5. Mark notifications as read or dismiss them
-
----
-
-### Enhancement 3: Enhanced Promoted Profiles 🎯
-
-**What it is:** Advanced targeting, A/B testing, and quality score for promoted profiles.
-
-**Features:**
-- **Geographic Targeting:** Target by neighborhood (Beirut, Hamra, Achrafieh)
-- **Category Targeting:** Target specific service categories
-- **Time Targeting:** Peak hours vs evening scheduling
-- **Device Targeting:** Mobile-only campaigns
-- **A/B Testing:** Test different ad creatives with CTR comparison
-- **Quality Score:** Profile completeness, response time, reviews, bookings
-- **Competitor Insights:** Bid analysis and position tracking
-
-**Worker Dashboard Tab:** "Enhanced Promo" (Target icon)
-
-**API Endpoint:** `GET /api/worker/promoted-enhanced`
-
-**Usage Guide:**
-1. Navigate to Worker Dashboard → Enhanced Promo tab
-2. Configure targeting in Targeting section (toggle neighborhoods, categories)
-3. Create A/B test variants in A/B Test section
-4. Check Quality Score to identify improvement areas
-5. Review Competitors section for bid recommendations
-
----
-
-### Enhancement 4: Referral Revenue Sharing 🤝
-
-**What it is:** Earn credits by referring other workers to the platform.
-
-**Earning Rules:**
-- **Referral signs up:** +5 credits
-- **Referral makes first purchase:** +25 credits
-- **Referral completes 5 bookings:** +50 credits
-- **Monthly streak bonus:** +20 credits per consecutive month
-
-**Tier Benefits:**
-| Tier | Referrals | Bonus Multiplier | Perks |
-|------|-----------|------------------|-------|
-| Bronze | 0+ | 1x | Base rewards |
-| Silver | 5+ | 1.25x | 25% bonus, priority support |
-| Gold | 15+ | 1.5x | 50% bonus, exclusive promos |
-| Platinum | 30+ | 2x | 100% bonus, VIP support |
-
-**Worker Dashboard Tab:** "Referrals" (Users icon)
-
-**API Endpoint:** `GET /api/worker/referrals`
-
-**Usage Guide:**
-1. Navigate to Worker Dashboard → Referrals tab
-2. Copy your unique referral code or share referral link
-3. Track referred workers in Overview section
-4. Check earnings summary and history
-5. View leaderboard to see your ranking
-6. Review tier benefits and progress to next tier
-
----
-
-### Enhancement 5: Flexible Payment Options 💳
-
-**What it is:** Multiple payment methods including installment plans, wallet top-up, and business accounts.
-
-**Wallet Top-Up Methods:**
-| Method | Bonus | Processing Time |
-|--------|-------|------------------|
-| Wish | +5% | Instant |
-| OMT | +3% | 1-2 hours |
-| Credit Card | 0% | Instant |
-| Bank Transfer | +2% | 1-3 days |
-
-**Installment Plans:**
-| Plan | Months | Interest | Eligible Products |
-|------|--------|----------|-------------------|
-| 3-Month | 3 | 0% | Premium, Large Credit Packs |
-| 6-Month | 6 | 10% | Premium, Credits, Background Check |
-| 12-Month | 12 | 20% | All Products |
-
-**Business Accounts:**
-| Tier | Monthly Fee | Bulk Discount | Credit Limit |
-|------|-------------|---------------|--------------|
-| Startup | $49 | 10% | $1,000 |
-| Business | $149 | 20% | $5,000 |
-| Enterprise | $499 | 30% | $20,000 |
-
-**Worker Dashboard Tab:** "Payments" (CreditCard icon)
-
-**API Endpoint:** `GET /api/worker/payment-options`
-
-**Usage Guide:**
-1. Navigate to Worker Dashboard → Payments tab
-2. Top up wallet using preferred method (Wish/OMT/Card/Bank)
-3. Select installment plan for large purchases
-4. Explore business accounts for company management
-5. Manage saved payment methods in My Cards section
-
----
-
-### Enhancement 6: Gamification & Achievements 🏆
-
-**What it is:** Badges, streaks, challenges, and XP levels to drive engagement.
-
-**Badge Categories:**
-- **Quick Respond:** Respond to 90% of leads within 1 hour
-- **5-Star Worker:** Maintain 5-star rating for 30 days
-- **Booking Master:** Complete 50/100 bookings
-- **Streak King:** 30-day activity streak
-- **Referral Champion:** Refer 10 workers
-- **Top Rated:** Top 10% in category
-- **Early Bird:** 5 bookings before 9 AM
-- **Social Butterfly:** 20 customer reviews
-
-**Streak Types:**
-- **Daily:** Consecutive days with activity
-- **Weekly:** Consecutive weeks with activity
-- **Monthly:** Consecutive months with activity
-
-**XP System:**
-- Complete booking: +50 XP
-- Get 5-star review: +25 XP
-- Maintain daily streak: +10 XP/day
-- Complete challenge: +100 XP
-
-**Worker Dashboard Tab:** "Rewards" (Trophy icon)
-
-**API Endpoint:** `GET /api/worker/gamification`
-
-**Usage Guide:**
-1. Navigate to Worker Dashboard → Rewards tab
-2. View earned badges and progress on unearned badges
-3. Check daily/weekly/monthly streaks
-4. Complete active challenges for bonus rewards
-5. Track XP progress and level benefits
-
----
-
-### Enhancement 7: Mobile-Exclusive Features 📱
-
-**What it is:** Features only available on the mobile app to drive app adoption.
-
-**Push Notification Preferences:**
-- New Lead Alert
-- Booking Request
-- Payment Received
-- Promotional Offers
-- Achievement Unlocked
-
-**Quick Respond Templates:**
-- Standard Accept
-- Emergency Accept
-- Polite Decline
-- Reschedule Request
-- Follow Up
-
-**Offline Balance:**
-- Cached credits/tokens for offline access
-- Last synced timestamp
-- Stale data warning
-
-**Mobile-Only Bonuses:**
-- First mobile booking: +10 credits
-- Push notification response: +5 tokens
-- App install bonus: +25 credits
-
-**Worker Dashboard Tab:** "Mobile" (Smartphone icon)
-
-**API Endpoint:** `GET /api/worker/mobile-features`
-
-**Usage Guide:**
-1. Navigate to Worker Dashboard → Mobile tab
-2. Configure push notification preferences
-3. Set up quick respond templates for fast replies
-4. Check offline balance cache status
-5. Claim mobile-only bonus rewards
-
----
-
-## Worker Dashboard Tabs (13 Total)
-
-| Tab | Icon | Content |
-|-----|------|---------|
-| Overview | TrendingUp | 2×2 grid of main cards |
-| Lead Credits | Coins | Buy credits, packages |
-| Tokens | Zap | Token wallet, earn/buy |
-| Commission | Percent | Tier progress, all tiers |
-| Analytics | BarChart3 | Spending history, ROI, conversion |
-| Alerts | Bell | Urgent/warning/success notifications |
-| Enhanced Promo | Target | Targeting, A/B test, Quality Score |
-| Referrals | Users | Code, earnings, leaderboard, tiers |
-| Payments | CreditCard | Wallet, installments, business |
-| Rewards | Trophy | Badges, streaks, challenges, XP |
-| Mobile | Smartphone | Push, quick-reply, offline, bonuses |
-| Premium Tools | Package | SaaS marketplace |
-| Promote | Megaphone | CPC campaigns |
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**Stream not appearing in admin dashboard:**
-- Check if the stream is enabled in `revenue-settings.ts`
-- Verify the admin user has proper permissions
-- Clear browser cache and reload
-
-**Worker can't purchase credits:**
-- Ensure the credits stream is enabled
-- Check if payment method is configured
-- Verify worker account is verified
-
-**Commission tier not updating:**
-- Check lifetime billings calculation
-- Verify tier thresholds in settings
-- Wait for next billing cycle (monthly)
-
-**Promoted profile not showing:**
-- Check daily budget hasn't been exhausted
-- Verify CPC bid is competitive
-- Ensure campaign is active (not paused)
-
----
-
-## Support
-
-For technical support or questions about the revenue system:
-
-- **Documentation:** This file (`docs/REVENUE-STREAMS.md`)
-- **Admin Dashboard:** `/admin/revenue-settings`
-- **Worker Dashboard:** `/dashboard` → Revenue Tools tabs
-- **API Documentation:** See individual route files in `src/app/api/`
-
----
-
-*Last updated: August 2026*
-*Version: 2.0.0*
-*Enhancements: 7 new features added (Analytics, Notifications, Enhanced Promotion, Referrals, Payments, Gamification, Mobile)*
+*Last updated: September 17, 2026*
+*Version: 3.0.0*
+*Streams: 14 configured (10 live, 4 built, pending gateway)*

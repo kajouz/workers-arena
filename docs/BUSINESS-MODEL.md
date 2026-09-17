@@ -14,7 +14,7 @@ WorkersArena is a **two-sided marketplace** for home & commercial services (prof
 - **Demand side:** customers who search, browse, favorite, review, and book workers.
 - **B2B side:** companies (builders, cleaning firms) who buy **advertising** across 8 formats.
 
-**Today's revenue engine is a single live stream:** worker subscription fees ($29–$299/month) that gate **visibility** — an expired subscription makes a worker invisible to public search (`isSubscriptionActive` in `src/lib/data/subscriptions.ts`). Advertising is now **purchasable end-to-end in demo mode** — `createCampaign` gates the campaign behind a hosted checkout and it only goes ACTIVE once the payment webhook confirms (`confirmCampaignPayment`, `docs/PAYMENTS.md` → ad-campaign purchases); connecting a real gateway is the remaining P0 step. Bookings have full payment infrastructure (deposits, checkout, webhooks, refunds, invoices) but **no platform fee is charged** — the marketplace transacts value without taking a cut.
+**Today's revenue engine has multiple live streams:** worker subscription fees ($15–$199/month) that gate **visibility**, platform fees (4–12% take rate) on completed jobs, a lead marketplace ($5–$35 per lead), credit purchases, paid verification ($9–$19), featured/emergency add-ons ($9–$49), and a referral program. Advertising is now **purchasable end-to-end in demo mode** — `createCampaign` gates the campaign behind a hosted checkout and it only goes ACTIVE once the payment webhook confirms (`confirmCampaignPayment`, `docs/PAYMENTS.md` → ad-campaign purchases); connecting a real gateway is the remaining P0 step.
 
 **The core thesis of this plan:** the biggest revenue upside is not raising subscription prices — it is (a) turning on **live payments** so the existing monetizable surfaces actually collect money, and (b) layering a **take rate on the booking marketplace** + **self-serve paid ads** on top of the subscription base. Order of magnitude: even a 5–8% platform fee on paid bookings plus paid campaign activation converts the two dormant revenue engines into recurring income.
 
@@ -22,26 +22,113 @@ WorkersArena is a **two-sided marketplace** for home & commercial services (prof
 
 ## 2. Current business model (as implemented)
 
-### 2.1 Worker subscriptions — the only live revenue stream
+### 2.1 Worker subscriptions — the primary live revenue stream
 
-Four tiers (USD/month, `PLANS` in `src/lib/data/subscriptions.ts`; mirrored in `src/components/home/plans.tsx`):
+Four tiers (USD/month, `PLAN_CATALOG` in `src/lib/data/subscription-plans.ts`; mirrored in `src/components/home/plans.tsx`):
 
-| Plan | Price/mo | Features |
-|---|---|---|
-| Basic | $29 | listing, leads |
-| Professional | $59 | + boost, verified badge *(marked "popular")* |
-| Premium | $119 | + analytics, gallery |
-| Enterprise | $299 | + emergency marker, priority support, ads |
+| Plan | Price/mo | Annual (9mo) | Leads/mo | Key Perks |
+|---|---|---|---|---|
+| **Starter** | $15 | $135 | 3 | Profile, search listing |
+| **Growth** | $39 | $351 | 10 | + Featured, verification |
+| **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
+| **Business** | $199 | $1,791 | Unlimited | + Fee exemption, team mgmt |
+
+**Category-adjusted pricing** — trades are classified by average job value:
+- **Low-value** (cleaning, gardening, pest control): 0.5× multiplier → Starter $7.50/mo
+- **Mid-value** (plumbing, electrical, carpentry): 1.0× multiplier → Starter $15/mo
+- **High-value** (HVAC, satellite, mechanic): 1.5× multiplier → Starter $22.50/mo
+
+**30-day free trial** — new workers get their first month free on any plan.
+
+**Annual billing** — pay for 9 months, get 12 (25% discount, 3 months free).
 
 Mechanics that make this model work:
 
 - **Visibility gating (the "paywall"):** expired subscription → worker removed from public search (`filtersToWhere` excludes `EXPIRED` subs; demo `isSubscriptionActive`). Search visibility is the workers' #1 KPI, so expiry is a natural, high-converting upsell trigger.
 - **Renewal nudges:** 7/3/1-day reminder notifications + cron engine (`src/lib/notifications/reminders.ts`), "expiring" status banner on the dashboard, and a renewal dialog (`renew-dialog.tsx`) that supports plan switching.
 - **Invoicing:** every renewal mints an `INV-*` invoice shown on the worker dashboard.
+- **Admin-editable:** all prices, quotas, and features configurable via `/admin/revenue-settings`.
 
 **Observation:** this is a classic freemium-to-paid **"sell visibility"** model, comparable to Yelp/decorilla-style lead-gen listings. ARPU is capped by what a solo worker will pay for visibility; the ceiling is low relative to transaction revenue.
 
-### 2.2 Company advertising — built but not monetized
+### 2.2 Platform fee / take rate — the headline revenue lever
+
+The fee engine stamps an **immutable snapshot** at accept-with-quote:
+
+| Plan Tier | Rate | Min | Max |
+|-----------|------|-----|-----|
+| Free | 12% | $5 | $300 |
+| Starter | 9% | $5 | $300 |
+| Growth | 7% | $5 | $300 |
+| Pro | 5% | $5 | $300 |
+| Business | 4% (or exempt) | $5 | $300 |
+
+- Applied at **accept-with-quote** (immutable snapshot)
+- Collected at **booking completion**
+- Admin can set per-category, per-promotion overrides
+- Fee snapshot is auditable (`PlatformFeeSnapshot` model)
+
+### 2.3 Lead marketplace — qualified leads as a product
+
+Customer requests are **graded** (bronze/silver/gold/emergency) and offered to a few matching workers:
+
+| Grade | Price | Trigger |
+|-------|-------|---------|
+| **Bronze** | 5 credits ($5) | Basic info, no email |
+| **Silver** | 9 credits ($9) | Email + category + location |
+| **Gold** | 20 credits ($20) | Full profile + photos + signed in |
+| **Emergency** | 35 credits ($35) | 24/7 urgent request |
+
+**Matching engine**: weighted scoring (trade 30%, area 12%, city 8%, rating 12%, reviews 6%, response rate 10%, availability 8%, plan tier 6%, emergency 5%, verified 3%)
+
+**Ownership**: exclusive by default (buying revokes rivals), capped at `maxWorkersPerLead`, time-based expiry
+
+**Contact reveal**: hidden → masked → revealed (based on purchase status and plan tier)
+
+**Quality feedback loop**: workers rate leads 1–5 stars → feeds back into per-grade pricing multipliers (0.8×–1.2×) and matching weights
+
+**Lead rebate**: when a bought lead converts to a completed job, the lead's cost is rebated against the platform fee
+
+### 2.4 Credit system — workers buy credits to purchase leads
+
+| Package | Credits | Price | Bonus | Total |
+|---------|---------|-------|-------|-------|
+| Starter | 10 | $25 | 0 | 10 |
+| Popular | 25 | $50 | 5 | 30 |
+| Professional | 50 | $90 | 15 | 65 |
+| Enterprise | 100 | $150 | 30 | 130 |
+
+- **Payment**: OMT/Whish manual rails (admin confirms → credits granted)
+- **Stripe**: planned but not yet connected
+- Credits are consumed when buying leads (1 credit = $1)
+
+### 2.5 Paid verification — trust as a product
+
+| Tier | Price | What's included |
+|------|-------|----------------|
+| **Basic** | $9 | ID check only |
+| **Professional** | $19 | License + background check |
+
+- 12-month validity
+- Badge in search results
+- Admin confirms payment → flips `verified` flag
+
+### 2.6 Featured / emergency add-ons
+
+| Add-on | Price | What's included |
+|--------|-------|----------------|
+| **Featured slot** | $49/category/mo | Homepage featured placement |
+| **Emergency marker** | $9/mo | 24/7 urgent job availability |
+
+### 2.7 Referral program — viral growth
+
+- **Referrer bonus**: 25 credits per successful referral
+- **Invitee bonus**: 10 credits on signup
+- **Monthly cap**: 10 referrals/month
+- **Qualifying action**: invitee must complete first booking
+- Configurable via `FeeRuleSet.referral` (admin-editable)
+
+### 2.8 Company advertising — built but not monetized
 
 - Campaign builder + company dashboard (impressions / clicks / CTR / budget / spent), 8 ad types (banner, slider, featured card, sponsored search, sponsored category, popup, native, video), placement/category/city targeting, rotation, impression + click tracking (`/api/ads/[id]/click`).
 - The demo spend model is effectively **~$10 CPM + $1/click**: `recordImpression` burns $0.01/impression, `recordClick` burns $1/click (`src/lib/data/repo.ts`).
@@ -49,21 +136,25 @@ Mechanics that make this model work:
 
 **Observation:** the purchase gate now exists in code (demo/simulated); the ad product is one P0 step ("live payments") away from collecting real money. The unit model already exists.
 
-### 2.3 Bookings & deposits — full payment rails, zero take rate
+### 2.9 Bookings & deposits — full payment rails, zero take rate (partially addressed)
 
 - Customers request bookings on AVAILABLE slots; workers accept with a **quote** and optional **deposit**; PENDING_PAYMENT → checkout (Stripe / simulated / PayPal / MyFatoorah / bank-transfer / cash per `docs/PAYMENTS.md`) → webhook → CONFIRMED + PAID.
 - M4 policy: refunds with a 24h cancellation-policy window; `WA-YYYY-NNNNN` invoices for signed-in customers.
-- **No platform fee, no commission, no escrow margin** anywhere in the flow (there is no `commission`/`fee`/`take rate` concept in the codebase).
+- **Platform fee is now charged** (4–12% depending on plan tier) — the marketplace takes a cut on every completed job.
 
-**Observation:** this is the largest unmet opportunity. The marketplace already routes real (or simulated) money for deposits and quotes; adding a platform fee at accept/confirm is a data-model + one calculator change, and it converts the app from "directory with subscriptions" to a **transactional marketplace**.
+### 2.10 Supporting monetizable surfaces (now monetized)
 
-### 2.4 Supporting monetizable surfaces (currently free)
-
-- **Leads** — included in every plan; not metered or sold.
-- **Verification** — free badge via admin review queue; no paid tiers.
-- **Featured workers** section on the homepage (`getFeaturedWorkers`) — data flag, not a purchasable slot.
-- **Emergency marker** — Enterprise-only feature flag, not sold as a la carte.
-- **Favorites, reviews, analytics** — free.
+- **Leads** — sold per grade (5–35 credits) with quality feedback loop.
+- **Verification** — paid tiers ($9 basic, $19 professional) via OMT/Whish.
+- **Featured workers** section on the homepage (`getFeaturedWorkers`) — purchasable add-on ($49/category/mo).
+- **Emergency marker** — purchasable per-month add-on ($9/mo).
+- **Favorites, reviews, analytics** — free (retention tools).
+- **Worker ROI dashboard** — shows marketplace spend efficiency.
+- **Earnings statement** — monthly breakdown of fees, rebates, net earnings.
+- **Lead quality analytics** — admin dashboard for rating trends.
+- **Smart pricing** — dynamic lead multipliers based on demand/holidays.
+- **Portfolio builder** — workers showcase completed jobs with photos.
+- **Mobile app** — camera proof-of-work, share sheet, local notifications, onboarding.
 
 ---
 
@@ -72,25 +163,22 @@ Mechanics that make this model work:
 | Levers | Today | With plan |
 |---|---|---|
 | Paying workers | subscription renewals | same + upgrades |
-| ARPU (worker) | $29–299/mo (mix ≈ $60–80) | +10–20% via annual/upsell |
+| ARPU (worker) | $15–199/mo (mix ≈ $40–60) | +10–20% via annual/upsell |
 | Ads revenue | **$0** (no live purchase) | budget × activation rate |
-| Booking take rate | **$0** | 5–10% of job value |
-| Live payment readiness | P0 pending | prerequisite for all of the above |
+| Booking take rate | **4–12%** of job value | same + category overrides |
+| Lead marketplace | **$5–35/lead** | + smart pricing multipliers |
+| Live payment readiness | P0 pending (Stripe) | prerequisite for card payments |
 
-The two "zero" rows are the plan's headline: they are both fully scaffolded in code and blocked only by **live payments** (P0).
+The "Stripe pending" row is the plan's remaining gap: subscriptions, credits, and ad campaigns all run on OMT/Whish manual rails; collecting real card money needs the P0 gateway.
 
 ---
 
 ## 4. Gaps & weaknesses (why revenue is under-leveraged)
 
-1. **No live payments** (`docs/PRODUCT.md` §3.1 P0) — subscriptions, ads, and deposits all run simulated/demo. Until a real gateway collects money, every other improvement is theoretical.
-2. **No take rate** — the marketplace settles bookings free of charge; the platform monetizes only the lead, not the transaction.
-3. **Ads purchasable in demo, not live** — the checkout gate is wired (create → pay → ACTIVE via webhook) but runs on the simulated provider; collecting real money needs the P0 gateway, and there is still no budget pacing, CPM/CPC tiers, or auction.
-4. **Single revenue stream** — 100% of revenue depends on worker subscription willingness-to-pay; susceptible to churn and price sensitivity in the informal-services labor market.
-5. **No annual plans** — monthly-only billing leaves ARPU and prepaid cash flow on the table.
-6. **Leads are unbundled** — free leads are a subsidy; in the industry, qualified service leads are the highest-value unit companies pay for.
-7. **Trust/verification not monetized** — a paid verification ladder (ID, license, background check) is a natural high-margin product in the region (migrant-worker trust gap).
-8. **Deposits are not escrow** — the platform routes deposits but doesn't hold them for completion milestones (larger jobs), missing both a trust feature and a margin/float opportunity.
+1. **No live payments** (`docs/PRODUCT.md` §3.1 P0) — subscriptions, ads, and deposits all run on OMT/Whish manual admin-confirmed rails. Until a real gateway collects money, every other improvement requires manual admin work.
+2. **Ads purchasable in demo, not live** — the checkout gate is wired (create → pay → ACTIVE via webhook) but runs on the simulated provider; collecting real money needs the P0 gateway, and there is still no budget pacing, CPM/CPC tiers, or auction.
+3. **No escrow** — the platform routes deposits but doesn't hold them for completion milestones (larger jobs), missing both a trust feature and a margin/float opportunity.
+4. **Single payment method** — OMT/Whish only; card-paying customers/workers in Lebanon and the broader MENA region are underserved.
 
 ---
 
@@ -98,25 +186,34 @@ The two "zero" rows are the plan's headline: they are both fully scaffolded in c
 
 ### 5.1 Quick wins (0–1 month) — shipped on the Lebanon OMT/Whish manual rails (no Stripe)
 
-> **Status: all four quick wins are implemented** — the Lebanon-first launch collects them through the **OMT / Whish MANUAL methods** (no gateway keys): the purchase mints a signed `/payments/manual` instructions page, the worker pays an OMT agent / Whish app with the reference, and an **admin confirms receipt** from the `/admin` pending-payments card, which activates the capability (docs/PAYMENTS.md → "Lebanon launch").
+> **Status: all quick wins are implemented** — the Lebanon-first launch collects them through the **OMT / Whish MANUAL methods** (no gateway keys): the purchase mints a signed `/payments/manual` instructions page, the worker pays an OMT agent / Whish app with the reference, and an **admin confirms receipt** from the `/admin` pending-payments card, which activates the capability (docs/PAYMENTS.md → "Lebanon launch").
 
-- ✅ **Annual billing** — yearly plans at 2-months-free (annual = 10 paid months for 12) via `renewSubscriptionAction` (`period` param + plan picker in the renew dialog). *Impact: +10–15% ARPU, better cash flow, lower churn.*
-- ✅ **Paid plan-upgrade prompts** — the worker dashboard's **upgrade dialog** (`src/components/dashboard/upgrade-dialog.tsx`) offers verification tiers, the Featured slot, and the Emergency marker inline, with the OMT/Whish method picker — the funnel exists even before limit-based prompts are wired.
-- ✅ **Sell featured-worker slots** — `isFeatured` is a purchasable monthly add-on ($49/category/mo): `purchaseUpgradeAction` (worker) → pending manual payment → admin `confirmManualPaymentAction` flips the flag. *Impact: new SKU, zero new infra.*
-- ✅ **La carte emergency marker** — the Enterprise "emergency" flag is a purchasable per-month add-on ($9/mo) through the same purchase rail. *Impact: incremental ARPU from mid-tier workers.*
-- ✅ **Paid verification tiers** (moved up from §5.2) — Basic (ID check, $9) / Professional (license + background check, $19), 12-month validity, badge in search: `purchaseUpgradeAction` → admin confirm flips `verified` + the `verification` state on the profile. *Impact: high-margin trust product; raises conversion of premium subs.*
+- ✅ **Annual billing** — yearly plans at 3-months-free (annual = 9 paid months for 12) via `renewSubscriptionAction` (`period` param + plan picker in the renew dialog). *Impact: +25% ARPU, better cash flow, lower churn.*
+- ✅ **Category-adjusted pricing** — low-value trades pay 0.5×, high-value pay 1.5×. *Impact: lower barrier for cleaning/gardening, higher ARPU from HVAC/mechanic.*
+- ✅ **30-day free trial** — first month free on any plan. *Impact: reduces conversion friction.*
+- ✅ **Paid plan-upgrade prompts** — the worker dashboard's **upgrade dialog** (`src/components/dashboard/upgrade-dialog.tsx`) offers verification tiers, the Featured slot, and the Emergency marker inline, with the OMT/Whish method picker.
+- ✅ **Sell featured-worker slots** — `isFeatured` is a purchasable monthly add-on ($49/category/mo): `purchaseUpgradeAction` (worker) → pending manual payment → admin `confirmManualPaymentAction` flips the flag.
+- ✅ **À la carte emergency marker** — the "emergency" flag is a purchasable per-month add-on ($9/mo) through the same purchase rail.
+- ✅ **Paid verification tiers** — Basic (ID check, $9) / Professional (license + background check, $19), 12-month validity, badge in search.
+- ✅ **Credit purchases** — workers can buy platform credits through OMT/Whish to fund lead purchases.
+- ✅ **Lead marketplace** — qualified leads with grading, matching, exclusivity, contact reveal, and quality feedback loop.
+- ✅ **Platform fee (take rate)** — 4–12% on every completed job, with immutable snapshots.
+- ✅ **Lead rebates** — when a bought lead converts, the lead's cost is rebated against the platform fee.
+- ✅ **Referral program** — 25 credits for referrer, 10 for invitee, configurable via admin.
+- ✅ **Smart pricing** — dynamic lead multipliers based on demand, holidays, rush hour.
+- ✅ **Worker ROI dashboard** — leads bought, jobs won, GMV, fees, subscription cost, multiple.
+- ✅ **Earnings statement** — monthly breakdown of completed jobs, fees, rebates, net payouts.
+- ✅ **Lead quality analytics** — admin dashboard for rating trends and conversion rates.
+- ✅ **Portfolio builder** — workers showcase completed jobs with before/after photos.
 
 ### 5.2 Medium term (1–3 months) — requires the P0 payments wave
 
 - **Live payments end-to-end (P0, prerequisite)** — Stripe first (subscription auto-renew via Stripe billing, ad campaign prepayment, booking deposits), then MyFatoorah/Tap/STC Pay for the MENA consumer base. *Impact: unlocks every row below.* **Lebanon-first note:** the launch country already collects on the **OMT/Whish manual rails** (deposits, campaign prepayment, renewals, and the §5.1 upgrades — admin-confirmed, no gateway keys); Stripe/MENA gateways remain the scale play for card-paying markets.
-- **Booking take rate (the headline lever)** — add a `platformFee` (percent + minimum, e.g., 5–8% or $10 floor) applied at **accept-with-quote** and collected at confirm; split-amount presentation ("you receive X, platform fee Y") in the customer + worker UIs; fee waived/absorbed on enterprise subscription (a tier perk). Add the field to `Booking` + invoice line item. *Impact: recurring % of GMV — the single largest new stream.*
 - **Deposit as escrow for large jobs** — hold the deposit until job completion (the M4 `transitionBooking(completed)` already exists); release on completion, refund per policy otherwise. Sell "protected payment" as a trust feature; collect the platform fee at release. *Impact: trust-led conversion + take rate on larger jobs.*
 - **Self-serve paid ads** — campaign creation requires prepayment: budget → checkout → webhook activates the campaign (status flips `paused`→`active`); add CPM/CPC tiers and a minimum budget; keep the existing $10 CPM/$1 CPC model as the default tier. The checkout now accepts OMT/Whish (the company's "Pay now" picker) with admin-confirmed activation as the manual twin of the webhook. *Impact: second B2B revenue stream.*
-- ✅ **Paid verification tiers** — shipped via the §5.1 manual rail (Basic $9 / Professional $19, badge in search) — see PAYMENTS.md.
 
 ### 5.3 Strategic (3–12 months) — growth & differentiation
 
-- **Leads marketplace** — metered lead credits for companies + workers on free/basic tiers (e.g., $5–15 per qualified lead with city/category match); the contact-card reveal is the enforcement point. *Impact: monetizes demand directly; strong in MENA where phone leads are the currency.*
 - **Pay-at-completion / milestone payments** — for jobs > threshold, hold a % until completion with photo/checklist verification; platform fee at milestone release. *Impact: raises average job value and take rate.*
 - **Priority emergency dispatch** — paid "reach me in 30 min" placement (the 24/7 emergency marker pattern) with push notifications to top-rated nearby workers. *Impact: premium B2C product; high willingness-to-pay.*
 - **Company CRM / lead-gen subscription** — recurring seats for companies with lead routing, campaign pacing alerts, and market-pricing insights (anonymized rate reports per city/category). *Impact: B2B ARR with expansion revenue.*
@@ -135,7 +232,7 @@ The two "zero" rows are the plan's headline: they are both fully scaffolded in c
 
 ## 6. Risks & considerations
 
-- **Price sensitivity on supply side** — informal workers are cost-sensitive; keep Basic cheap and let visibility + booking volume justify upgrades. A take rate must be offset by demonstrable booking volume (advertise "jobs, not just views").
+- **Price sensitivity on supply side** — informal workers are cost-sensitive; keep Starter cheap and let visibility + booking volume justify upgrades. A take rate must be offset by demonstrable booking volume (advertise "jobs, not just views").
 - **Regulatory (MENA)** — VAT on platform fees and subscriptions (Saudi 15%, UAE 5%); escrow/money-holding rules if deposits are held (partner with a licensed payment facilitator or hold via the gateway, not the platform's own account).
 - **Refund exposure** — the 24h cancellation-policy window already protects the worker's deposit; the platform fee should be refundable with the booking to avoid customer backlash, or charged only at completion.
 - **Payment method mix** — cash-on-delivery remains dominant in the region; "cash booking" should still carry a platform fee (collected digitally after the job, e.g., wallet/card top-up) or a reduced fee, otherwise take rate misses most transactions.
@@ -147,7 +244,7 @@ The two "zero" rows are the plan's headline: they are both fully scaffolded in c
 
 | Capability | Code exists | Live payments | Notes |
 |---|---|---|---|
-| Worker subscription + renewal | ✅ `subscriptions.ts`, `renew-dialog.tsx` | ✅ OMT/Whish manual | annual = 10 for 12, admin-confirmed |
+| Worker subscription + renewal | ✅ `subscriptions.ts`, `renew-dialog.tsx` | ✅ OMT/Whish manual | annual = 9 for 12, admin-confirmed |
 | Subscription reminders | ✅ `reminders.ts` + cron | — | |
 | Ads: builder, rotation, tracking | ✅ `campaign-builder.tsx`, `repo.ts` | ✅ OMT/Whish manual | prepayment = activation gate |
 | Booking deposit/quote payment | ✅ M3 seam + `PAYMENTS.md` | ✅ OMT/Whish manual | take-rate fee = new field + calculator |
@@ -155,8 +252,23 @@ The two "zero" rows are the plan's headline: they are both fully scaffolded in c
 | Invoices (sub/ad/booking) | ✅ `Invoice` model | ✅ (manual rails) | |
 | Featured / emergency sell | ✅ `purchases.ts` + upgrade dialog | ✅ OMT/Whish manual | purchasable add-ons, admin-confirmed |
 | Verification tiers | ✅ `purchases.ts` + admin card | ✅ OMT/Whish manual | paid ladder live |
+| Credit purchases | ✅ `credit-balance.tsx` + OMT/Whish | ✅ OMT/Whish manual | workers buy credits to fund leads |
+| Lead marketplace | ✅ `lead-market.ts` + board | ✅ OMT/Whish manual | grading, matching, exclusivity, reveal |
+| Lead rebates | ✅ `lead-rebate.ts` | ✅ (on completion) | loyalty loop: lead cost → fee reduction |
+| Platform fee (take rate) | ✅ `fee-rules.ts` + snapshots | ✅ (on completion) | 4–12% per plan tier, immutable |
+| Referral program | ✅ `referral.ts` + card | ✅ (credits) | 25 referrer / 10 invitee credits |
+| Smart pricing | ✅ `smart-pricing.ts` | — | demand/holiday/seasonal multipliers |
+| Worker ROI dashboard | ✅ `worker-roi.ts` + page | — | spend efficiency visibility |
+| Earnings statement | ✅ `earnings.ts` + page | — | monthly fee/rebate/earnings breakdown |
+| Lead quality analytics | ✅ `lead-quality-analytics.ts` | — | admin rating trends dashboard |
+| Portfolio builder | ✅ `portfolio-manager.tsx` | — | before/after project photos |
+| Mobile app | ✅ `mobile-architecture.md` | ✅ | Capacitor, push, camera, share |
 | **Lebanon launch (OMT/Whish)** | ✅ providers + `/payments/manual` + admin queue | ✅ | service country (Beirut, USD) + manual rails |
-| Leads metering | ⚠️ leads exist, no credits | — | credits engine needed |
+| **Stripe integration** | ⚠️ not connected | ❌ | prerequisite for card payments |
 | Mobile app monetization | ✅ `mobile-architecture.md` | 🔜 | dispatch + in-app pay |
 
-**Recommended sequencing (updated for the Lebanon launch):** the revenue quick wins — annual plans, featured/emergency SKUs, paid verification — **shipped first on the OMT/Whish manual rails** (steps 4–5 above, now live without a gateway). Remaining: 1) Stripe/MENA gateways for card markets → 2) booking take-rate collection live → 3) leads marketplace → 4) strategic bets (escrow, dispatch, B2B seats).
+**Recommended sequencing (updated for the Lebanon launch):** the revenue quick wins — annual plans, category pricing, trial, featured/emergency SKUs, paid verification, credit purchases, lead marketplace, take rate, rebates, referrals — **shipped first on the OMT/Whish manual rails** (steps 4–5 above, now live without a gateway). Remaining: 1) Stripe/MENA gateways for card markets → 2) escrow for large jobs → 3) company advertising self-serve → 4) strategic bets (dispatch, B2B seats, milestone payments).
+
+---
+
+*Last updated: September 17, 2026*
