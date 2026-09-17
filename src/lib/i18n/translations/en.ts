@@ -1163,6 +1163,13 @@ export const en = {
     dismiss: "Not now",
     installed: "App installed! You can now use WorkersArena offline.",
   },
+  swUpdate: {
+    title: "New version available",
+    subtitle: "Tap update to get the latest features and fixes",
+    update: "Update now",
+    later: "Later",
+    updated: "Updated! You're on the latest version.",
+  },
   earnings: {
     title: "Earnings",
     subtitle: "Track your income and payouts",

@@ -10,6 +10,7 @@ import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toast";
 import { ServiceWorkerRegistrar } from "@/components/notifications/service-worker-registrar";
 import { InstallBanner } from "@/components/pwa/install-banner";
+import { UpdateBanner } from "@/components/pwa/update-banner";
 import { SkipNav } from "@/components/layout/skip-nav";
 import { initMonitoring } from "@/lib/monitoring";
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
@@ -158,6 +159,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </>
           )}
           <InstallBanner />
+          <UpdateBanner />
           <ServiceWorkerRegistrar />
           <OnboardingOverlay />
           <HelpButton />
