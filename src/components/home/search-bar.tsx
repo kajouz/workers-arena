@@ -64,11 +64,11 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
           e.preventDefault();
           go(query);
         }}
-        className="glass-strong flex items-center gap-2 rounded-2xl p-2 shadow-lift"
+        className="glass-strong flex items-center gap-1.5 rounded-2xl p-1.5 shadow-lift sm:gap-2 sm:p-2"
         role="search"
       >
-        <span className="ps-2 text-ink-400">
-          <Search className="size-5" />
+        <span className="ps-1.5 text-ink-400 sm:ps-2">
+          <Search className="size-4 sm:size-5" />
         </span>
         <input
           ref={inputRef}
@@ -79,7 +79,7 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
           }}
           onFocus={() => setOpen(true)}
           placeholder={t("hero.searchPlaceholder")}
-          className="h-11 flex-1 bg-transparent text-base text-ink-900 placeholder:text-ink-400 focus:outline-none dark:text-ink-50"
+          className="h-10 flex-1 bg-transparent text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none sm:h-11 sm:text-base dark:text-ink-50"
           aria-label={t("common.search")}
         />
         {searching && (
@@ -103,10 +103,10 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
         )}
         <button
           type="submit"
-          className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand-700 px-5 text-sm font-bold text-white transition-all hover:bg-brand-800 active:scale-95"
+          className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-brand-700 px-3 text-xs font-bold text-white transition-all hover:bg-brand-800 active:scale-95 sm:h-11 sm:gap-2 sm:px-5 sm:text-sm"
         >
           {t("common.search")}
-          <Search className="size-4" />
+          <Search className="size-3.5 sm:size-4" />
         </button>
       </form>
 
@@ -153,8 +153,8 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
       </AnimatePresence>
 
       {/* Popular chips */}
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-ink-400 dark:text-ink-500">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 sm:mt-4 sm:gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-400 sm:text-xs dark:text-ink-500">
           {t("hero.popular")}
         </span>
         {popular.map((p) => (
@@ -165,7 +165,7 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
               e.preventDefault();
               router.push(`${p.href}&q=${encodeURIComponent(p.en)}`);
             }}
-            className="rounded-full border border-white/40 bg-white/60 px-3 py-1 text-xs font-semibold text-ink-600 backdrop-blur-sm transition-all hover:border-brand-500/50 hover:text-brand-600 dark:border-ink-700 dark:bg-ink-900/60 dark:text-ink-300 dark:hover:text-brand-400"
+            className="rounded-full border border-white/40 bg-white/60 px-2 py-0.5 text-[10px] font-semibold text-ink-600 backdrop-blur-sm transition-all hover:border-brand-500/50 hover:text-brand-600 sm:px-3 sm:py-1 sm:text-xs dark:border-ink-700 dark:bg-ink-900/60 dark:text-ink-300 dark:hover:text-brand-400"
           >
             {locale === "ar" ? p.ar : p.en}
           </a>

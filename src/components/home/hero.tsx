@@ -27,7 +27,7 @@ export function Hero({ popular }: { popular: { en: string; ar: string; href: str
       <div className="absolute -top-20 end-1/4 size-[360px] rounded-full bg-violet-400/20 blur-3xl dark:bg-violet-600/10" />
       <div className="absolute top-40 start-10 size-64 rounded-full bg-sky-300/20 blur-3xl" />
 
-      <div className="relative mx-auto grid max-w-7xl gap-12 px-4 pb-20 pt-16 sm:px-6 lg:grid-cols-12 lg:items-center lg:pb-28 lg:pt-24 lg:px-8">
+      <div className="relative mx-auto grid max-w-7xl gap-12 px-5 pb-20 pt-16 sm:px-6 lg:grid-cols-12 lg:items-center lg:pb-28 lg:pt-24 lg:px-8">
         {/* Copy */}
         <div className="lg:col-span-7">
           <motion.div {...fadeUp(0)}>

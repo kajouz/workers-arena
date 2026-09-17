@@ -13,13 +13,13 @@ export function CategoriesGrid({ categories }: { categories: Category[] }) {
   const { locale, t, dir } = useLocale();
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8" data-tour="categories">
+    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 sm:py-20 lg:px-8" data-tour="categories">
       <SectionHeading
         eyebrow={t("categories.title")}
         title={t("categories.subtitle")}
         dir={dir}
       />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 sm:gap-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-7">
         {categories.map((cat, i) => (
           <motion.div
             key={cat.slug}
@@ -30,21 +30,21 @@ export function CategoriesGrid({ categories }: { categories: Category[] }) {
           >
             <Link
               href={`/search?category=${cat.slug}`}
-              className="group relative flex h-full flex-col items-center gap-3 overflow-hidden rounded-2xl border border-ink-200/80 bg-white p-5 text-center shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-brand-500/40 hover:shadow-lift dark:border-ink-800 dark:bg-ink-900"
+              className="group relative flex h-full flex-col items-center gap-2 overflow-hidden rounded-xl border border-ink-200/80 bg-white p-3 text-center shadow-soft transition-all duration-300 hover:-translate-y-1 hover:border-brand-500/40 hover:shadow-lift sm:gap-3 sm:rounded-2xl sm:p-5 dark:border-ink-800 dark:bg-ink-900"
             >
               <div
-                className="flex size-12 items-center justify-center rounded-xl text-white shadow-soft transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
+                className="flex size-10 items-center justify-center rounded-lg text-white shadow-soft transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 sm:size-12 sm:rounded-xl"
                 style={{
                   background: `linear-gradient(135deg, hsl(${cat.hue} 70% 55%), hsl(${(cat.hue + 40) % 360} 72% 42%))`,
                 }}
               >
-                <CategoryIcon name={cat.icon} className="size-6" />
+                <CategoryIcon name={cat.icon} className="size-5 sm:size-6" />
               </div>
               <div>
-                <p className="text-sm font-bold text-ink-900 dark:text-ink-50">
+                <p className="text-xs font-bold text-ink-900 sm:text-sm dark:text-ink-50">
                   {locale === "ar" ? cat.nameAr : cat.nameEn}
                 </p>
-                <p className="mt-0.5 text-[11px] font-medium text-ink-400 dark:text-ink-500">
+                <p className="mt-0.5 text-[9px] font-medium text-ink-400 sm:text-[11px] dark:text-ink-500">
                   {formatNumber(cat.workerCount)} {t("categories.workersIn")}
                 </p>
               </div>

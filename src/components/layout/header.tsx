@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, LayoutDashboard, ShieldCheck, Megaphone, LogOut, User as UserIcon } from "lucide-react";
-import { useState } from "react";
+import { Menu, LayoutDashboard, ShieldCheck, Megaphone, LogOut, User as UserIcon, Download } from "lucide-react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
 import { logoutAction } from "@/app/actions/auth";
 import { toast } from "@/components/ui/toast";
+import { useInstallPrompt } from "@/hooks/use-install-prompt"
 
 export function Header({
   session,
@@ -26,6 +27,14 @@ export function Header({
   const { locale, t } = useLocale();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { canInstall, isInstalled, install } = useInstallPrompt();
+  const [installing, setInstalling] = useState(false);
+
+  const handleInstall = async () => {
+    setInstalling(true);
+    await install();
+    setInstalling(false);
+  };
 
   const navLinks = [
     { href: "/", label: t("nav.home") },
@@ -123,6 +132,20 @@ export function Header({
               </>
             )}
 
+            {canInstall && !isInstalled && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleInstall}
+                disabled={installing}
+                aria-label={t("mobileInstall.install")}
+                title={t("mobileInstall.install")}
+                className="relative text-brand-600 hover:bg-brand-500/10 dark:text-brand-400"
+              >
+                <Download className="size-4" />
+                <span className="absolute -top-0.5 -end-0.5 size-2 rounded-full bg-emerald-400 animate-pulse" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label={t("common.menu")}>
               <Menu className="size-5" />
             </Button>

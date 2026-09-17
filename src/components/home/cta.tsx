@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { ArrowRight, Wrench, Star, Users } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
-import { MobileInstallIcon } from "./mobile-install-icon";
 
 export function CTA() {
   const { locale, t, dir } = useLocale();
@@ -44,9 +43,6 @@ export function CTA() {
             </Link>
           </div>
           <p className="mt-4 text-xs font-medium text-white/50">{t("cta.sub")}</p>
-          <div className="mx-auto mt-6 flex flex-col items-center gap-3 sm:flex-row sm:mt-8">
-            <MobileInstallIcon />
-          </div>
           <div className="mx-auto mt-10 flex max-w-md items-center justify-center gap-8 text-xs font-semibold text-white/60">
             <span className="flex items-center gap-1.5">
               <Star className="size-3.5 text-brand-400" /> 4.8 {t("hero.statRating")}

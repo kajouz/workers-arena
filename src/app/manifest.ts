@@ -39,12 +39,6 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     categories: ["business", "shopping", "productivity"],
     icons: [
       {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "any",
-      },
-      {
         src: "/icons/icon-192.png",
         sizes: "192x192",
         type: "image/png",
@@ -61,6 +55,12 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
+      },
+      {
+        src: "/icon.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "any",
       },
     ],
     shortcuts: [
