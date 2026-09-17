@@ -2,22 +2,22 @@
 
 [← Back to docs index](README.md)
 
-WorkersArena supports **eight payment methods** through a modular gateway abstraction, so adding a provider is a single-file change.
+WorkersArena supports **eight payment methods** through a modular gateway abstraction, so adding a provider is a single-file change. The Lebanon launch uses **OMT and Whish Money** as the live payment rails — no gateway keys required.
 
 ## Supported methods
 
-| Method | Provider | Use case |
-|---|---|---|
-| Card / Apple Pay / Google Pay | Stripe | Global default |
-| PayPal | PayPal REST | International & freelancers |
-| Mada / KNET / Visa local | MyFatoorah | Saudi Arabia & GCC |
-| Cards / Apple Pay | Tap Payments | MENA focus |
-| Bank transfer | Manual | Enterprise & invoices |
-| Cash collection | Manual | Cash-on-service (COD) |
-| **OMT** (agent / OMT Intra / OMT Pay) | Manual | **Lebanon launch** — offline cash + local transfers |
-| **Whish Money** (app + dual-currency Visa) | Manual | **Lebanon launch** — offline cash + wallet transfers |
+| Method | Provider | Use case | Status |
+|---|---|---|---|
+| Card / Apple Pay / Google Pay | Stripe | Global default | 🔜 Planned |
+| PayPal | PayPal REST | International & freelancers | 🔜 Planned |
+| Mada / KNET / Visa local | MyFatoorah | Saudi Arabia & GCC | 🔜 Planned |
+| Cards / Apple Pay | Tap Payments | MENA focus | 🔜 Planned |
+| Bank transfer | Manual | Enterprise & invoices | ✅ Available |
+| Cash collection | Manual | Cash-on-service (COD) | ✅ Available |
+| **OMT** (agent / OMT Intra / OMT Pay) | Manual | **Lebanon launch** — offline cash + local transfers | ✅ Live |
+| **Whish Money** (app + dual-currency Visa) | Manual | **Lebanon launch** — offline cash + wallet transfers | ✅ Live |
 
-**Lebanon is a first-class service country** (Beirut in the CITIES catalog, USD as the tenant currency) and the OMT / Whish methods are **manual** — no gateway keys, no webhook: the customer pays an OMT agent / Whish app with the generated reference, then an **admin confirms receipt** from the `/admin` pending-payments card (the manual twin of a provider webhook). Every revenue flow accepts them: booking deposits, campaign purchases, subscription renewals, and the paid upgrades below.
+**Lebanon is a first-class service country** (Beirut in the CITIES catalog, USD as the tenant currency) and the OMT / Whish methods are **manual** — no gateway keys, no webhook: the customer pays an OMT agent / Whish app with the generated reference, then an **admin confirms receipt** from the `/admin` pending-payments card (the manual twin of a provider webhook). Every revenue flow accepts them: booking deposits, campaign purchases, subscription renewals, credit purchases, and the paid upgrades.
 
 ## Design
 
@@ -25,12 +25,14 @@ WorkersArena supports **eight payment methods** through a modular gateway abstra
 src/lib/payments/
   types.ts          # PaymentProvider interface + shared types
   registry.ts       # provider lookup by PaymentMethod
-  stripe.ts         # createCheckout, verifyWebhook, refund
-  paypal.ts
-  myfatoorah.ts
-  tap.ts
+  stripe.ts         # createCheckout, verifyWebhook, refund (planned)
+  paypal.ts         # planned
+  myfatoorah.ts     # planned
+  tap.ts            # planned
   bank-transfer.ts  # manual: generates IBAN details + invoice
   cash.ts           # marks payment as pending-collection
+  omt.ts            # Lebanon launch: OMT agent/OMT Pay instructions
+  whish.ts          # Lebanon launch: Whish app instructions
 ```
 
 ```ts
@@ -44,15 +46,16 @@ interface PaymentProvider {
 
 ## Flow
 
-1. Worker/company selects a plan or campaign → server action creates `Payment(status: PENDING)` + `CheckoutRequest`.
-2. `registry.get(method).createCheckout(...)` → provider redirect URL or local instructions (bank/cash).
-3. Provider webhook → `verifyWebhook` → idempotent `Payment.status = PAID`, `paidAt`.
-4. For subscriptions: activate `Subscription` (set `expiresAt`), recompute worker visibility.
-5. `Invoice` auto-generated (number `WA-YYYY-NNNNN`, PDF via Cloudinary storage).
+1. Worker/company selects a plan, campaign, or credit package → server action creates `Payment(status: PENDING)` + `CheckoutRequest`.
+2. `registry.get(method).createCheckout(...)` → provider redirect URL or local instructions (OMT/Whish/bank/cash).
+3. For OMT/Whish: customer pays offline with the reference → admin confirms receipt from `/admin`.
+4. For Stripe/webhook providers: provider webhook → `verifyWebhook` → idempotent `Payment.status = PAID`, `paidAt`.
+5. For subscriptions: activate `Subscription` (set `expiresAt`), recompute worker visibility.
+6. `Invoice` auto-generated (number `WA-YYYY-NNNNN`, PDF via Cloudinary storage).
 
 ## Currency & amounts
 
-- All amounts are **integer minor units** (e.g., 11900 = $119.00).
+- All amounts are **integer minor units** (e.g., 1500 = $15.00).
 - Prices render in the tenant currency (`USD` for tenant lb) across worker profiles, bookings, receipts and subscriptions — one `formatPrice` in `src/lib/currency.ts`.
 - MyFatoorah/Tap require Arabic `displayName` + local currency params — handled inside their provider modules.
 
@@ -62,42 +65,236 @@ interface PaymentProvider {
 
 - **Providers** — `src/lib/payments/omt.ts` + `whish.ts` mint a **signed instructions URL** (`/payments/manual?provider=omt&paymentId=…&ref=OMT-…&amount=…&sig=…`). The signature is per-provider (distinct salt + `OMT-`/`WHISH-` reference prefixes); the instructions page verifies it through the provider's own `verifyWebhook` (the same contract the webhook route uses), so the URL is tamper-proof without a webhook endpoint.
 - **Registry** — `getPaymentProvider("OMT"|"WHISH")` returns the manual providers directly; `STRIPE` still resolves to Stripe when keys are set, the simulated provider otherwise (refused in production).
-- **Method threading** — `PaymentMethod` enum (+ migration `20260816090000_lebanon_omt_whish`) and the domain `BookingPayment.method`; `payBookingAction` / `payCampaignAction` / `renewSubscriptionAction` take a method and stamp it on the Payment row at mint time. Checkout minting is **idempotent per method**: a re-click with the same method returns the already-minted URL; a **method switch re-mints** with the new provider (a stale create-time STRIPE pre-mint never leaks a simulate URL to a Whish pay-now click).
+- **Method threading** — `PaymentMethod` enum (+ migration `20260816090000_lebanon_omt_whish`) and the domain `BookingPayment.method`; `payBookingAction` / `payCampaignAction` / `renewSubscriptionAction` / `purchaseUpgradeAction` / `purchaseCreditAction` take a method and stamp it on the Payment row at mint time. Checkout minting is **idempotent per method**: a re-click with the same method returns the already-minted URL; a **method switch re-mints** with the new provider (a stale create-time STRIPE pre-mint never leaks a simulate URL to a Whish pay-now click).
 - **Admin confirm** — `getPendingManualPayments` + `confirmManualPaymentAction` power the `/admin` pending-payments card and the dispute view's confirm button; `confirmPurchase` flips the purchased capability (below). A confirm is idempotent; non-admins get `unauthorized`.
 - **Refunds route through the paying provider** — booking cancels, admin deposit refunds, and campaign refunds resolve `getPaymentProvider(payment.method)` instead of defaulting to STRIPE/simulated, so an OMT-paid deposit refunds via the OMT provider's `refund()`.
-- **Paid upgrades** (`src/lib/data/purchases.ts`): verification tiers (Basic $9 / Professional $19), the Featured slot ($49/category/mo) and the Emergency marker ($9/mo) are bought via OMT/Whish (`purchaseUpgradeAction`), and activation is admin-confirmed — worker-side purchase UI on the dashboard, subscriptions renew for 12 months at 10 months' price on the annual plan.
 - **Instructions page** — `/payments/manual` (EN/AR) shows the provider's in-app / agent steps and the reference to pay with, localized per the page locale.
 
-## Booking deposits (M3)
+## Revenue flows (what accepts OMT/Whish)
 
-The booking seam (docs/booking-scheduling.md §7) uses the same `PaymentProvider`:
+### 1. Subscription renewals
 
-1. **Accept-with-deposit** → `Payment(PENDING, amount=deposit)` created inside the booking `$transaction`, linked by `booking.paymentId` (migration `20260810123344_m3_payment_checkout` made `Payment.userId` nullable for guest customers).
-2. **Checkout** → `createBookingCheckout` → `registry.getProvider()` → `createCheckout` → customer redirected to the hosted URL. Idempotent: the provider ref is claimed with a CAS (`updateMany WHERE providerRef IS NULL`) and the minted URL is stored in `metadata.checkoutUrl` — a re-click after abandoning the checkout (or a concurrent click) returns the SAME url, never a duplicate session.
-3. **Webhook** → `POST /api/payments/webhook` → `verifyWebhook` → `confirmBookingPayment` CAS-flips booking `PENDING_PAYMENT → CONFIRMED` + payment `PENDING → PAID` in one tx (idempotent — provider redelivery no-ops), notifies the customer (`bookingPaid`).
-4. **Cancel refund (M4 policy window)** → `prismaCancelBooking` refunds a PAID deposit via `provider.refund()` after the tx (payment → `REFUNDED`, `refundRef` + `refundedAt` stored) — but only when the policy allows: `bookingCancelRefundDue()` (shared with the demo adapter) refunds a **worker cancel more than `BOOKING_CANCEL_REFUND_WINDOW_MS` (24h, configurable) before `startAt`**; a worker cancel within the window **keeps the deposit** (payment stays `PAID`, the slot couldn't be re-sold in time). Customer and system cancels always refund.
-5. **Invoice (signed-in customers)** → `prismaConfirmBookingPayment` mints an `Invoice` row in the same tx as the PAID flip — number `WA-YYYY-NNNNN` (`formatInvoiceNumber`: year + zero-padded 5-digit sequence restarting per year, P2002-collision retry), linked to the payment, amount in minor units, `status: PAID`. Only when `Booking.customerId` is set (the `/bookings` receipt for accounts); guest phone-keyed bookings get none. `toDomainBooking` maps it onto `Booking.invoice` (demo adapter mints an equivalent receipt in memory) so the customer page renders it in both modes.
+| Plan | Monthly | Annual (9mo) | Leads/mo |
+|------|---------|-------------|----------|
+| **Starter** | $15 | $135 | 3 |
+| **Growth** | $39 | $351 | 10 |
+| **Pro** | $99 | $891 | 25 |
+| **Business** | $199 | $1,791 | Unlimited |
 
-**Keyless mode:** when `STRIPE_SECRET_KEY` is unset the registry returns the **simulated provider** — `createCheckout` mints a signed local URL (`/api/payments/simulate`) that completes the payment instantly, so the full flow runs in dev/tests without credentials. Set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` (and `APP_URL` for absolute redirects) for real charges.
+- **Category-adjusted pricing**: low-value trades (cleaning, gardening) pay 0.5×, high-value trades (HVAC, mechanic) pay 1.5×
+- **30-day free trial**: first month free on any plan (auto-applied at onboarding)
+- **Annual billing**: pay for 9 months, get 12 (25% discount)
+- **Admin-editable**: all prices, quotas, and features configurable via `/admin/revenue-settings`
 
-## Ad-campaign purchases (self-serve ads)
+**Flow:**
+1. Worker clicks "Renew" on dashboard → selects plan + period (monthly/annual) + payment method (OMT/Whish)
+2. `renewSubscriptionAction` → `createPurchaseCheckout` → signed `/payments/manual` instructions page
+3. Worker pays at OMT agent / Whish app with the reference
+4. Admin confirms receipt from `/admin` pending-payments card
+5. `confirmPurchase` → subscription activated, invoice minted, worker visible in search
 
-The same `PaymentProvider` gates ad campaigns, so a campaign only goes live once paid (see docs/BUSINESS-MODEL.md → the ads stream). The webhook resolves which entity a checkout belongs to from the provider metadata — `campaignId` confirms an ad purchase, `bookingId` a booking deposit.
+### 2. Credit purchases (lead marketplace)
 
-1. **Create** → `createCampaignAction` → `createCampaign` mints a **PENDING** campaign (+ a primary `Advertisement` carrying placement/adType in real mode) + a `Payment(PENDING, amount = budget × 100 minor)`, then immediately mints the hosted checkout. In real mode `prismaCreateCampaign` persists an `AdCampaign` + the creative + the payment (keyed by `advertisementId` → campaign) and resolves the `Company` row from the acting user (`input.companyId = session.id`, seeded for `ads@buildco.sa`); the demo adapter additionally mints a PENDING advertising `INV-*` invoice at create-time (a documented parity divergence — see the invoice note below). The company is redirected there; `getActiveAdsFor` only serves **ACTIVE** campaigns, so a PENDING one never runs.
-2. **Pay now** → a PENDING campaign row on `/company` offers a **Pay now** button → `payCampaignAction` → `createCampaignCheckout` (idempotent — a re-click returns the already-minted URL, same as booking deposits).
-3. **Webhook** → `POST /api/payments/webhook` / `POST /api/payments/simulate` → `verifyWebhook` resolves `campaignId` → `confirmCampaignPayment` flips campaign `PENDING → ACTIVE` + payment `PENDING → PAID` and notifies the company (`campaign` — "Campaign is live"). Idempotent — a provider redelivery no-ops without re-notifying. **Invoice note:** the demo adapter flips its create-time `INV-*` invoice to paid; the prisma adapter instead mints the purchase's `PAID` invoice at confirm-time (number `WA-YYYY-NNNNN`, same sequence + P2002 retry as booking receipts, owner = the company's user row, linked to the payment) — this minted row is exactly what the admin credit-note flip voids on refund, so a production refund always has an invoice to void.
+Workers buy platform credits to purchase qualified leads.
 
-4. **Admin refund** → the `/admin` campaign-payments card lists every purchase with its payment state (paid/pending/refunded/cancelled/failed) and a **Refund** control on PAID rows that prompts for a **reason** (required — `refundCampaignAction` refuses a reason-less refund) → `refundCampaignPayment` calls `provider.refund()` (payment → `REFUNDED`, `refundedAt` + `refundReason` stored), ends the campaign (it stops serving), and audits the refund to the activity feed (`CAMPAIGN_REFUNDED`, type `payment`) with the reason riding the entry text. The same reason shows as a tooltip on the table's refunded badge, so the feed and the card tell one story. The **company is notified** (`campaignRefunded` — inbox + email) with the refunded amount and reason, mirroring the bookingRefund email pattern: the payload's `campaignRefund` context renders a refund card (campaign name, `$X.XX`, reason) and deep-links `/company`. A **Preview email** button on refunded rows of the payments table shows exactly what the company received — rendered server-side from the same shared `campaignRefundNotification` builder the adapters dispatch (the never-drift pattern of the booking dispute view). The refund also issues a **credit note**: the campaign's paid advertising invoice flips to `refunded` (demo store) / `VOID` (prisma `InvoiceStatus` — inside the refund tx) so the company invoices list shows the refunded amount instead of a stale "paid" row. Idempotent — a second refund no-ops (and does not re-notify).
+| Package | Credits | Price | Bonus | Total |
+|---------|---------|-------|-------|-------|
+| Starter | 10 | $25 | 0 | 10 |
+| Popular | 25 | $50 | 5 | 30 |
+| Professional | 50 | $90 | 15 | 65 |
+| Enterprise | 100 | $150 | 30 | 130 |
 
-Campaign **reads, the purchase path and the admin refund are all Prisma-backed in real mode**: `getCampaigns` → `prismaGetCampaigns` (AdCampaign rows + their ads, minor→major budget/spent), `createCampaign` / `createCampaignCheckout` / `confirmCampaignPayment` → `prismaCreateCampaign` / `prismaCreateCampaignCheckout` / `prismaConfirmCampaignPayment` (PENDING AdCampaign + primary creative + PENDING Payment → CAS checkout mint → ACTIVE + PAID + the purchase's PAID Invoice + "Campaign is live" notification), `getCampaignPayment` → `prismaGetCampaignPayment` (Payment row keyed by `advertisementId` → campaign), and `refundCampaignPayment` → `prismaRefundCampaignPayment` — the campaign flips ENDED inside `$transaction`, the provider charge refunds after it, the payment flips REFUNDED (`refundRef` + `refundedAt` + `metadata.refundReason`), the refund is audited (`CAMPAIGN_REFUNDED`), and the company receives the SAME `campaignRefunded` payload the demo dispatches. Provider-failure divergence (documented, not a bug): on a refund failure the prisma adapter returns `null` with the campaign already ENDED (and any PAID invoice already VOID) and the payment still PAID — retryable, and the retry skips the flips since they're conditional — while the demo adapter throws before touching the invoice (only a landed refund voids it); both match the booking-cancel convention. Ad **rotation** (`getActiveAdsFor` / `recordImpression` / `recordClick`) and the `/company` **invoices list** (`getInvoices`) are Prisma-backed too: rotation serves ACTIVE campaigns whose ACTIVE creatives match the placement (`prismaGetActiveAdsFor` — untargeted ads also serve targeted requests, mirroring the demo's `targetCategories` gate), tracking bumps the served creative + campaign spend (+1/+100 minor, capped at budget, demo parity), and the invoices list reads the seeded company's real `Invoice` rows (`prismaGetInvoices` — the minted `WA-*` receipts render paid + advertising in major units, and a refund's `VOID` flip reads back as the credit note). `prismaConfirmCampaignPayment` flips the creative ACTIVE with the campaign (a confirmed purchase actually serves), and `prismaRefundCampaignPayment` ends the creative with the campaign. The seed adds 5 campaigns + 3 company invoices for `ads@buildco.sa` so real mode serves ads and shows invoices out of the box. The seed now creates the `Company` row for `ads@buildco.sa` so real-mode self-serve works with the seeded company account. Under `NODE_ENV=production` with no Stripe keys the registry refuses the simulated provider, so the purchase path is dev/demo-only until live payment keys are configured.
+**Flow:**
+1. Worker clicks "Buy More" on credit balance card → selects package + payment method (OMT/Whish)
+2. `purchaseCreditAction` → `createPurchaseCheckout` → signed `/payments/manual` instructions page
+3. Worker pays at OMT agent / Whish app with the reference
+4. Admin confirms receipt from `/admin` pending-payments card
+5. `confirmPurchase` → credits granted to worker's ledger balance, notification sent
+
+**Credit ledger:**
+- Append-only `WorkerCreditEntry` model (migration `20260914120000_worker_credit_ledger`)
+- Balance always derived from entries, never stored
+- 1 credit = $1 by convention
+- Admin can adjust balances manually
+
+### 3. Lead marketplace purchases
+
+Workers spend credits to buy qualified leads (customer requests).
+
+| Grade | Price | Trigger |
+|-------|-------|---------|
+| **Bronze** | 5 credits ($5) | Basic info, no email |
+| **Silver** | 9 credits ($9) | Email + category + location |
+| **Gold** | 20 credits ($20) | Full profile + photos + signed in |
+| **Emergency** | 35 credits ($35) | 24/7 urgent request |
+
+**Flow:**
+1. Worker sees lead offer on `/dashboard/leads` → clicks "Unlock for N credits"
+2. `purchaseLeadOffer` → debit credit ledger (idempotent by offerId)
+3. Contact details revealed per policy (masked → revealed based on plan tier)
+4. Worker quotes customer directly through normal booking flow
+5. On job completion: lead rebate applied (lead cost credited back against platform fee)
+
+**Smart pricing:** lead prices are dynamically adjusted by `smart-pricing.ts`:
+- Rush hour (6–9 AM, 5–8 PM): +15%
+- Weekend (Sat–Sun): +10–20%
+- Seasonal (AC summer +25%, plumbing winter +15%)
+- Holidays (Ramadan, Eid, Christmas): +30–35%
+- Supply/demand ratio: 0.7×–2.0×
+
+### 4. Paid verification
+
+| Tier | Price | What's included |
+|------|-------|----------------|
+| **Basic** | $9 | ID check only |
+| **Professional** | $19 | License + background check |
+
+- 12-month validity
+- Badge in search results
+- Purchasable via OMT/Whish → admin confirm → `verified` flag flipped
+
+### 5. Featured slot & emergency marker
+
+| Add-on | Price | What's included |
+|--------|-------|----------------|
+| **Featured slot** | $49/category/mo | Homepage featured placement |
+| **Emergency marker** | $9/mo | 24/7 urgent job availability |
+
+- Purchasable via OMT/Whish → admin confirm → flag flipped
+
+### 6. Referral credits
+
+- **Referrer bonus**: 25 credits per successful referral
+- **Invitee bonus**: 10 credits on signup
+- **Monthly cap**: 10 referrals/month
+- **Qualifying action**: invitee completes first booking
+- Credits granted automatically on qualifying action (no payment required)
+- Configurable via `FeeRuleSet.referral` (admin-editable)
+
+### 7. Company advertising
+
+Campaigns are purchased via OMT/Whish and go live only after admin confirmation.
+
+**Flow:**
+1. Company creates campaign → PENDING + payment minted
+2. "Pay now" → OMT/Whish instructions page
+3. Company pays at OMT agent / Whish app with the reference
+4. Admin confirms receipt → campaign flips ACTIVE, creative starts serving
+5. Spend accrues against budget (impressions + clicks tracked)
+
+**Refunds:** admin refund → campaign ENDED, payment REFUNDED, invoice VOID (credit note), company notified with reason.
+
+### 8. Booking deposits
+
+The booking seam uses the same `PaymentProvider`:
+
+1. **Accept-with-deposit** → `Payment(PENDING, amount=deposit)` created inside the booking `$transaction`
+2. **Checkout** → `createBookingCheckout` → `registry.getProvider()` → `createCheckout` → customer redirected to the hosted URL (OMT/Whish instructions)
+3. **Admin confirm** (OMT/Whish) → `confirmBookingPayment` CAS-flips booking `PENDING_PAYMENT → CONFIRMED` + payment `PENDING → PAID`
+4. **Cancel refund (M4 policy window)** → `prismaCancelBooking` refunds a PAID deposit via `provider.refund()` — worker cancel within 24h of start keeps the deposit; customer and system cancels always refund
+5. **Invoice (signed-in customers)** → `prismaConfirmBookingPayment` mints an `Invoice` row (`WA-YYYY-NNNNN`)
+
+## Keyless mode
+
+When `STRIPE_SECRET_KEY` is unset the registry returns the **simulated provider** — `createCheckout` mints a signed local URL (`/api/payments/simulate`) that completes the payment instantly, so the full flow runs in dev/tests without credentials. Set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` (and `APP_URL` for absolute redirects) for real charges.
+
+Under `NODE_ENV=production` with no Stripe keys the registry refuses the simulated provider, so the purchase path is dev/demo-only until live payment keys are configured.
+
+## Admin confirmation queue
+
+All OMT/Whish payments appear in the `/admin` pending-payments card:
+
+| Field | Description |
+|-------|-------------|
+| **ID** | Payment ID (e.g., `pay-pur-1`) |
+| **Scope** | subscription / verification / featured / emergency / credit / booking / campaign |
+| **Label** | Human-readable description (EN + AR) |
+| **Amount** | Payment amount in USD |
+| **Method** | OMT or Whish |
+| **Reference** | Provider reference (e.g., `OMT-BK-1001-000`) |
+| **Created** | When the payment was minted |
+| **Action** | Confirm button (admin-only) |
+
+**Confirm flow:**
+1. Admin reviews the pending payment details
+2. Worker/company confirms they paid (shows reference at OMT agent / Whish app)
+3. Admin clicks "Confirm" → `confirmManualPaymentAction`
+4. Payment flips PAID, capability activates (subscription/credits/verification/etc.)
+5. Worker/company notified
+
+## Platform fee (take rate)
+
+The fee engine stamps an **immutable snapshot** at accept-with-quote:
+
+| Plan Tier | Rate | Min | Max |
+|-----------|------|-----|-----|
+| Free | 12% | $5 | $300 |
+| Starter | 9% | $5 | $300 |
+| Growth | 7% | $5 | $300 |
+| Pro | 5% | $5 | $300 |
+| Business | 4% (or exempt) | $5 | $300 |
+
+- Applied at **accept-with-quote** (immutable snapshot)
+- Collected at **booking completion**
+- Admin can set per-category, per-promotion overrides
+- Fee snapshot is auditable (`PlatformFeeSnapshot` model)
+
+## Lead rebates
+
+When a bought lead converts to a completed job:
+
+```
+rebate = min(fee × pctBps/10000, lead cost, ceiling)
+```
+
+- Default: 100% of fee share, no ceiling
+- Recorded in `LeadRebate` model (append-only)
+- Shown on worker booking row and lead board
+- Admin-configurable (on/off, share, ceiling)
+
+**Example:**
+- 7% of $300 = $21 fee
+- Gold lead cost $20
+- Rebate $20 → platform keeps $1, worker nets $299
 
 ## Refunds & disputes
 
 - `refund()` delegates to the provider; a `Refunded` payment logs to `ActivityLog`.
 - Admin can void invoices (`InvoiceStatus.VOID`).
+- Booking deposits: refund via the paying provider (OMT → OMT refund, Whish → Whish refund).
+- Campaign purchases: refund → campaign ENDED, invoice VOID (credit note).
+- Paid upgrades: admin can claw back credits with an adjustment row.
 
 ## Recurring
 
-- Stripe subscriptions & PayPal billing agreements support native auto-renew.
-- MyFatoorah/Tap are one-off: the cron job re-charges via the stored token (card-on-file) at `expiresAt`.
+- Stripe subscriptions & PayPal billing agreements support native auto-renew (planned).
+- MyFatoorah/Tap are one-off: the cron job re-charges via the stored token (card-on-file) at `expiresAt` (planned).
+- OMT/Whish: manual renewals via the same admin-confirm flow.
+
+## Files
+
+| File | Role |
+|------|------|
+| `src/lib/payments/types.ts` | `PaymentProvider` interface + shared types |
+| `src/lib/payments/registry.ts` | Provider lookup by `PaymentMethod` |
+| `src/lib/payments/omt.ts` | OMT manual provider (signed instructions) |
+| `src/lib/payments/whish.ts` | Whish manual provider (signed instructions) |
+| `src/lib/payments/stripe.ts` | Stripe provider (planned) |
+| `src/lib/payments/bank-transfer.ts` | Bank transfer manual provider |
+| `src/lib/payments/cash.ts` | Cash-on-service provider |
+| `src/app/api/payments/webhook/route.ts` | Stripe/webhook endpoint |
+| `src/app/api/payments/simulate/route.ts` | Simulated provider endpoint |
+| `src/app/payments/manual/page.tsx` | OMT/Whish instructions page |
+| `src/app/actions/purchases.ts` | Purchase server actions |
+| `src/app/actions/credits.ts` | Credit purchase server actions |
+| `src/lib/data/purchases.ts` | Purchase engine (demo adapter) |
+| `src/lib/data/credit-purchases.ts` | Credit purchase engine |
+| `src/lib/data/credit-ledger.ts` | Platform credit ledger |
+| `src/lib/data/credit-ledger-prisma.ts` | Prisma adapter for credits |
+
+---
+
+*Last updated: September 17, 2026*
+*Version: 3.0.0*
+*Live payment methods: OMT, Whish (manual, admin-confirmed)*
+*Planned: Stripe, PayPal, MyFatoorah, Tap*
