@@ -1166,6 +1166,7 @@ export const ar: Dictionary = {
     update: "تحديث الآن",
     later: "لاحقاً",
     updated: "تم التحديث! أنت تستخدم أحدث إصدار.",
+    badge: "إصدار جديد متاح — اضغط للتحديث",
   },
   earnings: {
     title: "الأرباح",

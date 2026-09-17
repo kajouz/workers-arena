@@ -1169,6 +1169,7 @@ export const en = {
     update: "Update now",
     later: "Later",
     updated: "Updated! You're on the latest version.",
+    badge: "New version available — tap to update",
   },
   earnings: {
     title: "Earnings",
