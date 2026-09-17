@@ -6,7 +6,8 @@ import type { Subscription } from "../src/lib/data/types";
 
 describe("startTrialSubscription (pure engine)", () => {
   it("mints a 30-day, $0, monthly-shaped trial on the chosen plan", () => {
-    const at = new Date("2026-09-16T10:00:00.000Z");
+    // Use a future date so daysUntil rounds to exactly 30 regardless of when the test runs.
+    const at = new Date(Date.now() + 60_000); // 1 minute from now
     const sub = startTrialSubscription("professional", at);
     expect(sub.plan).toBe("professional");
     expect(sub.status).toBe("active");
