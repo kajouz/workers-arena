@@ -76,6 +76,7 @@ export const ar: Dictionary = {
     followUs: "تابعنا",
     rights: "جميع الحقوق محفوظة.",
     madeWith: "صُنع بعناية في منطقة الشرق الأوسط وشمال أفريقيا",
+    help: "جولة تعريفية",
   },
   nav: {
     home: "الرئيسية",

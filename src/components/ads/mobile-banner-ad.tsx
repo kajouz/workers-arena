@@ -18,9 +18,9 @@ export function MobileBannerAd({ placement = "mobileBanner", className }: Mobile
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Check if user dismissed this ad recently (24 hours)
+    // Check if user dismissed this ad recently (7 days)
     const dismissedAt = localStorage.getItem(`ad_dismissed_${placement}`);
-    if (dismissedAt && Date.now() - Number(dismissedAt) < 24 * 60 * 60 * 1000) {
+    if (dismissedAt && Date.now() - Number(dismissedAt) < 7 * 24 * 60 * 60 * 1000) {
       setDismissed(true);
       setLoading(false);
       return;

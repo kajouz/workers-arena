@@ -74,6 +74,7 @@ export const en = {
     followUs: "Follow us",
     rights: "All rights reserved.",
     madeWith: "Built with care in the MENA region",
+    help: "Take a tour",
   },
   nav: {
     home: "Home",

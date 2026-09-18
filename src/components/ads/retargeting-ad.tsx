@@ -88,12 +88,22 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Check if user dismissed this ad recently (24 hours)
+    // Check if user dismissed this ad recently (7 days)
     const dismissedAt = localStorage.getItem("retargeting_ad_dismissed");
-    if (dismissedAt && Date.now() - Number(dismissedAt) < 24 * 60 * 60 * 1000) {
+    if (dismissedAt && Date.now() - Number(dismissedAt) < 7 * 24 * 60 * 60 * 1000) {
       setDismissed(true);
       return;
     }
+
+    // Don't show again within 24h after last impression
+    const lastShownAt = localStorage.getItem("retargeting_ad_last_shown");
+    if (lastShownAt && Date.now() - Number(lastShownAt) < 24 * 60 * 60 * 1000) {
+      return;
+    }
+
+    // Hard cap: max 5 impressions per lifetime
+    const shownCount = Number(localStorage.getItem("retargeting_ad_shown_count") ?? "0");
+    if (shownCount >= 5) return;
 
     // Check if visitor should see retargeting ad
     if (!shouldShowRetargetingAd()) return;
@@ -121,6 +131,10 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
 
     if (selectedAd) {
       setAd(selectedAd);
+      // Track impression
+      const count = Number(localStorage.getItem("retargeting_ad_shown_count") ?? "0");
+      localStorage.setItem("retargeting_ad_shown_count", String(count + 1));
+      localStorage.setItem("retargeting_ad_last_shown", String(Date.now()));
       // Delay showing the ad for better UX
       setTimeout(() => setVisible(true), 2000);
     }
@@ -130,6 +144,9 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
     setDismissed(true);
     setVisible(false);
     localStorage.setItem("retargeting_ad_dismissed", String(Date.now()));
+    // Reset shown count on explicit dismiss — the 7-day cooldown prevents
+    // re-showing, but after it expires the ad can appear again.
+    localStorage.setItem("retargeting_ad_shown_count", "0");
   };
 
   const trackClick = () => {

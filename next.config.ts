@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
   // Optional runtime deps that are lazy-imported but not installed in every
   // environment. Listing them here prevents Turbopack from resolving them at
   // build time (they are loaded at runtime only when configured).
-  serverExternalPackages: ["twilio", "nodemailer"],
+  serverExternalPackages: ["twilio", "nodemailer", "resend"],
   async headers() {
     return [
       {
