@@ -23,6 +23,19 @@
 
 ## 1. Installation
 
+WorkersArena is a **Progressive Web App (PWA)** — you can install it directly from your browser without visiting any app store. The landing page shows platform-specific install instructions automatically.
+
+### 🔔 Install Indicators
+
+When you visit the site on a mobile device, you'll see multiple install cues:
+
+| Indicator | Where | What it does |
+|-----------|-------|-------------|
+| **Landing page install section** | Below the CTA, mobile only | Shows step-by-step instructions for your platform (iOS or Android) with a one-tap install button on Android |
+| **CTA install link** | Bottom of the "Are you a worker?" section | "📱 Get the app — install on your phone" link |
+| **Header install button** | Top-right navbar (pulsing green dot) | One-tap native install on Android |
+| **Install banner** | Bottom sheet, appears after 2 seconds | Shows benefits + install action; on iOS, shows Share→Add steps |
+
 ### 📱 iPhone (iOS)
 
 #### Option A: Add to Home Screen (Recommended)
@@ -39,6 +52,8 @@
 
 ✅ The app icon appears on your home screen!
 
+> 💡 **Tip:** The landing page and install banner will guide you through these steps automatically on iOS — no need to memorize them.
+
 #### Option B: TestFlight (If Available)
 
 **Step 1:** Open the **TestFlight** app
@@ -53,19 +68,21 @@
 
 ### 📱 Android
 
-#### Option A: Add to Home Screen (Recommended)
+#### Option A: Install App (Recommended)
 
 **Step 1:** Open **Chrome** and go to **workers-arena.vercel.app**
 
 **Step 2:** Tap the **⋮ menu** (three dots, top right)
 
-**Step 3:** Tap **"Add to Home Screen"** or **"Install app"**
+**Step 3:** Tap **"Install app"** or **"Add to Home Screen"**
 
 **Step 4:** Confirm the name (default: "WorkersArena")
 
 **Step 5:** Tap **Add**
 
 ✅ The app icon appears on your home screen!
+
+> 💡 **Tip:** On Android, the landing page shows a one-tap **"Install now"** button that triggers the native install prompt directly — no menu digging needed.
 
 #### Option B: APK (If Available)
 
@@ -735,6 +752,19 @@ If issues persist:
 
 ## 1. التثبيت
 
+وركرز أرينا هو **تطبيق ويب تقدمي (PWA)** — يمكنك تثبيته مباشرة من متصفحك دون زيارة أي متجر تطبيقات. تظهر صفحة الهبوط خطوات التثبيت الخاصة بمنصتك تلقائيًا.
+
+### 🔔 مؤشرات التثبيت
+
+عند زيارة الموقع من جهاز محمول، سترى عدة إشارات للتثبيت:
+
+| المؤشر | الموقع | ما يفعله |
+|--------|--------|----------|
+| **قسم التثبيت في صفحة الهبوط** | أسفل قسم CTA، للمحمول فقط | يعرض خطوات مفصلة لمنصتك (iOS أو Android) مع زر تثبيت بنقرة واحدة على Android |
+| **رابط التثبيت في CTA** | أسفل قسم "هل أنت عامل؟" | رابط "📱 حمّل التطبيق على هاتفك" |
+| **زر التثبيت في الرأس** | يمين شريط التنقل (نقطة خضراء نابضة) | تثبيت أصلي بنقرة واحدة على Android |
+| **بانر التثبيت** | نافذة سفلية، تظهر بعد ثانيتين | يعرض المميزات + إجراء التثبيت؛ على iOS، يعرض خطوات المشاركة→الإضافة |
+
 ### 📱 آيفون (iOS)
 
 #### الخيار أ: إضافة إلى الشاشة الرئيسية (موصى به)
@@ -751,6 +781,8 @@ If issues persist:
 
 ✅ تظهر أيقونة التطبيق على شاشتك الرئيسية!
 
+> 💡 **نصيحة:** صفحة الهبوط وبانر التثبيت سيرشدك خلال هذه الخطوات تلقائيًا على iOS — لا حاجة لحفظها.
+
 #### الخيار ب: TestFlight (إذا كان متاحًا)
 
 **الخطوة 1:** افتح تطبيق **TestFlight**
@@ -765,19 +797,21 @@ If issues persist:
 
 ### 📱 أندرويد
 
-#### الخيار أ: إضافة إلى الشاشة الرئيسية (موصى به)
+#### الخيار أ: تثبيت التطبيق (موصى به)
 
 **الخطوة 1:** افتح **Chrome** وانتقل إلى **workers-arena.vercel.app**
 
 **الخطوة 2:** اضغط على **⋮ القائمة** (ثلاث نقاط، أعلى يمين)
 
-**الخطوة 3:** اضغط **"إضافة إلى الشاشة الرئيسية"** أو **"تثبيت التطبيق"**
+**الخطوة 3:** اضغط **"تثبيت التطبيق"** أو **"إضافة إلى الشاشة الرئيسية"**
 
 **الخطوة 4:** أكمل الاسم (الافتراضي: "WorkersArena")
 
 **الخطوة 5:** اضغط **إضافة**
 
 ✅ تظهر أيقونة التطبيق على شاشتك الرئيسية!
+
+> 💡 **نصيحة:** على Android، تعرض صفحة الهبوط زر **"ثبّت الآن"** بنقرة واحدة يشغل نافذة التثبيت الأصلي مباشرة — لا حاجة للبحث في القوائم.
 
 #### الخيار ب: APK (إذا كان متاحًا)
 
