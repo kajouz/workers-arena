@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, X, Wifi, WifiOff, Zap, Smartphone } from "lucide-react";
+import { Download, X, Wifi, WifiOff, Zap, Smartphone, Share } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -32,11 +32,28 @@ export function InstallBanner({ className }: InstallBannerProps) {
   const [showBanner, setShowBanner] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
 
+  // Detect iOS Safari for manual install instructions
+  const [isIOS, setIsIOS] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ua = navigator.userAgent.toLowerCase();
+    const ios = /iphone|ipad|ipod/.test(ua) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    setIsIOS(ios);
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Don't show if already installed or can't install
-    if (isInstalled || !canInstall) {
+    // Don't show if already installed
+    if (isInstalled) {
+      setShowBanner(false);
+      return;
+    }
+
+    // Android/Chrome: only show when beforeinstallprompt fires
+    // iOS Safari: always show (no native prompt available)
+    if (!canInstall && !isIOS) {
       setShowBanner(false);
       return;
     }
@@ -54,7 +71,7 @@ export function InstallBanner({ className }: InstallBannerProps) {
     // Show banner after a short delay for better UX
     const timer = setTimeout(() => setShowBanner(true), 2000);
     return () => clearTimeout(timer);
-  }, [canInstall, isInstalled]);
+  }, [canInstall, isInstalled, isIOS]);
 
   const handleInstall = async () => {
     setIsInstalling(true);
@@ -126,27 +143,54 @@ export function InstallBanner({ className }: InstallBannerProps) {
                 ))}
               </ul>
 
+              {/* iOS: show manual steps instead of install button */}
+              {isIOS ? (
+                <div className="mb-4 rounded-xl bg-sky-50 p-3 dark:bg-sky-950/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Share className="size-4 text-sky-600 dark:text-sky-400" />
+                    <span className="text-xs font-bold text-sky-700 dark:text-sky-300">
+                      {t("mobileAppPromo.iosTitle")}
+                    </span>
+                  </div>
+                  <ol className="space-y-1.5">
+                    {["iosStep1", "iosStep2", "iosStep3"].map((step, i) => (
+                      <li key={step} className="flex items-start gap-2">
+                        <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-sky-200 text-[9px] font-bold text-sky-700 dark:bg-sky-800 dark:text-sky-300">
+                          {i + 1}
+                        </span>
+                        <span className="text-[11px] text-sky-700 dark:text-sky-300">
+                          {t(`mobileInstall.${step}`)}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : null}
+
               {/* Action buttons */}
               <div className="flex gap-2">
-                <Button
-                  onClick={handleInstall}
-                  disabled={isInstalling}
-                  className="flex-1"
-                  size="sm"
-                >
-                  {isInstalling ? (
-                    <span className="flex items-center gap-2">
-                      <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      {t("common.loading")}
-                    </span>
-                  ) : (
-                    t("install.install")
-                  )}
-                </Button>
+                {!isIOS && (
+                  <Button
+                    onClick={handleInstall}
+                    disabled={isInstalling}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    {isInstalling ? (
+                      <span className="flex items-center gap-2">
+                        <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        {t("common.loading")}
+                      </span>
+                    ) : (
+                      t("install.install")
+                    )}
+                  </Button>
+                )}
                 <Button
                   onClick={handleDismiss}
                   variant="ghost"
                   size="sm"
+                  className={isIOS ? "flex-1" : ""}
                 >
                   {t("install.dismiss")}
                 </Button>

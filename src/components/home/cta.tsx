@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Wrench, Star, Users } from "lucide-react";
+import { ArrowRight, Wrench, Star, Users, Download } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
 
@@ -42,6 +42,14 @@ export function CTA() {
               </Button>
             </Link>
           </div>
+          {/* Mobile-only install nudge */}
+          <a
+            href="#plans"
+            className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-300 transition-colors hover:text-brand-200 lg:hidden"
+          >
+            <Download className="size-4" />
+            {locale === "ar" ? "📱 حمّل التطبيق على هاتفك" : "📱 Get the app — install on your phone"}
+          </a>
           <p className="mt-4 text-xs font-medium text-white/50">{t("cta.sub")}</p>
           <div className="mx-auto mt-10 flex max-w-md items-center justify-center gap-8 text-xs font-semibold text-white/60">
             <span className="flex items-center gap-1.5">

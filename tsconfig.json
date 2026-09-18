@@ -50,6 +50,7 @@
     "tmp",
     "out",
     "coverage",
-    "src/lib/mobile/offline-cache.ts"
+    "src/lib/mobile/offline-cache.ts",
+    "scripts/**/*.mjs"
   ]
 }
