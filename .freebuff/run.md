@@ -25,7 +25,8 @@ builds from clobbering each other. Side effect: Next rewrites `tsconfig.json`'s
 restore it when you are done if you do not want the diff:
 
 ```bash
-git checkout -- tsconfig.json    # only the two generated include lines
+node scripts/strip-tsconfig-dist-entries.mjs   # idempotent, removes only generated entries
+git checkout -- tsconfig.json                  # or nuclear: restore committed version
 ```
 
 ### History: the dev tab used to freeze (fixed)
