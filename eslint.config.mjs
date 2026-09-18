@@ -57,6 +57,7 @@ const eslintConfig = [
       ".data/**",
       "tmp/**",
       "public/**",
+      "scripts/**",
     ],
   },
 ];
