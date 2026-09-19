@@ -16,6 +16,7 @@
 import type { LeadGrade, LeadOffer, WhatsAppTemplates } from "./lead-market";
 import { DEFAULT_WHATSAPP_TEMPLATES } from "./lead-market";
 import { leadGradeLabel } from "./lead-notifications";
+import { appBaseUrl } from "@/lib/notifications/config";
 
 /* ─────────────────────────────────── Input ─────────────────────────────────── */
 
@@ -54,7 +55,7 @@ export function buildLeadOfferMessage(
 ): string {
   const { offer, workerName, adminName, customMessage } = input;
   const templates = input.templates ?? DEFAULT_WHATSAPP_TEMPLATES;
-  const boardUrl = "https://workers-arena.vercel.app/dashboard/leads";
+  const boardUrl = `${appBaseUrl()}/dashboard/leads`;
 
   // Look up the grade-specific template, fall back to a generic one
   const template = templates[locale]?.[offer.grade] ?? templates.en[offer.grade] ?? templates.en.bronze;
@@ -86,6 +87,9 @@ export function generateWhatsAppLink(
 ): WhatsAppLeadLink {
   // Normalize: remove +, spaces, dashes
   const normalized = phone.replace(/[^0-9]/g, "");
+  if (!normalized) {
+    throw new Error("A valid phone number is required to build a WhatsApp link");
+  }
   const encoded = encodeURIComponent(message);
   return {
     url: `https://wa.me/${normalized}?text=${encoded}`,

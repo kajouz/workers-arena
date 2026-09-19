@@ -273,6 +273,16 @@ rebate = min(fee × pctBps/10000, lead cost, ceiling)
 - MyFatoorah/Tap are one-off: the cron job re-charges via the stored token (card-on-file) at `expiresAt` (planned).
 - OMT/Whish: manual renewals via the same admin-confirm flow.
 
+## WhatsApp lead notifications (admin-controlled)
+
+Lead notifications are intentionally controlled by admins rather than sent automatically to every matched worker. From the admin lead-market panel, an admin can edit a separate WhatsApp template for each lead grade and language, then open a pre-filled `wa.me` link for the selected worker. The message includes the worker name, grade, lead number, match score, credit price, board link, and admin name.
+
+- Templates are saved in the versioned lead-market rule set and are used by the send action; changing a template does not rewrite already-created offers.
+- The board link uses `NEXT_PUBLIC_APP_URL`, so staging and production messages never point to a hardcoded deployment.
+- Formatted Lebanese numbers are normalized before creating the link; a missing number is rejected rather than producing an unusable URL.
+- Optional email/SMS dispatches use the same saved admin templates when those channels are selected.
+- For automated delivery through Meta WhatsApp Cloud API, set `NOTIFY_WHATSAPP_ENABLED=true`, `NOTIFY_WHATSAPP_PROVIDER=whatsapp-cloud`, `WHATSAPP_TOKEN`, and `WHATSAPP_PHONE_NUMBER_ID`. The provider uses the Graph API directly and returns a logged failure when credentials or the recipient number are missing; payment automation is unrelated and remains deferred.
+
 ## Files
 
 | File | Role |

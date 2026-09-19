@@ -23,7 +23,8 @@ import {
   type WhatsAppLeadMessage,
 } from "@/lib/data/whatsapp-leads";
 import { dispatchLeadNotification, type LeadDispatchInput } from "@/lib/data/lead-notifications-dispatch";
-import type { LeadGrade, LeadOffer, NotificationChannelConfig } from "@/lib/data/lead-market";
+import { loadActiveFeeRuleSet } from "@/lib/data/fee-rules-store";
+import { leadMarketConfig, type LeadGrade, type LeadOffer, type NotificationChannelConfig } from "@/lib/data/lead-market";
 
 const DEMO_WORKER_SLUG = "khaled-al-harbi-plumbing";
 
@@ -73,6 +74,7 @@ export async function sendWhatsAppLeadNotification(input: {
 
   const adminName = session.name ?? "Admin";
   const locale = worker.languages?.[0]?.code === "ar" ? "ar" : "en";
+  const config = leadMarketConfig(await loadActiveFeeRuleSet());
   const notification = buildWhatsAppLeadNotification(
     {
       workerPhone: worker.phone,
@@ -85,6 +87,7 @@ export async function sendWhatsAppLeadNotification(input: {
       },
       adminName,
       customMessage: input.customMessage,
+      templates: config.whatsappTemplates,
     },
     locale
   );
@@ -104,6 +107,8 @@ export async function sendWhatsAppLeadNotification(input: {
         matchScore: offer.matchScore,
       },
       adminName,
+      emailTemplates: config.emailTemplates,
+      smsTemplates: config.smsTemplates,
       channels: input.channels,
     };
     dispatchResults = await dispatchLeadNotification(dispatchInput);
@@ -159,6 +164,7 @@ export async function sendBatchWhatsAppNotifications(input: {
   if (offers.length === 0) return { ok: false, error: "No offers found for this lead." };
 
   const adminName = session.name ?? "Admin";
+  const config = leadMarketConfig(await loadActiveFeeRuleSet());
   const notifications: WhatsAppSendResult["notifications"] = [];
   const allDispatchResults: Array<{ channel: string; ok: boolean; provider: string; error?: string }> = [];
 
@@ -182,6 +188,7 @@ export async function sendBatchWhatsAppNotifications(input: {
           },
           adminName,
           customMessage: input.customMessage,
+          templates: config.whatsappTemplates,
         },
         locale
       );
@@ -209,6 +216,8 @@ export async function sendBatchWhatsAppNotifications(input: {
           matchScore: offer.matchScore,
         },
         adminName,
+        emailTemplates: config.emailTemplates,
+        smsTemplates: config.smsTemplates,
         channels: input.channels,
       };
       const results = await dispatchLeadNotification(dispatchInput);
