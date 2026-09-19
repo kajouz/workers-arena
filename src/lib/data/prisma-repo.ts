@@ -5093,6 +5093,16 @@ function purchaseLabel(
   }
 }
 
+/** Cancel an unpaid worker purchase before any admin confirmation. */
+export async function prismaCancelPendingPurchase(paymentId: string): Promise<boolean> {
+  const prisma = getPrisma();
+  const result = await prisma.payment.updateMany({
+    where: { id: paymentId, status: "PENDING", method: { in: ["OMT", "WHISH"] } },
+    data: { status: "CANCELLED" },
+  });
+  return result.count > 0;
+}
+
 /**
  * Mint a manual (OMT/Whish) checkout for a paid upgrade — the prisma twin of
  * demoCreatePurchaseCheckout: a PENDING Payment row (userId = the worker's

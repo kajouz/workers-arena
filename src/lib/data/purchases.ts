@@ -52,7 +52,7 @@ interface DemoPurchasePayment {
   id: string;
   amount: number; // minor units
   currency: string;
-  status: "pending" | "paid";
+  status: "pending" | "paid" | "cancelled";
   method: "omt" | "whish";
   providerRef?: string;
   checkoutUrl?: string;
@@ -344,6 +344,14 @@ export async function demoConfirmPurchase(
       break;
     }
   }
+  return true;
+}
+
+/** Cancel an unpaid manual purchase; paid purchases are immutable. */
+export function demoCancelPendingPurchase(paymentId: string): boolean {
+  const payment = STORE.payments.get(paymentId);
+  if (!payment || payment.status !== "pending") return false;
+  payment.status = "cancelled";
   return true;
 }
 

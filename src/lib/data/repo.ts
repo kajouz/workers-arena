@@ -82,6 +82,7 @@ import {
 import {
   demoCreatePurchaseCheckout,
   demoConfirmPurchase,
+  demoCancelPendingPurchase,
   demoPendingManualPurchases,
   demoPurchasePayment,
   type VerificationTier,
@@ -1769,6 +1770,11 @@ export async function createPurchaseCheckout(input: {
  * slot / emergency marker). Idempotent. Demo mutates the in-memory worker;
  * prisma flips the Payment row (CAS) + the worker's row in real mode.
  */
+export async function cancelPendingPurchase(paymentId: string): Promise<boolean> {
+  if (realDataEnabled) return (await prismaRepo()).prismaCancelPendingPurchase(paymentId);
+  return demoCancelPendingPurchase(paymentId);
+}
+
 export async function confirmPurchase(
   paymentId: string,
   providerRef: string,

@@ -6,7 +6,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import type { BillingPeriod, PendingManualPayment, SubscriptionPlan, Worker } from "@/lib/data/types";
 import { ANNUAL_PAID_MONTHS, ANNUAL_TERM_MONTHS, PLANS, planPrice } from "@/lib/data/subscriptions";
 import { effectiveMonthlyPriceWithOverrides, type ResolvedPlanCatalog } from "@/lib/data/plan-catalog-overrides";
-import { renewSubscriptionAction } from "@/app/actions/business";
+import { cancelPendingRenewalAction, renewSubscriptionAction } from "@/app/actions/business";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,20 @@ export function RenewDialog({ worker, trial = false, planCatalog, pendingRenewal
   const selectedMonthly = monthlyPrice(plan);
   const monthlyDelta = Math.round((selectedMonthly - currentMonthly) * 100) / 100;
   const changeKind = monthlyDelta > 0 ? "upgrade" : monthlyDelta < 0 ? "downgrade" : "same";
+
+  const cancelPending = async () => {
+    if (!pendingRenewal || busy) return;
+    setBusy(true);
+    const result = await cancelPendingRenewalAction(pendingRenewal.id);
+    setBusy(false);
+    if (result.ok) {
+      toast("success", locale === "ar" ? "تم إلغاء طلب التجديد." : "Pending renewal cancelled.");
+      setOpen(false);
+      router.refresh();
+    } else {
+      toast("error", locale === "ar" ? "تعذر إلغاء طلب التجديد." : "The renewal could not be cancelled.");
+    }
+  };
 
   const submit = async () => {
     setBusy(true);
@@ -76,9 +90,14 @@ export function RenewDialog({ worker, trial = false, planCatalog, pendingRenewal
         )}
         {pendingRenewal && (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs font-semibold text-amber-700 dark:text-amber-400">
-            {locale === "ar"
-              ? "لديك طلب تجديد بانتظار تأكيد الإدارة. لن يتم إنشاء دفعة ثانية."
-              : "You already have a renewal awaiting admin confirmation. A second payment will not be created."}
+            <p>
+              {locale === "ar"
+                ? "لديك طلب تجديد بانتظار تأكيد الإدارة. لن يتم إنشاء دفعة ثانية."
+                : "You already have a renewal awaiting admin confirmation. A second payment will not be created."}
+            </p>
+            <Button type="button" variant="outline" size="sm" className="mt-2" onClick={cancelPending} disabled={busy}>
+              {locale === "ar" ? "إلغاء الطلب" : "Cancel pending renewal"}
+            </Button>
           </div>
         )}
 

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth-demo";
 import {
   changeWorkerPlan,
+  cancelPendingPurchase,
   confirmBookingPayment,
   confirmCampaignPayment,
   confirmPurchase,
@@ -143,6 +144,17 @@ export async function changeWorkerPlanAction(
   if (!worker) return { ok: false, error: "not-found" };
   revalidatePath("/admin");
   return { ok: true };
+}
+
+export async function cancelPendingRenewalAction(paymentId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "worker" || !paymentId) return { ok: false, error: "unauthorized" };
+  const pending = await getPendingManualPayments();
+  const payment = pending.find((item) => item.id === paymentId && item.scope === "subscription" && item.workerSlug === "khaled-al-harbi-plumbing");
+  if (!payment) return { ok: false, error: "not-found" };
+  const ok = await cancelPendingPurchase(paymentId);
+  revalidatePath("/dashboard");
+  return ok ? { ok: true } : { ok: false, error: "already-confirmed" };
 }
 
 export async function renewSubscriptionAction(
