@@ -10,7 +10,7 @@
 
 ## 1. Why
 
-The take rate was one hard-coded constant: `PLATFORM_FEE_RATE_BPS = 700`, min $5, max $300, Enterprise exempt. That is a single price for the whole platform — it cannot express a plan ladder, category pricing, emergency work, or a promotional rate, and changing it was a deploy.
+The legacy take rate was one hard-coded constant: `PLATFORM_FEE_RATE_BPS = 700`, min $5, max $300, with a legacy Enterprise exemption. The current engine makes plan, category, emergency, and promotional rules explicit. That is a single price for the whole platform — it cannot express a plan ladder, category pricing, emergency work, or a promotional rate, and changing it was a deploy.
 
 Phase 1 uses a success-based default: Business is charged a reduced 4% rate rather than being fully exempt. Existing snapshots remain immutable; only new accepts use the new policy. The engine adds what a real pricing system needs:
 

@@ -60,7 +60,7 @@ interface WorkerBalance { availableMinor; pendingMinor; currency }
 - **prisma** — inside `prismaTransitionBooking`'s `$transaction`: read the booking (quote/platformFee), compute the running balance, `create` the ledger row with `balanceAfter`. The `@@unique([bookingId])` makes the credit **idempotent**: a concurrent or redelivered completion can never double-credit (the second insert fails and the tx rolls back).
 - **demo** — `demoTransitionBooking` performs the identical credit synchronously in the in-memory store.
 
-Quote-less accepts (`quote = null`) → net 0 → no entry. Exempt-plan fees (fee 0) → the full quote is credited.
+Quote-less accepts (`quote = null`) → net 0 → no entry. Explicitly exempt rules (fee 0) → the full quote is credited; Business/Enterprise are reduced-rate by default.
 
 ## 4. Payout lifecycle
 

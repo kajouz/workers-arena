@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-demo";
-import { getAllWorkers, getSubscriptionCohorts } from "@/lib/data/repo";
+import { getAllWorkers, getSubscriptionAnalytics } from "@/lib/data/repo";
 import { retentionSnapshot } from "@/lib/data/retention";
 
 export const dynamic = "force-dynamic";
@@ -18,12 +18,20 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const workers = await getAllWorkers();
   const snapshot = retentionSnapshot(workers);
-  const cohorts = await getSubscriptionCohorts(6);
+  const analytics = await getSubscriptionAnalytics(6);
+  const cohorts = analytics.cohorts;
 
   if (url.searchParams.get("format") === "csv") {
     const rows = [
       ["section", "month", "worker", "plan", "days_until_expiry", "retention_rate", "churn_rate"],
       ...cohorts.map((cohort) => ["cohort", cohort.month, "", "", "", cohort.trialConversionRate, ""]),
+      ["metric", "", "trial_starts", analytics.trialStarts, "", analytics.trialConversionRate, ""],
+      ["metric", "", "churn_events", analytics.churnEvents, "", "", analytics.churnRate],
+      ["metric", "", "upgrades", analytics.upgrades, "", "", ""],
+      ["metric", "", "downgrades", analytics.downgrades, "", "", ""],
+      ["metric", "", "whatsapp_outreach_sent", analytics.whatsappOutreachSent, "", "", ""],
+      ["metric", "", "whatsapp_outreach_failed", analytics.whatsappOutreachFailed, "", "", ""],
+      ["metric", "", "ltv_minor", analytics.ltv, "", "", ""],
       ...snapshot.atRiskWorkers.map((worker) => ["at_risk", "", worker.nameEn, worker.plan, worker.daysUntilExpiry, "", ""]),
     ];
     const body = "\uFEFF" + rows.map((row) => row.map(csvCell).join(",")).join("\n") + "\n";
@@ -36,5 +44,5 @@ export async function GET(req: Request) {
     });
   }
 
-  return NextResponse.json({ snapshot, cohorts });
+  return NextResponse.json({ snapshot, cohorts, analytics });
 }

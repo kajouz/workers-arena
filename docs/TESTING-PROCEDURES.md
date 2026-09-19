@@ -716,7 +716,7 @@
 
 ### 16.0 Automated Device Matrix (CI)
 
-`tests/playwright/pwa-device-matrix.spec.ts` runs the responsive + PWA suite across six device profiles (iPhone SE, iPhone 14 Pro Max, iPad portrait/landscape, 1280/1920 desktop): horizontal-overflow checks on the three highest-traffic routes per device, mobile bottom-nav tap-target checks (≥ 40px), phone search-CTA checks, and one patient offline pass (SW activation → cached navigation serves → unknown route serves the bilingual offline page). Note: on a cold dev server the SW install takes minutes (precache URLs compile on demand); the tolerant installer (`precacheAll` in `public/sw.js`) keeps partial precache so a single failed URL can no longer disable offline support for new visitors.
+`tests/playwright/pwa-device-matrix.spec.ts` runs the responsive + PWA suite across six device profiles (iPhone SE, iPhone 14 Pro Max, iPad portrait/landscape, 1280/1920 desktop): horizontal-overflow checks on the three highest-traffic routes per device, mobile bottom-nav tap-target checks (≥ 40px), phone search-CTA checks, manifest/SW activation, and one patient offline pass (SW activation → cached navigation serves → unknown route serves the bilingual offline page). The production rehearsal should additionally be completed on physical devices: Android Chrome install/update/push; iOS Safari install to Home Screen/update/push permission; iPad portrait/landscape install/update; and tablet offline navigation. Note: on a cold dev server the SW install takes minutes (precache URLs compile on demand); the tolerant installer (`precacheAll` in `public/sw.js`) keeps partial precache so a single failed URL can no longer disable offline support for new visitors.
 
 ### 16.2 Offline Functionality
 
@@ -1005,7 +1005,7 @@ When logging bugs, include:
 | 26.6b | Nightly PWA device-matrix job (runs in parallel with 26.6a) | `pwa-device-matrix.spec.ts` runs against a production build (6 device profiles, offline pass, `--workers=4`) — 20 pass, 12 mobile-only skips, 0 fail |
 | 26.6c | Critical-flows suite gate | Skips with a warning when no server is reachable; runs 19 real HTTP checks against a live one |
 | 26.7 | Check Lighthouse CI | Performance score > 70 |
-| 26.8 | Verify deploy | Preview deploys on PR |
+| 26.8 | Verify deploy | Preview deploys on PR; run `npx prisma migrate status` against the exact production `DATABASE_URL` before and after `npx prisma migrate deploy`, and run `npm run check:vapid` before enabling production push |
 
 ### Isolated real-data critical-flow run
 

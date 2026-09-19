@@ -10,6 +10,8 @@ The `/api/cron/reminders` job also records a deduplicated `expired` subscription
 
 Admins can download a retention CSV from the revenue dashboard and can export the OMT/Whish reconciliation ledger, including pending, paid, refunded, and cancelled rows, transfer reference, scope, bilingual label, method, amount, currency, timestamps, and invoice number when available. Pending-renewal cancellation is ownership-checked against the authenticated worker in real mode, and the reminder cron cancels unpaid subscription renewals older than seven days while recording a lifecycle event. This keeps the manual queue actionable without introducing payment automation.
 
+The admin retention panel and `/api/admin/retention` export now derive trial-to-paid conversion, churn, upgrades/downgrades, average lifetime, renewal revenue/LTV, and WhatsApp outreach sent/failed counts from the append-only `SubscriptionEvent` ledger. Current worker rows are used only for live renewal-risk targeting; historical metrics do not use fabricated estimates.
+
 
 WorkersArena implements **14 configurable revenue streams** that generate income from the platform. Each stream can be individually enabled/disabled by the admin, with real-time analytics and per-stream configuration.
 
@@ -104,6 +106,8 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 - High-value trades (HVAC, mechanic): 1.5× → Starter $22.50/mo
 
 **Phase 1 trial policy:** 30 days free for Starter/Growth, 14 days for Pro, and Business is assisted by default. Eligibility is checked server-side once per worker; an expired plan cannot be used to reclaim a trial.
+
+**Retention analytics:** the admin retention dashboard and `/api/admin/retention` export now derive trial-to-paid conversion, churn, upgrades/downgrades, average lifetime, renewal revenue/LTV, and WhatsApp outreach sent/failed counts from the append-only `SubscriptionEvent` ledger. Current worker subscription rows remain useful for at-risk operational outreach, but historical metrics never use fabricated estimates or current-state snapshots.
 
 **Key Mechanics:**
 - **Visibility gating**: expired subscription → worker removed from public search

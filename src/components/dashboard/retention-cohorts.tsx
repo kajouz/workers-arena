@@ -39,8 +39,13 @@ interface RetentionData {
   cohorts: CohortData[];
   overallRetention: number;
   churnRate: number;
+  trialConversionRate: number;
   avgLifetimeMonths: number;
   ltv: number;
+  upgrades: number;
+  downgrades: number;
+  whatsappOutreachSent: number;
+  whatsappOutreachFailed: number;
   planTransitions: PlanTransition[];
   atRiskWorkers: AtRiskWorker[];
 }
@@ -143,6 +148,33 @@ export function RetentionCohorts({ data, locale = "en" }: RetentionCohortsProps)
               {data.churnRate.toFixed(1)}%
             </p>
           </motion.div>
+        </div>
+
+        {/* Lifecycle metrics — sourced from SubscriptionEvent, not estimates. */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl bg-blue-500/10 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+              {locale === "ar" ? "تحويل التجربة" : "Trial → Paid"}
+            </p>
+            <p className="text-2xl font-black text-blue-700 dark:text-blue-300">{data.trialConversionRate.toFixed(1)}%</p>
+          </div>
+          <div className="rounded-xl bg-violet-500/10 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
+              {locale === "ar" ? "ترقيات / تخفيضات" : "Upgrades / Downgrades"}
+            </p>
+            <p className="text-2xl font-black text-violet-700 dark:text-violet-300">{data.upgrades} / {data.downgrades}</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-cyan-500/10 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">
+              {locale === "ar" ? "تواصل واتساب" : "WhatsApp renewal outreach"}
+            </p>
+            <span className="text-xs font-bold text-cyan-800 dark:text-cyan-200">
+              {data.whatsappOutreachSent} sent · {data.whatsappOutreachFailed} failed
+            </span>
+          </div>
         </div>
 
         {/* Lifetime Value */}

@@ -163,7 +163,7 @@ You receive: $93
 | Pro | 5% | $5 | $300 |
 | Business | 4% | $5 | $300 |
 
-**Business plan**: Fee is waived (0%)!
+**Business plan**: Reduced 4% platform fee by default; a full waiver applies only when an admin explicitly configures an exempt rule.
 
 ### The SLA Countdown
 

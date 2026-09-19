@@ -33,7 +33,7 @@ import { useState } from "react";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
 import type { AnalyticsOverview, Campaign, CampaignPayment, LedgerEntry, PendingManualPayment, PlatformFeeStats, Worker } from "@/lib/data/types";
-import type { SubscriptionCohort } from "@/lib/data/subscription-lifecycle";
+import type { SubscriptionAnalytics } from "@/lib/data/subscription-lifecycle";
 import { ManualPaymentsCard } from "@/components/admin/manual-payments-card";
 import { StatCard } from "./stat-card";
 import { WorkerManagementTable } from "./worker-management-table";
@@ -210,7 +210,7 @@ export function AdminDashboard({
   pendingManualPayments,
   workers,
   workerManagementInit,
-  subscriptionCohorts,
+  subscriptionAnalytics,
 }: {
   session: SessionUser;
   analytics: AnalyticsOverview;
@@ -222,7 +222,7 @@ export function AdminDashboard({
     sort: "name" | "planAsc" | "planDesc";
     feeWaivedOnly: boolean;
   };
-  subscriptionCohorts?: SubscriptionCohort[];
+  subscriptionAnalytics?: SubscriptionAnalytics;
   campaigns: Campaign[];
   campaignPayments: { campaign: Campaign; payment: CampaignPayment }[];
   /**
@@ -486,7 +486,7 @@ export function AdminDashboard({
         />
         <RetentionCohorts
           data={{
-            cohorts: (subscriptionCohorts ?? []).map((cohort) => ({
+            cohorts: (subscriptionAnalytics?.cohorts ?? []).map((cohort) => ({
               month: cohort.month,
               registered: cohort.trials + cohort.started,
               retained: cohort.renewed,
@@ -495,12 +495,14 @@ export function AdminDashboard({
             })),
             overallRetention: retention.retentionRate,
             churnRate: retention.churnRate,
-            // Historical lifetime/LTV and transition totals are intentionally
-            // blank until the event ledger has enough production history. Do
-            // not render fabricated precision as if it were measured revenue.
-            avgLifetimeMonths: 0,
-            ltv: 0,
-            planTransitions: [],
+            avgLifetimeMonths: subscriptionAnalytics?.averageLifetimeMonths ?? 0,
+            ltv: (subscriptionAnalytics?.ltv ?? 0) / 100,
+            planTransitions: subscriptionAnalytics?.planTransitions ?? [],
+            trialConversionRate: subscriptionAnalytics?.trialConversionRate ?? 0,
+            upgrades: subscriptionAnalytics?.upgrades ?? 0,
+            downgrades: subscriptionAnalytics?.downgrades ?? 0,
+            whatsappOutreachSent: subscriptionAnalytics?.whatsappOutreachSent ?? 0,
+            whatsappOutreachFailed: subscriptionAnalytics?.whatsappOutreachFailed ?? 0,
             atRiskWorkers: retention.atRiskWorkers.slice(0, 5).map((worker) => ({
               id: worker.id,
               name: worker.nameEn,

@@ -204,7 +204,7 @@ The largest admin surface — worker management, verification, plans, payouts, a
 | # | Interaction | Where | Server path | Outcome |
 |---|---|---|---|---|
 | 1 | **Approve / decline verification** | `/admin` verification queue | `decideVerificationAction` → seam `decideVerification` | Worker badge → Verified (or rejected with reason); `WORKER_VERIFIED` / `VERIFICATION_DECLINED` audit codes; worker notified |
-| 2 | **Change a worker's plan inline** | `/admin` Worker management table → inline select → confirm dialog | `changeWorkerPlanAction` → `changeWorkerPlan` (`applyPlanChange` pure logic) | Tier swap / expired reactivation; `ADMIN_PLAN_CHANGED` audit entry with the admin's id; search visibility changes immediately (fee-waived Enterprise etc.) |
+| 2 | **Change a worker's plan inline** | `/admin` Worker management table → inline select → confirm dialog | `changeWorkerPlanAction` → `changeWorkerPlan` (`applyPlanChange` pure logic) | Tier swap / expired reactivation; `ADMIN_PLAN_CHANGED` audit entry with the admin's id; search visibility and the configured take rate update immediately |
 | 3 | **Approve / reject payout** | `/admin` Pending payouts queue | `decidePayoutAction` → `decidePayout` (CAS on PENDING) | `WITHDRAWAL` → `PROCESSED` (money settled) or `REJECTED` (nothing moves); `reviewedBy`/`reviewedAt` stamped; worker notified |
 | 4 | **Refund an ad campaign** | `/admin` campaign payments card | `refundCampaignAction` → `refundCampaign` | Campaign → refunded, payment REFUNDED, invoice flipped; `CAMPAIGN_REFUNDED` audit code |
 | 5 | **Watch the worker-side funnel** | `/admin` booking funnel + fees + platform stats | `getBookingFunnel`, `getPlatformFeeStats`, `getWorkerBalance`/ledger | Status counts, take-rate totals, fee distribution per plan |
@@ -359,7 +359,7 @@ WorkersArena monetizes **three** distinct flows. Amounts are integer minor units
 | Basic | $29 | listing, leads |
 | Professional | $59 | + boost, verified badge |
 | Premium | $119 | + analytics, gallery |
-| Enterprise | $299 | + emergency marker, priority support, ads — **and take-rate exemption** (fee waived) |
+| Business | $199 | + emergency marker, priority support, ads — **and reduced 4% take rate by default; exemption only by explicit rule** |
 
 - Renewal mints an `INV-*` invoice; annual = 10 months paid, 12 months term.
 - Expiry hides the worker from public search — the natural upsell trigger.
@@ -369,7 +369,7 @@ WorkersArena monetizes **three** distinct flows. Amounts are integer minor units
 
 - **Rate:** `PLATFORM_FEE_RATE_BPS = 700` (7.0%), floor `500` minor ($5), cap `30_000` minor ($300) per job — `computePlatformFee` in `src/lib/data/booking-ui.ts`.
 - **When:** stamped once at **accept-with-quote** on the **quote** (not the deposit, not on top), as an immutable snapshot (`Booking.platformFee` + `platformFeeRateBps`).
-- **Exempt:** Enterprise plan → fee 0.
+- **Exempt:** only a plan/category/promotion explicitly marked exempt in the active fee rule set → fee 0.
 - **Who pays:** effectively the worker — the worker sees "you receive X · platform fee Y" in the RespondDialog; the customer sees the total with an "includes platform fee · worker receives" line.
 - **Settlement:** worker earnings = `quote − platformFee`, credited to the `WorkerLedgerEntry` **at COMPLETED** (idempotent via `@@unique([bookingId])`), then withdrawn through the admin-reviewed payout queue.
 
@@ -382,7 +382,7 @@ WorkersArena monetizes **three** distinct flows. Amounts are integer minor units
 ### 5.4 Platform-level totals (what the admin sees)
 
 - `/admin` revenue cards: total revenue + monthly revenue (subscriptions + ad spend).
-- `/admin` fees card (`admin.feesTitle`): take-rate totals — per-plan fee distribution (incl. the Enterprise-exempt line) from `getPlatformFeeStats`.
+- `/admin` fees card (`admin.feesTitle`): take-rate totals — per-plan fee distribution, including any explicitly exempt rule, from `getPlatformFeeStats`.
 - Booking funnel: status counts (REQUESTED → CONFIRMED → completed/cancelled/no-show), the same story as the activity feed.
 - Campaigns card: per-campaign budget/spent/status with refund action; companies count + active ads stat cards.
 

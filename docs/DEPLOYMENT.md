@@ -48,6 +48,7 @@ Multi-stage Dockerfile: deps → build (`prisma generate`, `next build`) → sli
 | `DEMO_MODE` | dev | `"true"` = embedded dataset, no DB |
 | `AUTH_SECRET` | prod | long random string |
 | `NEXT_PUBLIC_APP_URL` | both | canonical URL for SEO/manifest |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | prod push | Generate once with `npx web-push generate-vapid-keys`; store both keys and the subject in the deployment secret manager. Never commit the private key. |
 | `STRIPE_SECRET_KEY` / `PAYPAL_CLIENT_ID` / `MYFATOORAH_API_TOKEN` / `TAP_SECRET_KEY` | prod | payments |
 | `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` + API keys | prod | media |
 | `REDIS_URL` | prod | caching + rate limiting |
@@ -65,6 +66,10 @@ Invalidate on worker/subscription changes (`cache.del("workers:*")`). Also backs
 ## 5. Media (Cloudinary)
 
 Workers upload avatars, covers, certifications and portfolio images → Cloudinary upload API → store `secure_url` + `publicId` in `Media`. Use `next/image` with `remotePatterns` (remove `images.unoptimized` from `next.config.ts`).
+
+### Web Push production gate
+
+Run `npm run check:vapid` in the production environment before enabling `NOTIFY_PUSH_ENABLED=true`. The check deliberately fails in real mode when any VAPID value is missing, while demo mode continues to use the console provider. Configure the same durable key pair across all server instances; rotating only the public key invalidates existing browser subscriptions. Test push permission and delivery on Android Chrome and iPad/iPhone Safari after deployment; iOS requires an installed Home Screen PWA and user-initiated permission.
 
 ## 6. Observability
 

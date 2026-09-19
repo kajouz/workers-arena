@@ -12,7 +12,7 @@
 > the design record of the original M5 fee; the numbers below are still exactly
 > what the default rule set charges.
 
-> **Status: ✅ implemented.** Migration `20260812075914_booking_platform_fee` (+ `Booking.platformFee` / `platformFeeRateBps`), `computePlatformFee` / `isPlanFeeExempt` in `booking-ui.ts`, the fee stamped at accept-with-quote in both adapters (demo + prisma in-tx), the RespondDialog "you receive X · platform fee Y" preview (waived line for Enterprise), the customer booking-row transparency line, i18n keys, and tests (unit calc, adapter stamps incl. the exempt path, prisma mapper, `db:smoke` assertion). This page documents the original proposal — the implementation follows it as written.
+> **Status: ✅ implemented.** Migration `20260812075914_booking_platform_fee` (+ `Booking.platformFee` / `platformFeeRateBps`), `computePlatformFee` / `isPlanFeeExempt` in `booking-ui.ts`, the fee stamped at accept-with-quote in both adapters (demo + prisma in-tx), the RespondDialog "you receive X · platform fee Y" preview, the customer booking-row transparency line, i18n keys, and tests (unit calc, adapter stamps, prisma mapper, `db:smoke` assertion). Business/Enterprise use reduced take rates by default; a fee waiver is only shown when an admin explicitly configures an exempt rule.
 
 > Original design proposal for the headline revenue lever in `docs/BUSINESS-MODEL.md` §5.2:
 > a **platform fee on quoted bookings**, recorded at accept-with-quote and shown as a
@@ -34,7 +34,7 @@
 | `PLATFORM_FEE_RATE_BPS` | `700` (7.0%) | take rate, basis points |
 | `PLATFORM_FEE_MIN_MINOR` | `500` ($5) | floor, minor units |
 | `PLATFORM_FEE_MAX_MINOR` | `30_000` ($300) | cap per job, minor units |
-| exemption | Enterprise plan | fee waived for workers whose subscription plan is exempt (per BUSINESS-MODEL §5.2) |
+| exemption | Explicit rule-set override | Fee waived only when the active admin rule set marks the matching plan/category/promotion as exempt |
 
 Fee applies to the **quote**, not on top of it and not on the deposit (the deposit is a partial pre-payment of the quote). `fee = clamp(round(quote × bps / 10000), min, max)` — round-half-up to the nearest minor unit, then clamp.
 
@@ -146,7 +146,7 @@ Platform fee: $5.60   (7%, min/max applied — shown only when > 0)
 You receive:  $74.40
 ```
 
-- Exempt plans show `Platform fee: waived (Enterprise)` instead of a number.
+- Business/Enterprise show their configured reduced fee; only an explicitly exempt rule shows `Platform fee: waived`.
 - The submit is unchanged — the fee is derived server-side; the preview is informational but the value is deterministic and identical (pure function, minor-unit conversion documented: dialog shows major ÷100, like the existing `Price` component).
 
 ### Customer: `src/components/bookings/booking-row.tsx`
@@ -191,7 +191,7 @@ Out of scope for v1 (noted for a later wave): escrow/milestone payout splitting 
 1. **Unit (`tests/bookings.test.ts`)** — `computePlatformFee`: zero quote → 0; exact percentage; rounding half-up; min floor; max cap; exemption → 0. (Mirrors the `bookingCancelRefundDue` test style.)
 2. **Demo adapter** — `demoRespondToBooking` accept-with-quote stamps `platformFee` + `platformFeeRateBps`; accept-without-quote leaves them unset; exempt plan → 0; decline stamps nothing.
 3. **Prisma adapter + live DB** — mirror assertions in `tests/booking-email-chain-prisma.test.ts` or a `db:smoke` section: accept-with-quote persists the fee columns and `toDomainBooking` maps them.
-4. **Chain/email parity — ✅ shipped** — `bookingEmailContext` (extended with `platformFee`) renders the fee line in the confirmation email (amount for charged fees, "Waived by the worker's plan" when the exempt marker 0 is stamped — matching the customer booking row); demo and prisma chain tests assert the identical payload shape incl. `platformFee` (560 for a premium quote-8000 accept; 0 + the waived line for the Enterprise case).
+4. **Chain/email parity — ✅ shipped** — `bookingEmailContext` (extended with `platformFee`) renders the fee line in the confirmation email (amount for charged fees, "Waived by the worker's plan" when the exempt marker 0 is stamped — matching the customer booking row); demo and prisma chain tests assert the identical payload shape incl. `platformFee` (560 for a premium quote-8000 accept; 0 + the waived line for an explicitly exempt-rule case).
 5. **i18n** — `tests/i18n.test.ts` picks up the new keys automatically (exhaustive parity).
 6. **E2E** — the existing `runBookingFlow` deposit path can assert the customer row's fee line renders after accept (cheap addition to `tests/e2e-smoke.test.ts`).
 

@@ -48,6 +48,17 @@ export async function GET() {
     return NextResponse.json({ publicKey: key, configured: true });
   }
 
+  // Never advertise an ephemeral public key in real mode: it cannot match a
+  // durable private key across instances and would create subscriptions that
+  // can never receive a push. Production must configure the complete VAPID
+  // triplet in its secret manager.
+  if (process.env.DEMO_MODE === "false") {
+    return NextResponse.json(
+      { error: "push-not-configured", message: "VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT are required" },
+      { status: 503 }
+    );
+  }
+
   // Auto-generate for dev/demo — push won't actually deliver without
   // VAPID_PRIVATE_KEY, but the subscription flow won't break.
   try {

@@ -139,7 +139,7 @@ import { loadActiveFeeRuleSet } from "./fee-rules-store";
 import { planTierFor } from "./fee-rules";
 import { computeSmartPricing } from "@/lib/pricing/smart-pricing";
 import { listSubscriptionEvents, recordSubscriptionEvent, type RecordSubscriptionEventInput } from "./subscription-lifecycle-store";
-import type { SubscriptionCohort } from "./subscription-lifecycle";
+import { subscriptionAnalytics, type SubscriptionAnalytics, type SubscriptionCohort } from "./subscription-lifecycle";
 import type {
   AnalyticsOverview,
   BillingPeriod,
@@ -350,9 +350,14 @@ export async function recordSubscriptionLifecycleEvent(input: RecordSubscription
 
 /** Retention reporting reads the same lifecycle event source in both modes. */
 export async function getSubscriptionCohorts(months = 6, now = new Date()): Promise<SubscriptionCohort[]> {
-  const { subscriptionCohorts } = await import("./subscription-lifecycle");
   const events = await listSubscriptionEvents({ limit: 5000 });
-  return subscriptionCohorts(events, months, now);
+  return subscriptionAnalytics(events, months, now).cohorts;
+}
+
+/** Retention and monetization reporting from the append-only lifecycle ledger. */
+export async function getSubscriptionAnalytics(months = 6, now = new Date()): Promise<SubscriptionAnalytics> {
+  const events = await listSubscriptionEvents({ limit: 5000 });
+  return subscriptionAnalytics(events, months, now);
 }
 
 /**

@@ -308,7 +308,7 @@ children.push(
 
 children.push(
   H1("3. Revenue Stream 2 — Platform Take Rate (Booking Fees)"),
-  P("The platform charges 7% (700 bps) of the job quote as a fee, with a $5 floor and $300 cap. Enterprise plan is exempt."),
+  P("The platform charges a plan-aware take rate: Free 12%, Starter 9%, Growth 7%, Pro 5%, and Business 4% by default, with a $5 floor and $300 cap. A full exemption applies only when explicitly configured in the active rule set."),
   ROLES("Customer (books) · Worker (accepts with quote) · Admin (audits)"),
   H3("Test: Accept a Booking with Fee"),
   STEP(1, "As a customer, create a booking request for a worker (e.g. Khaled)."),
@@ -321,8 +321,8 @@ children.push(
   H3("Test: Floor and Cap"),
   STEP(1, "Create a booking with a $50 quote → fee = $5 (floor)."),
   STEP(2, "Create a booking with a $5000 quote → fee = $300 (cap)."),
-  STEP(3, "Create a booking with an Enterprise worker → fee = $0 (exempt)."),
-  CHECK("Each fee matches the expected floor/cap/exempt value."),
+  STEP(3, "Create a booking with a Business worker → fee uses the configured 4% reduced rate; test a separately configured exempt rule to verify a $0 fee."),
+  CHECK("Each fee matches the expected plan/category/promotion rate, floor/cap, or explicitly configured exemption."),
   H3("Test: Fee Stamping is Immutable"),
   STEP(1, "Accept a booking with a quote. Note the fee."),
   STEP(2, "Admin changes the fee rule set to a different rate."),

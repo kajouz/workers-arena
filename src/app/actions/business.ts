@@ -171,6 +171,13 @@ export async function sendRenewalWhatsAppAction(workerId: string): Promise<{ ok:
     recipient: { name: worker.nameEn, phone: worker.phone, locale },
   };
   const result = await dispatchWhatsApp(payload);
+  await recordSubscriptionEvent({
+    workerId: worker.id,
+    subscriptionId: worker.subscription.invoiceNo || undefined,
+    type: result.ok ? "whatsapp_outreach_sent" : "whatsapp_outreach_failed",
+    toPlan: worker.subscription.plan,
+    source: "admin",
+  });
   if (!result.ok) return { ok: false, error: result.error ?? "delivery-failed" };
   revalidatePath("/admin");
   return { ok: true };
