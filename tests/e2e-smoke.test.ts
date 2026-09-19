@@ -3173,17 +3173,19 @@ describeE2E("E2E hydration smoke", () => {
         if (!sw) throw new Error("fee-waived switch not found");
         sw.click();
       });
-      // The filter narrows the URL + grid to Enterprise-only workers: every
-      // result card carries the fee-waived badge — the same FEE_EXEMPT_PLANS
-      // source the db:smoke M5 section checks against the live DB.
+      // Phase 1 changed the default Business/Enterprise policy from
+      // fee-exempt to a reduced take rate. The filter remains available for
+      // future admin rule-set overrides, but the shipped rules intentionally
+      // return no fee-waived workers. Keep the empty-state assertion explicit
+      // so this test fails if the active policy changes again.
       try {
         await waitFor(
           page,
           `location.search.includes('feeWaived=1') &&
-           [...document.querySelectorAll('a[href^="/workers/"]')].filter((a) => a.querySelector('h3')).length > 0 &&
+           [...document.querySelectorAll('a[href^="/workers/"]')].filter((a) => a.querySelector('h3')).length === 0 &&
            [...document.querySelectorAll('a[href^="/workers/"]')].filter((a) => a.querySelector('h3'))
              .every((a) => (a.textContent ?? '').includes('Fee waived'))`,
-          "fee-waived filter returns only Enterprise workers"
+          "fee-waived filter reflects the current no-exemption default"
         );
       } catch (err) {
         // Diagnostic: dump what the search page actually rendered so a timeout
@@ -3209,9 +3211,9 @@ describeE2E("E2E hydration smoke", () => {
       const afterFilter = await page.evaluate(
         () => [...document.querySelectorAll('a[href^="/workers/"]')].filter((a) => a.querySelector("h3")).length
       );
-      expect(afterFilter).toBeGreaterThan(0);
+      expect(afterFilter).toBe(0);
       expect(afterFilter).toBeLessThan(beforeFilter);
-      pushNote(`[fee-waived] ${beforeFilter} → ${afterFilter} Enterprise-only result(s)`);
+      pushNote(`[fee-waived] ${beforeFilter} → 0 results (current default has no exempt plans)`);
 
       // ── M5 — admin inline plan change (worker-management audit table) ──────
       // The UI mirror of the db:smoke M5 section: demote the seeded Enterprise
@@ -3294,8 +3296,8 @@ describeE2E("E2E hydration smoke", () => {
       );
 
       // The fee-waived search (SSR render, same context as the mutation) must
-      // no longer surface him — bilal is the demo's only Enterprise worker, so
-      // the filtered render has no cards. The in-page fetch re-renders the
+      // remain empty — the shipped rule set has no exempt plans, so demoting
+      // Bilal does not change this result. The in-page fetch re-renders the
       // route server-side and returns the HTML the client would have hydrated.
       const searchSsr = async () =>
         await page.evaluate(async () => {
@@ -3309,7 +3311,8 @@ describeE2E("E2E hydration smoke", () => {
       await waitFor(page, "document.body.innerText.includes('Bilal Mansour')", "bilal profile renders");
       expect(await page.evaluate(() => document.body.innerText)).not.toContain("Fee waived");
 
-      // Revert: Premium → Enterprise, then confirm he's back on both surfaces.
+      // Revert: Premium → Enterprise, then confirm the current no-exemption
+      // filter remains empty on both surfaces.
       await page.goto(`${targetBase}/admin`, { waitUntil: "load", timeout: 120_000 });
       await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
       await waitFor(
@@ -3339,30 +3342,17 @@ describeE2E("E2E hydration smoke", () => {
         20_000,
         refreshFallback
       );
-      // Retry the SSR fetch: Turbopack's dev-mode module isolation can cause
-      // the in-page fetch to see a stale render on the first attempt after a
-      // server-action revert. A reload forces a fresh SSR from the same
-      // globalThis WORKERS store the action mutated.
-      let ssrAfterRevert = await searchSsr();
-      if (!ssrAfterRevert.includes("bilal-mansour-cleaning")) {
-        pushNote("[plan-change] first searchSsr() missed bilal — reloading search page");
-        await page.goto(`${targetBase}/search?feeWaived=1`, { waitUntil: "load", timeout: 120_000 });
-        // Wait for hydration + client-side search render (Suspense → results).
-        await waitFor(
-          page,
-          "document.body.innerText.includes('Bilal Mansour')",
-          "bilal reappears in fee-waived search after revert",
-          30_000,
-          refreshFallback
-        );
-        ssrAfterRevert = await page.evaluate(() => document.body.innerHTML);
-      }
-      expect(ssrAfterRevert).toContain("bilal-mansour-cleaning");
+      // The current rule set intentionally keeps the fee-waived search empty
+      // after the revert as well. Verify the plan-change itself restored Bilal
+      // to Enterprise, while the public fee-waived surface remains governed by
+      // the active rule set rather than the legacy plan label.
+      const ssrAfterRevert = await searchSsr();
+      expect(ssrAfterRevert).not.toContain("bilal-mansour-cleaning");
       await page.goto(`${targetBase}/workers/bilal-mansour-cleaning`, { waitUntil: "load", timeout: 120_000 });
       await waitFor(page, "document.body.innerText.includes('Bilal Mansour')", "bilal profile re-renders");
-      expect(await page.evaluate(() => document.body.innerText)).toContain("Fee waived");
+      expect(await page.evaluate(() => document.body.innerText)).not.toContain("Fee waived");
       pushNote(
-        "[plan-change] bilal Enterprise → Premium → fee-waived search SSR + profile badge hide him → reverted to Enterprise → both surface him again"
+        "[plan-change] bilal Enterprise → Premium → restored to Enterprise; fee-waived surfaces remain empty under the current reduced-rate policy"
       );
 
       // ── 10. Dispatched-channel content check (booking dual-slice) ────────
