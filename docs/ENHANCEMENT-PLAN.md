@@ -24,6 +24,12 @@
 - ✅ **Subscription migration controls:** renewal/plan-change surfaces now preview upgrade vs downgrade cost, use the current category-adjusted admin catalog, and keep manual OMT/Whish checkout amounts and invoices consistent across demo and Prisma paths.
 - 🔜 **Phase 2 next:** measure emergency conversion and refund rates for 30 days before tuning the 1.5× factor or expanding surge windows. Add cohort-based upgrade prompts after the measurement window. Stripe, automatic billing, and payment automation remain deferred.
 
+## Phase 3 — retention and operating visibility (started)
+
+- ✅ **Subscription risk snapshot:** the admin retention panel now derives active, expired, 30-day expiring, retention, churn, and at-risk worker ordering from the current worker subscription rows rather than using a fixed expiry list. The clock is injectable for deterministic tests and the same adapter-fed rows work in demo and production.
+- 🟡 **Cohort history and LTV:** the existing six-month cohort/LTV presentation remains a static planning view because subscription lifecycle events do not yet have a complete event ledger. Do not use those figures for financial forecasting until renewal, cancellation, upgrade, and trial-conversion events are persisted.
+- 🔜 **Next:** add subscription lifecycle events and cohort aggregation, then trigger admin WhatsApp renewal campaigns from the at-risk list using the same saved templates. Stripe and automated payment collection remain deferred.
+
 ## 1. Baseline — what's already shipped (the launchpad)
 
 The platform is further along than the roadmap's checkbox state suggests:

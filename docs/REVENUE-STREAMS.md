@@ -359,6 +359,22 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 
 ---
 
+### 15. Subscription Retention Operations 📉
+
+**What it is:** An admin-facing subscription-health snapshot that supports manual renewal outreach without pretending that payment automation exists.
+
+**Live metrics:**
+- Active and expired subscription counts
+- Subscriptions expiring within 30 days
+- Current retention and churn ratios
+- At-risk workers ordered by soonest expiry
+
+The snapshot is calculated from the adapter's current worker rows, uses an injectable clock for boundary-safe tests, and is suitable for prioritizing admin WhatsApp renewal messages. Historical cohort retention, lifetime value, and trial-to-paid conversion require persisted subscription lifecycle events and are intentionally not treated as financial reporting yet.
+
+**Dashboard:** `/admin` → Retention & Churn
+
+---
+
 ## Admin Dashboard
 
 ### Access Points
@@ -464,6 +480,8 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 - ✅ Rating-driven and smart demand multipliers are visible in the admin lead-offer audit.
 - ✅ Emergency requests receive a bounded dispatch premium and retain their locked price/reason.
 - ✅ Lead refunds support full or partial credit decisions with admin notes.
+- ✅ Subscription retention snapshot is now derived from current worker subscriptions, including 30-day expiry risk ordering.
+- 🔜 Persist subscription lifecycle events for cohort retention, LTV, trial conversion, and upgrade/downgrade reporting.
 - 🔜 Subscription upgrade/downgrade UX and escrow remain the next non-Stripe revenue improvements.
 - ⏸️ Stripe and automatic company campaign billing remain deferred by product decision.
 
@@ -480,6 +498,6 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 
 ---
 
-*Last updated: September 17, 2026*
+*Last updated: September 19, 2026*
 *Version: 3.0.0*
 *Streams: 14 configured (10 live, 4 built, pending gateway)*

@@ -65,6 +65,7 @@ import { DateRangePicker } from "@/components/admin/filters/date-range-picker";
 import { VerificationWorkflow } from "@/components/admin/verification/verification-workflow";
 import { SLAMonitor } from "@/components/admin/sla/sla-monitor";
 import { AnomalyDetection } from "@/components/admin/anomaly/anomaly-detection";
+import { retentionSnapshot } from "@/lib/data/retention";
 
 /**
  * Verification workflow codes — kept in sync with ACTION_CODES in
@@ -247,6 +248,7 @@ export function AdminDashboard({
   pendingManualPayments: PendingManualPayment[];
 }) {
   const { locale, t } = useLocale();
+  const retention = retentionSnapshot(workers);
   const revenueLabels = a.revenueSeries.map((p) => getMonthLabel(p.label, locale));
   const monthRevenue = Array.from({ length: 12 }, (_, i) => i).map((i) => {
     const pt = a.revenueSeries.find((p) => p.label === i);
@@ -489,8 +491,11 @@ export function AdminDashboard({
               { month: "May", registered: 65, retained: 55, churned: 10, retentionRate: 84.6 },
               { month: "Jun", registered: 70, retained: 60, churned: 10, retentionRate: 85.7 },
             ],
-            overallRetention: 84.3,
-            churnRate: 4.2,
+            overallRetention: retention.retentionRate,
+            churnRate: retention.churnRate,
+            // Historical lifetime/LTV cohorts require subscription-event
+            // timestamps; keep the existing cohort series until that event
+            // ledger is added rather than presenting fabricated precision.
             avgLifetimeMonths: 8.5,
             ltv: 585,
             planTransitions: [
@@ -499,25 +504,15 @@ export function AdminDashboard({
               { from: "Premium", to: "Enterprise", count: 3, percentage: 4.6 },
               { from: "Enterprise", to: "Premium", count: 2, percentage: 3.1 },
             ],
-            atRiskWorkers: workers
-              .filter((w) => w.subscription.status === "active")
-              .slice(0, 5)
-              .map((w) => ({
-                id: w.id,
-                name: w.nameEn,
-                nameAr: w.nameAr,
-                plan: w.subscription.plan,
-                // Deterministic: derived from the real expiry so SSR and the
-                // client render the same number (Math.random breaks hydration).
-                daysUntilExpiry: Math.max(
-                  1,
-                  Math.ceil(
-                    (new Date(w.subscription.expiresAt).getTime() - Date.now()) / 86_400_000
-                  )
-                ),
-                lastActivity: "2 days ago",
-                hue: w.hue,
-              })),
+            atRiskWorkers: retention.atRiskWorkers.slice(0, 5).map((worker) => ({
+              id: worker.id,
+              name: worker.nameEn,
+              nameAr: worker.nameAr,
+              plan: worker.plan,
+              daysUntilExpiry: worker.daysUntilExpiry,
+              lastActivity: worker.lastActivity,
+              hue: worker.hue,
+            })),
           }}
           locale={locale}
         />
