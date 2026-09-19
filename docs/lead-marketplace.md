@@ -10,6 +10,10 @@
 
 ---
 
+## Phase 1 — lead-quality protection
+
+A purchased lead is eligible for one worker-submitted refund request. Supported reasons are invalid contact details, duplicate lead, wrong category, wrong area, customer did not request the service, and unreachable customer. The worker may include evidence; an admin approves, rejects, or approves a partial amount. An approval returns credits through a new append-only adjustment ledger row, capped at the original offer price. The original spend, offer, and rating remain immutable, and duplicate requests are refused. The worker sees the request status on the lead board; admins review the queue in `/admin/revenue-settings`.
+
 ## 1. Why
 
 A `QuoteRequest` used to be one thing: a job post that invited up to three workers. The customer picked the workers; the platform earned only when a job completed.
@@ -317,7 +321,7 @@ Admin-editable templates per grade (bronze/silver/gold/emergency) with placehold
 ## 12. What is not built yet
 
 - **Promo-code redemption at purchase** — the ledger and code scoping exist ([fee-rules.md](fee-rules.md) §7), but the marketplace does not yet accept a code that discounts a lead.
-- **Buyer refunds** — an admin can claw credits back with an adjustment row, but there is no consumer-facing dispute path for a lead whose customer never replied.
+- **Automated buyer refunds** — the worker/admin credit-review workflow is live; automatic refunds for clearly invalid leads and customer non-response remain deferred.
 - **Worker preferences** (categories, budget floor, do-not-disturb windows) — the matcher reads the worker row, not declared preferences.
 - **A rebate timeline on the lead board** — the total a lead has given back is shown, but not the individual rebates behind it.
 - **Stripe integration** — credit purchases currently go through OMT/Whish manual rails; Stripe checkout would automate the flow.

@@ -44,8 +44,9 @@ import {
 } from "@/lib/data/lead-market";
 import type { LeadRebate } from "@/lib/data/lead-rebate";
 import type { CreditLedgerEntry } from "@/lib/data/credit-ledger";
+import type { LeadRefundRequest } from "@/lib/data/lead-refunds";
 import type { FeeRuleSet } from "@/lib/data/fee-rules";
-import { grantWorkerCreditsAction, saveLeadMarketConfigAction } from "@/app/actions/leads";
+import { decideLeadRefundAction, grantWorkerCreditsAction, saveLeadMarketConfigAction } from "@/app/actions/leads";
 import { sendWhatsAppLeadNotification, sendBatchWhatsAppNotifications } from "@/app/actions/whatsapp-leads";
 
 const WEIGHT_KEYS: Array<keyof MatchingWeights> = [
@@ -84,6 +85,7 @@ export function LeadMarketPanel({
   credits,
   rebates,
   ratings,
+  refundRequests,
 }: {
   ruleSet: FeeRuleSet;
   offers: LeadOffer[];
@@ -92,6 +94,7 @@ export function LeadMarketPanel({
   rebates: LeadRebate[];
   /** §12 — worker quality ratings of purchased leads. */
   ratings?: import("@/lib/data/lead-rating").LeadRating[];
+  refundRequests?: LeadRefundRequest[];
 }) {
   const { locale, t } = useLocale();
   const router = useRouter();
@@ -114,6 +117,7 @@ export function LeadMarketPanel({
   const [busy, setBusy] = useState(false);
   const [grant, setGrant] = useState({ workerId: "", amount: "10", reason: "" });
   const [granting, setGranting] = useState(false);
+  const [refundBusy, setRefundBusy] = useState<string | null>(null);
 
   const setPrice = (grade: LeadGrade, value: number) =>
     setDraft((d) => ({ ...d, prices: { ...d.prices, [grade]: value } }));
@@ -686,6 +690,27 @@ export function LeadMarketPanel({
                   {offer.status === "offered" && (
                     <WhatsAppNotifyButton offer={offer} workerName={offer.workerId} />
                   )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Lead-quality refund queue (Phase 1) */}
+        <section className="space-y-2 border-t border-ink-100 pt-4 dark:border-ink-800">
+          <h3 className="text-sm font-semibold">Lead-quality refund requests</h3>
+          {(refundRequests ?? []).length === 0 ? (
+            <p className="text-sm text-ink-500">No refund requests are waiting for review.</p>
+          ) : (
+            <ul className="space-y-2 text-xs">
+              {(refundRequests ?? []).slice(0, 12).map((request) => (
+                <li key={request.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-ink-100 p-2 dark:border-ink-800">
+                  <span className="font-semibold">{request.status}</span>
+                  <span className="flex-1">{request.id} · {request.workerId} · {request.reason} · {request.requestedCredits} credits</span>
+                  {request.status === "pending" && <>
+                    <Button size="sm" disabled={refundBusy === request.id} onClick={async () => { setRefundBusy(request.id); await decideLeadRefundAction({ requestId: request.id, approve: true }); router.refresh(); setRefundBusy(null); }}>Approve</Button>
+                    <Button size="sm" variant="outline" disabled={refundBusy === request.id} onClick={async () => { setRefundBusy(request.id); await decideLeadRefundAction({ requestId: request.id, approve: false }); router.refresh(); setRefundBusy(null); }}>Reject</Button>
+                  </>}
                 </li>
               ))}
             </ul>

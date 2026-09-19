@@ -94,7 +94,7 @@ You only pay:
 | Starter | $15/mo | Profile, search listing, 3 leads/mo |
 | Growth | $39/mo | + Featured placement, 10 leads/mo, verification |
 | Pro | $99/mo | + Priority matching, analytics, 25 leads/mo, emergency |
-| Business | $199/mo | + Fee exemption, unlimited leads, team management |
+| Business | $199/mo | + reduced 4% platform fee, unlimited leads, team management |
 
 🎉 **30-day FREE trial** on any plan!
 

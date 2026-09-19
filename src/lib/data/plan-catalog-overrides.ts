@@ -35,8 +35,10 @@ export type CategoryTierOverrides = Partial<Record<"low" | "mid" | "high", numbe
 export interface PlanCatalogOverrides {
   /** Present keys override the shipped catalog; absent keys keep defaults. */
   plans?: Partial<Record<"basic" | "professional" | "premium" | "enterprise", PlanCatalogOverride>>;
-  /** Trial period in days (0 disables the trial entirely). */
+  /** Legacy/global trial period in days (0 disables the trial entirely). */
   trialDays?: number;
+  /** Per-plan trial policy. Missing keys fall back to the recommended defaults. */
+  trialDaysByPlan?: Partial<Record<"basic" | "professional" | "premium" | "enterprise", number>>;
   /** Per-tier price multipliers (1 = no adjustment). */
   categoryTiers?: CategoryTierOverrides;
 }
@@ -56,6 +58,7 @@ export const DEFAULT_PLAN_CATALOG_OVERRIDES: ResolvedPlanCatalog = {
     ])
   ) as ResolvedPlanCatalog["plans"],
   trialDays: 30,
+  trialDaysByPlan: { basic: 30, professional: 30, premium: 14, enterprise: 0 },
   categoryTiers: { low: 0.5, mid: 1, high: 1.5 },
 };
 
@@ -77,6 +80,7 @@ export interface ResolvedPlanRow {
 export interface ResolvedPlanCatalog {
   plans: Record<"basic" | "professional" | "premium" | "enterprise", ResolvedPlanRow>;
   trialDays: number;
+  trialDaysByPlan: Record<"basic" | "professional" | "premium" | "enterprise", number>;
   categoryTiers: { low: number; mid: number; high: number };
 }
 
@@ -103,6 +107,12 @@ export function normalizePlanCatalogOverrides(input?: PlanCatalogOverrides | nul
   return {
     plans,
     trialDays: Math.round(clampNum(src.trialDays ?? 30, 0, 90, 30)),
+    trialDaysByPlan: {
+      basic: Math.round(clampNum(src.trialDaysByPlan?.basic ?? 30, 0, 90, 30)),
+      professional: Math.round(clampNum(src.trialDaysByPlan?.professional ?? 30, 0, 90, 30)),
+      premium: Math.round(clampNum(src.trialDaysByPlan?.premium ?? 14, 0, 90, 14)),
+      enterprise: Math.round(clampNum(src.trialDaysByPlan?.enterprise ?? 0, 0, 90, 0)),
+    },
     categoryTiers: {
       low: clampNum(src.categoryTiers?.low ?? 0.5, 0, 3, 0.5),
       mid: clampNum(src.categoryTiers?.mid ?? 1, 0, 3, 1),

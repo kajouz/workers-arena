@@ -12,7 +12,7 @@
 
 The take rate was one hard-coded constant: `PLATFORM_FEE_RATE_BPS = 700`, min $5, max $300, Enterprise exempt. That is a single price for the whole platform — it cannot express a plan ladder, category pricing, emergency work, or a promotional rate, and changing it was a deploy.
 
-The engine keeps that exact policy as its **default rule set** (so enabling it changed no live fee) and adds what a real pricing system needs:
+Phase 1 uses a success-based default: Business is charged a reduced 4% rate rather than being fully exempt. Existing snapshots remain immutable; only new accepts use the new policy. The engine adds what a real pricing system needs:
 
 | Capability | How it is expressed |
 |---|---|
@@ -51,7 +51,7 @@ default → plan tier → category → emergency → promotion → (exemption sh
 ```
 
 - Later layers override earlier ones field-by-field (`mergeFeeRule`), so a category override of `rateBps` keeps the plan's floor/cap.
-- **Exemption is checked first and is absolute**: a waived plan ("Business pays no transaction fee") cannot be re-charged by a promotion, and the snapshot records the *plan's* rate with `exempt: true`.
+- **Exemption is checked first and is absolute**: an explicitly waived plan cannot be re-charged by a promotion, and the snapshot records the plan's rate with `exempt: true`. The Phase 1 Business default is reduced 4%, not waived.
 - **The first matching promotion wins** — the list is ordered by the admin, most specific first, so a narrow campaign is never overwritten by a broader one listed later.
 - A promotion matches when every scope field it sets matches (`planTier` AND `categorySlug` AND `promoCode`), and its window is open.
 
@@ -65,7 +65,7 @@ Plan tier mapping (a **config layer** over the existing `SubscriptionPlan` enum 
 | Basic | `starter` | 9% |
 | Professional | `professional` | 7% |
 | Premium | `growth` | 5% |
-| Enterprise | `business` | 4% (or exempt) |
+| Enterprise | `business` | **4% reduced rate** |
 
 The **recommended ladder** (12 / 9 / 7 / 5 / 4%) ships as the default rule set. Adopting it is a pricing decision, not a code change.
 
@@ -199,12 +199,12 @@ The lead marketplace configuration lives inside the versioned rule set (`FeeRule
 
 The subscription plan catalog lives inside the versioned rule set (`FeeRuleSet.planCatalog`):
 
-| Plan | Label (EN) | Label (AR) | Monthly Price | Leads/mo | Fee Exempt |
+| Plan | Label (EN) | Label (AR) | Monthly Price | Leads/mo | Default fee |
 |------|-----------|-----------|---------------|----------|------------|
 | basic | Starter | مبدأية | $15 | 3 | No |
 | professional | Growth | نمو | $39 | 10 | No |
 | premium | Pro | احترافي | $99 | 25 | No |
-| enterprise | Business | أعمال | $199 | Unlimited | Yes |
+| enterprise | Business | أعمال | $199 | Unlimited | 4% reduced |
 
 **Category-adjusted pricing:**
 - Low-value (cleaning, gardening): 0.5×
@@ -213,7 +213,7 @@ The subscription plan catalog lives inside the versioned rule set (`FeeRuleSet.p
 
 **Annual billing:** 9 months paid for 12 months (25% discount).
 
-**Trial period:** 30 days free on any plan.
+**Trial period:** 30 days for Starter/Growth, 14 days for Pro, and Business assisted by default; eligibility is once per worker and enforced server-side.
 
 ---
 

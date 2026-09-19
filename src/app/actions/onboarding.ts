@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { sanitizeText } from "@/lib/security";
 import { startTrialSubscription } from "@/lib/data/subscriptions";
-import { TRIAL_PERIOD_DAYS } from "@/lib/data/subscription-plans";
+import { trialDaysForPlan } from "@/lib/data/subscription-plans";
 
 const onboardSchema = z.object({
   nameEn: z.string().min(1).max(100),
@@ -18,7 +18,7 @@ const onboardSchema = z.object({
 export type OnboardState = { error?: string } | null;
 
 /**
- * Creates a Worker profile + 30-day trial subscription for a newly registered
+ * Creates a Worker profile + plan-specific trial subscription for a newly registered
  * worker. Called from the /dashboard/onboarding page after registration.
  *
  * The trial is the worker's FIRST plan — once per worker, gated by
@@ -80,7 +80,7 @@ export async function createWorkerProfileAction(
 
     // Create the Worker profile in a transaction with the trial subscription.
     const now = new Date();
-    const trial = startTrialSubscription("basic", now);
+    const trial = startTrialSubscription("basic", now, trialDaysForPlan("basic"));
 
     await prisma.$transaction(async (tx) => {
       await tx.worker.create({
@@ -108,7 +108,7 @@ export async function createWorkerProfileAction(
       });
 
       // Create the trial subscription — the worker's first plan is free for
-      // TRIAL_PERIOD_DAYS. This row is what the dashboard, search, and
+      // the plan-specific trial policy. This row is what the dashboard, search and
       // fee-exempt filter read.
       await tx.subscription.create({
         data: {

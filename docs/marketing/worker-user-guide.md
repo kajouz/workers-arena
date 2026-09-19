@@ -106,7 +106,7 @@ Your profile is your storefront. Here's what customers see:
 | ✅ **Verified** | Your identity is verified | Purchase Basic ($9) or Professional ($19) verification |
 | ⭐ **Featured** | You're highlighted on the homepage | Purchase Featured slot ($49/category/mo) |
 | 🚨 **Emergency** | You're available 24/7 | Purchase Emergency marker ($9/mo) |
-| 💎 **Business** | Fee-exempt plan | Subscribe to Business plan ($199/mo) |
+| 💎 **Business** | Reduced 4% platform fee | Subscribe to Business plan ($199/mo) |
 
 ### Updating Your Profile
 
@@ -418,7 +418,7 @@ Net earnings: $950
 | **Starter** | $15 | $135 | 3 | Profile, search listing |
 | **Growth** | $39 | $351 | 10 | + Featured, verification, 10 leads |
 | **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
-| **Business** | $199 | $1,791 | Unlimited | + Fee exemption, team management |
+| **Business** | $199 | $1,791 | Unlimited | + reduced 4% platform fee, team management |
 
 ### 30-Day Free Trial
 

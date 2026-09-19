@@ -38,7 +38,7 @@ import { toast } from "@/components/ui/toast";
 import { cn, formatDate, formatNumber, formatPrice } from "@/lib/utils";
 import type { LeadGrade, LeadBoardItem } from "@/lib/data/lead-market";
 import type { WorkerLeadBoard } from "@/lib/data/repo";
-import { buyLeadOfferAction, submitLeadRatingAction } from "@/app/actions/leads";
+import { buyLeadOfferAction, requestLeadRefundAction, submitLeadRatingAction } from "@/app/actions/leads";
 
 /** Bronze/silver/gold/emergency → the badge look + icon the row wears. */
 const GRADE_STYLE: Record<LeadGrade, { className: string; icon: typeof Medal; variant: "secondary" | "outline" | "premium" | "danger" }> = {
@@ -282,7 +282,10 @@ function LeadRow({
 
         {/* §12 — Rating section: only on purchased leads that haven't been rated yet */}
         {owned && item.offer.status === "purchased" && (
-          <LeadRatingRow offerId={item.offer.id} leadNumber={item.lead.number} grade={item.offer.grade} />
+          <div className="space-y-2">
+            <LeadRatingRow offerId={item.offer.id} leadNumber={item.lead.number} grade={item.offer.grade} />
+            <LeadRefundRow offerId={item.offer.id} />
+          </div>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-3 dark:border-ink-800">
@@ -386,6 +389,28 @@ function StatusPill({
       {label}
     </Badge>
   );
+}
+
+function LeadRefundRow({ offerId }: { offerId: string }) {
+  const { t } = useLocale();
+  const [reason, setReason] = useState("invalid-contact");
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (sent) return <p className="text-xs text-amber-600">{t("leadMarket.refundRequestSubmitted")}</p>;
+  const labels: Record<string, string> = {
+    "invalid-contact": t("leadMarket.refundReasonInvalidContact"),
+    "duplicate-lead": t("leadMarket.refundReasonDuplicate"),
+    "wrong-category": t("leadMarket.refundReasonCategory"),
+    "wrong-area": t("leadMarket.refundReasonArea"),
+    "not-requested": t("leadMarket.refundReasonNotRequested"),
+    unreachable: t("leadMarket.refundReasonUnreachable"),
+  };
+  return <div className="flex flex-wrap items-center gap-2">
+    <select aria-label={t("leadMarket.refundRequestButton")} value={reason} onChange={(e) => setReason(e.target.value)} className="rounded-md border border-ink-200 bg-transparent px-2 py-1 text-xs dark:border-ink-700">
+      {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+    </select>
+    <Button size="sm" variant="outline" disabled={busy} onClick={async () => { setBusy(true); const result = await requestLeadRefundAction({ offerId, reason }); if (result.ok) setSent(true); setBusy(false); }}>{t("leadMarket.refundRequestButton")}</Button>
+  </div>;
 }
 
 // ──────────────────── Lead rating (§12) ────────────────────

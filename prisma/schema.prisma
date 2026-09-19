@@ -413,6 +413,7 @@ model Worker {
   leadOffers        LeadOffer[]
   leadRebates       LeadRebate[]
   leadRatings       LeadRating[]
+  leadRefundRequests LeadRefundRequest[]
   leads             Lead[]
   views             WorkerView[]
   slots             BookingSlot[]
@@ -1158,6 +1159,7 @@ model QuoteRequest {
   bookings   Booking[] // the invited workers' Bookings (via Booking.quoteRequestId)
   leadOffers LeadOffer[] // §7–§10 the platform-matched, paid lead offers
   leadRatings LeadRating[] // §12 worker feedback ratings
+  leadRefundRequests LeadRefundRequest[]
 
   @@index([customerId, status])
   @@index([status, createdAt])
@@ -1314,6 +1316,7 @@ model LeadOffer {
   exclusive     Boolean      @default(true)
   contactReveal String? // what the buyer may see after purchase (§10)
   rating        LeadRating?
+  refundRequests LeadRefundRequest[]
   offeredAt     DateTime     @default(now())
   expiresAt     DateTime
   purchasedAt   DateTime?
@@ -1352,6 +1355,32 @@ model LeadRating {
 
   @@index([workerId, createdAt])
   @@index([grade, quality])
+  @@index([leadId])
+}
+
+// Phase 1 lead-quality protection. A worker can submit one request per
+// purchased offer; an admin approves/rejects it, and an approval appends a
+// credit adjustment rather than mutating the original spend.
+model LeadRefundRequest {
+  id               String   @id @default(cuid())
+  offerId          String   @unique
+  offer            LeadOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  leadId           String
+  lead             QuoteRequest @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  workerId         String
+  worker           Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  reason           String
+  requestedCredits Int
+  approvedCredits  Int      @default(0)
+  status           String   @default("pending")
+  evidence         String?
+  adminNote        String?
+  submittedAt     DateTime @default(now())
+  decidedAt       DateTime?
+  decidedBy       String?
+
+  @@index([status, submittedAt])
+  @@index([workerId, submittedAt])
   @@index([leadId])
 }
 

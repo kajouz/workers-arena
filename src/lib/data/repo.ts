@@ -5,7 +5,7 @@ import { CITIES } from "./cities";
 import { getAnalytics } from "./analytics";
 import { getFeaturedWorkers, getRelatedWorkers, getSuggestions, POPULAR_SEARCHES, searchWorkers } from "./search";
 import { applyPlanChange, periodMonths, PLANS, renewSubscription, startTrialSubscription } from "./subscriptions";
-import { TRIAL_PERIOD_DAYS } from "./subscription-plans";
+import { TRIAL_PERIOD_DAYS, trialDaysForPlan } from "./subscription-plans";
 import { loadPlanCatalog } from "./fee-rules-store";
 import {
   getNotifications,
@@ -573,7 +573,11 @@ export async function renewWorkerSubscriptionBySlug(
   // Any worker who ever had a plan (active, expiring or expired) pays from day
   // one — the trial is once per worker, not once per lapse.
   if (!w.subscription) {
-    const trialDays = (await loadPlanCatalog()).trialDays ?? 30;
+    const catalog = await loadPlanCatalog();
+    // The catalog may override the global trial, but the recommended Phase 1
+    // defaults differentiate higher-value plans (Pro 14d; Business assisted).
+    const trialDays = catalog.trialDaysByPlan?.[plan] ??
+      (catalog.trialDays === 30 ? trialDaysForPlan(plan) : catalog.trialDays);
     if (trialDays > 0) {
       w.subscription = startTrialSubscription(plan, new Date(), trialDays);
       await pushNotification(

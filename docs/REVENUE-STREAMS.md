@@ -87,14 +87,14 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 | **Starter** | $15 | $135 | 3 | Profile, search listing |
 | **Growth** | $39 | $351 | 10 | + Featured, verification |
 | **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
-| **Business** | $199 | $1,791 | Unlimited | + Fee exemption, team mgmt |
+| **Business** | $199 | $1,791 | Unlimited | + reduced 4% platform fee, team mgmt |
 
 **Category-Adjusted Pricing:**
 - Low-value trades (cleaning, gardening): 0.5× → Starter $7.50/mo
 - Mid-value trades (plumbing, electrical): 1.0× → Starter $15/mo
 - High-value trades (HVAC, mechanic): 1.5× → Starter $22.50/mo
 
-**Trial Period:** 30 days free on any plan (auto-applied at registration).
+**Phase 1 trial policy:** 30 days free for Starter/Growth, 14 days for Pro, and Business is assisted by default. Eligibility is checked server-side once per worker; an expired plan cannot be used to reclaim a trial.
 
 **Key Mechanics:**
 - **Visibility gating**: expired subscription → worker removed from public search
@@ -116,7 +116,7 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 | Starter | 9% | $5 | $300 |
 | Growth | 7% | $5 | $300 |
 | Pro | 5% | $5 | $300 |
-| Business | 4% (or exempt) | $5 | $300 |
+| Business | **4% reduced rate** | $5 | $300 |
 
 **Key Mechanics:**
 - Applied at **accept-with-quote** (immutable snapshot)
@@ -167,10 +167,10 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 
 | Package | Credits | Price | Bonus | Total |
 |---------|---------|-------|-------|-------|
-| Starter | 10 | $25 | 0 | 10 |
-| Popular | 25 | $50 | 5 | 30 |
-| Professional | 50 | $90 | 15 | 65 |
-| Enterprise | 100 | $150 | 30 | 130 |
+| Starter | 10 | $10 | 0 | 10 |
+| Popular | 25 | $25 | 5 | 30 |
+| Professional | 50 | $50 | 15 | 65 |
+| Enterprise | 100 | $100 | 30 | 130 |
 
 **Payment Methods:**
 - OMT (admin-confirmed)
@@ -178,8 +178,9 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 - Stripe (planned)
 
 **Key Mechanics:**
-- 1 credit = $1 by convention
+- Base credits are transparently priced at $1 each; bonus credits are promotional and shown separately
 - Credits consumed when buying leads
+- Credit refund requests are admin-reviewed for invalid contact, duplicate, wrong category/area, not requested, or unreachable leads; approvals append ledger adjustments
 - Append-only ledger (`WorkerCreditEntry`)
 - Admin can adjust balances manually
 

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
  * Admin worker-management audit (docs/booking-take-rate.md): every worker
- * renders with its plan + status, and the fee-waived filter narrows to
- * Enterprise rows — the audit counterpart of the /search fee-waived toggle.
+ * renders with its plan + status, and verifies the fee-waived filter is empty
+ * under the Phase 1 reduced Business take-rate policy.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor, within } from "@testing-library/react";
@@ -124,32 +124,23 @@ describe("WorkerManagementTable", () => {
     expect(screen.getByText("3 results")).toBeInTheDocument();
   });
 
-  it("summarizes the Enterprise audit: live vs expired at a glance", () => {
+  it("does not render fee-waived audit chips when Business uses a reduced rate", () => {
     renderTable([enterpriseWorker, expiredEnterpriseWorker, premiumWorker]);
 
-    // Chips only render for states that have rows.
-    expect(screen.getByText("1 Enterprise live")).toBeInTheDocument();
-    expect(screen.getByText("1 Enterprise expired")).toBeInTheDocument();
-    expect(screen.queryByText(/Expiring soon/)).not.toBeInTheDocument();
-
-    // With no Enterprise workers at all, both chips disappear.
-    cleanup();
-    renderTable([premiumWorker, expiringWorker]);
     expect(screen.queryByText(/Enterprise live/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Enterprise expired/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Expiring soon/)).not.toBeInTheDocument();
   });
 
-  it("narrows to Enterprise (fee-waived) workers when the filter is on", () => {
+  it("returns no rows when the legacy fee-waived filter is enabled", () => {
     renderTable([premiumWorker, enterpriseWorker, expiringWorker]);
 
     fireEvent.click(screen.getByRole("switch"));
 
-    expect(screen.getByText("Bilal Mansour")).toBeInTheDocument();
+    expect(screen.queryByText("Bilal Mansour")).not.toBeInTheDocument();
     expect(screen.queryByText("Khaled Al-Harbi")).not.toBeInTheDocument();
     expect(screen.queryByText("Nasser Al-Qahtani")).not.toBeInTheDocument();
-    // Count line: 1 result · 1 fee-waived.
-    expect(screen.getByText(/1 results/)).toBeInTheDocument();
-    expect(screen.getByText(/1 Fee waived/)).toBeInTheDocument();
+    expect(screen.getByText(/0 results/)).toBeInTheDocument();
   });
 
   it("searches by worker name (active locale) and category", () => {
@@ -216,14 +207,11 @@ describe("WorkerManagementTable", () => {
 
     const links = screen.getAllByRole("link", { name: /View search result/ });
     expect(links).toHaveLength(2);
-    // Enterprise row → the fee-waived search proves the exemption surfaces.
-    // (Row order follows the default planAsc sort, so match by href, not index.)
-    const feeWaivedLink = links.find((l) => (l.getAttribute("href") ?? "").includes("feeWaived=1"));
-    const plainLink = links.find((l) => !(l.getAttribute("href") ?? "").includes("feeWaived=1"));
-    expect(feeWaivedLink).toHaveAttribute("href", "/search?feeWaived=1&q=Bilal%20Mansour");
-    expect(feeWaivedLink).toHaveAttribute("target", "_blank");
-    // Premium row → the fee filter would exclude them, so the plain name query.
-    expect(plainLink).toHaveAttribute("href", "/search?q=Khaled%20Al-Harbi");
+    // Both Business and Pro rows use plain name search links because neither
+    // is fee-exempt under the Phase 1 policy.
+    expect(links.every((l) => !l.getAttribute("href")?.includes("feeWaived=1"))).toBe(true);
+    expect(links.find((l) => l.getAttribute("href") === "/search?q=Bilal%20Mansour")).toHaveAttribute("target", "_blank");
+    expect(links.find((l) => l.getAttribute("href") === "/search?q=Khaled%20Al-Harbi")).toBeInTheDocument();
   });
 
   it("shows the empty state when the filter matches nothing", () => {
@@ -437,9 +425,7 @@ describe("WorkerManagementTable", () => {
       fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
 
       const text = await captured[0]!.text();
-      expect(text).toContain('"Bilal Mansour"');
-      expect(text).not.toContain('"Khaled Al-Harbi"');
-      expect(text).not.toContain('"Nasser Al-Qahtani"');
+      expect(text).toBe('"Name","City","Category","Plan","Status"');
     } finally {
       URL.createObjectURL = origCreate;
       URL.revokeObjectURL = origRevoke;
@@ -458,8 +444,8 @@ describe("WorkerManagementTable", () => {
       </LocaleProvider>
     );
 
-    expect(screen.getByText("Bilal Mansour")).toBeInTheDocument();
-    expect(screen.queryByText("Khaled Al-Harbi")).not.toBeInTheDocument();
-    expect(screen.getByText(/1 results/)).toBeInTheDocument();
+    expect(screen.queryByText("Bilal Mansour")).not.toBeInTheDocument();
+    expect(screen.getByText("No results found")).toBeInTheDocument();
+    expect(screen.getByText(/0 results/)).toBeInTheDocument();
   });
 });

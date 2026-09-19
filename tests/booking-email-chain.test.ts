@@ -143,14 +143,14 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     expect(email.html).not.toContain("Booking details");
   });
 
-  it("an Enterprise worker's confirmation email shows a fee-waived line instead of an amount", async () => {
+  it("a Business worker's confirmation email shows the reduced platform fee", async () => {
     const worker = workerBySlug("khaled-al-harbi-plumbing");
     if (!worker) throw new Error("demo worker missing");
     const original = worker.subscription.plan;
     try {
       worker.subscription.plan = "enterprise";
 
-      // Request → accept on a fresh AVAILABLE slot; exempt plan → fee 0.
+      // Request → accept on a fresh AVAILABLE slot; Business uses the reduced rate.
       const start3 = new Date(Date.now() + 32 * 24 * 3600_000).toISOString();
       const end3 = new Date(Date.now() + 32 * 24 * 3600_000 + 3600_000).toISOString();
       const slot = demoAddSlot(worker.id, start3, end3, "available");
@@ -165,18 +165,17 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       if ("error" in created) throw new Error(`create failed: ${created.error}`);
 
       const booking = await demoRespondToBooking(created.id, { accept: true, quote: 8000 });
-      expect(booking!.platformFee).toBe(0);
+      expect(booking!.platformFee).toBe(500); // $5 floor on an $80 quote
 
       const emailPayload = dispatched.find((p) => p.type === "bookingConfirmed");
       expect(emailPayload).toBeDefined();
-      // The waived marker (0) rides the payload exactly like the booking row.
-      expect(emailPayload!.booking?.platformFee).toBe(0);
+      expect(emailPayload!.booking?.platformFee).toBe(500);
 
       const email = renderBookingEmail(emailPayload!, "en");
       expect(email.html).toContain("Platform fee");
-      expect(email.html).toContain("Waived by the worker's plan");
-      expect(email.html).not.toContain("$6"); // no amount — the fee is waived
-      expect(email.text).toContain("Platform fee: Waived by the worker's plan");
+      expect(email.html).toContain("$5");
+      expect(email.html).not.toContain("Waived by the worker's plan");
+      expect(email.text).toContain("Platform fee: $5");
     } finally {
       worker.subscription.plan = original;
     }

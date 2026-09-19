@@ -193,7 +193,11 @@ export async function saveFeeRuleSet(
     // Same carriage as leadMarket: the plan-catalog overrides are attached
     // AFTER the take-rate normalizer (which deliberately knows nothing about
     // the subscription catalog) and clamped on every write.
-    planCatalog: normalizePlanCatalogOverrides({ ...current.planCatalog, ...input.planCatalog }),
+    planCatalog: normalizePlanCatalogOverrides({
+      ...current.planCatalog,
+      ...input.planCatalog,
+      ...(input.planCatalog?.trialDaysByPlan ? { trialDaysByPlan: input.planCatalog.trialDaysByPlan } : {}),
+    }),
     referralConfig: { ...(current.referralConfig ?? DEFAULT_REFERRAL_CONFIG), ...input.referralConfig } as import("@/lib/data/referral").ReferralProgramConfig,
   };
 

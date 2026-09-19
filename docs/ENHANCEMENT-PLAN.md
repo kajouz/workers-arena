@@ -8,6 +8,14 @@
 
 ---
 
+## Phase 1 — pricing clarity and lead-quality protection (approved)
+
+- ✅ **Business reduced take rate:** Business now pays 4% on completed quoted jobs instead of receiving a full exemption. Existing fee snapshots are unchanged; only new accepts use the new rule.
+- ✅ **Differentiated trials:** Starter/Growth receive 30 days, Pro receives 14 days, and Business is assisted by default. Trial eligibility is server-side and once per worker.
+- ✅ **Transparent credit economics:** base credits are priced at $1 each; bonus credits are displayed separately and are not silently treated as cash value.
+- ✅ **Lead refund workflow:** workers can submit one request per purchased lead for invalid contact, duplicate, wrong category/area, not requested, or unreachable leads. Admins approve/reject/partially approve; approvals append credit adjustments and preserve the original spend.
+- ⏸️ **Payment automation:** Stripe and other gateways remain deliberately deferred.
+
 ## 1. Baseline — what's already shipped (the launchpad)
 
 The platform is further along than the roadmap's checkbox state suggests:
@@ -82,7 +90,7 @@ Improvements to how customers, workers, and admins *move through* the product. O
 
 ### 3.4 Differentiation / AI (P2)
 
-- [x] **30-day free trial — ✅ shipped** — first month free on any plan, auto-applied at onboarding. `TRIAL_PERIOD_DAYS = 30`.** (`Review.aiFlags`), **AI profile assistance** (bio/pricing/category suggestions), **AI concierge** ("find me an emergency plumber in Beirut tonight"), **video profiles**, **trust-program tiers** (ID/license/background-check badges), **progressive subscription gating**, **more locales** (Urdu/Hindi/Filipino/French — the `Language` model supports it).
+- [x] **Plan-specific free trials — ✅ shipped** — Starter/Growth receive 30 days, Pro receives 14 days, Business is assisted by default, and onboarding applies the Starter policy server-side. `trialDaysByPlan` is admin-editable.** (`Review.aiFlags`), **AI profile assistance** (bio/pricing/category suggestions), **AI concierge** ("find me an emergency plumber in Beirut tonight"), **video profiles**, **trust-program tiers** (ID/license/background-check badges), **progressive subscription gating**, **more locales** (Urdu/Hindi/Filipino/French — the `Language` model supports it).
 
 ### 3.5 Mobile (already fully planned)
 

@@ -333,9 +333,9 @@ describe("M5 platform fee (take rate — docs/booking-take-rate.md)", () => {
     expect(computePlatformFee(8000, { exempt: true })).toBe(0);
   });
 
-  it("isPlanFeeExempt — enterprise only, case-insensitive (DB enum)", () => {
-    expect(isPlanFeeExempt("enterprise")).toBe(true);
-    expect(isPlanFeeExempt("ENTERPRISE")).toBe(true);
+  it("isPlanFeeExempt — Business uses the reduced fee policy", () => {
+    expect(isPlanFeeExempt("enterprise")).toBe(false);
+    expect(isPlanFeeExempt("ENTERPRISE")).toBe(false);
     expect(isPlanFeeExempt("premium")).toBe(false);
     expect(isPlanFeeExempt(undefined)).toBe(false);
   });
@@ -358,7 +358,7 @@ describe("M5 platform fee (take rate — docs/booking-take-rate.md)", () => {
     expect(booking.platformFeeRateBps).toBeUndefined();
   });
 
-  it("an Enterprise worker's quoted accept stores fee 0 but keeps the audit rate", async () => {
+  it("a Business worker's quoted accept uses the reduced 4% rate", async () => {
     const w = workerBySlug("jad-el-khoury-electrical")!;
     const original = w.subscription.plan;
     try {
@@ -375,8 +375,8 @@ describe("M5 platform fee (take rate — docs/booking-take-rate.md)", () => {
         })) ?? { error: "not-found" }
       );
       const booking = bookingOf((await respondToBooking(created.id, { accept: true, quote: 8000 })) ?? { error: "not-found" });
-      expect(booking.platformFee).toBe(0);
-      expect(booking.platformFeeRateBps).toBe(700);
+      expect(booking.platformFee).toBe(500);
+      expect(booking.platformFeeRateBps).toBe(400);
     } finally {
       w.subscription.plan = original;
     }
@@ -474,8 +474,8 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
       await respondToBooking(created.id, { accept: true, quote: 8000 });
 
       const s = await getPlatformFeeStats(30);
-      expect(s.count).toBe(0); // fee 0 → excluded by the tally
-      expect(s.grossMinor).toBe(0);
+      expect(s.count).toBe(1);
+      expect(s.grossMinor).toBe(500);
     } finally {
       w.subscription.plan = original;
     }
@@ -1325,7 +1325,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     expect(b.pendingMinor).toBe(0);
   });
 
-  it("an Enterprise worker's full quote is credited (fee 0 → no deduction)", async () => {
+  it("a Business worker's quote is credited after the reduced fee", async () => {
     const w = workerBySlug("jad-el-khoury-electrical")!;
     const original = w.subscription.plan;
     try {
@@ -1345,7 +1345,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
       await transitionBooking(created.id, "inProgress");
       await transitionBooking(created.id, "completed"); // staged
       await confirmBookingCompletion(created.id);
-      expect((await getWorkerBalance(w.id)).availableMinor).toBe(10000); // full quote
+      expect((await getWorkerBalance(w.id)).availableMinor).toBe(9500); // $100 quote less 4% fee
     } finally {
       w.subscription.plan = original;
     }

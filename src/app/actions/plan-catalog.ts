@@ -31,6 +31,12 @@ const payloadSchema = z.object({
     enterprise: planRowSchema,
   }),
   trialDays: z.coerce.number().int().min(0).max(90),
+  trialDaysByPlan: z.object({
+    basic: z.coerce.number().int().min(0).max(90),
+    professional: z.coerce.number().int().min(0).max(90),
+    premium: z.coerce.number().int().min(0).max(90),
+    enterprise: z.coerce.number().int().min(0).max(90),
+  }).default({ basic: 30, professional: 30, premium: 14, enterprise: 0 }),
   categoryTiers: z.object({
     low: z.coerce.number().min(0).max(3),
     mid: z.coerce.number().min(0).max(3),
@@ -85,6 +91,7 @@ export async function getPlanCatalogAction(): Promise<PlanCatalogPayload> {
         enterprise: { monthlyPriceUsd: 199, includedLeads: -1, extraLeadPriceUsd: 0, searchBoost: 2 },
       },
       trialDays: 30,
+      trialDaysByPlan: { basic: 30, professional: 30, premium: 14, enterprise: 0 },
       categoryTiers: { low: 0.5, mid: 1, high: 1.5 },
     };
   }
@@ -92,6 +99,7 @@ export async function getPlanCatalogAction(): Promise<PlanCatalogPayload> {
   return {
     plans: catalog.plans,
     trialDays: catalog.trialDays,
+    trialDaysByPlan: catalog.trialDaysByPlan,
     categoryTiers: catalog.categoryTiers,
   };
 }

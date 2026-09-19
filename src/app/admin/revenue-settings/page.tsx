@@ -15,6 +15,7 @@ import {
 } from "@/lib/data/fee-rules-store";
 import { listCreditLedger } from "@/lib/data/credit-ledger";
 import { listLeadRebates } from "@/lib/data/lead-rebate";
+import { listLeadRefunds } from "@/lib/data/lead-refund-store";
 import { getAllLeadRatings } from "@/lib/data/lead-market-store";
 import { loadPlanCatalog } from "@/lib/data/fee-rules-store";
 import { getCategories, listLeadOffers } from "@/lib/data/repo";
@@ -35,7 +36,7 @@ export default async function RevenueSettingsPage() {
   // recent fee snapshots, loaded server-side (the panel edits the first and
   // audits the last two). §24 adds the campaigns, their snapshot-derived
   // attribution and the credit ledger the bonuses land in.
-  const [feeRuleSet, feeVersions, feeSnapshots, attribution, creditLedger, categories, leadOffers, leadRebates, planCatalog] =
+  const [feeRuleSet, feeVersions, feeSnapshots, attribution, creditLedger, categories, leadOffers, leadRebates, refundRequests, planCatalog] =
     await Promise.all([
       loadActiveFeeRuleSet(),
       listFeeRuleSetVersions(5),
@@ -45,6 +46,7 @@ export default async function RevenueSettingsPage() {
       getCategories(),
       listLeadOffers(30),
       listLeadRebates(50),
+      listLeadRefunds(),
       loadPlanCatalog(),
     ]);
 
@@ -61,13 +63,14 @@ export default async function RevenueSettingsPage() {
         />
         {/* §7–§10 — the qualified lead marketplace: its policy, the offers it
             created and the credit ledger its purchases debit. */}
-        <LeadMarketPanel ruleSet={feeRuleSet} offers={leadOffers} credits={creditLedger} rebates={leadRebates} ratings={getAllLeadRatings()} />
+        <LeadMarketPanel ruleSet={feeRuleSet} offers={leadOffers} credits={creditLedger} rebates={leadRebates} ratings={getAllLeadRatings()} refundRequests={refundRequests} />
         <ReferralConfigPanel ruleSet={feeRuleSet} />
         {/* §5 plans — admin-editable subscription pricing (overrides over the shipped catalog). */}
         <PlanCatalogPanel
           initial={{
             plans: planCatalog.plans,
             trialDays: planCatalog.trialDays,
+            trialDaysByPlan: planCatalog.trialDaysByPlan,
             categoryTiers: planCatalog.categoryTiers,
           }}
         />

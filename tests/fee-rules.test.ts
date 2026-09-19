@@ -141,9 +141,9 @@ describe("computePlatformFee — backward compatibility", () => {
     expect(computePlatformFee(0)).toBe(0);
   });
 
-  it("keeps the legacy exemption truth for enterprise plans", () => {
-    expect(isPlanFeeExempt("enterprise")).toBe(true);
-    expect(isPlanFeeExempt("ENTERPRISE")).toBe(true);
+  it("uses the reduced Business rate rather than a full exemption", () => {
+    expect(isPlanFeeExempt("enterprise")).toBe(false);
+    expect(isPlanFeeExempt("ENTERPRISE")).toBe(false);
     expect(isPlanFeeExempt("professional")).toBe(false);
     expect(isPlanFeeExempt(undefined)).toBe(false);
   });
@@ -236,6 +236,7 @@ describe("resolveFeeRule — layer precedence", () => {
   it("treats a plan exemption as absolute — no promotion can re-charge a waived plan", () => {
     const set: FeeRuleSet = {
       ...DEFAULT_FEE_RULE_SET,
+      planTiers: { business: { exempt: true } },
       promotions: [{ id: "surge", label: "Surge", rateBps: 2000 }],
     };
     const { rule, sources } = resolveFeeRule(set, { plan: "enterprise", promoCode: "surge" });
@@ -371,7 +372,7 @@ describe("buildFeeSnapshot — the §6 record", () => {
   });
 
   it("reports a waiver with the recorded rate", () => {
-    const { resolved, computation } = priceJob(DEFAULT_FEE_RULE_SET, 80_000, { plan: "enterprise" });
+    const { resolved, computation } = priceJob({ ...DEFAULT_FEE_RULE_SET, planTiers: { business: { exempt: true } } }, 80_000, { plan: "enterprise" });
     const snapshot = buildFeeSnapshot({
       id: "c",
       jobId: "bk-3",
@@ -386,10 +387,10 @@ describe("buildFeeSnapshot — the §6 record", () => {
     expect(snapshot.exempt).toBe(true);
     expect(snapshot.feeMinor).toBe(0);
     expect(snapshot.netMinor).toBe(80_000);
-    expect(snapshot.planTier).toBe("business");
-    expect(snapshot.sources).toEqual(["plan-exempt"]);
+    expect(snapshot.planTier).toBe("business");    expect(snapshot.sources).toEqual(["plan-exempt"]);
   });
 });
+
 
 describe("§24 promotion campaigns", () => {
   const promo = { id: "launch", label: "Launch", rateBps: 400, minMinor: 0, maxMinor: null };
@@ -452,11 +453,12 @@ describe("tierRateTable", () => {
 });
 
 describe("demo store + adapter stamping", () => {
-  it("starts on the shipped default (7%, min $5, max $300, Business waived)", () => {
+  it("starts on the shipped default (7%, min $5, max $300, Business 4%)", () => {
     const active = activeFeeRuleSetSync();
     expect(active.version).toBe(1);
     expect(active.defaults.rateBps).toBe(700);
-    expect(resolveFeeRule(active, { plan: "enterprise" }).rule.exempt).toBe(true);
+    expect(resolveFeeRule(active, { plan: "enterprise" }).rule.rateBps).toBe(400);
+    expect(resolveFeeRule(active, { plan: "enterprise" }).rule.exempt).toBe(false);
   });
 
   it("publishes an appended, audited version on save", async () => {

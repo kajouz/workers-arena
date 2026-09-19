@@ -101,7 +101,7 @@ export function WorkerDashboard({
   const sub = worker.subscription;
   const subStatus = subscriptionStatus(sub);
   // §Trial — a $0 monthly-shaped subscription stamped TRIAL-<PLAN> is the
-  // 30-day free trial (docs/subscription-trial.md); the card shows trial
+  // Plan-specific free trial (docs/subscription-trial.md); the card shows trial
   // copy instead of a price and the renew CTA reads "Keep your plan".
   const isTrial = !!sub && sub.price === 0 && sub.invoiceNo?.startsWith("TRIAL-");
   const daysLeft = Math.max(0, daysUntil(sub.expiresAt));

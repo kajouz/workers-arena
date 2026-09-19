@@ -340,14 +340,12 @@ describe("filtersToWhere (SearchFilters → Prisma where)", () => {
     expect(filtersToWhere({ includeExpired: true }).subscription).toBeUndefined();
   });
 
-  it("narrows the subscription filter to fee-waived (Enterprise) plans", () => {
-    // Both guards merge into one relation filter when active together.
+  it("returns no default fee-waived plans after Business moves to a reduced take rate", () => {
     expect(filtersToWhere({ feeWaivedOnly: true }).subscription).toEqual({
-      is: { status: { not: "EXPIRED" }, plan: { in: ["ENTERPRISE"] } },
+      is: { status: { not: "EXPIRED" }, plan: { in: [] } },
     });
-    // includeExpired drops the status guard but keeps the plan narrow.
     expect(filtersToWhere({ includeExpired: true, feeWaivedOnly: true }).subscription).toEqual({
-      is: { plan: { in: ["ENTERPRISE"] } },
+      is: { plan: { in: [] } },
     });
     expect(filtersToWhere({}).subscription).not.toHaveProperty("is.plan");
   });

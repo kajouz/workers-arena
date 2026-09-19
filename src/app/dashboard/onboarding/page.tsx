@@ -6,7 +6,7 @@ import { OnboardingForm } from "@/components/dashboard/onboarding-form";
 /**
  * Worker onboarding — the page a newly registered worker lands on after
  * registration. It collects the minimum profile fields (name, category,
- * city, area, phone) and creates the Worker row + 30-day trial subscription
+ * city, area, phone) and creates the Worker row + free Starter trial subscription
  * in one server action.
  *
  * Workers who already have a profile are redirected to the dashboard.
@@ -35,7 +35,7 @@ export default async function OnboardingPage() {
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-foreground">Complete Your Profile</h1>
           <p className="text-muted-foreground mt-2">
-            Set up your worker profile to start receiving jobs. Your 30-day free trial begins today.
+            Set up your worker profile to start receiving jobs. Your free Starter trial begins today.
           </p>
         </div>
         <OnboardingForm

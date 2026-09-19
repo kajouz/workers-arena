@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 
-export function RenewDialog({ worker, trial = false, planCatalog }: { worker: Worker; /** §Trial — the worker is on the 30-day free trial: the CTA reads "Keep your plan" and the dialog shows the trial banner. */ trial?: boolean; planCatalog?: ResolvedPlanCatalog }) {
+export function RenewDialog({ worker, trial = false, planCatalog }: { worker: Worker; /** §Trial — the worker is on a free trial: the CTA reads "Keep your plan" and the dialog shows the trial banner. */ trial?: boolean; planCatalog?: ResolvedPlanCatalog }) {
   const { locale, t } = useLocale();
   const router = useRouter();
   const [plan, setPlan] = useState<SubscriptionPlan>(worker.subscription.plan);
@@ -66,7 +66,7 @@ export function RenewDialog({ worker, trial = false, planCatalog }: { worker: Wo
           </div>
         )}
 
-        {/* Billing period — annual pays 10 months for 12 (2 months free). */}
+        {/* Billing period — annual pays 9 months for 12 (3 months free). */}
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-800">
           <button
             onClick={() => setPeriod("monthly")}

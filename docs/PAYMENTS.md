@@ -2,6 +2,8 @@
 
 [← Back to docs index](README.md)
 
+> **Phase 1 boundary:** payment automation is intentionally deferred. Subscriptions, lead-credit top-ups, verification, advertising, and booking deposits continue through the existing OMT/Whish manual confirmation flow. Lead-quality refunds return platform credits after admin review; they are not automatic cash refunds. Stripe/card automation remains a later phase.
+
 WorkersArena supports **eight payment methods** through a modular gateway abstraction, so adding a provider is a single-file change. The Lebanon launch uses **OMT and Whish Money** as the live payment rails — no gateway keys required.
 
 ## Supported methods
@@ -82,7 +84,7 @@ interface PaymentProvider {
 | **Business** | $199 | $1,791 | Unlimited |
 
 - **Category-adjusted pricing**: low-value trades (cleaning, gardening) pay 0.5×, high-value trades (HVAC, mechanic) pay 1.5×
-- **30-day free trial**: first month free on any plan (auto-applied at onboarding)
+- **Plan-specific free trial**: Starter/Growth 30 days, Pro 14 days, and Business assisted by default (auto-applied at onboarding)
 - **Annual billing**: pay for 9 months, get 12 (25% discount)
 - **Admin-editable**: all prices, quotas, and features configurable via `/admin/revenue-settings`
 
@@ -99,10 +101,10 @@ Workers buy platform credits to purchase qualified leads.
 
 | Package | Credits | Price | Bonus | Total |
 |---------|---------|-------|-------|-------|
-| Starter | 10 | $25 | 0 | 10 |
-| Popular | 25 | $50 | 5 | 30 |
-| Professional | 50 | $90 | 15 | 65 |
-| Enterprise | 100 | $150 | 30 | 130 |
+| Starter | 10 | $10 | 0 | 10 |
+| Popular | 25 | $25 | 5 | 30 |
+| Professional | 50 | $50 | 15 | 65 |
+| Enterprise | 100 | $100 | 30 | 130 |
 
 **Flow:**
 1. Worker clicks "Buy More" on credit balance card → selects package + payment method (OMT/Whish)
@@ -232,7 +234,7 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Starter | 9% | $5 | $300 |
 | Growth | 7% | $5 | $300 |
 | Pro | 5% | $5 | $300 |
-| Business | 4% (or exempt) | $5 | $300 |
+| Business | 4% reduced | $5 | $300 |
 
 - Applied at **accept-with-quote** (immutable snapshot)
 - Collected at **booking completion**

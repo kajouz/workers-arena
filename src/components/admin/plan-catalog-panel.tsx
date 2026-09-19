@@ -69,6 +69,7 @@ export function PlanCatalogPanel({ initial }: { initial: PlanCatalogPayload }) {
         enterprise: def.plans!.enterprise,
       },
       trialDays: def.trialDays ?? 30,
+      trialDaysByPlan: def.trialDaysByPlan,
       categoryTiers: def.categoryTiers ?? { low: 0.5, mid: 1, high: 1.5 },
     });
     toast("info", t("admin.planCatalog.resetToast"));
@@ -136,11 +137,25 @@ export function PlanCatalogPanel({ initial }: { initial: PlanCatalogPayload }) {
 
         {/* Trial + category multipliers */}
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("admin.planCatalog.trialDays")}</span>
-            {num(config.trialDays, (v) => setConfig((c) => ({ ...c, trialDays: v })))}
-            <span className="block text-[11px] text-ink-500 dark:text-ink-400">{t("admin.planCatalog.trialDaysHint")}</span>
-          </label>
+          <div className="space-y-2">
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("admin.planCatalog.trialDays")}</span>
+              {num(config.trialDays, (v) => setConfig((c) => ({ ...c, trialDays: v })))}
+              <span className="block text-[11px] text-ink-500 dark:text-ink-400">{t("admin.planCatalog.trialDaysHint")}</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {PLAN_KEYS.map((key) => (
+                <label key={key} className="space-y-1">
+                  <span className="text-[11px] font-medium text-ink-500 dark:text-ink-400">
+                    {locale === "ar" ? PLAN_LABELS[key].ar : PLAN_LABELS[key].en}
+                  </span>
+                  {num(config.trialDaysByPlan[key], (v) =>
+                    setConfig((c) => ({ ...c, trialDaysByPlan: { ...c.trialDaysByPlan, [key]: v } }))
+                  )}
+                </label>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-3 gap-2">
             <label className="space-y-1">
               <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("admin.planCatalog.tierLow")}</span>

@@ -144,20 +144,15 @@ describe("searchWorkers — pagination", () => {
 });
 
 describe("feeWaivedOnly filter (M5 — docs/booking-take-rate.md)", () => {
-  it("narrows results to Enterprise (fee-waived) workers", () => {
+  it("returns no default matches because Business now pays the reduced 4% rate", () => {
     const waived = searchWorkers({ feeWaivedOnly: true });
-    expect(waived.total).toBeGreaterThan(0);
-    expect(waived.items.every((w) => isPlanFeeExempt(w.subscription.plan))).toBe(true);
-    // Bilal is the seeded Enterprise worker; khaled (premium) never appears.
-    expect(waived.items.some((w) => w.slug === "bilal-mansour-cleaning")).toBe(true);
-    expect(waived.items.some((w) => w.slug === "khaled-al-harbi-plumbing")).toBe(false);
+    expect(waived.total).toBe(0);
+    expect(waived.items).toEqual([]);
   });
 
-  it("passes through the repo seam with W1 signals stamped", async () => {
+  it("passes through the repo seam without inventing fee exemptions", async () => {
     const { items } = await getWorkers({ feeWaivedOnly: true });
-    expect(items.length).toBeGreaterThan(0);
-    expect(items.every((w) => isPlanFeeExempt(w.subscription.plan))).toBe(true);
-    expect(items.every((w) => w.responseRate !== undefined)).toBe(true);
+    expect(items).toEqual([]);
   });
 });
 

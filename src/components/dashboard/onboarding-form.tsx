@@ -118,7 +118,7 @@ export function OnboardingForm({
       )}
 
       <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
-        🎉 Your <strong>30-day free trial</strong> starts today. You won&apos;t be charged until
+        🎉 Your free Starter trial starts today. You won&apos;t be charged until
         the trial ends. Cancel anytime.
       </div>
 

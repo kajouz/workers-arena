@@ -1,6 +1,7 @@
 # WorkersArena — Business Model, Revenue & Improvement Plan
 
-> Last updated: September 17, 2026
+> Phase 1 implemented: reduced Business take rate, differentiated trials, transparent credits, and admin-reviewed lead-quality refunds. Stripe/payment automation remains deferred.
+> Last updated: September 18, 2026
 
 ---
 
@@ -40,14 +41,14 @@ Four tiers, USD/month (admin-editable via plan catalog):
 | **Starter** | $15 | $135 | Profile, search listing, 3 leads/mo |
 | **Growth** | $39 | $351 | + Featured placement, 10 leads/mo, verification |
 | **Pro** | $99 | $891 | + Priority matching, analytics, 25 leads/mo, emergency |
-| **Business** | $199 | $1,791 | + Fee exemption, unlimited leads, team management |
+| **Business** | $199 | $1,791 | + reduced 4% transaction fee, unlimited leads, team management |
 
 **Category-adjusted pricing** — trades are classified by average job value:
 - **Low-value** (cleaning, gardening, pest control): 0.5× multiplier → Starter $7.50/mo
 - **Mid-value** (plumbing, electrical, carpentry): 1.0× multiplier → Starter $15/mo
 - **High-value** (HVAC, satellite, mechanic): 1.5× multiplier → Starter $22.50/mo
 
-**30-day free trial** — new workers get their first month free on any plan. The trial is auto-applied during onboarding.
+**Phase 1 trial policy** — Starter/Growth receive 30 days, Pro receives 14 days, and Business is assisted by default. Trial eligibility is checked server-side once per worker; an expired subscription does not reopen it.
 
 **Annual billing** — pay for 9 months, get 12 (25% discount, 3 months free).
 
@@ -66,11 +67,11 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Starter | 9% | $5 | $300 |
 | Growth | 7% | $5 | $300 |
 | Pro | 5% | $5 | $300 |
-| Business | 4% (or exempt) | $5 | $300 |
+| Business | **4% reduced rate** | $5 | $300 |
 
 - Applied at **accept-with-quote** (immutable snapshot)
 - Collected at **booking completion**
-- Enterprise plans can be set fully exempt
+- Business uses the default reduced 4% rate; an admin may still explicitly configure an exemption as a separate policy change
 - Admin can set per-category, per-promotion overrides
 - Fee snapshot is auditable (`PlatformFeeSnapshot` model)
 
@@ -107,14 +108,16 @@ When a bought lead converts to a completed job:
 
 | Package | Credits | Price | Bonus | Total |
 |---------|---------|-------|-------|-------|
-| Starter | 10 | $25 | 0 | 10 |
-| Popular | 25 | $50 | 5 | 30 |
-| Professional | 50 | $90 | 15 | 65 |
-| Enterprise | 100 | $150 | 30 | 130 |
+| Starter | 10 | $10 | 0 | 10 |
+| Popular | 25 | $25 | 5 | 30 |
+| Professional | 50 | $50 | 15 | 65 |
+| Enterprise | 100 | $100 | 30 | 130 |
 
 - **Payment**: OMT/Whish manual rails (admin confirms → credits granted)
 - **Stripe**: planned but not yet connected
-- Credits are consumed when buying leads (1 credit = $1)
+- Base credits are priced transparently at $1 each; bonus credits are promotional and displayed separately
+- Credits are consumed when buying leads
+- Workers may request a full or partial credit refund once per purchased lead for invalid contact, duplicate, wrong category/area, not requested, or unreachable leads; admins approve/reject through the Phase 1 review queue
 - Admin can adjust credit packages via `/admin/revenue-settings`
 
 ### 2.6 Company Advertising (BUILT — not yet monetized)

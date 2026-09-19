@@ -20,6 +20,7 @@ import { getSession } from "@/lib/auth-demo";
 import { buyLeadOffer, getWorkerById, getWorkerBySlug, submitLeadRating } from "@/lib/data/repo";
 import { saveFeeRuleSet } from "@/lib/data/fee-rules-store";
 import { grantCredits } from "@/lib/data/credit-ledger";
+import { requestLeadRefund, decideLeadRefund } from "@/lib/data/lead-refund-store";
 import {
   LEAD_GRADES,
   normalizeLeadMarketConfig,
@@ -208,6 +209,32 @@ export async function grantWorkerCreditsAction(input: {
     console.error("[lead-market] credit grant failed", error);
     return { error: "failed" };
   }
+}
+
+// ──────────────────── Lead-quality refund workflow (Phase 1) ────────────────────
+
+export async function requestLeadRefundAction(input: { offerId: string; reason: string; evidence?: string }): Promise<{ ok?: boolean; error?: string }> {
+  const workerId = await sessionWorkerId();
+  if (!workerId) return { error: "unauthorized" };
+  const parsed = z.object({ offerId: z.string().min(1).max(120), reason: z.string().min(1).max(40), evidence: z.string().max(1000).optional() }).safeParse(input);
+  if (!parsed.success) return { error: "invalid" };
+  const result = await requestLeadRefund({ ...parsed.data, workerId });
+  if (!result.ok) return { error: result.error };
+  revalidatePath("/dashboard/leads");
+  revalidatePath("/admin/revenue-settings");
+  return { ok: true };
+}
+
+export async function decideLeadRefundAction(input: { requestId: string; approve: boolean; approvedCredits?: number; adminNote?: string }): Promise<{ ok?: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { error: "unauthorized" };
+  const parsed = z.object({ requestId: z.string().min(1).max(120), approve: z.boolean(), approvedCredits: z.number().int().min(0).max(100000).optional(), adminNote: z.string().max(500).optional() }).safeParse(input);
+  if (!parsed.success) return { error: "invalid" };
+  const result = await decideLeadRefund({ ...parsed.data, decidedBy: session.name });
+  if (!result) return { error: "not-found" };
+  revalidatePath("/admin/revenue-settings");
+  revalidatePath("/dashboard/leads");
+  return { ok: true };
 }
 
 // ──────────────────── Lead rating action (§12) ────────────────────

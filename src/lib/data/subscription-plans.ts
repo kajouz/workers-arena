@@ -172,7 +172,10 @@ export const PLAN_CATALOG: readonly PlanCatalogEntry[] = [
     monthlyPriceUsd: 199,
     includedLeads: -1, // unlimited
     extraLeadPriceUsd: 0,
-    feeExempt: true,
+    // Business receives a reduced transaction fee, not a full exemption.
+    // This preserves platform revenue while making the plan's economics easy
+    // to explain: higher volume earns a lower take rate.
+    feeExempt: false,
     searchBoost: 2.0,
     verificationIncluded: true,
     emergencyAvailable: true,
@@ -234,8 +237,21 @@ export function annualSavings(
 
 // ── Trial support ─────────────────────────────────────────────────────────
 
-/** Trial period in days. */
+/** Default trial period for the entry plans. */
 export const TRIAL_PERIOD_DAYS = 30;
+
+/** Recommended Phase 1 trial policy: 30 days for Starter/Growth, 14 days for
+ * Pro, and Business is assisted rather than automatically provisioned. */
+export const TRIAL_DAYS_BY_PLAN: Record<SubscriptionPlan, number> = {
+  basic: 30,
+  professional: 30,
+  premium: 14,
+  enterprise: 0,
+};
+
+export function trialDaysForPlan(plan: SubscriptionPlan): number {
+  return TRIAL_DAYS_BY_PLAN[plan] ?? TRIAL_PERIOD_DAYS;
+}
 
 /** Whether a new worker is eligible for a free trial. */
 export function isTrialEligible(subscription?: { startedAt?: string } | null): boolean {
@@ -322,7 +338,7 @@ export function effectiveTakeRate(
     basic: 900,        // 9%
     professional: 700, // 7%
     premium: 500,      // 5%
-    enterprise: catalog.feeExempt ? 0 : 400, // 0% or 4%
+    enterprise: 400,   // Business: reduced 4%, not exempt
   };
 
   const feeRate = (feeRateBps[plan] ?? 700) / 10_000;

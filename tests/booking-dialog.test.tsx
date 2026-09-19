@@ -54,7 +54,7 @@ const worker = {
   ],
 } as unknown as Worker;
 
-// Enterprise — exempt from the platform fee (docs/booking-take-rate.md §5).
+// Business — reduced 4% platform fee (docs/fee-rules.md).
 const enterpriseWorker = {
   ...worker,
   subscription: { plan: "enterprise", status: "active" },
@@ -220,7 +220,7 @@ describe("BookingDialog step flow", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
-  it("shows the fee-waiver note on the details step for an Enterprise worker", () => {
+  it("does not show a fee-waiver note for a Business worker on the reduced-rate plan", () => {
     renderDialog(enterpriseWorker);
     openDialog();
 
@@ -232,9 +232,8 @@ describe("BookingDialog step flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "09:00 – 10:00" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    // The summary step carries the waiver note next to the cancel policy — the
-    // SAME copy (booking.feeWaivedNote) the booking row shows afterwards.
-    expect(screen.getByText("Fee waived by the worker's plan")).toBeInTheDocument();
+    // Business is discounted, not exempt, so no waiver note is shown.
+    expect(screen.queryByText("Fee waived by the worker's plan")).not.toBeInTheDocument();
     expect(screen.getByText("Cancellation & refunds")).toBeInTheDocument();
     expect(screen.getByText("Request auto-expiry")).toBeInTheDocument();
   });

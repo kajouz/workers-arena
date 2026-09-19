@@ -4,7 +4,7 @@
  * (monetization plan §5 configurable fee system + §6 immutable snapshot)
  * ────────────────────────────────────────────────────────────────────────────
  * The M5 take rate (docs/booking-take-rate.md) was one global constant:
- * 700 bps, min $5, max $300, Enterprise exempt. That constant still works
+ * 700 bps, min $5, max $300. That constant still works
  * (it IS the default rule set), but every fee is now resolved through a
  * VERSIONED rule set an admin can edit, so the platform can price:
  *
@@ -247,18 +247,18 @@ export interface PlatformFeeSnapshot {
 
 /**
  * THE DEFAULT RULE SET — reproduces the shipped M5 take rate exactly
- * (7.0%, min $5, max $300, Business/Enterprise exempt), so enabling the
- * engine changes no existing fee. `FEE_LADDER_PRESET` is the §5 ladder an
- * admin can apply in one click, and the opposite: adopting it is a pricing
- * decision, not a code change.
+ * (7.0%, min $5, max $300, with Business at a reduced 4% rate), so the
+ * platform keeps a success-based transaction stream while Business workers
+ * receive a meaningful discount. `FEE_LADDER_PRESET` remains the editable
+ * recommended ladder.
  */
 export const DEFAULT_FEE_RULE_SET: FeeRuleSet = {
   id: "fee-rules-v1",
   version: 1,
   currency: "USD",
-  label: "Default — 7% (min $5, max $300), Business exempt",
+  label: "Default — 7% (min $5, max $300), Business 4%",
   defaults: { rateBps: 700, minMinor: 500, maxMinor: 30_000, fixedMinor: 0, exempt: false },
-  planTiers: { business: { exempt: true } },
+  planTiers: { business: { rateBps: 400, exempt: false } },
   categories: {},
   promotions: [],
   updatedAt: "2026-08-12T00:00:00.000Z",

@@ -108,11 +108,11 @@ export function MobileOnboarding({
                 Welcome to WorkersArena
               </h1>
               <p className="text-muted-foreground mt-2">
-                Your 30-day free trial starts now. No credit card required.
+                Your free Starter trial starts now. No credit card required.
               </p>
             </div>
             <div className="bg-brand-500/5 rounded-xl p-4 text-sm text-brand-700 dark:text-brand-300">
-              🎉 Get access to qualified leads, booking management, and payment tracking — all free for 30 days.
+              🎉 Get access to qualified leads, booking management, and payment tracking — free during your trial.
             </div>
           </div>
         )}

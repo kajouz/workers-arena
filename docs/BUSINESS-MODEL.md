@@ -31,14 +31,14 @@ Four tiers (USD/month, `PLAN_CATALOG` in `src/lib/data/subscription-plans.ts`; m
 | **Starter** | $15 | $135 | 3 | Profile, search listing |
 | **Growth** | $39 | $351 | 10 | + Featured, verification |
 | **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
-| **Business** | $199 | $1,791 | Unlimited | + Fee exemption, team mgmt |
+| **Business** | $199 | $1,791 | Unlimited | + reduced 4% platform fee, team mgmt |
 
 **Category-adjusted pricing** — trades are classified by average job value:
 - **Low-value** (cleaning, gardening, pest control): 0.5× multiplier → Starter $7.50/mo
 - **Mid-value** (plumbing, electrical, carpentry): 1.0× multiplier → Starter $15/mo
 - **High-value** (HVAC, satellite, mechanic): 1.5× multiplier → Starter $22.50/mo
 
-**30-day free trial** — new workers get their first month free on any plan.
+**Phase 1 trial policy** — new workers receive 30 days on Starter/Growth, 14 days on Pro, and Business is an assisted trial by default. Eligibility is server-side and once per worker; a lapse never reopens a trial.
 
 **Annual billing** — pay for 9 months, get 12 (25% discount, 3 months free).
 
@@ -49,7 +49,7 @@ Mechanics that make this model work:
 - **Invoicing:** every renewal mints an `INV-*` invoice shown on the worker dashboard.
 - **Admin-editable:** all prices, quotas, and features configurable via `/admin/revenue-settings`.
 
-**Observation:** this is a classic freemium-to-paid **"sell visibility"** model, comparable to Yelp/decorilla-style lead-gen listings. ARPU is capped by what a solo worker will pay for visibility; the ceiling is low relative to transaction revenue.
+**Observation:** this is a classic freemium-to-paid **"sell visibility"** model, comparable to Yelp-style lead-gen listings. ARPU is capped by what a solo worker will pay for visibility; the ceiling is low relative to transaction revenue.
 
 ### 2.2 Platform fee / take rate — the headline revenue lever
 
@@ -61,7 +61,7 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Starter | 9% | $5 | $300 |
 | Growth | 7% | $5 | $300 |
 | Pro | 5% | $5 | $300 |
-| Business | 4% (or exempt) | $5 | $300 |
+| Business | **4% reduced rate** | $5 | $300 |
 
 - Applied at **accept-with-quote** (immutable snapshot)
 - Collected at **booking completion**
@@ -93,16 +93,20 @@ Customer requests are **graded** (bronze/silver/gold/emergency) and offered to a
 
 | Package | Credits | Price | Bonus | Total |
 |---------|---------|-------|-------|-------|
-| Starter | 10 | $25 | 0 | 10 |
-| Popular | 25 | $50 | 5 | 30 |
-| Professional | 50 | $90 | 15 | 65 |
-| Enterprise | 100 | $150 | 30 | 130 |
+| Starter | 10 | $10 | 0 | 10 |
+| Popular | 25 | $25 | 5 | 30 |
+| Professional | 50 | $50 | 15 | 65 |
+| Enterprise | 100 | $100 | 30 | 130 |
 
 - **Payment**: OMT/Whish manual rails (admin confirms → credits granted)
 - **Stripe**: planned but not yet connected
-- Credits are consumed when buying leads (1 credit = $1)
+- Base credits are priced transparently at $1 each; bonus credits are promotional and displayed separately. Credits are consumed when buying leads.
 
-### 2.5 Paid verification — trust as a product
+### 2.5 Lead-quality protection and refunds (Phase 1)
+
+Workers can submit one refund request per purchased lead for invalid contact details, duplicate lead, wrong category/area, customer did not request the service, or unreachable customer. Admins review evidence and approve a full or partial credit refund. Decisions append an adjustment entry to the credit ledger; the original spend is never edited or deleted, and duplicate requests are rejected.
+
+### 2.6 Paid verification — trust as a product
 
 | Tier | Price | What's included |
 |------|-------|----------------|
@@ -113,14 +117,14 @@ Customer requests are **graded** (bronze/silver/gold/emergency) and offered to a
 - Badge in search results
 - Admin confirms payment → flips `verified` flag
 
-### 2.6 Featured / emergency add-ons
+### 2.7 Featured / emergency add-ons
 
 | Add-on | Price | What's included |
 |--------|-------|----------------|
 | **Featured slot** | $49/category/mo | Homepage featured placement |
 | **Emergency marker** | $9/mo | 24/7 urgent job availability |
 
-### 2.7 Referral program — viral growth
+### 2.8 Referral program — viral growth
 
 - **Referrer bonus**: 25 credits per successful referral
 - **Invitee bonus**: 10 credits on signup
@@ -128,7 +132,7 @@ Customer requests are **graded** (bronze/silver/gold/emergency) and offered to a
 - **Qualifying action**: invitee must complete first booking
 - Configurable via `FeeRuleSet.referral` (admin-editable)
 
-### 2.8 Company advertising — built but not monetized
+### 2.9 Company advertising — built but not monetized
 
 - Campaign builder + company dashboard (impressions / clicks / CTR / budget / spent), 8 ad types (banner, slider, featured card, sponsored search, sponsored category, popup, native, video), placement/category/city targeting, rotation, impression + click tracking (`/api/ads/[id]/click`).
 - The demo spend model is effectively **~$10 CPM + $1/click**: `recordImpression` burns $0.01/impression, `recordClick` burns $1/click (`src/lib/data/repo.ts`).
@@ -190,7 +194,7 @@ The "Stripe pending" row is the plan's remaining gap: subscriptions, credits, an
 
 - ✅ **Annual billing** — yearly plans at 3-months-free (annual = 9 paid months for 12) via `renewSubscriptionAction` (`period` param + plan picker in the renew dialog). *Impact: +25% ARPU, better cash flow, lower churn.*
 - ✅ **Category-adjusted pricing** — low-value trades pay 0.5×, high-value pay 1.5×. *Impact: lower barrier for cleaning/gardening, higher ARPU from HVAC/mechanic.*
-- ✅ **30-day free trial** — first month free on any plan. *Impact: reduces conversion friction.*
+- ✅ **Plan-specific free trials** — Starter/Growth 30 days, Pro 14 days, and Business assisted by default. *Impact: reduces conversion friction while protecting high-value access.*
 - ✅ **Paid plan-upgrade prompts** — the worker dashboard's **upgrade dialog** (`src/components/dashboard/upgrade-dialog.tsx`) offers verification tiers, the Featured slot, and the Emergency marker inline, with the OMT/Whish method picker.
 - ✅ **Sell featured-worker slots** — `isFeatured` is a purchasable monthly add-on ($49/category/mo): `purchaseUpgradeAction` (worker) → pending manual payment → admin `confirmManualPaymentAction` flips the flag.
 - ✅ **À la carte emergency marker** — the "emergency" flag is a purchasable per-month add-on ($9/mo) through the same purchase rail.

@@ -255,6 +255,11 @@ export function purchasedLeadOfferSync(
   return hit ? { offerId: hit.id, leadId: hit.leadId, priceCredits: hit.priceCredits } : null;
 }
 
+/** Look up one offer by id for worker actions (never exposes another worker's data). */
+export function getLeadOfferById(offerId: string): LeadOffer | null {
+  return STORE.offers.find((offer) => offer.id === offerId) ?? null;
+}
+
 /** The offer a worker bought for a lead, if any (contact-reveal lookups). */
 export async function getPurchasedOffer(leadId: string, workerId: string): Promise<LeadOffer | null> {
   const offers = await getLeadOffers(leadId);

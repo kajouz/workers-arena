@@ -392,10 +392,12 @@ export interface RevenueStreamAudit {
 // ─── Default Configurations ──────────────────────────────────────────────────
 
 export const DEFAULT_CREDIT_PACKAGES: CreditPackage[] = [
-  { id: 'starter', credits: 10, price: 25, bonusCredits: 0, popular: false, enabled: true, sortOrder: 1 },
-  { id: 'popular', credits: 25, price: 50, bonusCredits: 5, popular: true, enabled: true, sortOrder: 2 },
-  { id: 'professional', credits: 50, price: 90, bonusCredits: 15, popular: false, enabled: true, sortOrder: 3 },
-  { id: 'enterprise', credits: 100, price: 150, bonusCredits: 30, popular: false, enabled: true, sortOrder: 4 },
+  // Base credits are transparently priced at $1 each; bonus credits are the
+  // promotional discount and are shown separately in every purchase surface.
+  { id: 'starter', credits: 10, price: 10, bonusCredits: 0, popular: false, enabled: true, sortOrder: 1 },
+  { id: 'popular', credits: 25, price: 25, bonusCredits: 5, popular: true, enabled: true, sortOrder: 2 },
+  { id: 'professional', credits: 50, price: 50, bonusCredits: 15, popular: false, enabled: true, sortOrder: 3 },
+  { id: 'enterprise', credits: 100, price: 100, bonusCredits: 30, popular: false, enabled: true, sortOrder: 4 },
 ];
 
 export const DEFAULT_TOKEN_PACKAGES: TokenPackage[] = [

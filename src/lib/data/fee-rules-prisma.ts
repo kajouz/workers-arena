@@ -35,7 +35,7 @@ export interface FeeRuleSetRow {
 /** Map a config payload + row metadata back to a domain rule set. */
 export function toDomainFeeRuleSet(row: FeeRuleSetRow): FeeRuleSet {
   const config = (row.config ?? {}) as Partial<FeeRuleSet>;
-  return normalizeFeeRuleSet({
+  const normalized = normalizeFeeRuleSet({
     ...config,
     id: config.id ?? row.id,
     version: row.version,
@@ -44,6 +44,15 @@ export function toDomainFeeRuleSet(row: FeeRuleSetRow): FeeRuleSet {
     label: row.label ?? config.label,
     updatedAt: config.updatedAt ?? row.createdAt.toISOString(),
   });
+  // normalizeFeeRuleSet deliberately owns only take-rate fields. Preserve the
+  // versioned commercial policies carried alongside them so real mode does not
+  // silently fall back to demo defaults after an admin edit.
+  return {
+    ...normalized,
+    ...(config.leadMarket ? { leadMarket: config.leadMarket as FeeRuleSet["leadMarket"] } : {}),
+    ...(config.planCatalog ? { planCatalog: config.planCatalog as FeeRuleSet["planCatalog"] } : {}),
+    ...(config.referralConfig ? { referralConfig: config.referralConfig as FeeRuleSet["referralConfig"] } : {}),
+  };
 }
 
 /** The Prisma row shape of a snapshot — structural, for test fixtures. */
@@ -191,6 +200,7 @@ export async function prismaSaveFeeRuleSet(
           // marketplace / plan pricing to the shipped defaults in real mode.
           ...(ruleSet.leadMarket ? { leadMarket: ruleSet.leadMarket } : {}),
           ...(ruleSet.planCatalog ? { planCatalog: ruleSet.planCatalog } : {}),
+          ...(ruleSet.referralConfig ? { referralConfig: ruleSet.referralConfig } : {}),
           updatedAt: ruleSet.updatedAt,
           updatedBy: ruleSet.updatedBy,
         } as unknown as Prisma.InputJsonValue,

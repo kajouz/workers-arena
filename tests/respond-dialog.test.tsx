@@ -2,8 +2,8 @@
 /**
  * RespondDialog take-rate render test (docs/booking-take-rate.md §5):
  * a non-exempt (premium) worker sees the live "Platform fee · You receive"
- * split recomputed per keystroke; an exempt (Enterprise) worker sees the
- * waiver banner instead — and never the split. The i18n parity test already
+ * split recomputed per keystroke; the Business worker sees the reduced 4%
+ * take-rate split rather than a waiver banner. The i18n parity test already
  * enforces EN/AR, so this locks the branch logic in one locale.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
@@ -165,19 +165,16 @@ describe("RespondDialog take-rate display", () => {
     expect(screen.getByText("$93")).toBeInTheDocument();
   });
 
-  it("shows the waiver banner instead of the split for an exempt (Enterprise) worker", () => {
+  it("shows the reduced Business take-rate split instead of a waiver banner", () => {
     renderDialog(enterpriseWorker);
     openDialog();
 
-    expect(screen.getByText("Fee waived by your plan")).toBeInTheDocument();
-    expect(
-      screen.getByText("Covered by your Business plan — you receive the full quote.")
-    ).toBeInTheDocument();
-
-    // The split is gone entirely — there is no fee to split.
-    expect(screen.queryByText("Platform fee")).not.toBeInTheDocument();
-    expect(screen.queryByText("You receive")).not.toBeInTheDocument();
-    expect(screen.queryByText("$6")).not.toBeInTheDocument();
+    // $80 at the Business 4% rate is below the shared $5 floor.
+    expect(screen.queryByText("Fee waived by your plan")).not.toBeInTheDocument();
+    expect(screen.getByText("Platform fee")).toBeInTheDocument();
+    expect(screen.getByText("You receive")).toBeInTheDocument();
+    expect(screen.getByText("$5")).toBeInTheDocument();
+    expect(screen.getByText("$75")).toBeInTheDocument();
   });
 });
 });

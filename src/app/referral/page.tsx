@@ -96,7 +96,7 @@ export default function ReferralPage() {
         <h2 className="text-3xl font-bold text-center mb-12">Why Refer WorkersArena?</h2>
         <div className="grid sm:grid-cols-2 gap-6">
           {[
-            "Free 30-day trial for new workers",
+            "Free Starter trial for new workers",
             "Qualified leads delivered daily",
             "Booking management and scheduling",
             "Secure payments via OMT/Whish",

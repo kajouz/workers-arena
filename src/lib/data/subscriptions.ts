@@ -12,6 +12,8 @@ import {
   CATEGORY_TIER_MAP,
   CATEGORY_TIER_MULTIPLIER,
   TRIAL_PERIOD_DAYS,
+  TRIAL_DAYS_BY_PLAN,
+  trialDaysForPlan,
   isTrialEligible,
   effectiveTakeRate,
   annualSavings,
@@ -27,6 +29,8 @@ export {
   CATEGORY_TIER_MAP,
   CATEGORY_TIER_MULTIPLIER,
   TRIAL_PERIOD_DAYS,
+  TRIAL_DAYS_BY_PLAN,
+  trialDaysForPlan,
   isTrialEligible,
   effectiveTakeRate,
   annualSavings,
@@ -170,16 +174,15 @@ export function renewSubscription(
   return { subscription, invoice };
 }
 
-/** The trial: a worker's FIRST plan runs at $0 (default 30 days — the admin
- * may re-tune it via the plan-catalog overrides; 0 disables the trial).
- * subscription-plans.ts (TRIAL_PERIOD_DAYS) ships the default so the pricing
- * page, this engine and the UI all quote the same number. No invoice is issued
+/** The trial: a worker's FIRST plan runs at $0 (30 days for Starter/Growth,
+ * 14 days for Pro; Business is assisted by default — the admin can override
+ * the catalog). No invoice is issued
  * for a trial — the worker pays nothing, and the first RENEWAL (via
  * renewSubscription) is the first bill. */
 export function startTrialSubscription(
   plan: SubscriptionPlan,
   at: Date = new Date(),
-  days: number = TRIAL_PERIOD_DAYS
+  days: number = trialDaysForPlan(plan)
 ): Subscription {
   const startedAt = at.toISOString();
   return {

@@ -67,10 +67,11 @@ describe("FeeRulesPanel", () => {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
     // 7% of $80 = $5.60, worker receives $74.40 — the documented worked example.
-    // Four tiers inherit the baseline; Business is waived by default.
+    // Four tiers inherit the baseline; Business uses 4% but the shared $5 floor applies.
     expect(screen.getAllByText(/fee \$5\.60/).length).toBe(4);
     expect(screen.getAllByText(/worker receives \$74\.40/).length).toBe(4);
-    expect(screen.getByText(/fee waived/)).toBeInTheDocument();
+    expect(screen.getByText(/fee \$5\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/worker receives \$75\.00/)).toBeInTheDocument();
     // The snapshot audit list shows what was actually charged under v1.
     expect(screen.getByText(/Quote \$80\.00 · worker \$74\.40 · 2026-09-14/)).toBeInTheDocument();
     expect(screen.getByText("Active v1")).toBeInTheDocument();
@@ -99,7 +100,7 @@ describe("FeeRulesPanel", () => {
 
     const payload = saveFeeRulesActionMock.mock.calls[0]?.[0];
     expect(payload.defaults).toMatchObject({ ratePct: 7, min: 5, max: 300, fixed: 0, exempt: false });
-    expect(payload.planTiers.business).toMatchObject({ exempt: true });
+    expect(payload.planTiers.business).toMatchObject({ ratePct: 4, exempt: false });
     await waitFor(() => expect(refreshMock).toHaveBeenCalled());
   });
 });

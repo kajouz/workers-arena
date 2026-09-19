@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
- * WorkerCard fee-waiver test (docs/booking-take-rate.md §5): an Enterprise
- * worker's search card carries the "Fee waived" chip — even with no other W1
- * signals — while a premium worker's card never does. Mirrors the
+ * WorkerCard Business-rate test (docs/fee-rules.md): the Business plan uses
+ * the reduced take rate and therefore does not carry a misleading "Fee waived"
+ * chip. Mirrors the
  * RespondDialog/BookingDialog render-test pattern; i18n parity covers AR.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
@@ -66,15 +66,13 @@ function renderCard(worker: Worker) {
   );
 }
 
-describe("WorkerCard fee-waived badge", () => {
-  it("shows the 'Fee waived' chip for an Enterprise worker even with no other W1 signals", () => {
+describe("WorkerCard Business take-rate badge", () => {
+  it("does not show a fee-waived chip for Business when the reduced rate applies", () => {
     renderCard(enterpriseWorker);
 
-    expect(screen.getByText("Fee waived")).toBeInTheDocument();
-    expect(screen.getByTitle("No platform fee — covered by the worker's plan.")).toBeInTheDocument();
-    // The chip renders on its own — no availability/response signals exist, and
-    // the row must still appear because the waiver is a listing-level perk.
-    expect(screen.queryByText("Free this week")).not.toBeInTheDocument();
+    expect(screen.queryByText("Fee waived")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("No platform fee — covered by the worker's plan.")).not.toBeInTheDocument();
+    expect(screen.getByText("Khaled Al-Harbi")).toBeInTheDocument();
   });
 
   it("does not show the fee chip for a premium worker, while the card still renders", () => {
@@ -92,7 +90,7 @@ describe("WorkerCard fee-waived badge", () => {
     } as unknown as Worker;
     renderCard(enterpriseAvailable);
 
-    expect(screen.getByText("Fee waived")).toBeInTheDocument();
+    expect(screen.queryByText("Fee waived")).not.toBeInTheDocument();
     expect(screen.getByText("Free this week")).toBeInTheDocument();
   });
 });

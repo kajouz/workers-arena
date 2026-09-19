@@ -271,6 +271,9 @@ export const ACTION_CODES = {
   // grade, for how many credits, and how many competing offers exclusivity
   // revoked. The immutable record is the LeadOffer row itself.
   LEAD_PURCHASED: "LEAD_PURCHASED",
+  LEAD_REFUND_REQUESTED: "LEAD_REFUND_REQUESTED",
+  LEAD_REFUND_APPROVED: "LEAD_REFUND_APPROVED",
+  LEAD_REFUND_REJECTED: "LEAD_REFUND_REJECTED",
   // Generic fallbacks for callers that don't pass an explicit code (kept for
   // backward compatibility with legacy rows / untyped call sites).
   SYSTEM: "SYSTEM",

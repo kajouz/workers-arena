@@ -180,14 +180,13 @@ export const PLATFORM_FEE_RATE_BPS = DEFAULT_FEE_RULE_SET.defaults.rateBps; // 7
 export const PLATFORM_FEE_MIN_MINOR = DEFAULT_FEE_RULE_SET.defaults.minMinor;
 /** Cap per job, minor units ($300). */
 export const PLATFORM_FEE_MAX_MINOR = DEFAULT_FEE_RULE_SET.defaults.maxMinor ?? 0;
-/** Subscription plans that waive the platform fee (BUSINESS-MODEL §5.2) — the
- * plans mapped to the exempt tier of the DEFAULT rule set. */
-export const FEE_EXEMPT_PLANS: readonly string[] = ["enterprise"];
+/** Legacy compatibility export. Phase 1 has no fee-waived default plan;
+ * Business uses the reduced 4% rate. */
+export const FEE_EXEMPT_PLANS: readonly string[] = [];
 
-/** True when a subscription plan waives the platform fee (case-insensitive —
- * the prisma side passes the DB enum, e.g. "ENTERPRISE"). Resolved through the
- * fee engine against the DEFAULT rule set, so the exemption policy has exactly
- * one definition; pass `ruleSet` to evaluate the live configuration instead. */
+/** True when a subscription plan is explicitly configured as fee-exempt
+ * (case-insensitive). The Phase 1 default Business policy is reduced 4%, not exempt;
+ * pass `ruleSet` to evaluate a later admin override. */
 export function isPlanFeeExempt(plan?: string, ruleSet: FeeRuleSet = DEFAULT_FEE_RULE_SET): boolean {
   return resolveFeeRule(ruleSet, { plan }).rule.exempt;
 }
