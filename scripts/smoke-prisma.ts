@@ -417,20 +417,26 @@ async function main() {
   console.log("W1 trust signals: responseRate", signalWorker?.responseRate, "| availableThisWeek", signalWorker?.availableThisWeek);
 
   // ── M5 — fee-waived search filter (real mode, live DB) ────────────────────
-  // The /search sidebar toggle + hero chip narrow to Enterprise (fee-waived)
-  // workers (docs/booking-take-rate.md). Self-referential: the expected exempt
-  // set is read straight from the live Subscription rows, so a seed with extra
-  // Enterprise workers can't flake the assert.
+  // The /search sidebar toggle remains available for future admin rule-set
+  // overrides. Under the shipped Phase 1 policy, Business/Enterprise plans
+  // receive reduced take rates rather than a full exemption, so
+  // FEE_EXEMPT_PLANS is intentionally empty and the public filter returns no
+  // rows. Keep the expected set derived from the shared policy constant so a
+  // future exemption cannot silently make this smoke meaningless.
+  const exemptPlans = FEE_EXEMPT_PLANS.map((p) => p.toUpperCase()) as SubscriptionPlan[];
   const exemptWorkerIds = new Set(
     (
       await prisma.subscription.findMany({
-        where: { plan: { in: FEE_EXEMPT_PLANS.map((p) => p.toUpperCase()) as SubscriptionPlan[] } },
+        where: { plan: { in: exemptPlans } },
         select: { workerId: true },
       })
     ).map((s) => s.workerId)
   );
   const waived = await prismaSearchWorkers({ feeWaivedOnly: true });
-  assert(waived.items.length > 0, "fee-waived filter returns results");
+  assert(
+    waived.items.length === exemptWorkerIds.size,
+    `fee-waived filter matches the configured exemption set (${exemptWorkerIds.size} result(s))`
+  );
   assert(
     waived.items.every((w) => exemptWorkerIds.has(w.id)),
     "fee-waived filter returns ONLY exempt-plan workers"
@@ -438,8 +444,8 @@ async function main() {
   const bilal = await prismaGetWorkerBySlug("bilal-mansour-cleaning");
   assert(bilal?.subscription.plan === "enterprise", "seeded Enterprise worker (bilal) is Enterprise in the DB");
   assert(
-    waived.items.some((w) => w.slug === "bilal-mansour-cleaning"),
-    "fee-waived filter includes the seeded Enterprise worker"
+    !exemptWorkerIds.has(bilal!.id) || waived.items.some((w) => w.slug === "bilal-mansour-cleaning"),
+    "fee-waived filter includes the seeded Enterprise worker when its plan is exempt"
   );
   const unfiltered = await prismaSearchWorkers({});
   assert(
