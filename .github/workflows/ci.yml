@@ -198,6 +198,11 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
+      - name: Verify migration status
+        run: |
+          npx prisma migrate status
+          npx prisma migrate status 2>/dev/null | grep -q 'Database schema is up to date'
+
       - name: Seed database
         run: npm run db:seed
 
@@ -221,6 +226,8 @@ jobs:
             -c "CREATE DATABASE workers_arena_critical"
           export CRITICAL_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/workers_arena_critical?schema=public"
           DATABASE_URL="$CRITICAL_DATABASE_URL" npx prisma migrate deploy
+          DATABASE_URL="$CRITICAL_DATABASE_URL" npx prisma migrate status
+          DATABASE_URL="$CRITICAL_DATABASE_URL" npx prisma migrate status 2>/dev/null | grep -q 'Database schema is up to date'
           DATABASE_URL="$CRITICAL_DATABASE_URL" DEMO_MODE=false npm run db:seed
 
       - name: Start isolated real-data dev server (for e2e-critical-flows)

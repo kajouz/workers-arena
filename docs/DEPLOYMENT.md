@@ -14,6 +14,18 @@ vercel --prod
 ```
 
 - **PostgreSQL:** Neon / Supabase / RDS. Run `npx prisma migrate deploy` then `npm run db:seed` (one-time). The seed is country-parameterized — `SEED_COUNTRY=<slug|ISO code>` (or `all`) picks which configured countries' cities + generated demo workers to load; it defaults to the served tenant.
+
+### Database migration release gate
+
+Run this checklist against the exact production `DATABASE_URL` before starting the new application build:
+
+```bash
+npx prisma migrate status
+npx prisma migrate deploy
+npx prisma migrate status
+```
+
+The final status must say **Database schema is up to date**. Never use `prisma db push` in production. For the current subscription-lifecycle release, verify that migration `20260919130000_subscription_lifecycle_events` appears in the applied list; it creates the durable `SubscriptionEvent` table used by retention reporting, expiry processing, and WhatsApp renewal outreach. If the status command reports a failed or pending migration, stop the deployment, resolve the database state, and rerun the status check before serving traffic. Record the migration status output and deployment timestamp in the release notes.
 - **ISR:** public pages use `revalidate`/`dynamic` as needed; `/api/workers` sets `s-maxage` for CDN caching.
 - **Cache policy (proxy middleware):** any request carrying a session cookie (`wa_session`, or the NextAuth `authjs`/`next-auth` session-token variants) gets `Cache-Control: private, no-store` — every page renders session-aware markup (Sign in ⇄ avatar) and dashboards embed per-user data, so shared caches must never hold authenticated HTML. Anonymous requests keep `public, max-age=0, s-maxage=60, stale-while-revalidate=300` (edge-cacheable, bfcache-friendly). API routes set their own headers. Never put the CSRF cookie in the session-cookie list — every visitor gets one, and keying on it would make the whole site uncacheable.
 - **Cron:** add `vercel.json` cron entries for the subscription/booking-reminder job (`/api/cron/reminders`, daily), the recurring-generation job (`/api/cron/recurring`, daily — materializes maintenance-contract occurrences, idempotent), the request-SLA job (`/api/cron/requests`, hourly or daily — nudges workers on stale requests at 24h and auto-cancels at 48h, freeing the slot; idempotent via `Booking.lastSlaNudgeAt`), the completion auto-confirm job (`/api/cron/completions`, hourly or daily — auto-confirms staged completions past the 72h grace window, crediting the worker's ledger; idempotent via the COMPLETION_PENDING CAS), push-cleanup (`/api/cron/push-prune`) and activity-retention (`/api/cron/activity-prune`) jobs, each with the `x-cron-secret: $CRON_SECRET` header. The daily jobs (reminders + recurring + request-SLA + completions) can share one entry cadence. Set `ACTIVITY_LOG_RETENTION_DAYS` to bound the audit table (default 90).
