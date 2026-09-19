@@ -11,6 +11,7 @@ vi.mock("@/lib/auth-demo", () => ({ getSession: getSessionMock }));
 
 import { payBookingAction } from "../src/app/actions/bookings";
 import {
+  cancelPendingRenewalAction,
   confirmManualPaymentAction,
   payCampaignAction,
   purchaseUpgradeAction,
@@ -276,6 +277,26 @@ describe("§Lebanon — campaign purchases via Whish", () => {
 });
 
 describe("§Lebanon — subscription renewal via OMT/Whish (manual)", () => {
+  it("lets the worker cancel an unpaid renewal before confirmation", async () => {
+    getSessionMock.mockResolvedValue(WORKER);
+    const form = new FormData();
+    form.set("plan", "basic");
+    form.set("period", "monthly");
+    form.set("workerSlug", DEMO_WORKER);
+    form.set("method", "omt");
+    const created = await renewSubscriptionAction(form);
+    const pending = await getPendingManualPayments();
+    const payment = pending.find((item) => item.scope === "subscription");
+    expect(created.url).toContain("/payments/manual");
+    expect(payment).toBeDefined();
+
+    expect(await cancelPendingRenewalAction(payment!.id)).toEqual({ ok: true });
+    expect((await getPendingManualPayments()).some((item) => item.id === payment!.id)).toBe(false);
+
+    getSessionMock.mockResolvedValue(ADMIN);
+    expect(await confirmManualPaymentAction(payment!.id)).toEqual({ ok: false, error: "not-found" });
+  });
+
   it("mints a manual checkout instead of the instant extension", async () => {
     getSessionMock.mockResolvedValue(WORKER);
     const f = new FormData();
