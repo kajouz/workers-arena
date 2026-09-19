@@ -301,7 +301,9 @@ export async function getWorkerById(id: string): Promise<Worker | null> {
 /** Resolve the worker profile owned by an authenticated user. */
 export async function getWorkerByUserId(userId: string): Promise<Worker | null> {
   if (realDataEnabled) return (await prismaRepo()).prismaGetWorkerByUserId(userId);
-  return userId === "u-worker" ? withDemoSignals([workerBySlug("khaled-al-harbi-plumbing")!])[0] ?? null : null;
+  return userId === "u-worker" || userId === "w-khaled"
+    ? withDemoSignals([workerBySlug("khaled-al-harbi-plumbing")!])[0] ?? null
+    : null;
 }
 
 export async function getFeaturedWorkersList(limit = 4): Promise<Worker[]> {
