@@ -1,6 +1,7 @@
 import { getPrisma } from "@/lib/server/prisma";
 import { pushNotification } from "./notifications";
 import { recordSubscriptionEventOnce } from "./subscription-lifecycle-store";
+import { prismaExpireStaleManualRenewals } from "./prisma-repo";
 
 const DAY_MS = 86_400_000;
 
@@ -12,9 +13,11 @@ function localeOf(languages: unknown): "en" | "ar" {
 export async function prismaRunSubscriptionReminderEngine(): Promise<{
   dispatched: number;
   alreadySent: number;
+  staleRenewalsCancelled: number;
   total: number;
 }> {
   const prisma = getPrisma();
+  const staleRenewalsCancelled = await prismaExpireStaleManualRenewals();
   const now = new Date();
   const horizon = new Date(now.getTime() + 7 * DAY_MS);
   const rows = await prisma.subscription.findMany({
@@ -84,7 +87,7 @@ export async function prismaRunSubscriptionReminderEngine(): Promise<{
     });
     dispatched += 1;
   }
-  return { dispatched, alreadySent, total: rows.filter((row) => {
+  return { dispatched, alreadySent, staleRenewalsCancelled, total: rows.filter((row) => {
     const days = Math.round((row.expiresAt.getTime() - now.getTime()) / DAY_MS);
     return row.expiresAt.getTime() <= now.getTime() || days === 7 || days === 3 || days === 1;
   }).length };

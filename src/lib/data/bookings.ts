@@ -46,6 +46,7 @@ import {
   type BookingPayment,
   type BookingTransitionTarget,
   type PendingManualPayment,
+  type ReconciliationPayment,
   type RecurringBooking,
   type RecurringRequestInput,
   type RecurringRespondInput,
@@ -1396,6 +1397,31 @@ export async function demoConfirmBookingPayment(
  * manual twin of a provider webhook). Demo adapter — mirrors
  * prismaGetPendingManualPayments in real mode.
  */
+export function demoReconciliationBookingPayments(): ReconciliationPayment[] {
+  const out: ReconciliationPayment[] = [];
+  for (const booking of STORE.bookings) {
+    const payment = STORE.payments.get(booking.id);
+    if (!payment || !payment.providerRef || (payment.method !== "omt" && payment.method !== "whish")) continue;
+    out.push({
+      id: payment.id,
+      scope: "booking",
+      entityId: booking.id,
+      labelEn: `${booking.number} — ${booking.serviceItem?.nameEn ?? booking.jobTitle}`,
+      labelAr: `${booking.number} — ${booking.serviceItem?.nameAr ?? booking.jobTitle}`,
+      amount: payment.amount,
+      currency: booking.currency,
+      method: payment.method,
+      reference: payment.providerRef,
+      status: payment.status,
+      createdAt: booking.events[0]?.time ?? new Date().toISOString(),
+      ...(payment.paidAt ? { paidAt: payment.paidAt } : {}),
+      ...(payment.refundedAt ? { refundedAt: payment.refundedAt } : {}),
+      ...(booking.invoice?.number ? { invoiceNumber: booking.invoice.number } : {}),
+    });
+  }
+  return out.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
 export function demoPendingManualBookingPayments(): PendingManualPayment[] {
   const out: PendingManualPayment[] = [];
   for (const booking of STORE.bookings) {

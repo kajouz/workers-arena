@@ -1154,6 +1154,25 @@ export interface CampaignPayment {
  * provider webhook would have (booking deposit → confirmBookingPayment,
  * campaign → confirmCampaignPayment, purchases → their confirm seams).
  */
+export type ReconciliationPaymentStatus = "pending" | "paid" | "refunded" | "cancelled" | "failed";
+
+export interface ReconciliationPayment {
+  id: string;
+  scope: "booking" | "campaign" | PurchaseScope;
+  entityId: string;
+  labelEn: string;
+  labelAr: string;
+  amount: number;
+  currency: string;
+  method: "omt" | "whish";
+  reference: string;
+  status: ReconciliationPaymentStatus;
+  createdAt: string;
+  paidAt?: string;
+  refundedAt?: string;
+  invoiceNumber?: string;
+}
+
 export interface PendingManualPayment {
   /** The Payment row id. */
   id: string;

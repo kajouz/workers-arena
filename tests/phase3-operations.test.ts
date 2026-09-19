@@ -27,10 +27,19 @@ describe("Phase 3 admin operations", () => {
     expect(body).toContain('"section","month","worker","plan","days_until_expiry","retention_rate","churn_rate"');
   });
 
-  it("exports the manual reconciliation queue as CSV", async () => {
+  it("exports the full manual reconciliation ledger as JSON", async () => {
+    const response = await reconciliationGet(new Request("http://localhost/api/admin/revenue/reconciliation"));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.scope).toBe("manual_payments");
+    expect(Array.isArray(body.payments)).toBe(true);
+    expect(body.payments.every((payment: { status?: string }) => typeof payment.status === "string")).toBe(true);
+  });
+
+  it("exports settled-payment fields in the accounting CSV header", async () => {
     const response = await reconciliationGet(new Request("http://localhost/api/admin/revenue/reconciliation?format=csv"));
     expect(response.status).toBe(200);
     const body = await response.text();
-    expect(body).toContain('"payment_id","scope","label_en","label_ar","method","reference","amount_minor","currency","created_at"');
+    expect(body).toContain('"payment_id","scope","label_en","label_ar","method","reference","amount_minor","currency","created_at","status","paid_at","refunded_at","invoice_number"');
   });
 });

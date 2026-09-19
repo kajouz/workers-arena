@@ -33,6 +33,7 @@ import {
   demoConfirmBookingPayment,
   demoCreateBookingCheckout,
   demoPendingManualBookingPayments,
+  demoReconciliationBookingPayments,
   demoGetAllBookings,
   demoGetBookingById,
   demoGetBookingByNumber,
@@ -77,6 +78,7 @@ import {
   demoRecordImpression,
   demoRefundCampaignPayment,
   demoPendingManualCampaignPayments,
+  demoReconciliationCampaignPayments,
   type CampaignCreateInput,
 } from "./campaigns";
 import {
@@ -84,6 +86,7 @@ import {
   demoConfirmPurchase,
   demoCancelPendingPurchase,
   demoPendingManualPurchases,
+  demoReconciliationPurchases,
   demoPurchasePayment,
   type VerificationTier,
 } from "./purchases";
@@ -166,6 +169,7 @@ import type {
   Invoice,
   Notification,
   PendingManualPayment,
+  ReconciliationPayment,
   PurchaseScope,
   Review,
   SearchFilters,
@@ -1788,6 +1792,16 @@ export async function getPendingManualPayments(): Promise<PendingManualPayment[]
     ...demoPendingManualBookingPayments(),
     ...demoPendingManualCampaignPayments(),
     ...demoPendingManualPurchases(),
+  ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/** Settled and pending manual payments for admin reconciliation and receipts. */
+export async function getManualPaymentReconciliation(): Promise<ReconciliationPayment[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetManualPaymentReconciliation();
+  return [
+    ...demoReconciliationPurchases(),
+    ...demoReconciliationBookingPayments(),
+    ...demoReconciliationCampaignPayments(),
   ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 

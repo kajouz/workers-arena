@@ -88,7 +88,7 @@ export default async function RevenueDashboardPage() {
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-ink-200 px-3 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-50 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-800"
           >
             <Download className="size-4" />
-            Pending payments CSV
+            Manual reconciliation CSV
           </Link>
           <Link
             href="/api/admin/retention?format=csv"

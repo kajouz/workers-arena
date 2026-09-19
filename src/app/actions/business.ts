@@ -25,6 +25,7 @@ import type { Campaign } from "@/lib/data/types";
 import { dispatchWhatsApp } from "@/lib/notifications/dispatcher";
 import { appBaseUrl } from "@/lib/notifications/config";
 import { getWorkerById, getWorkerByUserId } from "@/lib/data/repo";
+import { recordSubscriptionEvent } from "@/lib/data/subscription-lifecycle-store";
 
 const AD_TYPES = ["banner", "slider", "featuredCard", "sponsoredSearch", "sponsoredCategory", "popup", "native", "video"] as const;
 
@@ -185,6 +186,15 @@ export async function cancelPendingRenewalAction(paymentId: string): Promise<{ o
     : undefined;
   if (!payment) return { ok: false, error: "not-found" };
   const ok = await cancelPendingPurchase(paymentId);
+  if (ok && ownedWorker) {
+    await recordSubscriptionEvent({
+      workerId: ownedWorker.id,
+      subscriptionId: ownedWorker.subscription.invoiceNo || undefined,
+      type: "cancelled",
+      fromPlan: ownedWorker.subscription.plan,
+      source: "system",
+    });
+  }
   revalidatePath("/dashboard");
   return ok ? { ok: true } : { ok: false, error: "already-confirmed" };
 }

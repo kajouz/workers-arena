@@ -204,7 +204,7 @@ Under `NODE_ENV=production` with no Stripe keys the registry refuses the simulat
 
 ## Admin confirmation queue
 
-All OMT/Whish payments appear in the `/admin` pending-payments card:
+All OMT/Whish payments appear in the `/admin` pending-payments card while pending, and the revenue dashboard reconciliation export retains the full manual-payment history (paid, refunded, cancelled, and pending):
 
 | Field | Description |
 |-------|-------------|
@@ -215,7 +215,9 @@ All OMT/Whish payments appear in the `/admin` pending-payments card:
 | **Method** | OMT or Whish |
 | **Reference** | Provider reference (e.g., `OMT-BK-1001-000`) |
 | **Created** | When the payment was minted |
-| **Action** | Confirm button (admin-only) |
+| **Status** | pending / paid / refunded / cancelled / failed |
+| **Paid/refunded** | Settlement timestamps and invoice number when available |
+| **Action** | Confirm button (admin-only) for pending rows |
 
 **Confirm flow:**
 1. Admin reviews the pending payment details
@@ -223,6 +225,8 @@ All OMT/Whish payments appear in the `/admin` pending-payments card:
 3. Admin clicks "Confirm" → `confirmManualPaymentAction`
 4. Payment flips PAID, capability activates (subscription/credits/verification/etc.)
 5. Worker/company notified
+
+**Reconciliation:** `GET /api/admin/revenue/reconciliation` returns JSON for the admin ledger; append `?format=csv` for an accounting export. The export is read-only and includes payment status, provider reference, paid/refunded timestamps, and the linked invoice number. The reminder cron also cancels unpaid subscription renewal payments older than seven days and records a `cancelled` subscription lifecycle event; workers can still cancel their own pending renewal immediately from the dashboard.
 
 ## Platform fee (take rate)
 
@@ -306,7 +310,7 @@ Lead notifications are intentionally controlled by admins rather than sent autom
 
 ---
 
-*Last updated: September 17, 2026*
-*Version: 3.0.0*
+*Last updated: September 19, 2026*
+*Version: 3.1.0*
 *Live payment methods: OMT, Whish (manual, admin-confirmed)*
 *Planned: Stripe, PayPal, MyFatoorah, Tap*

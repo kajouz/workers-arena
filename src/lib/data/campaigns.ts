@@ -2,7 +2,7 @@ import { pushNotification } from "./notifications";
 import { campaignActiveNotification, campaignRefundNotification } from "./campaign-notifications";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { getPaymentProvider } from "@/lib/payments/registry";
-import type { Campaign, CampaignPayment, Invoice, PendingManualPayment } from "./types";
+import type { Campaign, CampaignPayment, Invoice, PendingManualPayment, ReconciliationPayment } from "./types";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -363,6 +363,31 @@ export async function demoConfirmCampaignPayment(
  * and the /admin pending-payments card lists these for the admin's confirm.
  * Demo adapter — mirrors prismaGetPendingManualPayments in real mode.
  */
+export function demoReconciliationCampaignPayments(): ReconciliationPayment[] {
+  const out: ReconciliationPayment[] = [];
+  for (const [campaignId, payment] of STORE.payments) {
+    if (!payment.providerRef || (payment.method !== "omt" && payment.method !== "whish")) continue;
+    const campaign = demoGetCampaignById(campaignId);
+    if (!campaign) continue;
+    out.push({
+      id: payment.id,
+      scope: "campaign",
+      entityId: campaignId,
+      labelEn: `${campaign.nameEn} (${campaign.placement})`,
+      labelAr: `${campaign.nameAr} (${campaign.placement})`,
+      amount: payment.amount,
+      currency: payment.currency,
+      method: payment.method,
+      reference: payment.providerRef,
+      status: payment.status,
+      createdAt: campaign.created,
+      ...(payment.paidAt ? { paidAt: payment.paidAt } : {}),
+      ...(payment.refundedAt ? { refundedAt: payment.refundedAt } : {}),
+    });
+  }
+  return out.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
 export function demoPendingManualCampaignPayments(): PendingManualPayment[] {
   const out: PendingManualPayment[] = [];
   for (const [campaignId, payment] of STORE.payments) {

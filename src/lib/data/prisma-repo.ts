@@ -64,7 +64,7 @@ import { quoteNotification } from "./quote-notifications";
 import type { CampaignCreateInput } from "./campaigns";
 import { PURCHASE_PRICES, type VerificationTier } from "./purchases";
 import { ACTION_CODES, logAdminActivity } from "./activity";
-import { recordSubscriptionEvent } from "./subscription-lifecycle-store";
+import { recordSubscriptionEvent, recordSubscriptionEventOnce } from "./subscription-lifecycle-store";
 import { getPaymentProvider } from "@/lib/payments/registry";
 
 /**
@@ -134,6 +134,7 @@ import {
   type WorkingDay,
   type BillingPeriod,
   type PendingManualPayment,
+  type ReconciliationPayment,
   type PurchaseScope,
   toDomainPaymentMethod,
 } from "./types";
@@ -4996,6 +4997,90 @@ export async function prismaRunRequestSla(now = new Date()): Promise<RequestSlaR
  * purchases, and the paid upgrades: subscription renewal / verification /
  * featured / emergency). Oldest first.
  */
+export async function prismaGetManualPaymentReconciliation(): Promise<ReconciliationPayment[]> {
+  const prisma = getPrisma();
+  const rows = await prisma.payment.findMany({
+    where: { method: { in: ["OMT", "WHISH"] }, providerRef: { not: null } },
+    include: {
+      booking: { include: { serviceItem: true } },
+      invoice: { select: { number: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  const out: ReconciliationPayment[] = [];
+  for (const row of rows) {
+    const method = row.method === "OMT" ? "omt" : "whish";
+    const meta = (row.metadata ?? {}) as Record<string, unknown>;
+    const status = row.status.toLowerCase() as ReconciliationPayment["status"];
+    if (row.booking) {
+      out.push({
+        id: row.id,
+        scope: "booking",
+        entityId: row.booking.id,
+        labelEn: `${row.booking.number} — ${row.booking.serviceItem?.nameEn ?? row.booking.jobTitle}`,
+        labelAr: `${row.booking.number} — ${row.booking.serviceItem?.nameAr ?? row.booking.jobTitle}`,
+        amount: row.amount,
+        currency: row.currency,
+        method,
+        reference: row.providerRef!,
+        status,
+        createdAt: row.createdAt.toISOString(),
+        ...(row.paidAt ? { paidAt: row.paidAt.toISOString() } : {}),
+        ...(row.refundedAt ? { refundedAt: row.refundedAt.toISOString() } : {}),
+        ...(row.invoice?.number ? { invoiceNumber: row.invoice.number } : {}),
+      });
+      continue;
+    }
+    const campaignId = typeof meta.campaignId === "string" ? meta.campaignId : row.advertisementId;
+    if (campaignId) {
+      const campaign = await prisma.adCampaign.findUnique({ where: { id: campaignId }, include: { ads: { take: 1, orderBy: { createdAt: "asc" as const } } } });
+      if (campaign) {
+        out.push({
+          id: row.id,
+          scope: "campaign",
+          entityId: campaign.id,
+          labelEn: `${campaign.nameEn} — ${campaign.ads[0]?.placement ?? "ad purchase"}`,
+          labelAr: `${campaign.nameAr} — ${campaign.ads[0]?.placement ?? "ad purchase"}`,
+          amount: row.amount,
+          currency: row.currency,
+          method,
+          reference: row.providerRef!,
+          status,
+          createdAt: row.createdAt.toISOString(),
+          ...(row.paidAt ? { paidAt: row.paidAt.toISOString() } : {}),
+          ...(row.refundedAt ? { refundedAt: row.refundedAt.toISOString() } : {}),
+          ...(row.invoice?.number ? { invoiceNumber: row.invoice.number } : {}),
+        });
+        continue;
+      }
+    }
+    if (row.workerId) {
+      const scope = typeof meta.scope === "string" ? meta.scope : "subscription";
+      if (!["subscription", "verification", "featured", "emergency", "credit"].includes(scope)) continue;
+      const worker = await prisma.worker.findUnique({ where: { id: row.workerId }, select: { nameEn: true, nameAr: true } });
+      if (!worker) continue;
+      const label = purchaseLabel(scope as PurchaseScope, worker.nameEn, worker.nameAr, meta);
+      out.push({
+        id: row.id,
+        scope: scope as PurchaseScope,
+        entityId: row.id,
+        labelEn: label.en,
+        labelAr: label.ar,
+        amount: row.amount,
+        currency: row.currency,
+        method,
+        reference: row.providerRef!,
+        status,
+        createdAt: row.createdAt.toISOString(),
+        ...(row.paidAt ? { paidAt: row.paidAt.toISOString() } : {}),
+        ...(row.refundedAt ? { refundedAt: row.refundedAt.toISOString() } : {}),
+        ...(row.invoice?.number ? { invoiceNumber: row.invoice.number } : {}),
+      });
+    }
+  }
+  return out;
+}
+
 export async function prismaGetPendingManualPayments(): Promise<PendingManualPayment[]> {
   const prisma = getPrisma();
   const rows = await prisma.payment.findMany({
@@ -5122,6 +5207,33 @@ export async function prismaCancelPendingPurchase(paymentId: string): Promise<bo
     data: { status: "CANCELLED" },
   });
   return result.count > 0;
+}
+
+/** Cancel stale unpaid manual subscription renewals so the queue cannot grow forever. */
+export async function prismaExpireStaleManualRenewals(maxAgeDays = 7): Promise<number> {
+  const prisma = getPrisma();
+  const cutoff = new Date(Date.now() - Math.max(1, maxAgeDays) * 86_400_000);
+  const rows = await prisma.payment.findMany({
+    where: { status: "PENDING", method: { in: ["OMT", "WHISH"] }, createdAt: { lt: cutoff } },
+    select: { id: true, workerId: true, metadata: true },
+  });
+  let expired = 0;
+  for (const row of rows) {
+    const meta = (row.metadata ?? {}) as Record<string, unknown>;
+    if (meta.scope !== "subscription") continue;
+    const updated = await prisma.payment.updateMany({ where: { id: row.id, status: "PENDING" }, data: { status: "CANCELLED" } });
+    if (updated.count === 0) continue;
+    expired += 1;
+    if (row.workerId) {
+      await recordSubscriptionEventOnce({
+        workerId: row.workerId,
+        subscriptionId: typeof meta.subscriptionId === "string" ? meta.subscriptionId : undefined,
+        type: "cancelled",
+        source: "cron",
+      });
+    }
+  }
+  return expired;
 }
 
 /**

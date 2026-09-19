@@ -32,6 +32,7 @@ import { recordSubscriptionEvent } from "./subscription-lifecycle-store";
 import type {
   BillingPeriod,
   PendingManualPayment,
+  ReconciliationPayment,
   PurchaseScope,
   SubscriptionPlan,
   Worker,
@@ -367,6 +368,32 @@ export function demoCancelPendingPurchase(paymentId: string): boolean {
 /** A purchase payment by id (admin confirm resolution). */
 export function demoPurchasePayment(paymentId: string): DemoPurchasePayment | null {
   return STORE.payments.get(paymentId) ?? null;
+}
+
+/** All manual purchase payments for admin reconciliation, including settled rows. */
+export function demoReconciliationPurchases(): ReconciliationPayment[] {
+  const out: ReconciliationPayment[] = [];
+  for (const payment of STORE.payments.values()) {
+    if (!payment.providerRef) continue;
+    const w = workerBySlug(payment.meta.workerSlug);
+    if (!w) continue;
+    const desc = purchaseDescription(payment.meta.scope, w, payment.meta);
+    out.push({
+      id: payment.id,
+      scope: payment.meta.scope,
+      entityId: payment.id,
+      labelEn: desc.en,
+      labelAr: desc.ar,
+      amount: payment.amount,
+      currency: payment.currency,
+      method: payment.method,
+      reference: payment.providerRef,
+      status: payment.status,
+      createdAt: payment.createdAt,
+      ...(payment.paidAt ? { paidAt: payment.paidAt } : {}),
+    });
+  }
+  return out;
 }
 
 /** Every PENDING manual (OMT/Whish) purchase awaiting admin confirmation. */
