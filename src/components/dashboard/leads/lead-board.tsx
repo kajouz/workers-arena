@@ -284,7 +284,7 @@ function LeadRow({
         {owned && item.offer.status === "purchased" && (
           <div className="space-y-2">
             <LeadRatingRow offerId={item.offer.id} leadNumber={item.lead.number} grade={item.offer.grade} />
-            <LeadRefundRow offerId={item.offer.id} />
+            <LeadRefundRow offerId={item.offer.id} status={item.refundStatus} />
           </div>
         )}
 
@@ -391,12 +391,14 @@ function StatusPill({
   );
 }
 
-function LeadRefundRow({ offerId }: { offerId: string }) {
+function LeadRefundRow({ offerId, status }: { offerId: string; status?: "pending" | "approved" | "rejected" }) {
   const { t } = useLocale();
   const [reason, setReason] = useState("invalid-contact");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
-  if (sent) return <p className="text-xs text-amber-600">{t("leadMarket.refundRequestSubmitted")}</p>;
+  if (status === "approved") return <p className="text-xs text-emerald-600">{t("leadMarket.refundApprovedStatus")}</p>;
+  if (status === "rejected") return <p className="text-xs text-ink-500">{t("leadMarket.refundRejectedStatus")}</p>;
+  if (sent || status === "pending") return <p className="text-xs text-amber-600">{t("leadMarket.refundPendingStatus")}</p>;
   const labels: Record<string, string> = {
     "invalid-contact": t("leadMarket.refundReasonInvalidContact"),
     "duplicate-lead": t("leadMarket.refundReasonDuplicate"),

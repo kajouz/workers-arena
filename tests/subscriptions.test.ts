@@ -53,6 +53,24 @@ describe("subscriptions engine", () => {
     expect(invoice.amount).toBe(199);
   });
 
+  it("applies category-adjusted catalog pricing to both subscription and invoice", () => {
+    const w = { ...workerBySlug("khaled-al-harbi-plumbing")!, categorySlug: "cleaning" };
+    const catalog = {
+      plans: {
+        basic: { monthlyPriceUsd: 20, includedLeads: 3, extraLeadPriceUsd: 1, searchBoost: 1 },
+        professional: { monthlyPriceUsd: 40, includedLeads: 10, extraLeadPriceUsd: 1, searchBoost: 1 },
+        premium: { monthlyPriceUsd: 100, includedLeads: 25, extraLeadPriceUsd: 1, searchBoost: 1 },
+        enterprise: { monthlyPriceUsd: 200, includedLeads: -1, extraLeadPriceUsd: 0, searchBoost: 1 },
+      },
+      trialDays: 30,
+      trialDaysByPlan: { basic: 30, professional: 30, premium: 14, enterprise: 0 },
+      categoryTiers: { low: 0.5, mid: 1, high: 1.5 },
+    };
+    const { subscription, invoice } = renewSubscription(w, "enterprise", "monthly", catalog);
+    expect(subscription.price).toBe(100);
+    expect(invoice.amount).toBe(100);
+  });
+
   it("annual renew extends to ~12 months, bills 9 months, and stamps the period", () => {
     const w = workerBySlug("khaled-al-harbi-plumbing")!;
     const { subscription, invoice } = renewSubscription(w, "enterprise", "annual");

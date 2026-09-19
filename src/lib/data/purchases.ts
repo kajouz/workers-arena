@@ -26,6 +26,7 @@ import { pushNotification } from "./notifications";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import { ANNUAL_PAID_MONTHS, planPrice, renewSubscription } from "./subscriptions";
 import { loadPlanCatalog } from "./fee-rules-store";
+import { effectiveMonthlyPriceWithOverrides } from "./plan-catalog-overrides";
 import { demoAddInvoice } from "./campaigns";
 import type {
   BillingPeriod,
@@ -141,6 +142,21 @@ export async function demoCreatePurchaseCheckout(
 ): Promise<{ url: string } | null> {
   const w = workerBySlug(input.workerSlug);
   if (!w) return null;
+  // A worker should never be asked to pay twice for the same unpaid renewal.
+  // Reuse the existing signed instructions URL; changing OMT/Whish can be
+  // done only after the pending payment is confirmed or expires.
+  if (input.scope === "subscription") {
+    for (const existing of STORE.payments.values()) {
+      if (
+        existing.status === "pending" &&
+        existing.meta.scope === "subscription" &&
+        existing.meta.workerSlug === input.workerSlug &&
+        existing.checkoutUrl
+      ) {
+        return { url: existing.checkoutUrl };
+      }
+    }
+  }
   let amount = purchaseAmount(input.scope, input);
   // Subscription checkouts price through the ADMIN catalog: an admin repriced
   // plan is charged at the new price (the OMT/Whish instructions must match
@@ -148,8 +164,11 @@ export async function demoCreatePurchaseCheckout(
   // apply at checkout — the demo workforce has no per-worker category price.
   if (input.scope === "subscription" && amount !== null && input.plan) {
     const catalog = await loadPlanCatalog();
-    const entry = catalog.plans[input.plan];
-    if (entry) amount = entry.monthlyPriceUsd * 100 * (input.period === "annual" ? ANNUAL_PAID_MONTHS : 1);
+    // The manual instructions must match the same category-adjusted amount
+    // the renewal engine and pricing UI use; never charge from the stale base
+    // PLANS map when an admin has published a catalog override.
+    const monthly = effectiveMonthlyPriceWithOverrides(catalog, input.plan, w.categorySlug);
+    amount = monthly * 100 * (input.period === "annual" ? ANNUAL_PAID_MONTHS : 1);
   }
   if (amount === null) return null;
 
@@ -228,7 +247,12 @@ export async function demoConfirmPurchase(
     case "subscription": {
       const plan = payment.meta.plan ?? "professional";
       const period = payment.meta.period ?? "monthly";
-      const { subscription, invoice } = renewSubscription(w, plan, period);
+      // The checkout was priced from the admin-editable, category-adjusted
+      // catalog. Re-read that same catalog at confirmation so the activated
+      // subscription and invoice cannot silently diverge from the amount the
+      // worker was instructed to pay.
+      const catalog = await loadPlanCatalog();
+      const { subscription, invoice } = renewSubscription(w, plan, period, catalog);
       demoAddInvoice(invoice);
       // §24 — a live campaign that promises a credit bonus pays out here, once
       // per worker per promotion (the ledger enforces it). Silent no-op when no
@@ -338,6 +362,7 @@ export function demoPendingManualPurchases(): PendingManualPayment[] {
     const desc = purchaseDescription(payment.meta.scope, w, payment.meta);
     out.push({
       id: payment.id,
+      workerSlug: payment.meta.workerSlug,
       scope: payment.meta.scope,
       entityId: payment.id,
       labelEn: desc.en,
@@ -346,6 +371,7 @@ export function demoPendingManualPurchases(): PendingManualPayment[] {
       currency: payment.currency,
       method: payment.method,
       reference: payment.providerRef,
+      checkoutUrl: payment.checkoutUrl,
       createdAt: payment.createdAt,
     });
   }

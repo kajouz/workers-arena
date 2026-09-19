@@ -1,6 +1,6 @@
 # WorkersArena — Business Model, Revenue & Improvement Plan
 
-> Phase 1 implemented: reduced Business take rate, differentiated trials, transparent credits, and admin-reviewed lead-quality refunds. Stripe/payment automation remains deferred.
+> Phase 1 implemented: reduced Business take rate, differentiated trials, transparent credits, and admin-reviewed lead-quality refunds. Phase 2 started: emergency/demand-aware lead prices are locked with an auditable multiplier and reason. Stripe/payment automation remains deferred.
 > Last updated: September 18, 2026
 
 ---
@@ -166,7 +166,7 @@ Monthly breakdown: completed jobs, GMV, fees, rebates, net earnings, per-job det
 
 Admin dashboard: weekly trends, per-grade stats, conversion rates, price multiplier impact.
 
-### 2.13 Smart Pricing (BUILT)
+### 2.13 Smart Pricing (BUILT — Phase 2 integrated)
 
 Dynamic lead price multiplier based on:
 - **Rush hour** (6–9 AM, 5–8 PM): +15%
@@ -174,7 +174,9 @@ Dynamic lead price multiplier based on:
 - **Seasonal** (AC in summer +25%, plumbing in winter +15%)
 - **Holidays** (Ramadan, Eid, Christmas): +30–35%
 - **Supply/demand ratio**: adjusts based on available workers vs. pending leads
+- **Emergency dispatch** adds a bounded 1.5× premium before the global clamp
 - **Clamped** to [0.7, 2.0] range
+- The final multiplier and reason are persisted on `LeadOffer`, so workers and admins can audit the price that was shown at offer time
 
 ---
 
@@ -261,15 +263,17 @@ Customer books job → Worker accepts with quote → Job completes
 | Wire lead offer email notifications | 1 day | Workers engage with leads faster |
 | Add credit purchase UI with Stripe checkout | 2 days | Workers can buy without admin |
 
-### Phase 2: Revenue Optimization (Week 3–4)
+### Phase 2: Revenue Optimization (started; payment automation deferred)
 
-| Task | Effort | Impact |
+| Task | Status | Impact |
 |------|--------|--------|
-| Admin panel: show rating-driven price multipliers | 1 day | Visibility into feedback loop |
-| Connect Stripe for company ad campaigns | 2 days | B2B revenue stream live |
-| Add subscription upgrade/downgrade flow | 2 days | ARPU growth |
-| Implement escrow for booking deposits | 3 days | Trust → higher job values |
-| Add per-category fee overrides UI | 1 day | Admin pricing flexibility |
+| Admin panel: show rating-driven and smart-price multipliers | ✅ shipped | Visibility and auditability of the feedback loop |
+| Emergency/demand-aware lead price lock | ✅ shipped | Monetizes urgency without repricing existing offers |
+| Lead-quality refund decisions with partial returns and admin notes | ✅ shipped | Protects trust while limiting abuse |
+| Connect Stripe for company ad campaigns | ⏸️ deferred | B2B revenue stream remains on manual rails |
+| Add subscription upgrade/downgrade flow | 🔜 next | ARPU growth without a new payment provider |
+| Implement escrow for booking deposits | 🔜 next | Trust → higher job values |
+| Add per-category fee overrides UI | ✅ existing | Admin pricing flexibility |
 
 ### Phase 3: Growth Features (Week 5–8)
 

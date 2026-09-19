@@ -28,6 +28,7 @@ import { resetBookingsStore } from "../src/lib/data/bookings";
 import { resetCampaignStore } from "../src/lib/data/campaigns";
 import { resetPurchaseStore } from "../src/lib/data/purchases";
 import { getAdminActivityFeed, resetAdminActivityFeed } from "../src/lib/data/activity";
+import { resetFeeRuleStore, saveFeeRuleSet } from "../src/lib/data/fee-rules-store";
 import { getPaymentProvider } from "../src/lib/payments/registry";
 import { omtProvider } from "../src/lib/payments/omt";
 import { whishProvider } from "../src/lib/payments/whish";
@@ -54,6 +55,7 @@ beforeEach(() => {
   resetBookingsStore();
   resetCampaignStore();
   resetPurchaseStore();
+  resetFeeRuleStore();
   getSessionMock.mockReset();
   activityFile = `${tmpdir()}/lebanon-activity-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
   vi.stubEnv("ADMIN_ACTIVITY_FILE", activityFile);
@@ -286,6 +288,11 @@ describe("§Lebanon — subscription renewal via OMT/Whish (manual)", () => {
     expect(res.url).toContain("/payments/manual");
     expect(res.days).toBeUndefined(); // not extended yet — awaiting the admin's confirm
 
+    // Returning to the renewal dialog reuses the same unpaid instructions;
+    // it must not create a second transfer reference.
+    const repeated = await renewSubscriptionAction(f);
+    expect(repeated).toEqual(res);
+
     const pending = await getPendingManualPayments();
     const subPayment = pending.find((p) => p.scope === "subscription");
     expect(subPayment).toBeDefined();
@@ -300,6 +307,37 @@ describe("§Lebanon — subscription renewal via OMT/Whish (manual)", () => {
       (new Date(khaled.subscription.expiresAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)
     );
     expect(daysLeft).toBeGreaterThanOrEqual(300); // annual term
+  });
+
+  it("keeps an admin-repriced checkout and confirmed subscription in parity", async () => {
+    await saveFeeRuleSet(
+      {
+        change: "subscription catalog test pricing",
+        planCatalog: {
+          plans: { basic: { monthlyPriceUsd: 27 } },
+          categoryTiers: { low: 1, mid: 1, high: 1 },
+        },
+      },
+      { id: "a1", name: "Amina Admin" }
+    );
+
+    getSessionMock.mockResolvedValue(WORKER);
+    const form = new FormData();
+    form.set("plan", "basic");
+    form.set("period", "annual");
+    form.set("workerSlug", DEMO_WORKER);
+    form.set("method", "whish");
+    const checkout = await renewSubscriptionAction(form);
+    expect(checkout.ok).toBe(true);
+
+    const pending = await getPendingManualPayments();
+    const payment = pending.find((p) => p.scope === "subscription");
+    expect(payment?.amount).toBe(27 * 9 * 100);
+
+    getSessionMock.mockResolvedValue(ADMIN);
+    expect(await confirmManualPaymentAction(payment!.id)).toEqual({ ok: true });
+    const worker = workerBySlug(DEMO_WORKER)!;
+    expect(worker.subscription.price).toBe(27 * 9);
   });
 });
 

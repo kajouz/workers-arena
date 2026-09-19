@@ -18,6 +18,8 @@ export interface LeadOfferRow {
   grade: string;
   matchScore: number;
   priceCredits: number;
+  pricingMultiplier: number | null;
+  pricingReason: string | null;
   status: string;
   exclusive: boolean;
   contactReveal: string | null;
@@ -36,6 +38,8 @@ export function toDomainLeadOffer(row: LeadOfferRow): LeadOffer {
     grade: row.grade as LeadGrade,
     matchScore: row.matchScore,
     priceCredits: row.priceCredits,
+    ...(row.pricingMultiplier !== null ? { pricingMultiplier: row.pricingMultiplier } : {}),
+    ...(row.pricingReason ? { pricingReason: row.pricingReason } : {}),
     status: row.status as LeadOfferStatus,
     exclusive: row.exclusive,
     offeredAt: row.offeredAt.toISOString(),
@@ -62,6 +66,8 @@ export async function prismaCreateLeadOffers(offers: LeadOffer[]): Promise<LeadO
       grade: offer.grade,
       matchScore: offer.matchScore,
       priceCredits: offer.priceCredits,
+      pricingMultiplier: offer.pricingMultiplier ?? null,
+      pricingReason: offer.pricingReason ?? null,
       status: offer.status,
       exclusive: offer.exclusive,
       offeredAt: new Date(offer.offeredAt),

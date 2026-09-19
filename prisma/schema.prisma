@@ -1312,6 +1312,9 @@ model LeadOffer {
   grade         String // bronze | silver | gold | emergency
   matchScore    Int // §8 match score that earned this offer
   priceCredits  Int // credits owed, locked when the offer was created
+  // Phase 2 smart-pricing audit: rating + demand/dispatch multiplier at offer time.
+  pricingMultiplier Float?
+  pricingReason String?
   status        String       @default("offered")
   exclusive     Boolean      @default(true)
   contactReveal String? // what the buyer may see after purchase (§10)

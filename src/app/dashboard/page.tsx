@@ -12,6 +12,7 @@ import {
   getWorkerSlots,
   getWorkerBalance,
   getWorkerPayouts,
+  getPendingManualPayments,
 } from "@/lib/data/repo";
 import { offerIsLive } from "@/lib/data/lead-market";
 import type { BookingMessage, Notification } from "@/lib/data/types";
@@ -95,6 +96,9 @@ export default async function DashboardPage() {
   const nowSeed = Date.now();
   const liveLeadCount = leadOffers.filter((offer) => offerIsLive(offer, nowSeed)).length;
   const roiReport = await getWorkerRoi(demoWorker.id);
+  const pendingRenewal = (await getPendingManualPayments()).find(
+    (payment) => payment.scope === "subscription" && payment.workerSlug === demoWorker.slug
+  ) ?? null;
 
   return (
     <WorkerDashboard
@@ -114,6 +118,7 @@ export default async function DashboardPage() {
       planCatalog={planCatalog}
       liveLeadCount={liveLeadCount}
       roiReport={roiReport}
+      pendingRenewal={pendingRenewal}
     />
   );
 }

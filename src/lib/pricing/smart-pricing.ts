@@ -24,6 +24,8 @@ export interface SmartPricingContext {
   availableWorkers: number;
   /** Number of pending leads for this category+city in the last hour. */
   pendingLeads: number;
+  /** Emergency requests receive a bounded after-hours dispatch premium. */
+  isEmergency?: boolean;
 }
 
 export interface SmartPricingResult {
@@ -162,10 +164,12 @@ export function computeSmartPricing(
   const seasonal = seasonalMultiplier(ctx.categorySlug, month);
   const holiday = holidayMultiplier(ctx.now);
   const supplyDemand = supplyDemandMultiplier(ctx.availableWorkers, ctx.pendingLeads);
+  const emergency = ctx.isEmergency ? 1.5 : 1.0;
 
-  // Geometric mean of all factors (avoids over-stacking).
+  // Geometric mean of all factors (avoids over-stacking). Emergency is a
+  // deliberate dispatch premium, bounded by the global 2.0 cap below.
   const raw =
-    rushHour * weekend * seasonal * holiday.multiplier * supplyDemand;
+    rushHour * weekend * seasonal * holiday.multiplier * supplyDemand * emergency;
 
   // Clamp to [0.7, 2.0] — no more than -30% discount or +100% surge.
   const multiplier = Math.round(Math.min(2.0, Math.max(0.7, raw)) * 100) / 100;
@@ -177,6 +181,7 @@ export function computeSmartPricing(
   if (seasonal !== 1.0) reasons.push(seasonal > 1 ? "peak season" : "off-season");
   if (holiday.name) reasons.push(holiday.name);
   if (supplyDemand !== 1.0) reasons.push(supplyDemand > 1 ? "high demand" : "low demand");
+  if (emergency !== 1.0) reasons.push("emergency dispatch");
 
   return {
     multiplier,

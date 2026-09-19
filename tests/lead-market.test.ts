@@ -721,29 +721,29 @@ describe("§7–§9 the marketplace store", () => {
       leadCostCredits: mine.priceCredits,
       leadCostMinor: mine.priceCredits * 100,
       feeMinor: fee,
-      // The lead's own price ($20) is below the fee ($21) → the lead-cost cap
-      // decides, and the platform still keeps the remaining $1.
-      rebateMinor: mine.priceCredits * 100,
-      effectiveFeeMinor: fee - mine.priceCredits * 100,
-      limitedBy: "lead-cost",
+      // Phase 2 smart pricing can move the locked gold price above its $20
+      // base. The rebate remains bounded by whichever is smaller: fee or lead.
+      rebateMinor: Math.min(fee, mine.priceCredits * 100),
+      effectiveFeeMinor: fee - Math.min(fee, mine.priceCredits * 100),
       ruleId: expect.any(String),
       ruleVersion: 1,
     });
+    expect(rebates[0]!.limitedBy).toBe(fee <= mine.priceCredits * 100 ? "fee" : "lead-cost");
 
     // The money rides the ONE earnings row per booking (quote − fee + rebate),
     // so the worker's spendable balance proves it landed (the ledger row is
     // unique per booking — there is no second credit to find).
-    expect(demoGetWorkerBalance(worker.id).availableMinor).toBe(30_000 - fee + mine.priceCredits * 100);
+    expect(demoGetWorkerBalance(worker.id).availableMinor).toBe(30_000 - fee + rebates[0]!.rebateMinor);
     // …and the booking carries the number for display.
-    expect(done.leadRebateMinor).toBe(mine.priceCredits * 100);
+    expect(done.leadRebateMinor).toBe(rebates[0]!.rebateMinor);
     // The credits were spent; the rebate is money, not credits, so the balance
     // is unchanged by the rebate and only the purchase moved it.
     expect((await getWorkerCreditBalance(worker.id)).balance).toBe(100 - mine.priceCredits);
 
     // The board marks the lead as having paid for itself.
     const board = await getWorkerLeadBoard(worker.id);
-    expect(board.rebates).toEqual({ totalMinor: mine.priceCredits * 100, count: 1 });
-    expect(board.owned.find((i) => i.offer.id === mine.id)?.rebateMinor).toBe(mine.priceCredits * 100);
+    expect(board.rebates).toEqual({ totalMinor: rebates[0]!.rebateMinor, count: 1 });
+    expect(board.owned.find((i) => i.offer.id === mine.id)?.rebateMinor).toBe(rebates[0]!.rebateMinor);
   });
 
   it("caps the rebate at the FEE when the fee is the smaller number", async () => {

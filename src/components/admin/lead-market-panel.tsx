@@ -118,6 +118,7 @@ export function LeadMarketPanel({
   const [grant, setGrant] = useState({ workerId: "", amount: "10", reason: "" });
   const [granting, setGranting] = useState(false);
   const [refundBusy, setRefundBusy] = useState<string | null>(null);
+  const [refundDrafts, setRefundDrafts] = useState<Record<string, { credits: string; note: string }>>({});
 
   const setPrice = (grade: LeadGrade, value: number) =>
     setDraft((d) => ({ ...d, prices: { ...d.prices, [grade]: value } }));
@@ -685,7 +686,7 @@ export function LeadMarketPanel({
                   </Badge>
                   <span className="flex-1">
                     {offer.leadNumber} · {t(`leadMarket.grade.${offer.grade}`)} · match {offer.matchScore} ·{" "}
-                    {offer.priceCredits} {t("promotions.credits")} · {formatDate(offer.offeredAt, locale)}
+                    {offer.priceCredits} {t("promotions.credits")} · {offer.pricingMultiplier ? `${offer.pricingMultiplier}×` : "1×"} · {offer.pricingReason ?? t("leadMarket.smartPricingBase")} · {formatDate(offer.offeredAt, locale)}
                   </span>
                   {offer.status === "offered" && (
                     <WhatsAppNotifyButton offer={offer} workerName={offer.workerId} />
@@ -697,22 +698,57 @@ export function LeadMarketPanel({
         </section>
 
         {/* Lead-quality refund queue (Phase 1) */}
-        <section className="space-y-2 border-t border-ink-100 pt-4 dark:border-ink-800">
-          <h3 className="text-sm font-semibold">Lead-quality refund requests</h3>
+        <section className="space-y-3 border-t border-ink-100 pt-4 dark:border-ink-800">
+          <h3 className="text-sm font-semibold">{t("leadMarket.refundQueueTitle")}</h3>
           {(refundRequests ?? []).length === 0 ? (
-            <p className="text-sm text-ink-500">No refund requests are waiting for review.</p>
+            <p className="text-sm text-ink-500">{t("leadMarket.refundQueueEmpty")}</p>
           ) : (
             <ul className="space-y-2 text-xs">
-              {(refundRequests ?? []).slice(0, 12).map((request) => (
-                <li key={request.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-ink-100 p-2 dark:border-ink-800">
-                  <span className="font-semibold">{request.status}</span>
-                  <span className="flex-1">{request.id} · {request.workerId} · {request.reason} · {request.requestedCredits} credits</span>
-                  {request.status === "pending" && <>
-                    <Button size="sm" disabled={refundBusy === request.id} onClick={async () => { setRefundBusy(request.id); await decideLeadRefundAction({ requestId: request.id, approve: true }); router.refresh(); setRefundBusy(null); }}>Approve</Button>
-                    <Button size="sm" variant="outline" disabled={refundBusy === request.id} onClick={async () => { setRefundBusy(request.id); await decideLeadRefundAction({ requestId: request.id, approve: false }); router.refresh(); setRefundBusy(null); }}>Reject</Button>
-                  </>}
-                </li>
-              ))}
+              {(refundRequests ?? []).slice(0, 12).map((request) => {
+                const draftRefund = refundDrafts[request.id] ?? { credits: String(request.requestedCredits), note: "" };
+                const decide = async (approve: boolean) => {
+                  if (refundBusy === request.id) return;
+                  setRefundBusy(request.id);
+                  const result = await decideLeadRefundAction({
+                    requestId: request.id,
+                    approve,
+                    ...(approve ? { approvedCredits: Math.max(0, Math.trunc(Number(draftRefund.credits))) } : {}),
+                    ...(draftRefund.note.trim() ? { adminNote: draftRefund.note.trim() } : {}),
+                  });
+                  setRefundBusy(null);
+                  if (result.ok) router.refresh();
+                  else toast("error", t("leadMarket.refundDecisionError"));
+                };
+                return (
+                  <li key={request.id} className="space-y-2 rounded-lg border border-ink-100 p-3 dark:border-ink-800">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={request.status === "approved" ? "success" : request.status === "rejected" ? "outline" : "default"}>{request.status}</Badge>
+                      <span className="flex-1">{request.id} · {request.workerId} · {request.reason} · {request.requestedCredits} credits</span>
+                    </div>
+                    {request.evidence && <p className="rounded bg-ink-50 p-2 text-ink-600 dark:bg-ink-900 dark:text-ink-300">{request.evidence}</p>}
+                    {request.status === "pending" && (
+                      <div className="grid gap-2 sm:grid-cols-[8rem_1fr_auto_auto]">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={request.requestedCredits}
+                          aria-label={t("leadMarket.refundPartialCredits")}
+                          value={draftRefund.credits}
+                          onChange={(e) => setRefundDrafts((all) => ({ ...all, [request.id]: { ...draftRefund, credits: e.target.value } }))}
+                        />
+                        <Input
+                          aria-label={t("leadMarket.refundAdminNote")}
+                          placeholder={t("leadMarket.refundAdminNote")}
+                          value={draftRefund.note}
+                          onChange={(e) => setRefundDrafts((all) => ({ ...all, [request.id]: { ...draftRefund, note: e.target.value } }))}
+                        />
+                        <Button size="sm" disabled={refundBusy === request.id} onClick={() => decide(true)}>{t("leadMarket.refundApprove")}</Button>
+                        <Button size="sm" variant="outline" disabled={refundBusy === request.id} onClick={() => decide(false)}>{t("leadMarket.refundReject")}</Button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

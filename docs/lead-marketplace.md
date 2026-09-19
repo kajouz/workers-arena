@@ -80,8 +80,9 @@ Lead prices are dynamically adjusted by `smart-pricing.ts` based on context:
 | Holidays (Ramadan, Eid) | +30–35% | Peak demand |
 | High demand (few workers) | Up to 2.0× | Supply/demand ratio |
 | Low demand (many workers) | Down to 0.7× | Supply/demand ratio |
+| Emergency dispatch | 1.5× | Urgent after-hours response premium |
 
-**Clamped to [0.7, 2.0] range** — prices never go below 70% or above 200% of base.
+**Clamped to [0.7, 2.0] range** — prices never go below 70% or above 200% of base. The final multiplier and reason are persisted on `LeadOffer`; existing offers are never repriced.
 
 ---
 
@@ -248,7 +249,7 @@ Workers rate leads 1–5 stars after purchase, feeding back into pricing and mat
 
 ### Pricing Impact
 
-The `leadPrice()` function accepts an optional `ratingMultiplier` parameter:
+The `leadPrice()` function accepts an optional `ratingMultiplier` parameter. Qualified-lead distribution also multiplies it by the Phase 2 smart-pricing result before locking the offer price:
 - Default: 1.0 (no adjustment)
 - Low quality grade: 0.8× (20% discount)
 - High quality grade: 1.2× (20% surcharge)

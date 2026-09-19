@@ -170,6 +170,16 @@ export async function renewSubscriptionAction(
   const method = z.enum(["stripe", "omt", "whish"]).safeParse(formData.get("method") ?? "stripe");
   if (!method.success) return { error: "method" };
   if (method.data === "omt" || method.data === "whish") {
+    // Do not create a second unpaid renewal when the worker returns to the
+    // dialog. The existing signed instructions remain the source of truth for
+    // the admin confirmation queue.
+    const pending = await getPendingManualPayments();
+    const existing = pending.find(
+      (payment) => payment.scope === "subscription" && payment.workerSlug === workerSlug
+    );
+    if (existing) {
+      return { ok: true, url: existing.checkoutUrl };
+    }
     const res = await createPurchaseCheckout({
       workerSlug,
       scope: "subscription",

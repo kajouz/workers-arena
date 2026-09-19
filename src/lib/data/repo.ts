@@ -110,6 +110,7 @@ import {
 } from "./lead-market-store";
 import { getWorkerCreditBalance, type WorkerCreditBalance } from "./credit-ledger";
 import { getWorkerLeadRebates } from "./lead-rebate";
+import { getWorkerLeadRefunds } from "./lead-refund-store";
 import {
   submitLeadRating as submitLeadRatingStore,
   getWorkerLeadRatings as getWorkerLeadRatingsStore,
@@ -132,6 +133,7 @@ import {
 import { leadOfferNotification } from "./lead-notifications";
 import { loadActiveFeeRuleSet } from "./fee-rules-store";
 import { planTierFor } from "./fee-rules";
+import { computeSmartPricing } from "@/lib/pricing/smart-pricing";
 import type {
   AnalyticsOverview,
   BillingPeriod,
@@ -1146,6 +1148,18 @@ export async function distributeQualifiedLead(
   if (pool.length === 0) return null;
 
   const ruleSet = await loadActiveFeeRuleSet();
+  // Phase 2: lock a bounded demand/dispatch multiplier into every offer.
+  // The pool is the current category/city supply snapshot and the new request
+  // is one pending lead; this keeps pricing deterministic in both adapters
+  // without introducing a second query or any payment dependency.
+  const smartPrice = computeSmartPricing({
+    now: new Date(),
+    categorySlug: request.categorySlug,
+    citySlug: request.citySlug,
+    availableWorkers: pool.length,
+    pendingLeads: 1,
+    isEmergency: request.isEmergency,
+  });
   const { grade, offers, created } = await offerQualifiedLead({
     lead: {
       id: request.id,
@@ -1162,6 +1176,8 @@ export async function distributeQualifiedLead(
     candidates: leadCandidatesFromWorkers(pool),
     invitedWorkerIds,
     ruleSet,
+    smartPriceMultiplier: smartPrice.multiplier,
+    smartPriceReason: smartPrice.reason,
   });
 
   for (const offer of created) {
@@ -1200,7 +1216,7 @@ export interface WorkerLeadBoard {
  * that leaks a customer's phone number.
  */
 export async function getWorkerLeadBoard(workerId: string, now = new Date()): Promise<WorkerLeadBoard> {
-  const [offers, ruleSet, balance, worker, bookings, rebates] = await Promise.all([
+  const [offers, ruleSet, balance, worker, bookings, rebates, refundRequests] = await Promise.all([
     getWorkerLeadOffersStore(workerId, now),
     loadActiveFeeRuleSet(),
     getWorkerCreditBalance(workerId),
@@ -1209,11 +1225,13 @@ export async function getWorkerLeadBoard(workerId: string, now = new Date()): Pr
     // §11 — the rebates this worker's leads have already returned, keyed by lead
     // so each owned row can show whether that lead has paid for itself.
     getWorkerLeadRebates(workerId, 100),
+    getWorkerLeadRefunds(workerId),
   ]);
   const config = leadMarketConfig(ruleSet);
   const planTier = planTierFor(worker?.subscription.plan);
   const nowMs = now.getTime();
   const rebateByLead = new Map<string, number>();
+  const refundByOffer = new Map(refundRequests.map((request) => [request.offerId, request.status]));
   for (const rebate of rebates) {
     rebateByLead.set(rebate.leadId, (rebateByLead.get(rebate.leadId) ?? 0) + rebate.rebateMinor);
   }
@@ -1247,6 +1265,7 @@ export async function getWorkerLeadBoard(workerId: string, now = new Date()): Pr
         planTier,
         booked,
         rebateMinor: rebateByLead.get(lead.id) ?? 0,
+        refundStatus: refundByOffer.get(offer.id),
         customer: { name: lead.customerName, phone: lead.customerPhone, email: lead.customerEmail },
         // "Why you were matched" — the SAME scoring function that ranked the
         // pool when the offer was created, re-run for this one worker, so the

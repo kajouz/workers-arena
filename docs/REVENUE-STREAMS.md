@@ -99,7 +99,9 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 **Key Mechanics:**
 - **Visibility gating**: expired subscription → worker removed from public search
 - **Renewal reminders**: 7d, 3d, 1d before expiry
-- **Invoicing**: every renewal mints an invoice
+- **Upgrade/downgrade preview**: the renewal dialog shows the monthly difference before the worker commits; it labels the selection as an upgrade, downgrade, or unchanged plan
+- **Category-consistent charging**: manual OMT/Whish instructions, renewal invoices, and subscription records use the same admin-edited plan price × trade multiplier in both demo and Prisma paths
+- **Invoicing**: every confirmed renewal mints an invoice with the exact charged amount
 - **Admin-editable**: all prices, quotas, and features configurable via `/admin/revenue-settings`
 
 ---
@@ -156,6 +158,11 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 - Ratings feed into per-grade pricing multipliers (0.8×–1.2×)
 - Ratings influence matching weights
 - Admin dashboard shows quality trends
+
+**Phase 2 demand pricing:**
+- Qualified-lead distribution applies smart pricing for rush hour, weekends, seasonal demand, holidays, local supply/demand, and emergency dispatch.
+- Emergency requests add a bounded 1.5× dispatch factor; all results are clamped to 0.7×–2.0×.
+- The combined multiplier and reason are stored on each offer with its locked credit price; existing offers are never repriced.
 
 ---
 
@@ -451,6 +458,14 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 - **Effective Take Rate:** (subscription + fees) ÷ GMV
 
 ---
+
+## Phase 2 Status (payment automation deferred)
+
+- ✅ Rating-driven and smart demand multipliers are visible in the admin lead-offer audit.
+- ✅ Emergency requests receive a bounded dispatch premium and retain their locked price/reason.
+- ✅ Lead refunds support full or partial credit decisions with admin notes.
+- 🔜 Subscription upgrade/downgrade UX and escrow remain the next non-Stripe revenue improvements.
+- ⏸️ Stripe and automatic company campaign billing remain deferred by product decision.
 
 ## Future Enhancements
 

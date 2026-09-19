@@ -647,6 +647,10 @@ export interface LeadOffer {
   matchScore: number;
   /** Credit price locked in when the offer was created (never re-priced). */
   priceCredits: number;
+  /** Combined rating + smart-pricing multiplier locked for auditability. */
+  pricingMultiplier?: number;
+  /** Human-readable factors that informed the locked price. */
+  pricingReason?: string;
   status: LeadOfferStatus;
   /** True when buying this offer revoked the others (exclusivity). */
   exclusive: boolean;
@@ -849,6 +853,8 @@ export interface LeadBoardItem {
    * the one number that decides whether a worker keeps buying leads.
    */
   rebateMinor: number;
+  /** Persisted Phase 1 refund decision, when a worker already requested review. */
+  refundStatus?: "pending" | "approved" | "rejected";
 }
 
 export function leadBoardItemFor(input: {
@@ -864,6 +870,8 @@ export function leadBoardItemFor(input: {
   reasons?: Array<keyof MatchingWeights>;
   /** §11 — the rebate this lead has already returned (minor units). */
   rebateMinor?: number;
+  /** Phase 1 worker-visible refund state. */
+  refundStatus?: "pending" | "approved" | "rejected";
   now: number;
 }): LeadBoardItem {
   const purchased = input.offer.status === "purchased";
@@ -891,6 +899,7 @@ export function leadBoardItemFor(input: {
     purchased,
     reasons: input.reasons ?? [],
     rebateMinor: Math.max(0, Math.trunc(input.rebateMinor ?? 0)),
+    ...(input.refundStatus ? { refundStatus: input.refundStatus } : {}),
   };
 }
 

@@ -55,6 +55,7 @@ import { feeSnapshotCreateData } from "./fee-rules-prisma";
 import { categoryBySlug as demoCategoryBySlug } from "./categories";
 import { CITIES, cityBySlug } from "./cities";
 import { addMonths, planPrice, PLANS, subscriptionStatus } from "./subscriptions";
+import { effectiveMonthlyPriceWithOverrides } from "./plan-catalog-overrides";
 import { pushNotification } from "./notifications";
 import { bookingNotification } from "./booking-notifications";
 import { RECURRING_OCCURRENCE_COUNT, generateRecurringOccurrences, occurrencesInWindow } from "./recurring";
@@ -4978,8 +4979,8 @@ export async function prismaRunRequestSla(now = new Date()): Promise<RequestSlaR
 export async function prismaGetPendingManualPayments(): Promise<PendingManualPayment[]> {
   const prisma = getPrisma();
   const rows = await prisma.payment.findMany({
-    where: { method: { in: ["OMT", "WHISH"] }, status: "PENDING", providerRef: { not: null } },
-    include: { booking: { include: { serviceItem: true } } },
+    where: { method: { in: ["OMT", "WHISH"] }, status: "PENDING", providerRef: { not: null } },        include: { booking: { include: { serviceItem: true } } },
+
     orderBy: { createdAt: "asc" },
   });
   const out: PendingManualPayment[] = [];
@@ -5041,12 +5042,13 @@ export async function prismaGetPendingManualPayments(): Promise<PendingManualPay
       if (!["subscription", "verification", "featured", "emergency"].includes(scope)) continue;
       const worker = await prisma.worker.findUnique({
         where: { id: row.workerId },
-        select: { nameEn: true, nameAr: true },
+        select: { nameEn: true, nameAr: true, slug: true },
       });
       if (!worker) continue;
       const label = purchaseLabel(scope as PurchaseScope, worker.nameEn, worker.nameAr, meta);
       out.push({
         id: row.id,
+        workerSlug: worker.slug,
         scope: scope as PurchaseScope,
         entityId: row.id,
         labelEn: label.en,
@@ -5055,6 +5057,7 @@ export async function prismaGetPendingManualPayments(): Promise<PendingManualPay
         currency: row.currency,
         method,
         reference: row.providerRef!,
+        checkoutUrl: typeof meta.checkoutUrl === "string" ? meta.checkoutUrl : undefined,
         createdAt: row.createdAt.toISOString(),
       });
     }
@@ -5107,13 +5110,18 @@ export async function prismaCreatePurchaseCheckout(input: {
   method: "OMT" | "WHISH";
 }): Promise<{ url: string } | null> {
   const prisma = getPrisma();
-  const amount = purchaseAmountMinor(input.scope, input.plan, input.period, input.tier);
+  let amount = purchaseAmountMinor(input.scope, input.plan, input.period, input.tier);
   if (amount === null) return null;
   const worker = await prisma.worker.findUnique({
     where: { slug: input.workerSlug },
-    include: { user: { select: { email: true } } },
+    include: { user: { select: { email: true } }, category: { select: { slug: true } } },
   });
   if (!worker) return null;
+  if (input.scope === "subscription" && input.plan) {
+    const catalog = await (await import("./fee-rules-store")).loadPlanCatalog();
+    const monthly = effectiveMonthlyPriceWithOverrides(catalog, input.plan, worker.category.slug);
+    amount = Math.round(monthly * 100 * (input.period === "annual" ? 9 : 1));
+  }
 
   // No undefined values — Prisma's InputJsonValue rejects them, and the JSON
   // column should only carry the options the purchase actually has.
@@ -5211,7 +5219,7 @@ export async function prismaConfirmPurchase(
   if (!payment.workerId) return true;
   const worker = await prisma.worker.findUnique({
     where: { id: payment.workerId },
-    include: { subscription: true, user: { select: { email: true, locale: true } } },
+    include: { subscription: true, category: { select: { slug: true } }, user: { select: { email: true, locale: true } } },
   });
 
   // §Lebanon — audit the manual (OMT/Whish) upgrade confirm with the ACTING
@@ -5244,9 +5252,11 @@ export async function prismaConfirmPurchase(
       const now = new Date();
       const base = worker.subscription.expiresAt > now ? worker.subscription.expiresAt : now;
       const expiresAt = addMonths(base.toISOString(), period === "annual" ? 12 : 1);
+      const catalog = await (await import("./fee-rules-store")).loadPlanCatalog();
+      const monthly = effectiveMonthlyPriceWithOverrides(catalog, p, worker.category?.slug);
       await prisma.subscription.update({
         where: { id: worker.subscription.id },
-        data: { plan: planDb, status: "ACTIVE", price: planPrice(p, period) * 100, periodDays: period === "annual" ? 365 : 30, expiresAt: new Date(expiresAt) },
+        data: { plan: planDb, status: "ACTIVE", price: Math.round(monthly * 100 * (period === "annual" ? 9 : 1)), periodDays: period === "annual" ? 365 : 30, expiresAt: new Date(expiresAt) },
       });
       // Mint the renewal invoice (WA-YYYY-NNNNN — the same sequence as booking
       // receipts: per-year count + formatInvoiceNumber) so the purchase has a

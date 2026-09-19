@@ -16,6 +16,14 @@
 - ✅ **Lead refund workflow:** workers can submit one request per purchased lead for invalid contact, duplicate, wrong category/area, not requested, or unreachable leads. Admins approve/reject/partially approve; approvals append credit adjustments and preserve the original spend.
 - ⏸️ **Payment automation:** Stripe and other gateways remain deliberately deferred.
 
+## Phase 2 — demand-priced lead marketplace and operating controls (started)
+
+- ✅ **Emergency/demand lead pricing:** new offers apply the existing smart-pricing engine on top of the grade and feedback multiplier. Emergency dispatch receives a bounded 1.5× factor before the global 0.7×–2.0× clamp; rush hour, weekend, seasonal, holiday, and local supply/demand factors remain visible in the locked offer reason.
+- ✅ **Immutable pricing audit:** each `LeadOffer` stores the combined multiplier and reason used when its credit price was locked. Later policy or demand changes never re-price an existing offer.
+- ✅ **Admin refund decisions:** the lead-quality queue now supports full or partial credit returns, admin notes, evidence review, bilingual labels, and error feedback. Approved refunds remain append-only credit adjustments and cannot be submitted twice.
+- ✅ **Subscription migration controls:** renewal/plan-change surfaces now preview upgrade vs downgrade cost, use the current category-adjusted admin catalog, and keep manual OMT/Whish checkout amounts and invoices consistent across demo and Prisma paths.
+- 🔜 **Phase 2 next:** measure emergency conversion and refund rates for 30 days before tuning the 1.5× factor or expanding surge windows. Add cohort-based upgrade prompts after the measurement window. Stripe, automatic billing, and payment automation remain deferred.
+
 ## 1. Baseline — what's already shipped (the launchpad)
 
 The platform is further along than the roadmap's checkbox state suggests:
@@ -38,6 +46,7 @@ Improvements to how customers, workers, and admins *move through* the product. O
 
 - [x] **Response rate + "Free this week" on search cards & profiles** — ✅ shipped (W1). `responseRate` (from `computeResponseRate` / shared `responseRateFromCounts`) and `availableThisWeek` (from `hasFreeSlotsThisWeek`, a 7-day AVAILABLE-slot window) are stamped on the `Worker` type by both adapters — demo via `withDemoSignals` in `repo.ts`, prisma via the batched `stampWorkerSignals` in `prisma-repo.ts` — and rendered as chips on `WorkerCard` + the `ProfileHero` meta row (i18n keys `worker.responseRate` / `worker.freeThisWeek` EN+AR). Unit tests + a `db:smoke` section assert the stamps against the live DB. *Why: customers select on responsiveness and availability, not just rating.*
 - [ ] **💡 Price benchmarks per category + city** — a "typical quote for a leaking sink in Beirut: $X–Y" line on profiles/search, computed from accepted quotes (`Booking.quote` where status in confirmed/inProgress/completed). *Why: anchors expectations and cuts quote-shock declines at the response phase.* Small.
+- [x] **Emergency/demand lead price lock — ✅ shipped in Phase 2** — `computeSmartPricing` is now part of qualified-lead distribution; the resulting multiplier and reason are persisted on each `LeadOffer` alongside its locked credit price. *Why: monetize urgency without repricing workers after they see an offer.*
 - [ ] **🟡 Verified-purchase-weighted reviews** — `verifiedPurchase` exists on `Review` but isn't enforced or weighted; fold it into the P0 review-moderation queue (approve/reject, flag spam). Medium.
 
 ### 2.2 Request phase (fix the structural weakness)

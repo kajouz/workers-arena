@@ -97,6 +97,9 @@ export interface CreateLeadOffersInput {
   at?: string;
   /** Rule set override (callers that already loaded it). */
   ruleSet?: Awaited<ReturnType<typeof loadActiveFeeRuleSet>>;
+  /** Phase 2 demand/dispatch multiplier, computed by the repository seam. */
+  smartPriceMultiplier?: number;
+  smartPriceReason?: string;
   /** Worker ids that already hold an offer on this lead (idempotent re-runs). */
   excludeWorkerIds?: string[];
 }
@@ -140,7 +143,9 @@ export async function createLeadOffers(
 
   // §12 — apply the rating-based price multiplier for this grade
   const multipliers = getRatingPriceMultipliers();
-  const price = leadPrice(ruleSet, input.lead.grade, multipliers[input.lead.grade] ?? 1.0);
+  const ratingMultiplier = multipliers[input.lead.grade] ?? 1.0;
+  const smartPriceMultiplier = Math.max(0.7, Math.min(2.0, input.smartPriceMultiplier ?? 1.0));
+  const price = leadPrice(ruleSet, input.lead.grade, ratingMultiplier * smartPriceMultiplier);
   const expiresAt = new Date(atMs + config.offerTtlMinutes * 60_000).toISOString();
   const fresh: LeadOffer[] = matched.map((row) => ({
     id: `offer-${(STORE.seq += 1)}`,
@@ -150,6 +155,8 @@ export async function createLeadOffers(
     grade: input.lead.grade,
     matchScore: row.score,
     priceCredits: price.credits,
+    pricingMultiplier: Math.round(ratingMultiplier * smartPriceMultiplier * 100) / 100,
+    ...(input.smartPriceReason ? { pricingReason: input.smartPriceReason } : {}),
     status: "offered" as LeadOfferStatus,
     exclusive: config.exclusive,
     offeredAt: at,
@@ -183,6 +190,8 @@ export interface OfferQualifiedLeadInput {
   invitedWorkerIds?: string[];
   at?: string;
   ruleSet?: Awaited<ReturnType<typeof loadActiveFeeRuleSet>>;
+  smartPriceMultiplier?: number;
+  smartPriceReason?: string;
 }
 
 export interface OfferQualifiedLeadResult {
@@ -209,6 +218,8 @@ export async function offerQualifiedLead(input: OfferQualifiedLeadInput): Promis
     ...(input.invitedWorkerIds ? { excludeWorkerIds: input.invitedWorkerIds } : {}),
     ...(input.at ? { at: input.at } : {}),
     ...(input.ruleSet ? { ruleSet: input.ruleSet } : {}),
+    ...(input.smartPriceMultiplier !== undefined ? { smartPriceMultiplier: input.smartPriceMultiplier } : {}),
+    ...(input.smartPriceReason ? { smartPriceReason: input.smartPriceReason } : {}),
   });
   return { grade, offers, created };
 }

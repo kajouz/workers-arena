@@ -44,6 +44,7 @@ import { UpgradeDialog } from "./upgrade-dialog";
 import { VerificationBanner } from "./verification-banner";
 import { WorkerRevenueTools } from "./worker-revenue-tools";
 import type { FeeRuleSet } from "@/lib/data/fee-rules";
+import type { PendingManualPayment } from "@/lib/data/types";
 import type { WorkerRoiReport } from "@/lib/data/repo";
 import { WorkerRoiCard } from "./worker-roi-card";
 import { ReferralCard } from "./referral-card";
@@ -65,6 +66,7 @@ export function WorkerDashboard({
   planCatalog,
   liveLeadCount,
   roiReport,
+  pendingRenewal,
 }: {
   session: SessionUser;
   analytics: AnalyticsOverview;
@@ -90,6 +92,8 @@ export function WorkerDashboard({
   liveLeadCount: number;
   /** §Worker ROI — monthly report, null when no data yet. */
   roiReport?: WorkerRoiReport | null;
+  /** Unpaid OMT/Whish subscription renewal, reused instead of duplicating it. */
+  pendingRenewal?: PendingManualPayment | null;
   /** §5 — the ACTIVE platform fee rule set (loaded server-side in /dashboard),
    * threaded to the booking rows so the respond preview shows the real fee. */
   feeRuleSet?: FeeRuleSet;
@@ -225,7 +229,7 @@ export function WorkerDashboard({
           <Card className="border-red-500/30 bg-red-500/5">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
               <p className="text-sm font-bold text-red-600 dark:text-red-400">{t("subscription.expiredBanner")}</p>
-              <RenewDialog worker={worker} planCatalog={planCatalog} />
+              <RenewDialog worker={worker} planCatalog={planCatalog} pendingRenewal={pendingRenewal} />
             </CardContent>
           </Card>
         )}
@@ -233,7 +237,7 @@ export function WorkerDashboard({
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
               <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{t("subscription.expiringBanner")}</p>
-              <RenewDialog worker={worker} planCatalog={planCatalog} />
+              <RenewDialog worker={worker} planCatalog={planCatalog} pendingRenewal={pendingRenewal} />
             </CardContent>
           </Card>
         )}
@@ -333,7 +337,7 @@ export function WorkerDashboard({
                 </div>
                 <Progress value={subStatus === "expired" ? 0 : Math.min(100, Math.round((daysLeft / (sub.period === "annual" ? 365 : 30)) * 100))} />
               </div>
-              <RenewDialog worker={worker} trial={isTrial} planCatalog={planCatalog} />
+              <RenewDialog worker={worker} trial={isTrial} planCatalog={planCatalog} pendingRenewal={pendingRenewal} />
               {/* §Lebanon — paid upgrades (verification / featured / emergency)
                   paid via the manual OMT/Whish methods (BUSINESS-MODEL §5.1). */}
               <UpgradeDialog worker={worker} />

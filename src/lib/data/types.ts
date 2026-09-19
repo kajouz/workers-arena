@@ -1157,6 +1157,9 @@ export interface CampaignPayment {
 export interface PendingManualPayment {
   /** The Payment row id. */
   id: string;
+  /** Set for worker purchases so the worker dashboard can show its own
+   * pending renewal without matching on a localized label. */
+  workerSlug?: string;
   /** What the payment completes: booking deposit, campaign purchase, or a
    * paid upgrade (subscription renewal / verification / featured / emergency). */
   scope: "booking" | "campaign" | PurchaseScope;
@@ -1170,6 +1173,8 @@ export interface PendingManualPayment {
   method: "omt" | "whish";
   /** The customer's OMT/Whish transfer reference (providerRef). */
   reference: string;
+  /** Signed instructions URL, reused when the worker returns to renewal. */
+  checkoutUrl?: string;
   createdAt: string;
 }
 

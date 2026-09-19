@@ -157,10 +157,14 @@ export function renewSubscription(
    * admin has repriced, which is the point). */
   catalog?: ResolvedPlanCatalog
 ): { subscription: Subscription; invoice: Invoice } {
-  const invoice = issueInvoice(w, plan, period);
   const price = catalog
-    ? effectiveMonthlyPriceWithOverrides(catalog, plan) * (period === "annual" ? ANNUAL_PAID_MONTHS : 1)
+    ? effectiveMonthlyPriceWithOverrides(catalog, plan, w.categorySlug) * (period === "annual" ? ANNUAL_PAID_MONTHS : 1)
     : planPrice(plan, period);
+  const invoice = issueInvoice(w, plan, period);
+  // Keep the receipt amount identical to the amount shown and charged by the
+  // admin-editable, category-adjusted catalog. A base-catalog invoice here
+  // would understate low-value plans and overstate high-value plans.
+  invoice.amount = price;
   const subscription: Subscription = {
     plan,
     status: "active",

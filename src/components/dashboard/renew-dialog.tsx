@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CalendarClock, Check } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
-import type { BillingPeriod, SubscriptionPlan, Worker } from "@/lib/data/types";
+import type { BillingPeriod, PendingManualPayment, SubscriptionPlan, Worker } from "@/lib/data/types";
 import { ANNUAL_PAID_MONTHS, ANNUAL_TERM_MONTHS, PLANS, planPrice } from "@/lib/data/subscriptions";
 import { effectiveMonthlyPriceWithOverrides, type ResolvedPlanCatalog } from "@/lib/data/plan-catalog-overrides";
 import { renewSubscriptionAction } from "@/app/actions/business";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 
-export function RenewDialog({ worker, trial = false, planCatalog }: { worker: Worker; /** §Trial — the worker is on a free trial: the CTA reads "Keep your plan" and the dialog shows the trial banner. */ trial?: boolean; planCatalog?: ResolvedPlanCatalog }) {
+export function RenewDialog({ worker, trial = false, planCatalog, pendingRenewal }: { worker: Worker; /** §Trial — the worker is on a free trial: the CTA reads "Keep your plan" and the dialog shows the trial banner. */ trial?: boolean; planCatalog?: ResolvedPlanCatalog; pendingRenewal?: PendingManualPayment | null }) {
   const { locale, t } = useLocale();
   const router = useRouter();
   const [plan, setPlan] = useState<SubscriptionPlan>(worker.subscription.plan);
@@ -23,6 +23,15 @@ export function RenewDialog({ worker, trial = false, planCatalog }: { worker: Wo
   const [method, setMethod] = useState<CheckoutMethod>("stripe");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+
+  const monthlyPrice = (selected: SubscriptionPlan) =>
+    planCatalog
+      ? effectiveMonthlyPriceWithOverrides(planCatalog, selected, worker.categorySlug)
+      : PLANS[selected].price;
+  const currentMonthly = monthlyPrice(worker.subscription.plan);
+  const selectedMonthly = monthlyPrice(plan);
+  const monthlyDelta = Math.round((selectedMonthly - currentMonthly) * 100) / 100;
+  const changeKind = monthlyDelta > 0 ? "upgrade" : monthlyDelta < 0 ? "downgrade" : "same";
 
   const submit = async () => {
     setBusy(true);
@@ -63,6 +72,13 @@ export function RenewDialog({ worker, trial = false, planCatalog }: { worker: Wo
         {trial && (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
             {t("subscription.trialBanner")}
+          </div>
+        )}
+        {pendingRenewal && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs font-semibold text-amber-700 dark:text-amber-400">
+            {locale === "ar"
+              ? "لديك طلب تجديد بانتظار تأكيد الإدارة. لن يتم إنشاء دفعة ثانية."
+              : "You already have a renewal awaiting admin confirmation. A second payment will not be created."}
           </div>
         )}
 
@@ -149,6 +165,15 @@ export function RenewDialog({ worker, trial = false, planCatalog }: { worker: Wo
             {t("dashboard.currentPlan")}: {locale === "ar" ? PLANS[worker.subscription.plan].labelAr : PLANS[worker.subscription.plan].labelEn}
           </Badge>
         )}
+        <div className="rounded-xl border border-brand-500/20 bg-brand-500/5 p-3 text-center text-xs text-ink-600 dark:text-ink-300" aria-live="polite">
+          {changeKind === "same" ? t("subscription.samePlan") : (
+            <>
+              <span className="font-black">{t(changeKind === "upgrade" ? "subscription.upgradePreview" : "subscription.downgradePreview")}</span>{" "}
+              <span>{t("subscription.monthlyDifference").replace("{amount}", `$${Math.abs(monthlyDelta).toFixed(2)}`)}</span>
+            </>
+          )}
+          {period === "annual" && <span className="ms-1">{t("subscription.catalogPriceNote")}</span>}
+        </div>
         <div className="space-y-1.5">
           <p className="text-xs font-bold text-ink-500 dark:text-ink-400">{t("payments.purchaseChooseMethod")}</p>
           <PaymentMethodPicker value={method} onChange={setMethod} disabled={busy} />
