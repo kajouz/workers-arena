@@ -13,6 +13,7 @@ import {
   getVerificationQueue,
   getAllWorkers,
   getWorkerById,
+  getSubscriptionCohorts,
 } from "@/lib/data/repo";
 import { getAdminActivityFeed } from "@/lib/data/activity";
 import { campaignRefundNotification } from "@/lib/data/campaign-notifications";
@@ -48,13 +49,14 @@ export default async function AdminPage({
     feeWaivedOnly: one("feeWaived") === "1" || one("feeWaived") === "true",
   };
 
-  const [{ locale }, analytics, campaigns, verificationQueue, verificationLogs, platformFeeStats] = await Promise.all([
+  const [{ locale }, analytics, campaigns, verificationQueue, verificationLogs, platformFeeStats, subscriptionCohorts] = await Promise.all([
     getI18n(),
     getAnalyticsOverview(),
     getCampaigns(),
     getVerificationQueue(),
     getVerificationLogs(),
     getPlatformFeeStats(30),
+    getSubscriptionCohorts(6),
   ]);
 
   // Campaign purchases — payment state per campaign for the payments card
@@ -159,6 +161,7 @@ export default async function AdminPage({
       pendingManualPayments={await getPendingManualPayments()}
       workers={await getAllWorkers()}
       workerManagementInit={workerManagementInit}
+      subscriptionCohorts={subscriptionCohorts}
     />
   );
 }

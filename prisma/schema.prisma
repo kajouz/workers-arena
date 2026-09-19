@@ -402,6 +402,7 @@ model Worker {
   deletedAt  DateTime?
 
   subscription      Subscription?
+  subscriptionEvents SubscriptionEvent[]
   services          ServiceItem[]
   certifications    Certification[]
   portfolio         PortfolioItem[]
@@ -587,8 +588,33 @@ model Subscription {
   updatedAt        DateTime           @updatedAt
 
   payments Payment[]
+  events   SubscriptionEvent[]
 
   @@index([status, expiresAt])
+}
+
+/// Append-only subscription lifecycle events used for retention, cohort, and
+/// trial-conversion reporting. Payment automation is not required: manual
+/// OMT/Whish confirmations and admin plan corrections record their source.
+model SubscriptionEvent {
+  id             String        @id @default(cuid())
+  workerId       String
+  worker         Worker        @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  type           String // trial_started | renewed | plan_changed | cancelled | expired
+  fromPlan       String?
+  toPlan         String?
+  periodDays     Int?
+  amount         Int?
+  currency       String        @default("USD")
+  source         String        @default("system") // onboarding | manual_payment | admin | cron
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+
+  @@index([workerId, createdAt])
+  @@index([type, createdAt])
+  @@index([toPlan, createdAt])
 }
 
 model Payment {

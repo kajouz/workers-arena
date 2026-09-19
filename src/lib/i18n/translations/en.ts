@@ -582,6 +582,8 @@ export const en = {
     pushSubsHint: "A cleanup probe sends a TTL:0 notification to every endpoint — push services reject dead ones with 404/410, which are removed and logged.",
     pushSubsEmpty: "No push subscriptions yet",
     pushSubsEmptyBody: "When a browser enables push notifications, its endpoint appears here.",
+    retentionExport: "Retention CSV",
+    manualPaymentsExport: "Pending payments CSV",
     pushSubsTest: "Test send",
     pushSubsTestSent: "Test notification sent",
     pushSubsTestFailed: "Test send failed",

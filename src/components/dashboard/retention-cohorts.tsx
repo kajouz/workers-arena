@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Users, TrendingDown, AlertTriangle, Heart, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCompact } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
+import { sendRenewalWhatsAppAction } from "@/app/actions/business";
 
 interface CohortData {
   month: string;
@@ -48,6 +51,20 @@ interface RetentionCohortsProps {
 }
 
 export function RetentionCohorts({ data, locale = "en" }: RetentionCohortsProps) {
+  const [sendingId, setSendingId] = useState<string | null>(null);
+
+  const sendRenewalMessage = async (workerId: string) => {
+    if (sendingId) return;
+    setSendingId(workerId);
+    const result = await sendRenewalWhatsAppAction(workerId);
+    setSendingId(null);
+    if (result.ok) {
+      toast("success", locale === "ar" ? "تم إرسال رسالة واتساب" : "WhatsApp renewal message sent");
+    } else {
+      toast("error", locale === "ar" ? "تعذر إرسال رسالة واتساب" : "Could not send WhatsApp message");
+    }
+  };
+
   // Calculate trend indicators
   const retentionTrend = data.overallRetention > 70 ? "positive" : data.overallRetention > 50 ? "neutral" : "negative";
   const churnTrend = data.churnRate < 5 ? "positive" : data.churnRate < 10 ? "neutral" : "negative";
@@ -255,9 +272,20 @@ export function RetentionCohorts({ data, locale = "en" }: RetentionCohortsProps)
                       </p>
                     </div>
                   </div>
-                  <Badge variant="default" className="text-[9px] bg-amber-500/10 text-amber-600">
-                    {worker.daysUntilExpiry <= 3 ? "🔴" : worker.daysUntilExpiry <= 7 ? "🟡" : "🟢"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="default" className="text-[9px] bg-amber-500/10 text-amber-600">
+                      {worker.daysUntilExpiry <= 3 ? "🔴" : worker.daysUntilExpiry <= 7 ? "🟡" : "🟢"}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[10px]"
+                      disabled={sendingId !== null}
+                      onClick={() => void sendRenewalMessage(worker.id)}
+                    >
+                      {locale === "ar" ? "واتساب" : "WhatsApp"}
+                    </Button>
+                  </div>
                 </motion.div>
               ))
             )}

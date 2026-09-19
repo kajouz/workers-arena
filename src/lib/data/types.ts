@@ -1160,6 +1160,8 @@ export interface PendingManualPayment {
   /** Set for worker purchases so the worker dashboard can show its own
    * pending renewal without matching on a localized label. */
   workerSlug?: string;
+  /** Real-mode ownership key; equals the authenticated User id. */
+  workerId?: string;
   /** What the payment completes: booking deposit, campaign purchase, or a
    * paid upgrade (subscription renewal / verification / featured / emergency). */
   scope: "booking" | "campaign" | PurchaseScope;

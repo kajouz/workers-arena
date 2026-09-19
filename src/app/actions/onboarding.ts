@@ -110,17 +110,32 @@ export async function createWorkerProfileAction(
       // Create the trial subscription — the worker's first plan is free for
       // the plan-specific trial policy. This row is what the dashboard, search and
       // fee-exempt filter read.
-      await tx.subscription.create({
+      const createdWorker = await tx.worker.findFirst({ where: { userId: session.id } });
+      if (!createdWorker) throw new Error("worker-create-failed");
+      const createdSubscription = await tx.subscription.create({
         data: {
-          workerId: (
-            await tx.worker.findFirst({ where: { userId: session.id } })
-          )!.id,
+          workerId: createdWorker.id,
           plan: "BASIC",
           status: "ACTIVE",
           price: trial.price,
           startedAt: new Date(trial.startedAt),
           expiresAt: new Date(trial.expiresAt),
           currency: "USD",
+        },
+      });
+      // Keep the trial row and its cohort event atomic: a worker can never
+      // appear as trial-active without also being counted in retention reports.
+      await tx.subscriptionEvent.create({
+        data: {
+          workerId: createdWorker.id,
+          subscriptionId: createdSubscription.id,
+          type: "trial_started",
+          toPlan: "BASIC",
+          periodDays: trial.period === "monthly"
+            ? Math.round((new Date(trial.expiresAt).getTime() - new Date(trial.startedAt).getTime()) / 86_400_000)
+            : 30,
+          amount: 0,
+          source: "onboarding",
         },
       });
     });

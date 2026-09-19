@@ -22,6 +22,9 @@ import {
 } from "@/lib/data/repo";
 import { sanitizeText } from "@/lib/security";
 import type { Campaign } from "@/lib/data/types";
+import { dispatchWhatsApp } from "@/lib/notifications/dispatcher";
+import { appBaseUrl } from "@/lib/notifications/config";
+import { getWorkerById, getWorkerByUserId } from "@/lib/data/repo";
 
 const AD_TYPES = ["banner", "slider", "featuredCard", "sponsoredSearch", "sponsoredCategory", "popup", "native", "video"] as const;
 
@@ -146,11 +149,40 @@ export async function changeWorkerPlanAction(
   return { ok: true };
 }
 
+/** Admin-only renewal outreach: sends one WhatsApp message without fanning out email/SMS. */
+export async function sendRenewalWhatsAppAction(workerId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
+  if (!workerId) return { ok: false, error: "invalid" };
+  const worker = await getWorkerById(workerId);
+  if (!worker || !worker.phone) return { ok: false, error: "no-phone" };
+  const locale: "ar" | "en" = worker.languages?.[0]?.code === "ar" ? "ar" : "en";
+  const days = Math.max(0, Math.ceil((Date.parse(worker.subscription.expiresAt) - Date.now()) / 86_400_000));
+  const payload = {
+    id: `renewal-outreach-${worker.id}-${Date.now()}`,
+    type: "subscription" as const,
+    titleEn: "Your WorkersArena subscription renews soon",
+    titleAr: "اشتراكك في WorkersArena على وشك الانتهاء",
+    bodyEn: `${worker.nameEn}, your ${worker.subscription.plan} plan expires in ${days} day${days === 1 ? "" : "s"}. Renew now to keep your profile visible: ${appBaseUrl()}/dashboard`,
+    bodyAr: `${worker.nameAr}، تنتهي خطة ${worker.subscription.plan} خلال ${days} ${days === 1 ? "يوم" : "أيام"}. جدّد الآن ليبقى ملفك ظاهراً: ${appBaseUrl()}/dashboard`,
+    href: "/dashboard",
+    time: new Date().toISOString(),
+    recipient: { name: worker.nameEn, phone: worker.phone, locale },
+  };
+  const result = await dispatchWhatsApp(payload);
+  if (!result.ok) return { ok: false, error: result.error ?? "delivery-failed" };
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
 export async function cancelPendingRenewalAction(paymentId: string): Promise<{ ok: boolean; error?: string }> {
   const session = await getSession();
   if (!session || session.role !== "worker" || !paymentId) return { ok: false, error: "unauthorized" };
   const pending = await getPendingManualPayments();
-  const payment = pending.find((item) => item.id === paymentId && item.scope === "subscription" && item.workerSlug === "khaled-al-harbi-plumbing");
+  const ownedWorker = await getWorkerByUserId(session.id);
+  const payment = ownedWorker
+    ? pending.find((item) => item.id === paymentId && item.scope === "subscription" && item.workerId === ownedWorker.id)
+    : undefined;
   if (!payment) return { ok: false, error: "not-found" };
   const ok = await cancelPendingPurchase(paymentId);
   revalidatePath("/dashboard");

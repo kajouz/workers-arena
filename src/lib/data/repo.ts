@@ -135,6 +135,8 @@ import { leadOfferNotification } from "./lead-notifications";
 import { loadActiveFeeRuleSet } from "./fee-rules-store";
 import { planTierFor } from "./fee-rules";
 import { computeSmartPricing } from "@/lib/pricing/smart-pricing";
+import { listSubscriptionEvents, recordSubscriptionEvent, type RecordSubscriptionEventInput } from "./subscription-lifecycle-store";
+import type { SubscriptionCohort } from "./subscription-lifecycle";
 import type {
   AnalyticsOverview,
   BillingPeriod,
@@ -296,6 +298,12 @@ export async function getWorkerById(id: string): Promise<Worker | null> {
   return w ? withDemoSignals([w])[0] : null;
 }
 
+/** Resolve the worker profile owned by an authenticated user. */
+export async function getWorkerByUserId(userId: string): Promise<Worker | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetWorkerByUserId(userId);
+  return userId === "u-worker" ? withDemoSignals([workerBySlug("khaled-al-harbi-plumbing")!])[0] ?? null : null;
+}
+
 export async function getFeaturedWorkersList(limit = 4): Promise<Worker[]> {
   if (realDataEnabled) return (await prismaRepo()).prismaGetFeaturedWorkers(limit);
   return withDemoSignals(getFeaturedWorkers(limit));
@@ -327,6 +335,18 @@ export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
   base.verificationFunnel = await getVerificationFunnel(30);
   base.bookingFunnel = await getBookingFunnel(30);
   return base;
+}
+
+/** Append-only subscription lifecycle event seam (demo ⇄ Prisma). */
+export async function recordSubscriptionLifecycleEvent(input: RecordSubscriptionEventInput) {
+  return recordSubscriptionEvent(input);
+}
+
+/** Retention reporting reads the same lifecycle event source in both modes. */
+export async function getSubscriptionCohorts(months = 6, now = new Date()): Promise<SubscriptionCohort[]> {
+  const { subscriptionCohorts } = await import("./subscription-lifecycle");
+  const events = await listSubscriptionEvents({ limit: 5000 });
+  return subscriptionCohorts(events, months, now);
 }
 
 /**
@@ -583,6 +603,14 @@ export async function renewWorkerSubscriptionBySlug(
       (catalog.trialDays === 30 ? trialDaysForPlan(plan) : catalog.trialDays);
     if (trialDays > 0) {
       w.subscription = startTrialSubscription(plan, new Date(), trialDays);
+      await recordSubscriptionEvent({
+        workerId: w.id,
+        type: "trial_started",
+        toPlan: plan,
+        periodDays: trialDays,
+        amount: 0,
+        source: "onboarding",
+      });
       await pushNotification(
         {
           type: "subscription",
@@ -607,6 +635,14 @@ export async function renewWorkerSubscriptionBySlug(
   // Priced through the ADMIN catalog: a repriced plan charges the new price.
   const { subscription, invoice } = renewSubscription(w, plan, period, await loadPlanCatalog());
   demoAddInvoice(invoice);
+  await recordSubscriptionEvent({
+    workerId: w.id,
+    type: "renewed",
+    toPlan: plan,
+    periodDays: period === "annual" ? 365 : 30,
+    amount: Math.round(invoice.amount * 100),
+    source: "manual_payment",
+  });
   await pushNotification(
     {
       type: "subscription",
@@ -645,6 +681,15 @@ export async function changeWorkerPlan(
   if (!w) return null;
   const from = w.subscription.plan;
   w.subscription = applyPlanChange(w.subscription, plan);
+  await recordSubscriptionEvent({
+    workerId: w.id,
+    type: "plan_changed",
+    fromPlan: from,
+    toPlan: plan,
+    periodDays: 30,
+    amount: Math.round(w.subscription.price * 100),
+    source: "admin",
+  });
   // Audit trail — the same ADMIN_PLAN_CHANGED entry both adapters write (via
   // this seam and prismaChangeWorkerPlan), carrying the admin identity (and
   // their real user id as the FK when available) + worker + from → to plan.

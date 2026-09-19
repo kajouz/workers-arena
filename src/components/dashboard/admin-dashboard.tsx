@@ -33,6 +33,7 @@ import { useState } from "react";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
 import type { AnalyticsOverview, Campaign, CampaignPayment, LedgerEntry, PendingManualPayment, PlatformFeeStats, Worker } from "@/lib/data/types";
+import type { SubscriptionCohort } from "@/lib/data/subscription-lifecycle";
 import { ManualPaymentsCard } from "@/components/admin/manual-payments-card";
 import { StatCard } from "./stat-card";
 import { WorkerManagementTable } from "./worker-management-table";
@@ -209,6 +210,7 @@ export function AdminDashboard({
   pendingManualPayments,
   workers,
   workerManagementInit,
+  subscriptionCohorts,
 }: {
   session: SessionUser;
   analytics: AnalyticsOverview;
@@ -220,6 +222,7 @@ export function AdminDashboard({
     sort: "name" | "planAsc" | "planDesc";
     feeWaivedOnly: boolean;
   };
+  subscriptionCohorts?: SubscriptionCohort[];
   campaigns: Campaign[];
   campaignPayments: { campaign: Campaign; payment: CampaignPayment }[];
   /**
@@ -483,27 +486,21 @@ export function AdminDashboard({
         />
         <RetentionCohorts
           data={{
-            cohorts: [
-              { month: "Jan", registered: 45, retained: 38, churned: 7, retentionRate: 84.4 },
-              { month: "Feb", registered: 52, retained: 44, churned: 8, retentionRate: 84.6 },
-              { month: "Mar", registered: 61, retained: 51, churned: 10, retentionRate: 83.6 },
-              { month: "Apr", registered: 58, retained: 48, churned: 10, retentionRate: 82.8 },
-              { month: "May", registered: 65, retained: 55, churned: 10, retentionRate: 84.6 },
-              { month: "Jun", registered: 70, retained: 60, churned: 10, retentionRate: 85.7 },
-            ],
+            cohorts: (subscriptionCohorts ?? []).map((cohort) => ({
+              month: cohort.month,
+              registered: cohort.trials + cohort.started,
+              retained: cohort.renewed,
+              churned: cohort.cancelled,
+              retentionRate: cohort.trialConversionRate,
+            })),
             overallRetention: retention.retentionRate,
             churnRate: retention.churnRate,
-            // Historical lifetime/LTV cohorts require subscription-event
-            // timestamps; keep the existing cohort series until that event
-            // ledger is added rather than presenting fabricated precision.
-            avgLifetimeMonths: 8.5,
-            ltv: 585,
-            planTransitions: [
-              { from: "Free", to: "Professional", count: 12, percentage: 18.5 },
-              { from: "Professional", to: "Premium", count: 8, percentage: 12.3 },
-              { from: "Premium", to: "Enterprise", count: 3, percentage: 4.6 },
-              { from: "Enterprise", to: "Premium", count: 2, percentage: 3.1 },
-            ],
+            // Historical lifetime/LTV and transition totals are intentionally
+            // blank until the event ledger has enough production history. Do
+            // not render fabricated precision as if it were measured revenue.
+            avgLifetimeMonths: 0,
+            ltv: 0,
+            planTransitions: [],
             atRiskWorkers: retention.atRiskWorkers.slice(0, 5).map((worker) => ({
               id: worker.id,
               name: worker.nameEn,

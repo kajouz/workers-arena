@@ -2,6 +2,15 @@
 
 ## Overview
 
+### Phase 3 retention operations
+
+The admin retention panel now combines subscription health with an operational renewal action. At-risk workers can be contacted individually through the admin-only **WhatsApp** button; the action sends only through the configured WhatsApp provider (`console` for demo or `whatsapp-cloud` for production), uses the worker's preferred language, and links back to the dashboard. It does not charge the worker and does not send email/SMS.
+
+The `/api/cron/reminders` job also records a deduplicated `expired` subscription lifecycle event when an expired subscription is processed. In production mode it scans Prisma subscriptions and uses `lastReminderSent` as a compare-and-swap claim for the 7/3/1-day and expired windows, so concurrent cron retries do not double-send or inflate churn. Stripe and automatic payment collection remain deferred.
+
+Admins can download a retention CSV from the revenue dashboard and can export the pending OMT/Whish reconciliation queue, including transfer reference, scope, bilingual label, method, amount, currency, and creation time. Pending-renewal cancellation is ownership-checked against the authenticated worker in real mode, so one worker cannot cancel another worker's payment. The reconciliation export is intentionally limited to pending manual payments; settled-payment receipt history remains a later accounting phase.
+
+
 WorkersArena implements **14 configurable revenue streams** that generate income from the platform. Each stream can be individually enabled/disabled by the admin, with real-time analytics and per-stream configuration.
 
 The revenue system is designed for the **Lebanon/MENA market** and supports multiple payment methods including OMT and Whish.
@@ -369,7 +378,7 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 - Current retention and churn ratios
 - At-risk workers ordered by soonest expiry
 
-The snapshot is calculated from the adapter's current worker rows, uses an injectable clock for boundary-safe tests, and is suitable for prioritizing admin WhatsApp renewal messages. Historical cohort retention, lifetime value, and trial-to-paid conversion require persisted subscription lifecycle events and are intentionally not treated as financial reporting yet.
+The snapshot is calculated from the adapter's current worker rows, uses an injectable clock for boundary-safe tests, and is suitable for prioritizing admin WhatsApp renewal messages. Trial starts, manual renewals, and admin plan changes now also append `SubscriptionEvent` rows through the demo/Prisma lifecycle seam, so the six-month cohort table reports measured event counts and worker-level trial conversion. Lifetime value and historical transition totals remain blank until enough production history exists and are not treated as financial reporting yet.
 
 **Dashboard:** `/admin` → Retention & Churn
 
@@ -481,7 +490,8 @@ The snapshot is calculated from the adapter's current worker rows, uses an injec
 - ✅ Emergency requests receive a bounded dispatch premium and retain their locked price/reason.
 - ✅ Lead refunds support full or partial credit decisions with admin notes.
 - ✅ Subscription retention snapshot is now derived from current worker subscriptions, including 30-day expiry risk ordering.
-- 🔜 Persist subscription lifecycle events for cohort retention, LTV, trial conversion, and upgrade/downgrade reporting.
+- ✅ Persist subscription lifecycle events for trial starts, manual renewals, and admin plan changes; aggregate cohort retention and trial conversion in the admin panel.
+- 🟡 Add expiry/cancellation cron events and sufficient production history before publishing LTV or transition reporting.
 - 🔜 Subscription upgrade/downgrade UX and escrow remain the next non-Stripe revenue improvements.
 - ⏸️ Stripe and automatic company campaign billing remain deferred by product decision.
 

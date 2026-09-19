@@ -584,6 +584,8 @@ export const ar: Dictionary = {
     pushSubsHint: "فحص التنظيف يرسل إشعاراً بـTTL:0 لكل نقطة — خدمات الدفع ترفض النقاط المعطلة بـ404/410، وتُزال وتُسجَّل.",
     pushSubsEmpty: "لا توجد اشتراكات إشعارات بعد",
     pushSubsEmptyBody: "عندما يفعّل متصفح إشعارات المتصفح، ستظهر نقطته هنا.",
+    retentionExport: "تصدير الاحتفاظ CSV",
+    manualPaymentsExport: "تصدير الدفعات المعلّقة CSV",
     pushSubsTest: "إرسال اختباري",
     pushSubsTestSent: "تم إرسال الإشعار الاختباري",
     pushSubsTestFailed: "فشل الإرسال الاختباري",

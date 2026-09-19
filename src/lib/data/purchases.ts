@@ -28,6 +28,7 @@ import { ANNUAL_PAID_MONTHS, planPrice, renewSubscription } from "./subscription
 import { loadPlanCatalog } from "./fee-rules-store";
 import { effectiveMonthlyPriceWithOverrides } from "./plan-catalog-overrides";
 import { demoAddInvoice } from "./campaigns";
+import { recordSubscriptionEvent } from "./subscription-lifecycle-store";
 import type {
   BillingPeriod,
   PendingManualPayment,
@@ -254,6 +255,14 @@ export async function demoConfirmPurchase(
       const catalog = await loadPlanCatalog();
       const { subscription, invoice } = renewSubscription(w, plan, period, catalog);
       demoAddInvoice(invoice);
+      await recordSubscriptionEvent({
+        workerId: w.id,
+        type: "renewed",
+        toPlan: plan,
+        periodDays: period === "annual" ? 365 : 30,
+        amount: payment.amount,
+        source: "manual_payment",
+      });
       // §24 — a live campaign that promises a credit bonus pays out here, once
       // per worker per promotion (the ledger enforces it). Silent no-op when no
       // campaign matches; a bonus can never break the purchase it rides on.
@@ -371,6 +380,7 @@ export function demoPendingManualPurchases(): PendingManualPayment[] {
     out.push({
       id: payment.id,
       workerSlug: payment.meta.workerSlug,
+      workerId: w.id,
       scope: payment.meta.scope,
       entityId: payment.id,
       labelEn: desc.en,

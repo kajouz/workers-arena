@@ -83,10 +83,20 @@ export default async function RevenueDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="size-4 mr-2" />
-            Export CSV
-          </Button>
+          <Link
+            href="/api/admin/revenue/reconciliation?format=csv"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-ink-200 px-3 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-50 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-800"
+          >
+            <Download className="size-4" />
+            Pending payments CSV
+          </Link>
+          <Link
+            href="/api/admin/retention?format=csv"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-ink-200 px-3 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-50 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-800"
+          >
+            <Download className="size-4" />
+            Retention CSV
+          </Link>
         </div>
       </div>
 

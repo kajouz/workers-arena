@@ -4,6 +4,7 @@ import { demoGetAllBookings } from "@/lib/data/bookings";
 import { bookingNotification, type BookingNotificationPayload } from "@/lib/data/booking-notifications";
 import { WORKERS } from "@/lib/data/workers";
 import { BOOKING_REMINDER_WINDOW_MS, type Booking, type Notification } from "@/lib/data/types";
+import { recordSubscriptionEventOnce } from "@/lib/data/subscription-lifecycle-store";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -99,6 +100,12 @@ export function workersDueReminders(): { worker: (typeof WORKERS)[number]; key: 
  * a cron job every hour.
  */
 export async function runDueReminderEngine(): Promise<ReminderRun> {
+  if (inboxAdapterMode() === "prisma") {
+    const { prismaRunSubscriptionReminderEngine } = await import("@/lib/data/subscription-reminders-prisma");
+    const subscription = await prismaRunSubscriptionReminderEngine();
+    const bookings = await runBookingReminderEngine();
+    return { ...subscription, bookings };
+  }
   const due = workersDueReminders();
   let dispatched = 0;
   let alreadySent = 0;
@@ -109,6 +116,15 @@ export async function runDueReminderEngine(): Promise<ReminderRun> {
       continue;
     }
     sentKeys.add(key);
+    if (kind === "expired") {
+      await recordSubscriptionEventOnce({
+        workerId: w.id,
+        subscriptionId: w.subscription.invoiceNo,
+        type: "expired",
+        fromPlan: w.subscription.plan,
+        source: "cron",
+      });
+    }
     // The demo seed already places one in-app reminder per due worker; skip it
     // so the first cron run doesn't double the inbox (production: unique index
     // on prisma.notification (workerId, reminderWindow) enforces the same).

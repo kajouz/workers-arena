@@ -64,6 +64,7 @@ import { quoteNotification } from "./quote-notifications";
 import type { CampaignCreateInput } from "./campaigns";
 import { PURCHASE_PRICES, type VerificationTier } from "./purchases";
 import { ACTION_CODES, logAdminActivity } from "./activity";
+import { recordSubscriptionEvent } from "./subscription-lifecycle-store";
 import { getPaymentProvider } from "@/lib/payments/registry";
 
 /**
@@ -436,6 +437,16 @@ export async function prismaGetWorkerById(id: string): Promise<Worker | null> {
   return (await stampWorkerSignals([toDomainWorker(row)]))[0] ?? null;
 }
 
+export async function prismaGetWorkerByUserId(userId: string): Promise<Worker | null> {
+  const prisma = getPrisma();
+  const row = await prisma.worker.findUnique({
+    where: { userId, deletedAt: null },
+    include: PROFILE_INCLUDE,
+  });
+  if (!row) return null;
+  return (await stampWorkerSignals([toDomainWorker(row)]))[0] ?? null;
+}
+
 export async function prismaGetAllWorkers(): Promise<Worker[]> {
   const prisma = getPrisma();
   const rows = await prisma.worker.findMany({
@@ -489,6 +500,15 @@ export async function prismaChangeWorkerPlan(
   });
   if (!row) return null;
   const worker = toDomainWorker(row);
+  await recordSubscriptionEvent({
+    workerId,
+    type: "plan_changed",
+    fromPlan: from,
+    toPlan: plan,
+    periodDays: 30,
+    amount: Math.round(planPrice(plan) * 100),
+    source: "admin",
+  });
   // Audit trail — the same ADMIN_PLAN_CHANGED entry the demo seam writes, so
   // both modes leave an identical trace in the feed (admin + worker + from → to).
   await logAdminActivity({
@@ -4979,7 +4999,8 @@ export async function prismaRunRequestSla(now = new Date()): Promise<RequestSlaR
 export async function prismaGetPendingManualPayments(): Promise<PendingManualPayment[]> {
   const prisma = getPrisma();
   const rows = await prisma.payment.findMany({
-    where: { method: { in: ["OMT", "WHISH"] }, status: "PENDING", providerRef: { not: null } },        include: { booking: { include: { serviceItem: true } } },
+    where: { method: { in: ["OMT", "WHISH"] }, status: "PENDING", providerRef: { not: null } },
+    include: { booking: { include: { serviceItem: true } } },
 
     orderBy: { createdAt: "asc" },
   });
@@ -5045,11 +5066,11 @@ export async function prismaGetPendingManualPayments(): Promise<PendingManualPay
         select: { nameEn: true, nameAr: true, slug: true },
       });
       if (!worker) continue;
-      const label = purchaseLabel(scope as PurchaseScope, worker.nameEn, worker.nameAr, meta);
-      out.push({
-        id: row.id,
-        workerSlug: worker.slug,
-        scope: scope as PurchaseScope,
+      const label = purchaseLabel(scope as PurchaseScope, worker.nameEn, worker.nameAr, meta);        out.push({
+          id: row.id,
+          workerSlug: worker.slug,
+          workerId: row.workerId,
+          scope: scope as PurchaseScope,
         entityId: row.id,
         labelEn: label.en,
         labelAr: label.ar,
@@ -5267,6 +5288,15 @@ export async function prismaConfirmPurchase(
       await prisma.subscription.update({
         where: { id: worker.subscription.id },
         data: { plan: planDb, status: "ACTIVE", price: Math.round(monthly * 100 * (period === "annual" ? 9 : 1)), periodDays: period === "annual" ? 365 : 30, expiresAt: new Date(expiresAt) },
+      });
+      await recordSubscriptionEvent({
+        workerId: worker.id,
+        subscriptionId: worker.subscription.id,
+        type: "renewed",
+        toPlan: p,
+        periodDays: period === "annual" ? 365 : 30,
+        amount: payment.amount,
+        source: "manual_payment",
       });
       // Mint the renewal invoice (WA-YYYY-NNNNN — the same sequence as booking
       // receipts: per-year count + formatInvoiceNumber) so the purchase has a

@@ -27,8 +27,13 @@
 ## Phase 3 — retention and operating visibility (started)
 
 - ✅ **Subscription risk snapshot:** the admin retention panel now derives active, expired, 30-day expiring, retention, churn, and at-risk worker ordering from the current worker subscription rows rather than using a fixed expiry list. The clock is injectable for deterministic tests and the same adapter-fed rows work in demo and production.
-- 🟡 **Cohort history and LTV:** the existing six-month cohort/LTV presentation remains a static planning view because subscription lifecycle events do not yet have a complete event ledger. Do not use those figures for financial forecasting until renewal, cancellation, upgrade, and trial-conversion events are persisted.
-- 🔜 **Next:** add subscription lifecycle events and cohort aggregation, then trigger admin WhatsApp renewal campaigns from the at-risk list using the same saved templates. Stripe and automated payment collection remain deferred.
+- ✅ **Subscription lifecycle ledger:** trial starts, manual renewals, admin plan changes, cancellations, and future expiry/cron events use an append-only `SubscriptionEvent` ledger with demo and Prisma adapters. The admin retention panel now aggregates the available six-month cohorts and worker-level trial conversion from those events.
+- ✅ **Renewal-risk outreach:** admins can send a WhatsApp-only renewal message from each at-risk worker row. The action is admin-gated, uses the configured WhatsApp provider, preserves the worker's locale, and does not fan out email/SMS.
+- ✅ **Expiry event capture:** the subscription reminder cron records one append-only `expired` lifecycle event per worker when an expired reminder is processed. Repeated cron runs are deduplicated so cohort churn is not inflated.
+- ✅ **Real-mode expiry processing:** the reminder cron now scans Prisma subscriptions, claims the 7/3/1-day and expired windows with a database compare-and-swap, updates expired rows to `EXPIRED`, records one lifecycle event, and dispatches the worker notification. This prevents duplicate reminders across concurrent cron instances.
+- ✅ **Admin exports and reconciliation:** retention cohorts/at-risk workers can be exported as bilingual-safe CSV, and pending OMT/Whish payments have an admin-only reconciliation JSON/CSV endpoint linked from the revenue dashboard.
+- ✅ **Authenticated renewal ownership:** pending renewal cancellation now resolves the worker profile from the authenticated user in real mode and rejects payments belonging to another worker; the demo adapter retains its single-worker fixture behavior.
+- 🟡 **Cohort history and LTV:** historical lifetime/LTV and transition totals remain intentionally blank until enough production event history exists; subscription cancellation events and settled-payment receipt exports remain follow-up work. Stripe and automated payment collection remain deferred.
 
 ## 1. Baseline — what's already shipped (the launchpad)
 

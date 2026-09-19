@@ -70,3 +70,18 @@ export async function dispatch(payload: ChannelPayload): Promise<DispatchResult[
 
   return results;
 }
+
+/** Dispatch only the WhatsApp channel for admin-directed outreach. */
+export async function dispatchWhatsApp(payload: ChannelPayload): Promise<DispatchResult> {
+  const channel = createWhatsAppChannel();
+  try {
+    return await channel.send(payload);
+  } catch (error) {
+    return {
+      channel: channel.id,
+      ok: false,
+      provider: channel.provider,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}

@@ -16,6 +16,7 @@ import {
   payCampaignAction,
   purchaseUpgradeAction,
   renewSubscriptionAction,
+  sendRenewalWhatsAppAction,
 } from "../src/app/actions/business";
 import {
   cancelBooking,
@@ -273,6 +274,24 @@ describe("§Lebanon — campaign purchases via Whish", () => {
     expect(entry).toBeDefined();
     expect(entry!.actor).toBe("Amina Admin");
     expect(entry!.actorId).toBe("a1");
+  });
+});
+
+describe("§Phase 3 — admin WhatsApp renewal outreach", () => {
+  it("allows an admin to send a renewal message to an at-risk worker", async () => {
+    getSessionMock.mockResolvedValue(ADMIN);
+    vi.stubEnv("DEMO_MODE", "true");
+    vi.stubEnv("NOTIFY_WHATSAPP_PROVIDER", "console");
+    vi.stubEnv("NOTIFY_WHATSAPP_ENABLED", "true");
+    const result = await sendRenewalWhatsAppAction(workerBySlug(DEMO_WORKER)!.id);
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("rejects non-admin outreach and workers without a phone", async () => {
+    getSessionMock.mockResolvedValue(WORKER);
+    expect(await sendRenewalWhatsAppAction(workerBySlug(DEMO_WORKER)!.id)).toEqual({ ok: false, error: "unauthorized" });
+    getSessionMock.mockResolvedValue(ADMIN);
+    expect(await sendRenewalWhatsAppAction("missing-worker")).toEqual({ ok: false, error: "no-phone" });
   });
 });
 
