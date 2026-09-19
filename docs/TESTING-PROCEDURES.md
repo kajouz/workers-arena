@@ -1001,11 +1001,26 @@ When logging bugs, include:
 | 26.4 | Navigate pages | Page views tracked |
 | 26.5 | Check CI workflow | GitHub Actions runs on push |
 | 26.6 | Verify test results | 958+ tests pass |
-| 26.6a | Nightly live-Postgres job (02:30 UTC, manual dispatch available) | prisma suites + db:smoke + critical flows + e2e-smoke run against a real migrated/seeded database and pass |
+| 26.6a | Nightly live-Postgres job (02:30 UTC, manual dispatch available) | Prisma suites + db:smoke run against the primary migrated/seeded database; critical flows run against a separate disposable migrated/seeded database and isolated Next dist dir; e2e-smoke uses its own demo server/artifacts |
 | 26.6b | Nightly PWA device-matrix job (runs in parallel with 26.6a) | `pwa-device-matrix.spec.ts` runs against a production build (6 device profiles, offline pass, `--workers=4`) — 20 pass, 12 mobile-only skips, 0 fail |
 | 26.6c | Critical-flows suite gate | Skips with a warning when no server is reachable; runs 19 real HTTP checks against a live one |
 | 26.7 | Check Lighthouse CI | Performance score > 70 |
 | 26.8 | Verify deploy | Preview deploys on PR |
+
+### Isolated real-data critical-flow run
+
+The critical-flow suite must not share a database or Next cache with `db:smoke`, Prisma integration tests, or a live preview. In CI, the nightly job creates the disposable `workers_arena_critical` database, applies the current migrations, seeds it, and starts the server with:
+
+```bash
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/workers_arena_critical?schema=public" \
+DEMO_MODE=false \
+NEXT_DIST_DIR=".data/.next-e2e-critical-<run-id>" \
+npx next dev -p 3001
+```
+
+Run the HTTP checks in a second shell with the same `DATABASE_URL` and `FLOWS_BASE_URL=http://localhost:3001`. Stop that server and remove `.data/.next-e2e-critical-<run-id>` when finished. Use a relative `NEXT_DIST_DIR`; Next treats `distDir` as a project-relative name, and passing an absolute path can create a doubled tree inside the worktree and consume the build volume. If Next appended generated entries to `tsconfig.json`, run `node scripts/strip-tsconfig-dist-entries.mjs` after the server stops.
+
+The primary development database is never used by this procedure. Do not point the disposable database URL at a production or shared staging database.
 
 **Playwright worker pin (CI sizing contract):** every CI Playwright run — the
 push/PR e2e job and the nightly PWA device-matrix job — invokes

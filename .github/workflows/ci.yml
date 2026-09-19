@@ -149,12 +149,11 @@ jobs:
 
   # ─── Nightly Live-Postgres (scheduled + manual) ───
   # Runs the suites the PR CI excludes (tests/*-prisma.test.ts + the e2e-smoke
-  # matrix) against a REAL database: Postgres service container → migrate →
-  # seed → db:smoke → prisma vitest suites → e2e-critical-flows (real-data dev
-  # server) → e2e-smoke (its own dev+prod matrix; spawnServer force-sets
-  # DEMO_MODE=true, so the job-level real-mode env cannot break its cookie
-  # auth). Sequenced serially on one runner: the suites mutate shared seeded
-  # rows, so parallel jobs would collide.
+  # matrix) against REAL databases. The Prisma suites and db:smoke use the
+  # primary service database. Critical HTTP flows get a second disposable
+  # database plus an isolated relative NEXT_DIST_DIR, so server reads/writes
+  # and Next caches cannot contaminate the data-layer smoke or a preview. The
+  # e2e-smoke matrix starts its own demo servers and artifacts afterward.
   nightly-live-db:
     name: Nightly Live-Postgres (prisma + e2e-smoke)
     runs-on: ubuntu-latest
@@ -212,23 +211,62 @@ jobs:
           DEMO_MODE: "false"
           AUTH_SECRET: nightly-ci-live-db-secret-0123456789abcdef
 
-      - name: Start real-data dev server (for e2e-critical-flows)
+      - name: Create isolated critical-flows database
         run: |
-          npx next dev -p 3001 > /tmp/next-dev-nightly.log 2>&1 &
+          # Keep HTTP critical flows away from the database mutated by db:smoke
+          # and the Prisma suites. The service container starts with the primary
+          # database already present; this second database is disposable.
+          psql "postgresql://postgres:postgres@localhost:5432/postgres" \
+            -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE workers_arena_critical"
+          export CRITICAL_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/workers_arena_critical?schema=public"
+          DATABASE_URL="$CRITICAL_DATABASE_URL" npx prisma migrate deploy
+          DATABASE_URL="$CRITICAL_DATABASE_URL" DEMO_MODE=false npm run db:seed
+
+      - name: Start isolated real-data dev server (for e2e-critical-flows)
+        run: |
+          set -euo pipefail
+          CRITICAL_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/workers_arena_critical?schema=public"
+          CRITICAL_DIST_DIR=".data/.next-e2e-critical-${GITHUB_RUN_ID}"
+          export CRITICAL_DATABASE_URL CRITICAL_DIST_DIR
+          # Use a dedicated process group so cleanup cannot leave a Next child
+          # server listening on 3001 after the job step exits.
+          setsid npx next dev -p 3001 > /tmp/next-dev-nightly.log 2>&1 &
+          SERVER_PID=$!
+          # Persist the process/artifact handles for the cleanup step. Do not
+          # trap here: GitHub uses a fresh shell for the next step, and the
+          # critical suite must keep this server alive between steps.
+          echo "CRITICAL_SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
+          echo "CRITICAL_DIST_DIR=$CRITICAL_DIST_DIR" >> "$GITHUB_ENV"
           for i in $(seq 1 60); do
             if curl -fsS http://localhost:3001/api/health > /dev/null 2>&1; then
-              echo "dev server ready (attempt $i)"; break
+              echo "isolated critical-flows server ready (attempt $i)"; break
             fi
             sleep 2
           done
           curl -fsS http://localhost:3001/api/health
         env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/workers_arena_critical?schema=public
           DEMO_MODE: "false"
+          NEXT_DIST_DIR: .data/.next-e2e-critical-${{ github.run_id }}
+          ADMIN_ACTIVITY_FILE: .data/.next-e2e-critical-${{ github.run_id }}/activity.json
+          PUSH_STORE_FILE: .data/.next-e2e-critical-${{ github.run_id }}/push-subscriptions.json
 
-      - name: Critical flows against real data
+      - name: Critical flows against isolated real data
         run: npx vitest run tests/e2e-critical-flows.test.ts
         env:
+          FLOWS_BASE_URL: http://localhost:3001
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/workers_arena_critical?schema=public
           DEMO_MODE: "false"
+
+      - name: Stop critical-flows server and remove isolated artifacts
+        if: always()
+        run: |
+          if [ -n "${CRITICAL_SERVER_PID:-}" ]; then
+            kill -- -"$CRITICAL_SERVER_PID" 2>/dev/null || kill "$CRITICAL_SERVER_PID" 2>/dev/null || true
+          fi
+          rm -rf "${CRITICAL_DIST_DIR:-.data/.next-e2e-critical-${GITHUB_RUN_ID}}"
+          node scripts/strip-tsconfig-dist-entries.mjs || true
 
       - name: E2E hydration smoke (dev + prod matrix)
         # Runs its own Chrome-driven dev+prod matrix against isolated servers.
