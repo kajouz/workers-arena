@@ -70,8 +70,10 @@ export async function dispatch(payload: ChannelPayload): Promise<DispatchResult[
 
   // Delivery-ledger seam: every WhatsApp attempt (any provider) lands in the
   // audit ledger via the recorder registered by src/lib/data/notifications.ts.
+  // Awaited — see recordWhatsAppSend; a fire-and-forget write can be dropped
+  // when the serverless runtime freezes after the response.
   const whatsappResult = results.find((r) => r.channel === "whatsapp");
-  if (whatsappResult) recordWhatsAppSend(payload, whatsappResult);
+  if (whatsappResult) await recordWhatsAppSend(payload, whatsappResult);
 
   return results;
 }
@@ -83,8 +85,12 @@ export async function dispatch(payload: ChannelPayload): Promise<DispatchResult[
  * `dispatch()` and the direct `dispatchWhatsApp()`). The DATA layer registers
  * the actual recorder at composition time — keeping this module free of data
  * imports (and import cycles). Errors in recording must never break sending.
+ *
+ * The recorder may be async, and callers AWAIT it: the ledger write must be
+ * durable before the dispatch returns, otherwise a serverless function can
+ * freeze after the response and silently drop the audit row.
  */
-export type WhatsAppDeliveryRecorder = (payload: ChannelPayload, result: DispatchResult) => void;
+export type WhatsAppDeliveryRecorder = (payload: ChannelPayload, result: DispatchResult) => Promise<void> | void;
 
 let whatsappDeliveryRecorder: WhatsAppDeliveryRecorder | null = null;
 
@@ -92,11 +98,12 @@ export function setWhatsAppDeliveryRecorder(recorder: WhatsAppDeliveryRecorder |
   whatsappDeliveryRecorder = recorder;
 }
 
-function recordWhatsAppSend(payload: ChannelPayload, result: DispatchResult): void {
+async function recordWhatsAppSend(payload: ChannelPayload, result: DispatchResult): Promise<void> {
   if (!whatsappDeliveryRecorder) return;
   try {
-    whatsappDeliveryRecorder(payload, result);
+    await whatsappDeliveryRecorder(payload, result);
   } catch (err) {
+    // Recording must never break sending — but the failure is loud in logs.
     console.error("[notify:whatsapp] delivery ledger recording failed", err);
   }
 }
@@ -118,6 +125,6 @@ export async function dispatchWhatsApp(
       error: error instanceof Error ? error.message : String(error),
     };
   }
-  if (!options.skipRecord) recordWhatsAppSend(payload, result);
+  if (!options.skipRecord) await recordWhatsAppSend(payload, result);
   return result;
 }
