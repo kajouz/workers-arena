@@ -5,6 +5,7 @@ import { RevenueSettingsDashboard } from "@/components/admin/revenue-settings";
 import { FeeRulesPanel } from "@/components/admin/fee-rules-panel";
 import { PromotionsPanel } from "@/components/admin/promotions-panel";
 import { LeadMarketPanel } from "@/components/admin/lead-market-panel";
+import { SurgeReportCard } from "@/components/admin/surge-report-card";
 import { ReferralConfigPanel } from "@/components/admin/referral-config-panel";
 import { PlanCatalogPanel } from "@/components/admin/plan-catalog-panel";
 import {
@@ -16,6 +17,7 @@ import {
 import { listCreditLedger } from "@/lib/data/credit-ledger";
 import { listLeadRebates } from "@/lib/data/lead-rebate";
 import { listLeadRefunds } from "@/lib/data/lead-refund-store";
+import { computeSurgeReport } from "@/lib/data/surge-report";
 import { getAllLeadRatings } from "@/lib/data/lead-market-store";
 import { loadPlanCatalog } from "@/lib/data/fee-rules-store";
 import { getCategories, listLeadOffers } from "@/lib/data/repo";
@@ -44,11 +46,15 @@ export default async function RevenueSettingsPage() {
       feePromotionAttribution(),
       listCreditLedger(50),
       getCategories(),
-      listLeadOffers(30),
+      listLeadOffers(500),
       listLeadRebates(50),
       listLeadRefunds(),
       loadPlanCatalog(),
     ]);
+
+  // Phase 2 — the 30-day emergency-surge evaluation, computed server-side
+  // from the same offers/refunds the lead-market panel audits.
+  const surgeReport = computeSurgeReport(leadOffers, refundRequests, { windowDays: 30 });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -64,6 +70,8 @@ export default async function RevenueSettingsPage() {
         {/* §7–§10 — the qualified lead marketplace: its policy, the offers it
             created and the credit ledger its purchases debit. */}
         <LeadMarketPanel ruleSet={feeRuleSet} offers={leadOffers} credits={creditLedger} rebates={leadRebates} ratings={getAllLeadRatings()} refundRequests={refundRequests} />
+        {/* Phase 2 — measure the 1.5× emergency premium before tuning it. */}
+        <SurgeReportCard report={surgeReport} />
         <ReferralConfigPanel ruleSet={feeRuleSet} />
         {/* §5 plans — admin-editable subscription pricing (overrides over the shipped catalog). */}
         <PlanCatalogPanel

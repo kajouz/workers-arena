@@ -22,7 +22,8 @@
 - ✅ **Immutable pricing audit:** each `LeadOffer` stores the combined multiplier and reason used when its credit price was locked. Later policy or demand changes never re-price an existing offer.
 - ✅ **Admin refund decisions:** the lead-quality queue now supports full or partial credit returns, admin notes, evidence review, bilingual labels, and error feedback. Approved refunds remain append-only credit adjustments and cannot be submitted twice.
 - ✅ **Subscription migration controls:** renewal/plan-change surfaces now preview upgrade vs downgrade cost, use the current category-adjusted admin catalog, and keep manual OMT/Whish checkout amounts and invoices consistent across demo and Prisma paths.
-- 🔜 **Phase 2 next:** measure emergency conversion and refund rates for 30 days before tuning the 1.5× factor or expanding surge windows. Add cohort-based upgrade prompts after the measurement window. Stripe, automatic billing, and payment automation remain deferred.
+- ✅ **Surge measurement tooling:** a 30-day emergency-surge evaluation report (pure engine `src/lib/data/surge-report.ts`, admin card on Revenue Settings, CSV export at `/api/admin/revenue/surge-report`) tracks emergency purchase conversion, the base/premium credit split net of refunds, weekly trend, the gold-grade baseline, and a deterministic verdict (healthy / watch / overpriced / quality-risk / insufficient-data) with a 20-offer / 10-purchase honesty floor.
+- 🔜 **Phase 2 next:** let the surge report accumulate 30 days of data, then tune the 1.5× factor (or expand surge windows) using its verdict — re-export the CSV monthly as the decision record. Add cohort-based upgrade prompts after the measurement window. Stripe, automatic billing, and payment automation remain deferred.
 
 ## Phase 3 — retention and operating visibility (started)
 
