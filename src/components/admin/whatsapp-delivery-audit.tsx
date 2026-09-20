@@ -174,7 +174,7 @@ export function WhatsAppDeliveryAudit({
                     {d.workerId ? ` · ${d.workerId}` : ""}
                   </span>
                   <span className="text-[11px] tabular-nums text-ink-400">
-                    {t("whatsappAudit.attempts", { count: d.attempts })} · {formatWhen(d, locale)}
+                    {t("whatsappAudit.attempts", { count: d.attempts })} · {formatWhen(d)}
                   </span>
                   {d.status === "failed" && (
                     <Button size="sm" variant="outline" disabled={busyId === d.id} onClick={() => resend(d.id)}>
@@ -218,9 +218,11 @@ function messagePreview(d: WhatsAppDelivery): string {
   return text.length > 90 ? `${text.slice(0, 90)}…` : text;
 }
 
-function formatWhen(d: WhatsAppDelivery, locale: string): string {
+function formatWhen(d: WhatsAppDelivery): string {
   const at = d.deliveredAt ?? d.sentAt ?? d.createdAt;
   const date = new Date(at);
   if (!Number.isFinite(date.getTime())) return at;
-  return date.toLocaleString(locale === "ar" ? "ar" : "en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  // DATES may follow the UI locale (NUMBER_LOCALE governs numbers only);
+  // this is the one Intl use the digit policy explicitly permits.
+  return date.toLocaleString("en", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }

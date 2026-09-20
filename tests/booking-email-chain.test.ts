@@ -21,6 +21,9 @@ vi.mock("../src/lib/notifications/dispatcher", () => ({
   },
   getEnabledChannels: () => [],
   resetChannels: () => {},
+  // The recorder hook the dispatcher registers (no-op in these suites).
+  setWhatsAppDeliveryRecorder: () => {},
+  dispatchWhatsApp: async () => ({ channel: "whatsapp", ok: false, provider: "none", error: "mocked" }),
 }));
 
 import {

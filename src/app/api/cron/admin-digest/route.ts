@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { appBaseUrl } from "@/lib/notifications/config";
 import { dispatchWhatsApp } from "@/lib/notifications/dispatcher";
+import { ALL_COUNTRIES } from "@/lib/tenant/countries";
 import { computeSurgeReport } from "@/lib/data/surge-report";
 import { buildAdminWeeklyDigest } from "@/lib/data/admin-weekly-digest";
 import { listLeadOffers } from "@/lib/data/repo";
@@ -24,8 +25,8 @@ export const dynamic = "force-dynamic";
  *
  * No ADMIN_WHATSAPP_NUMBERS configured → 200 with `recipients: 0` so the
  * scheduler does not page on an unconfigured project; the message body is
- * still returned for verification. Set numbers E.164-style, comma-separated:
- *   ADMIN_WHATSAPP_NUMBERS="+9613123456,+9617654321"
+ * still returned for verification. Set numbers E.164-style (with the
+ * country's dial code from the tenant registry), comma-separated.
  *
  * Call weekly from a scheduler:
  *   curl -x POST -H "x-cron-secret: $CRON_SECRET" https://…/api/cron/admin-digest
@@ -102,8 +103,15 @@ export async function POST(request: Request) {
     .filter((p) => p.length > 0);
 
   const results: Array<{ to: string; ok: boolean; error?: string }> = [];
+  // Message locale follows the recipient's dial code, matched against the
+  // tenant registry — never a hardcoded country list (tests/tenant-countries).
+  const ARABIC_CODES = new Set(
+    ALL_COUNTRIES.filter((c) => c.nameAr.length > 0 && c.slug !== "us").map((c) => c.dialCode)
+  );
   for (const phone of recipients) {
-    const locale: "ar" | "en" = phone.startsWith("+961") || phone.startsWith("+966") || phone.startsWith("+971") ? "ar" : "en";
+    const digits = phone.replace(/^\+/, "");
+    const matchedCountry = ALL_COUNTRIES.find((c) => digits.startsWith(c.dialCode));
+    const locale: "ar" | "en" = matchedCountry && ARABIC_CODES.has(matchedCountry.dialCode) ? "ar" : "en";
     const result = await dispatchWhatsApp({
       id: `admin-digest-${nowMs}-${phone}`,
       type: "system",
