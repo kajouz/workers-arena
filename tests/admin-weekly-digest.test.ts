@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildAdminWeeklyDigest, surgeTuningLine } from "../src/lib/data/admin-weekly-digest";
 import { computeSurgeReport } from "../src/lib/data/surge-report";
+import { whatsappDeliveryHealth } from "../src/lib/data/whatsapp-deliveries";
 import type { LeadOffer } from "../src/lib/data/lead-market";
 import type { LeadRefundRequest } from "../src/lib/data/lead-refunds";
+import type { WhatsAppDelivery } from "../src/lib/data/whatsapp-deliveries";
+import type { RetentionAtRiskWorker } from "../src/lib/data/retention";
 
 /** Fixed "now" so every test is deterministic. */
 const NOW = Date.parse("2026-09-21T08:00:00.000Z");
@@ -56,8 +59,47 @@ const baseInput = {
   completedJobs: 8,
   pendingManualPayments: 2,
   pendingRefundRequests: 1,
+  whatsappHealth: whatsappDeliveryHealth([], { nowMs: NOW }),
+  failedDeliveries: [] as WhatsAppDelivery[],
+  pendingRefunds: [] as LeadRefundRequest[],
+  atRiskRenewals: [] as RetentionAtRiskWorker[],
   csvPath: "https://app.test/api/admin/revenue/surge-report?days=30",
   nowMs: NOW,
+};
+
+const failedDelivery: WhatsAppDelivery = {
+  id: "wa-failed-1",
+  kind: "subscription",
+  provider: "whatsapp-cloud",
+  recipientPhone: "+9613488191",
+  notificationType: "subscription",
+  status: "failed",
+  attempts: 3,
+  lastError: "(#131047) Re-engagement message",
+  createdAt: new Date(NOW - 2 * 86_400_000).toISOString(),
+  updatedAt: new Date(NOW - 86_400_000).toISOString(),
+};
+
+const pendingRefund: LeadRefundRequest = {
+  id: "lref-9",
+  offerId: "offer-9",
+  leadId: "qr-9",
+  workerId: "khaled-plum",
+  reason: "unreachable",
+  requestedCredits: 53,
+  approvedCredits: 0,
+  status: "pending",
+  submittedAt: new Date(NOW - 4 * 86_400_000).toISOString(),
+};
+
+const atRiskWorker: RetentionAtRiskWorker = {
+  id: "w-risk",
+  nameEn: "Omar Fadel",
+  nameAr: "عمر فضل",
+  plan: "professional",
+  daysUntilExpiry: 6,
+  lastActivity: new Date(NOW - 3 * 86_400_000).toISOString(),
+  hue: 40,
 };
 
 describe("surgeTuningLine", () => {
@@ -137,6 +179,61 @@ describe("buildAdminWeeklyDigest", () => {
     for (const line of digest.bodyEn.split("\n")) {
       expect(line.length).toBeLessThan(160);
       expect(line).not.toMatch(/[*_`]|<\/?[a-z]+>/);
+    }
+  });
+
+  /* ── The operational triage sections (failed / refunds / renewals) ── */
+
+  it("renders empty sections as explicit all-clear lines", () => {
+    const surge = computeSurgeReport(healthyOffers(), [], { nowMs: NOW });
+    const digest = buildAdminWeeklyDigest({ ...baseInput, surge });
+    expect(digest.bodyEn).toContain("Failed WhatsApp deliveries: None");
+    expect(digest.bodyEn).toContain("Pending lead refunds (review queue): None waiting");
+    expect(digest.bodyEn).toContain("At-risk renewals (next 30 days): No subscriptions");
+  });
+
+  it("lists failed deliveries with phone, kind, attempts and error text", () => {
+    const surge = computeSurgeReport(healthyOffers(), [], { nowMs: NOW });
+    const digest = buildAdminWeeklyDigest({ ...baseInput, surge, failedDeliveries: [failedDelivery] });
+    expect(digest.bodyEn).toContain("+9613488191 · subscription · 3×");
+    expect(digest.bodyEn).toContain("(#131047) Re-engagement message");
+    // The HTML email carries the same item (raw text, already escaped by the
+    // renderer where needed).
+    expect(digest.htmlEn).toContain("+9613488191 · subscription · 3×");
+    expect(digest.htmlEn).toContain("(#131047) Re-engagement message");
+  });
+
+  it("lists pending refunds oldest-first with credits and reason", () => {
+    const surge = computeSurgeReport(healthyOffers(), [pendingRefund], { nowMs: NOW });
+    const digest = buildAdminWeeklyDigest({ ...baseInput, surge, pendingRefunds: [pendingRefund] });
+    expect(digest.bodyEn).toContain("lref-9 · khaled-plum · 53 credits · unreachable");
+    expect(digest.htmlEn).toContain("lref-9");
+  });
+
+  it("lists at-risk renewals with plan and days left", () => {
+    const surge = computeSurgeReport(healthyOffers(), [], { nowMs: NOW });
+    const digest = buildAdminWeeklyDigest({ ...baseInput, surge, atRiskRenewals: [atRiskWorker] });
+    expect(digest.bodyEn).toContain("Omar Fadel · professional · 6d");
+    // The Arabic body uses the worker's Arabic name.
+    expect(digest.bodyAr).toContain("عمر فضل · professional · 6d");
+    expect(digest.htmlAr).toContain("عمر فضل");
+  });
+
+  it("the Arabic body carries Arabic section labels", () => {
+    const surge = computeSurgeReport(healthyOffers(), [], { nowMs: NOW });
+    const digest = buildAdminWeeklyDigest({ ...baseInput, surge, failedDeliveries: [failedDelivery] });
+    expect(digest.bodyAr).toContain("رسائل واتساب الفاشلة");
+    expect(digest.bodyAr).toContain("استردادات عملاء معلّقة");
+    expect(digest.bodyAr).toContain("تجديدات معرّضة للخطر");
+  });
+
+  it("HTML bodies are complete documents-in-a-div with both sections and the CSV link", () => {
+    const surge = computeSurgeReport(healthyOffers(), [pendingRefund], { nowMs: NOW });
+    const digest = buildAdminWeeklyDigest({ ...baseInput, surge, pendingRefunds: [pendingRefund] });
+    for (const html of [digest.htmlEn, digest.htmlAr]) {
+      expect(html).toContain("<div style=");
+      expect(html).toContain(baseInput.csvPath);
+      expect(html).toContain("<ul>");
     }
   });
 });

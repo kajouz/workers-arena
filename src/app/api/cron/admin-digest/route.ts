@@ -7,7 +7,10 @@ import { computeSurgeReport } from "@/lib/data/surge-report";
 import { buildAdminWeeklyDigest } from "@/lib/data/admin-weekly-digest";
 import { listLeadOffers } from "@/lib/data/repo";
 import { listLeadRefunds } from "@/lib/data/lead-refund-store";
-import { getAllBookings, getPendingManualPayments } from "@/lib/data/repo";
+import { getAllBookings, getPendingManualPayments, getAllWorkers } from "@/lib/data/repo";
+import { getWhatsAppDeliveryHealth, getWhatsAppDeliveries } from "@/lib/data/whatsapp-delivery-store";
+import { retentionSnapshot } from "@/lib/data/retention";
+import { sendEmail } from "@/lib/email/send";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -17,11 +20,12 @@ export const dynamic = "force-dynamic";
  * WEEKLY ADMIN WHATSAPP DIGEST — /api/cron/admin-digest
  * ────────────────────────────────────────────────────────────────────────────
  * Keeps the Phase-2 tuning decision visible while the 30-day emergency-surge
- * measurement window runs: every week each admin phone on
- * `ADMIN_WHATSAPP_NUMBERS` receives the surge headline (offers, purchases,
- * conversion, refund rate, net premium credits), the verdict with its tuning
- * line (what the plan says to do next), the week's booking/payment
- * bookkeeping, and the CSV decision-record link.
+ * measurement window runs, plus the week's operational triage: every admin on
+ * `ADMIN_WHATSAPP_NUMBERS` gets the WhatsApp digest, and every address on
+ * `ADMIN_EMAILS` gets the HTML email — both carry the surge verdict and its
+ * tuning line, FAILED WhatsApp deliveries (with error text and retry state),
+ * the PENDING lead-refund review queue, and AT-RISK renewals (subscriptions
+ * expiring within 30 days).
  *
  * No ADMIN_WHATSAPP_NUMBERS configured → 200 with `recipients: 0` so the
  * scheduler does not page on an unconfigured project; the message body is
@@ -39,13 +43,21 @@ export async function POST(request: Request) {
 
   // The surge report is computed from the same stores the admin card uses —
   // one source of truth for the UI and the digest.
-  const [offers, refunds, bookings, pendingPayments] = await Promise.all([
+  const [offers, refunds, bookings, pendingPayments, whatsappHealth, failedDeliveries, workers] = await Promise.all([
     listLeadOffers(2000),
     listLeadRefunds(),
     getAllBookings(),
     getPendingManualPayments(),
+    getWhatsAppDeliveryHealth(),
+    getWhatsAppDeliveries({ status: "failed", limit: 10 }),
+    getAllWorkers(),
   ]);
   const surge = computeSurgeReport(offers, refunds, { windowDays: 30, nowMs });
+  const pendingRefunds = refunds
+    .filter((r) => r.status === "pending")
+    .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt))
+    .slice(0, 10);
+  const atRiskRenewals = retentionSnapshot(workers, nowMs).atRiskWorkers.slice(0, 10);
 
   // The digest week: the 7 days ending now. The surge cohort stays 30 days
   // (that is the measurement window); week boundaries only date the message
@@ -90,6 +102,10 @@ export async function POST(request: Request) {
     completedJobs,
     pendingManualPayments: pendingPayments.length,
     pendingRefundRequests,
+    whatsappHealth,
+    failedDeliveries,
+    pendingRefunds,
+    atRiskRenewals,
     csvPath: `${appBaseUrl()}/api/admin/revenue/surge-report?days=30`,
     nowMs,
   });
@@ -127,8 +143,26 @@ export async function POST(request: Request) {
     results.push({ to: phone, ok: result.ok, error: result.error });
   }
 
+  // Email recipients: ADMIN_EMAILS (comma-separated). Unset → no email, the
+  // WhatsApp channel above still runs. Both languages are sent as separate
+  // messages only when addresses declare a locale (admin@…#ar) — plain
+  // addresses get the English HTML with the Arabic text alongside.
+  const emailResults: Array<{ to: string; ok: boolean; error?: string }> = [];
+  const emailRecipients = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0);
+  for (const entry of emailRecipients) {
+    const wantsAr = entry.toLowerCase().endsWith("#ar");
+    const to = wantsAr ? entry.slice(0, -3) : entry;
+    const subject = wantsAr ? digest.titleAr : digest.titleEn;
+    const html = wantsAr ? digest.htmlAr : digest.htmlEn;
+    const email = await sendEmail({ to, subject, html, text: wantsAr ? digest.bodyAr : digest.bodyEn });
+    emailResults.push({ to, ok: email.success, error: email.success ? undefined : email.error });
+  }
+
   if (process.env.LOG_LEVEL !== "silent") {
-    console.log("[AdminDigest] verdict:", digest.meta.verdict, "recipients:", results.length, "results:", results);
+    console.log("[AdminDigest] verdict:", digest.meta.verdict, "recipients:", results.length, "emails:", emailResults.length, "results:", results, emailResults);
   }
 
   return NextResponse.json({
@@ -137,7 +171,9 @@ export async function POST(request: Request) {
     weekEnd,
     digest: { verdict: digest.meta, bodyEn: digest.bodyEn, bodyAr: digest.bodyAr },
     recipients: results.length,
+    emails: emailResults.length,
     results,
+    emailResults,
   });
 }
 
@@ -146,8 +182,11 @@ export async function GET(request: Request) {
   const authError = verifyCronAuth(request);
   if (authError) return authError;
   return NextResponse.json({
-    message: "Weekly admin WhatsApp digest endpoint is ready",
+    message: "Weekly admin digest endpoint is ready (WhatsApp + email)",
     usage: "POST /api/cron/admin-digest with x-cron-secret: $CRON_SECRET",
-    env: ["ADMIN_WHATSAPP_NUMBERS (comma-separated E.164 admin phones)"],
+    env: [
+      "ADMIN_WHATSAPP_NUMBERS (comma-separated E.164 admin phones)",
+      "ADMIN_EMAILS (comma-separated admin addresses; suffix #ar for the Arabic body)",
+    ],
   });
 }

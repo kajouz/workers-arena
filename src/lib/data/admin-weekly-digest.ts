@@ -19,6 +19,9 @@
  */
 
 import type { SurgeReport, SurgeVerdictCode } from "./surge-report";
+import type { WhatsAppDeliveryHealth, WhatsAppDelivery } from "./whatsapp-deliveries";
+import type { RetentionAtRiskWorker } from "./retention";
+import type { LeadRefundRequest } from "./lead-refunds";
 
 /* ──────────────────────────────── Shapes ──────────────────────────────── */
 
@@ -36,6 +39,14 @@ export interface AdminWeeklyDigestInput {
   pendingRefundRequests: number;
   /** Where the CSV export lives, so the decision record stays one click away. */
   csvPath: string;
+  /** Delivery-ledger health — the failed-deliveries section of the digest. */
+  whatsappHealth: WhatsAppDeliveryHealth;
+  /** Failed WhatsApp sends this week (newest first, capped by the caller). */
+  failedDeliveries: WhatsAppDelivery[];
+  /** Pending lead-quality refund requests (oldest first — the review queue). */
+  pendingRefunds: LeadRefundRequest[];
+  /** Subscriptions expiring within the retention window, soonest first. */
+  atRiskRenewals: RetentionAtRiskWorker[];
   /** The rendering clock — injected for determinism. */
   nowMs: number;
 }
@@ -47,6 +58,9 @@ export interface AdminWeeklyDigest {
   /** Short titles for the in-app notification trail. */
   titleEn: string;
   titleAr: string;
+  /** HTML email body (locale-neutral — the admin renders both languages). */
+  htmlEn: string;
+  htmlAr: string;
   /** Structured facts the route logs alongside the send. */
   meta: {
     verdict: SurgeVerdictCode;
@@ -97,6 +111,110 @@ export function surgeTuningLine(
   }
 }
 
+/* ───────────── Section renderers (text + HTML fragments) ───────────── */
+
+/** Escapes the small bits of dynamic text that go into the HTML email. */
+function esc(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+interface SectionCopy {
+  label: string;
+  empty: string;
+}
+
+const FAILED_COPY: Record<"en" | "ar", SectionCopy> = {
+  en: { label: "Failed WhatsApp deliveries", empty: "None — every send this week went out clean." },
+  ar: { label: "رسائل واتساب الفاشلة", empty: "لا شيء — كل إرسالات الأسبوع نجحت." },
+};
+const REFUND_COPY: Record<"en" | "ar", SectionCopy> = {
+  en: { label: "Pending lead refunds (review queue)", empty: "None waiting for review." },
+  ar: { label: "استردادات عملاء معلّقة (قائمة المراجعة)", empty: "لا يوجد ما ينتظر المراجعة." },
+};
+const RENEWAL_COPY: Record<"en" | "ar", SectionCopy> = {
+  en: { label: "At-risk renewals (next 30 days)", empty: "No subscriptions expiring in the next 30 days." },
+  ar: { label: "تجديدات معرّضة للخطر (30 يومًا القادمة)", empty: "لا اشتراكات تنتهي خلال 30 يومًا." },
+};
+
+function renderFailedSection(
+  health: WhatsAppDeliveryHealth,
+  failed: WhatsAppDelivery[],
+  locale: "en" | "ar"
+): { text: string[]; html: string } {
+  const copy = FAILED_COPY[locale];
+  if (failed.length === 0 && health.last24h.failed === 0) {
+    return { text: [`${copy.label}: ${copy.empty}`], html: `<p><b>${copy.label}:</b> ${copy.empty}</p>` };
+  }
+  const lines = failed.map((d) => {
+    const when = (d.updatedAt ?? d.createdAt).slice(0, 10);
+    const to = d.recipientPhone ?? "unknown";
+    const err = d.lastError ? ` — ${d.lastError.slice(0, 80)}` : "";
+    return `${to} · ${d.kind} · ${d.attempts}× · ${when}${err}`;
+  });
+  const summaryLine =
+    locale === "ar"
+      ? `${health.last24h.failed} فشل من ${health.last24h.sends} إرسال في 24 ساعة · ${health.deadLetters} مستنكاة نهائيًا`
+      : `${health.last24h.failed} failed of ${health.last24h.sends} sends in 24h · ${health.deadLetters} dead-lettered overall`;
+  const items = failed
+    .map((d) => {
+      const when = (d.updatedAt ?? d.createdAt).slice(0, 10);
+      const to = esc(d.recipientPhone ?? "unknown");
+      const err = d.lastError ? ` — ${esc(d.lastError.slice(0, 80))}` : "";
+      return `<li>${to} · ${esc(d.kind)} · ${d.attempts}× · ${esc(when)}${err}</li>`;
+    })
+    .join("");
+  return {
+    text: [`${copy.label} (${summaryLine}):`, ...lines.map((l) => `  • ${l}`)],
+    html: `<p><b>${copy.label}</b> <small>(${summaryLine})</small></p><ul>${items}</ul>`,
+  };
+}
+
+function renderRefundSection(
+  refunds: LeadRefundRequest[],
+  locale: "en" | "ar"
+): { text: string[]; html: string } {
+  const copy = REFUND_COPY[locale];
+  if (refunds.length === 0) {
+    return { text: [`${copy.label}: ${copy.empty}`], html: `<p><b>${copy.label}:</b> ${copy.empty}</p>` };
+  }
+  const lines = refunds.map((r) => `${r.id} · ${r.workerId} · ${r.requestedCredits} credits · ${r.reason} · since ${r.submittedAt.slice(0, 10)}`);
+  const items = refunds
+    .map((r) => `<li>${esc(r.id)} · ${esc(r.workerId)} · ${r.requestedCredits} cr · ${esc(r.reason)} · ${esc(r.submittedAt.slice(0, 10))}</li>`)
+    .join("");
+  return {
+    text: [`${copy.label}:`, ...lines.map((l) => `  • ${l}`)],
+    html: `<p><b>${copy.label}</b></p><ul>${items}</ul>`,
+  };
+}
+
+function renderRenewalSection(
+  workers: RetentionAtRiskWorker[],
+  locale: "en" | "ar"
+): { text: string[]; html: string } {
+  const copy = RENEWAL_COPY[locale];
+  if (workers.length === 0) {
+    return { text: [`${copy.label}: ${copy.empty}`], html: `<p><b>${copy.label}:</b> ${copy.empty}</p>` };
+  }
+  const lines = workers.map((w) => {
+    const name = locale === "ar" && w.nameAr ? w.nameAr : w.nameEn;
+    return `${name} · ${w.plan} · ${w.daysUntilExpiry}d`;
+  });
+  const items = workers
+    .map((w) => {
+      const name = locale === "ar" && w.nameAr ? w.nameAr : w.nameEn;
+      return `<li>${esc(name)} · ${esc(w.plan)} · ${w.daysUntilExpiry}d</li>`;
+    })
+    .join("");
+  return {
+    text: [`${copy.label}:`, ...lines.map((l) => `  • ${l}`)],
+    html: `<p><b>${copy.label}</b></p><ul>${items}</ul>`,
+  };
+}
+
 /* ──────────────────────────────── Engine ──────────────────────────────── */
 
 /** Round to whole numbers for message text; credits are integers anyway. */
@@ -127,6 +245,13 @@ export function buildAdminWeeklyDigest(input: AdminWeeklyDigestInput): AdminWeek
     pendingRefundRequests: input.pendingRefundRequests,
   };
 
+  const failedEn = renderFailedSection(input.whatsappHealth, input.failedDeliveries, "en");
+  const failedAr = renderFailedSection(input.whatsappHealth, input.failedDeliveries, "ar");
+  const refundsEn = renderRefundSection(input.pendingRefunds, "en");
+  const refundsAr = renderRefundSection(input.pendingRefunds, "ar");
+  const renewalsEn = renderRenewalSection(input.atRiskRenewals, "en");
+  const renewalsAr = renderRenewalSection(input.atRiskRenewals, "ar");
+
   // EN — a phone-screen-shaped message: decision first, numbers after.
   const bodyEn = [
     `📊 WorkersArena weekly admin digest — ${input.weekStart.slice(0, 10)} → ${input.weekEnd.slice(0, 10)}`,
@@ -136,6 +261,9 @@ export function buildAdminWeeklyDigest(input: AdminWeeklyDigestInput): AdminWeek
     `→ ${surgeTuningLine(surge.verdict, "en")}`,
     "",
     `Bookings ${input.newBookings} · jobs completed ${input.completedJobs} · pending payments ${input.pendingManualPayments} · pending refunds ${input.pendingRefundRequests}`,
+    ...failedEn.text,
+    ...refundsEn.text,
+    ...renewalsEn.text,
     `Decision record: ${input.csvPath}`,
   ].join("\n");
 
@@ -148,14 +276,30 @@ export function buildAdminWeeklyDigest(input: AdminWeeklyDigestInput): AdminWeek
     `→ ${surgeTuningLine(surge.verdict, "ar")}`,
     "",
     `حجوزات ${input.newBookings} · أعمال مكتملة ${input.completedJobs} · مدفوعات معلّقة ${input.pendingManualPayments} · استردادات معلّقة ${input.pendingRefundRequests}`,
+    ...failedAr.text,
+    ...refundsAr.text,
+    ...renewalsAr.text,
     `سجل القرار: ${input.csvPath}`,
   ].join("\n");
+
+  // The email body: same content, HTML-shaped. The surge block reuses the
+  // digest's own text lines inside a styled header.
+  const htmlBlock = (title: string, headingAr: string, lines: string[], sections: string) => `
+<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">
+  <h2 style="font-size:16px;margin:0 0 4px">${title}</h2>
+  <p style="margin:0 0 12px;color:#6b7280;font-size:12px">${headingAr}</p>
+  ${sections}
+  <pre style="background:#f3f4f6;border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap">${esc(lines.join("\n"))}</pre>
+  <p style="font-size:11px;color:#9ca3af;margin-top:12px">${esc(input.csvPath)}</p>
+</div>`;
 
   return {
     bodyEn,
     bodyAr,
     titleEn: "Weekly admin digest",
     titleAr: "الملخص الإداري الأسبوعي",
+    htmlEn: htmlBlock("WorkersArena weekly admin digest", "ملخص الإدارة الأسبوعي", bodyEn.split("\n"), failedEn.html + refundsEn.html + renewalsEn.html),
+    htmlAr: htmlBlock("ملخص الإدارة الأسبوعي", "WorkersArena weekly admin digest", bodyAr.split("\n"), failedAr.html + refundsAr.html + renewalsAr.html),
     meta,
   };
 }
