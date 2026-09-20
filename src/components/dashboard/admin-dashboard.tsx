@@ -43,6 +43,8 @@ import { GeoHeatmap } from "./geo-heatmap";
 import { AcquisitionFunnel } from "./acquisition-funnel";
 import { BehaviorAnalytics } from "./behavior-analytics";
 import { RetentionCohorts } from "./retention-cohorts";
+import { WhatsAppDeliveryAudit } from "@/components/admin/whatsapp-delivery-audit";
+import type { WhatsAppDelivery, WhatsAppDeliveryHealth } from "@/lib/data/whatsapp-deliveries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -211,6 +213,9 @@ export function AdminDashboard({
   workers,
   workerManagementInit,
   subscriptionAnalytics,
+  whatsappDeliveries,
+  whatsappDeliveryStats,
+  whatsappHealth,
 }: {
   session: SessionUser;
   analytics: AnalyticsOverview;
@@ -223,6 +228,11 @@ export function AdminDashboard({
     feeWaivedOnly: boolean;
   };
   subscriptionAnalytics?: SubscriptionAnalytics;
+  /** WhatsApp delivery ledger — the audit view over every automated send. */
+  whatsappDeliveries?: WhatsAppDelivery[];
+  whatsappDeliveryStats?: { total: number; byStatus: Record<WhatsAppDelivery["status"], number>; last24hFailed: number };
+  /** Ledger-wide delivery health — feeds the retention card's outreach line. */
+  whatsappHealth?: WhatsAppDeliveryHealth;
   campaigns: Campaign[];
   campaignPayments: { campaign: Campaign; payment: CampaignPayment }[];
   /**
@@ -503,6 +513,14 @@ export function AdminDashboard({
             downgrades: subscriptionAnalytics?.downgrades ?? 0,
             whatsappOutreachSent: subscriptionAnalytics?.whatsappOutreachSent ?? 0,
             whatsappOutreachFailed: subscriptionAnalytics?.whatsappOutreachFailed ?? 0,
+            whatsappHealth: whatsappHealth
+              ? {
+                  overallFailureRatePct: whatsappHealth.overallFailureRatePct,
+                  overallDeliveryRatePct: whatsappHealth.overallDeliveryRatePct,
+                  last24h: whatsappHealth.last24h,
+                  deadLetters: whatsappHealth.deadLetters,
+                }
+              : undefined,
             atRiskWorkers: retention.atRiskWorkers.slice(0, 5).map((worker) => ({
               id: worker.id,
               name: worker.nameEn,
@@ -515,6 +533,10 @@ export function AdminDashboard({
           }}
           locale={locale}
         />
+        {/* WhatsApp delivery audit — live Meta status, retries, failures. */}
+        {whatsappDeliveries && whatsappDeliveryStats && (
+          <WhatsAppDeliveryAudit deliveries={whatsappDeliveries} stats={whatsappDeliveryStats} />
+        )}
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">

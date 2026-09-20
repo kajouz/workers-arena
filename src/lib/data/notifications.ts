@@ -1,8 +1,45 @@
 import type { BookingEmailContext, CampaignRefundContext, Notification } from "./types";
 import { daysUntil, REMINDER_WINDOW_DAYS, subscriptionStatus } from "./subscriptions";
 import { WORKERS } from "./workers";
-import { dispatch } from "@/lib/notifications/dispatcher";
+import { dispatch, setWhatsAppDeliveryRecorder } from "@/lib/notifications/dispatcher";
 import type { NotificationRecipient } from "@/lib/notifications/types";
+
+// ── WhatsApp delivery ledger wiring ──────────────────────────────────────────
+// The dispatcher owns the send seam but must stay free of data imports (it is
+// imported BY this module — a data→notifications→data cycle would be fragile).
+// So the dispatcher exposes a recorder hook and this composition root fills it:
+// every WhatsApp-channel result (fan-out `dispatch()` AND direct
+// `dispatchWhatsApp()`) lands in the delivery ledger, which the webhook
+// (/api/webhooks/whatsapp) advances and the admin audit view reads.
+import { recordWhatsAppDelivery } from "./whatsapp-delivery-store";
+
+setWhatsAppDeliveryRecorder((payload, result) => {
+  void recordWhatsAppDelivery({
+    payloadId: payload.id,
+    provider: result.provider,
+    recipientPhone: payload.recipient?.phone,
+    workerId: payload.meta?.workerId,
+    locale: payload.recipient?.locale,
+    notificationType: payload.type,
+    ok: result.ok,
+    error: result.error,
+    providerMessageId: result.providerMessageId,
+    // Strip non-JSON extras the WhatsApp channel never needed (booking email
+    // contexts, attachments) — the ledger stores only what a retry re-sends.
+    payload: {
+      id: payload.id,
+      type: payload.type,
+      titleEn: payload.titleEn,
+      titleAr: payload.titleAr,
+      bodyEn: payload.bodyEn,
+      bodyAr: payload.bodyAr,
+      href: payload.href,
+      time: payload.time,
+      recipient: payload.recipient,
+      ...(payload.meta ? { meta: payload.meta } : {}),
+    },
+  }).catch((err) => console.error("[notify:whatsapp] delivery ledger write failed", err));
+});
 
 /**
  * ────────────────────────────────────────────────────────────────────────────

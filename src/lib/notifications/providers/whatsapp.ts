@@ -71,7 +71,22 @@ class WhatsAppCloudChannel implements NotificationChannel {
         const detail = await res.text().catch(() => "");
         throw new Error(`WhatsApp Cloud API ${res.status}: ${detail.slice(0, 200)}`);
       }
-      return { channel: "whatsapp", ok: true, provider: "whatsapp-cloud" };
+      // Graph replies `{ messages: [{ id: "wamid…", message_status: "accepted" }] }`
+      // — the wamid is what Meta's status webhooks key off, so it rides the
+      // result into the delivery ledger. Parsed leniently (sync throw on a
+      // body-less response counts as delivered-accepted, not a failure).
+      let graphResult: { messages?: Array<{ id?: string }> } | null = null;
+      try {
+        graphResult = (await res.json()) as { messages?: Array<{ id?: string }> } | null;
+      } catch {
+        // non-JSON / absent body — the HTTP 2xx is still a successful send
+      }
+      return {
+        channel: "whatsapp",
+        ok: true,
+        provider: "whatsapp-cloud",
+        providerMessageId: graphResult?.messages?.[0]?.id,
+      };
     } catch (err) {
       return {
         channel: "whatsapp",

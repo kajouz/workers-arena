@@ -1626,6 +1626,11 @@ export function demoGetCustomerQuoteRequests(
  * (signed-in customerId or normalized phone) — the customer-only reads never
  * leak another customer's job.
  */
+/** All quote requests, newest first (admin per-category conversion metrics). */
+export function demoGetAllQuoteRequests(): QuoteRequest[] {
+  return [...STORE.quoteRequests].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export function demoGetQuoteRequest(
   idOrNumber: string,
   identifier?: { customerId?: string; phone?: string }

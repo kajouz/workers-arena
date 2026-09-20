@@ -38,6 +38,9 @@ export function searchParamsToFilters(params: RawParams): SearchFilters {
     openNowOnly: bool(one(params, "open")),
     availableNow: bool(one(params, "available")),
     feeWaivedOnly: bool(one(params, "feeWaived")),
+    radiusKm: num(one(params, "radius")),
+    nearLat: num(one(params, "lat")),
+    nearLng: num(one(params, "lng")),
     sort: validSorts.includes(sort ?? "") ? (sort as SearchFilters["sort"]) : undefined,
     page: num(one(params, "page")),
   };
@@ -60,6 +63,11 @@ export function filtersToSearchParams(filters: SearchFilters): string {
   if (filters.openNowOnly) p.set("open", "1");
   if (filters.availableNow) p.set("available", "1");
   if (filters.feeWaivedOnly) p.set("feeWaived", "1");
+  if (filters.radiusKm != null) p.set("radius", String(filters.radiusKm));
+  if (filters.nearLat != null && filters.nearLng != null) {
+    p.set("lat", String(filters.nearLat));
+    p.set("lng", String(filters.nearLng));
+  }
   if (filters.sort && filters.sort !== "relevance") p.set("sort", filters.sort);
   const s = p.toString();
   return s ? `?${s}` : "";

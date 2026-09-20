@@ -1537,3 +1537,32 @@ model CallRecord {
   @@index([maskedNumberId])
   @@index([startedAt])
 }
+
+// WhatsApp delivery audit ledger — one row per automated WhatsApp send,
+// advanced by Meta status webhooks (sent/delivered/read/failed) and bounded
+// retries. Pure engine: src/lib/data/whatsapp-deliveries.ts.
+model WhatsAppDelivery {
+  id                String    @id // deterministic dedupe key: wa-{payloadId}
+  kind              String // lead | booking | subscription | campaign | system | other
+  provider          String // console | whatsapp-cloud
+  recipientPhone    String?
+  workerId          String? // best-effort link (no FK — the ledger outlives workers)
+  locale            String?
+  notificationType  String
+  status            String    @default("sent") // sent | delivered | read | failed
+  attempts          Int       @default(1)
+  payload           Json? // the ChannelPayload used (audit + retry source)
+  providerMessageId String?   @unique // Meta wamid — the webhook's lookup key
+  lastError         String?
+  lastEvent         Json? // last raw webhook status (debug aid)
+  nextRetryAt       DateTime?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, nextRetryAt])
+  @@index([kind, createdAt])
+  @@index([workerId])
+}

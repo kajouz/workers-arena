@@ -49,6 +49,8 @@ interface Labels {
   verifiedOnly: string;
   featuredOnly: string;
   feeWaived: string;
+  radiusLabel: string;
+  radiusAny: string;
   sortBy: string;
   sortRelevance: string;
   sortRating: string;
@@ -141,6 +143,7 @@ export function SearchClient({
     if (filters.openNowOnly) n++;
     if (filters.availableNow) n++;
     if (filters.feeWaivedOnly) n++;
+    if (filters.radiusKm != null) n++;
     if (filters.sort && filters.sort !== "relevance") n++;
     return n;
   }, [filters]);
@@ -167,6 +170,11 @@ export function SearchClient({
         if (next.openNowOnly) params.set("open", "1");
         if (next.availableNow) params.set("available", "1");
         if (next.feeWaivedOnly) params.set("feeWaived", "1");
+        if (next.radiusKm != null) params.set("radius", String(next.radiusKm));
+        if (next.nearLat != null && next.nearLng != null) {
+          params.set("lat", String(next.nearLat));
+          params.set("lng", String(next.nearLng));
+        }
         if (next.sort && next.sort !== "relevance") params.set("sort", next.sort);
         params.set("page", String(pageNum));
         const res = await fetch(`/api/workers?${params.toString()}`);
@@ -406,6 +414,37 @@ export function SearchClient({
               <SelectItem value="priceHigh">{L.sortPriceHigh}</SelectItem>
               <SelectItem value="experience">{L.sortExperience}</SelectItem>
               <SelectItem value="nearest">{L.sortNearest}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* radius — measured from the device position when granted (Find
+              Near Me), otherwise the selected city's centre resolves server-side. */}
+          <Select
+            value={filters.radiusKm != null ? String(filters.radiusKm) : "any"}
+            onValueChange={(v) => {
+              if (v === "any") {
+                setFilters((f) => ({ ...f, radiusKm: undefined, nearLat: undefined, nearLng: undefined, page: undefined }));
+              } else {
+                setFilters((f) => ({
+                  ...f,
+                  radiusKm: Number(v),
+                  nearLat: latitude ?? undefined,
+                  nearLng: longitude ?? undefined,
+                  page: undefined,
+                }));
+              }
+            }}
+          >
+            <SelectTrigger aria-label={L.radiusLabel} className="sm:w-40">
+              <SelectValue placeholder={L.radiusLabel} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">{L.radiusAny}</SelectItem>
+              {[5, 10, 25, 50].map((km) => (
+                <SelectItem key={km} value={String(km)}>
+                  {km} km
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

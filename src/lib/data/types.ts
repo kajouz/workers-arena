@@ -980,6 +980,15 @@ export interface SearchFilters {
    * adapters; mirrors the W1 fee badge on the cards.
    */
   feeWaivedOnly?: boolean;
+  /**
+   * Geo/radius search — filter to workers within `radiusKm` of a centre:
+   * an explicit `nearLat`/`nearLng` pair, else the selected city's centre.
+   * Matching workers also get a distance-aware relevance boost (fading to 0
+   * at the radius edge). A radius without a resolvable centre is a no-op.
+   */
+  nearLat?: number;
+  nearLng?: number;
+  radiusKm?: number;
   sort?: SearchSort;
   page?: number;
   /** Admin-only: include workers whose subscription has expired. */

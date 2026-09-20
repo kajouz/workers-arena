@@ -46,6 +46,13 @@ interface RetentionData {
   downgrades: number;
   whatsappOutreachSent: number;
   whatsappOutreachFailed: number;
+  /** Delivery-ledger health behind those counters (outreach effectiveness). */
+  whatsappHealth?: {
+    overallFailureRatePct: number;
+    overallDeliveryRatePct: number;
+    last24h: { sends: number; failed: number; delivered: number; pending: number; failureRatePct: number; deliveryRatePct: number };
+    deadLetters: number;
+  };
   planTransitions: PlanTransition[];
   atRiskWorkers: AtRiskWorker[];
 }
@@ -175,6 +182,13 @@ export function RetentionCohorts({ data, locale = "en" }: RetentionCohortsProps)
               {data.whatsappOutreachSent} sent · {data.whatsappOutreachFailed} failed
             </span>
           </div>
+          {data.whatsappHealth && (
+            <p className="mt-1 text-[10px] text-ink-400">
+              {locale === "ar"
+                ? `فعالية الإرسال: ${data.whatsappHealth.overallDeliveryRatePct}% وصلت · ${data.whatsappHealth.overallFailureRatePct}% فشلت · آخر 24 ساعة: ${data.whatsappHealth.last24h.sends} إرسال (${data.whatsappHealth.last24h.failureRatePct}% فشل)${data.whatsappHealth.deadLetters > 0 ? ` · ${data.whatsappHealth.deadLetters} رسالة مستنكاة` : ""}`
+                : `Delivery health: ${data.whatsappHealth.overallDeliveryRatePct}% delivered · ${data.whatsappHealth.overallFailureRatePct}% failed · 24h: ${data.whatsappHealth.last24h.sends} sends (${data.whatsappHealth.last24h.failureRatePct}% failed)${data.whatsappHealth.deadLetters > 0 ? ` · ${data.whatsappHealth.deadLetters} dead-lettered` : ""}`}
+            </p>
+          )}
         </div>
 
         {/* Lifetime Value */}

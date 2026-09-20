@@ -169,6 +169,8 @@ export async function sendRenewalWhatsAppAction(workerId: string): Promise<{ ok:
     href: "/dashboard",
     time: new Date().toISOString(),
     recipient: { name: worker.nameEn, phone: worker.phone, locale },
+    // Links the delivery-ledger row to the worker (admin audit view).
+    meta: { workerId: worker.id },
   };
   const result = await dispatchWhatsApp(payload);
   await recordSubscriptionEvent({

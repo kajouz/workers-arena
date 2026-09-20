@@ -32,8 +32,14 @@
  * server-side warning (see repo.ts).
  *
  * Known parity gaps vs the demo search engine (see docs/ARCHITECTURE.md §10):
- *   • Text matching is Postgres ILIKE substring — no Arabic normalization or
- *     fuzzy subsequence scoring yet (pg_trgm similarity is the planned upgrade).
+ *   • Text matching combines Postgres ILIKE substring with pg_trgm Arabic
+ *     fuzzy matching (migration 20260920210000_search_trigram): the query is
+ *     normalized in JS (the same normalize() the demo engine uses) and used
+ *     to discover candidates in SQL — word_similarity + ILIKE over the
+ *     wa_norm() expression indexes — then ranked in JS with the demo
+ *     engine's exported scoreWorkerQuery, so both adapters order identically.
+ *     The trigram pass degrades gracefully to ILIKE-only when the extension
+ *     is missing (older databases before the migration).
  *   • "relevance" sorts by rating as a proxy for the demo's weighted score.
  *   • open-now filtering and the "nearest" sort run in JS after a capped fetch
  *     (POST_FILTER_FETCH rows; fine for the seeded dataset — geo indexes are
@@ -46,7 +52,7 @@
  */
 import { getPrisma } from "@/lib/server/prisma";
 import { responseRateFromCounts } from "./booking-ui";
-import type { Prisma, $Enums } from "@prisma/client";
+import { Prisma, type $Enums } from "@prisma/client";
 import { FEE_EXEMPT_PLANS } from "./booking-ui";
 import { loadActiveFeeRuleSet, priceQuoteForSnapshot } from "./fee-rules-store";
 import { resolveLeadRebate, type LeadRebateResolution } from "./lead-rebate";
@@ -76,6 +82,7 @@ function origin(): string {
   return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
 }
 import { distanceKm, isOpenNow, type CurrencyCode } from "@/lib/utils";
+import { normalize as searchNormalize, distanceBoostKm, radiusCenter, scoreWorkerQuery } from "./search";
 import {
   BOOKING_COMPLETION_CONFIRM_GRACE_HOURS,
   BOOKING_REMINDER_WINDOW_MS,
@@ -523,8 +530,18 @@ export async function prismaChangeWorkerPlan(
   return (await stampWorkerSignals([worker]))[0] ?? null;
 }
 
-/** Translate domain SearchFilters into a Prisma where clause (SQL-filterable set). */
-export function filtersToWhere(filters: SearchFilters): Prisma.WorkerWhereInput {
+/**
+ * Translate domain SearchFilters into a Prisma where clause (SQL-filterable set).
+ *
+ * `opts.includeQuery = false` builds everything EXCEPT the free-text OR block —
+ * the trigram search path composes the query predicate itself (ILIKE ∪ trigram
+ * candidates) and needs the structural filters alone.
+ */
+export function filtersToWhere(
+  filters: SearchFilters,
+  opts: { includeQuery?: boolean } = {}
+): Prisma.WorkerWhereInput {
+  const includeQuery = opts.includeQuery ?? true;
   const where: Prisma.WorkerWhereInput = { ...PUBLIC_WORKER_FILTER };
 
   // Subscription-level filters merge into one relation filter: hidden from
@@ -552,11 +569,12 @@ export function filtersToWhere(filters: SearchFilters): Prisma.WorkerWhereInput 
   if (filters.emergencyOnly) where.emergency = true;
   if (filters.availableNow) where.available = true;
 
-  if (filters.query?.trim()) {
+  if (includeQuery && filters.query?.trim()) {
     const q = filters.query.trim();
     const ilike = (v: string) => ({ contains: v, mode: "insensitive" as const });
     // Same searchable surface as the demo engine (name, tagline, bio,
-    // category/city/area names, service names) — minus the fuzzy scoring.
+    // category/city/area names, service names) — the exact-substring half of
+    // the query predicate (the fuzzy half lives in prismaTrigramCandidateIds).
     where.OR = [
       { nameEn: ilike(q) },
       { nameAr: ilike(q) },
@@ -594,19 +612,97 @@ export function sqlOrderBy(sort: SearchFilters["sort"]): Prisma.WorkerOrderByWit
   }
 }
 
+/**
+ * pg_trgm fuzzy candidates for a free-text query (migration
+ * 20260920210000_search_trigram). Each query token — normalized in JS with the
+ * SAME normalize() the demo engine uses — is matched in SQL against the
+ * wa_norm()-normalized worker/category/city/area/service names via ILIKE
+ * substring (expression-index-backed) OR word_similarity() above the
+ * threshold (fuzzy: typos, missing hamzas, partial words). Returns worker ids
+ * only, so the structural filters stay in the Prisma-typed where clause.
+ *
+ * Any failure (extension not installed yet, permissions) degrades to an empty
+ * candidate set — the ILIKE pass still runs, so search keeps working without
+ * the fuzzy half instead of erroring.
+ */
+const TRIGRAM_SIMILARITY_THRESHOLD = 0.55;
+
+export async function prismaTrigramCandidateIds(query: string): Promise<string[]> {
+  const tokens = searchNormalize(query)
+    .split(" ")
+    .filter((t) => t.length >= 3)
+    .slice(0, 6);
+  if (tokens.length === 0) return [];
+  try {
+    const prisma = getPrisma();
+    const tokenPredicates = tokens.map((tok) => {
+      const like = `%${tok}%`;
+      return Prisma.sql`(
+        wa_norm(w."nameEn") ILIKE ${like} OR wa_norm(w."nameAr") ILIKE ${like}
+        OR wa_norm(w."taglineEn") ILIKE ${like} OR wa_norm(w."taglineAr") ILIKE ${like}
+        OR wa_norm(w."bioEn") ILIKE ${like} OR wa_norm(w."bioAr") ILIKE ${like}
+        OR wa_norm(c."nameEn") ILIKE ${like} OR wa_norm(c."nameAr") ILIKE ${like}
+        OR wa_norm(ci."nameEn") ILIKE ${like} OR wa_norm(ci."nameAr") ILIKE ${like}
+        OR wa_norm(ar."nameEn") ILIKE ${like} OR wa_norm(ar."nameAr") ILIKE ${like}
+        OR wa_norm(s."nameEn") ILIKE ${like} OR wa_norm(s."nameAr") ILIKE ${like}
+        OR word_similarity(${tok}, wa_norm(w."nameEn")) > ${TRIGRAM_SIMILARITY_THRESHOLD}
+        OR word_similarity(${tok}, wa_norm(w."nameAr")) > ${TRIGRAM_SIMILARITY_THRESHOLD}
+        OR word_similarity(${tok}, wa_norm(c."nameEn")) > ${TRIGRAM_SIMILARITY_THRESHOLD}
+        OR word_similarity(${tok}, wa_norm(c."nameAr")) > ${TRIGRAM_SIMILARITY_THRESHOLD}
+      )`;
+    });
+    const rows = await prisma.$queryRaw<Array<{ id: string }>>(
+      Prisma.sql`SELECT DISTINCT w."id" AS id
+        FROM "Worker" w
+        LEFT JOIN "Category" c ON c."id" = w."categoryId"
+        LEFT JOIN "City" ci ON ci."id" = w."cityId"
+        LEFT JOIN "Area" ar ON ar."id" = w."areaId"
+        LEFT JOIN "ServiceItem" s ON s."workerId" = w."id"
+        WHERE ${Prisma.join(tokenPredicates, " OR ")}
+        LIMIT 2000`
+    );
+    return rows.map((r) => r.id);
+  } catch (err) {
+    console.warn(
+      "[search] trigram candidates unavailable — falling back to ILIKE-only",
+      err instanceof Error ? err.message : err
+    );
+    return [];
+  }
+}
+
 export async function prismaSearchWorkers(filters: SearchFilters): Promise<SearchResult> {
   const prisma = getPrisma();
   const start = performance.now();
   const page = Math.max(1, filters.page ?? 1);
   const sort = filters.sort ?? "relevance";
-  const where = filtersToWhere(filters);
+  const q = filters.query?.trim() ?? "";
 
-  // open-now is computed from working hours in JS; "nearest" needs the city
-  // center + haversine in JS. For those, fetch a capped candidate set and do
-  // the work in memory (documented W1 trade-off).
+  // Structural filters only; the query predicate is composed below as
+  // ILIKE-substring candidates ∪ pg_trgm fuzzy candidates (worker ids), so
+  // both halves share one Prisma-typed where clause afterwards.
+  const where = filtersToWhere(filters, { includeQuery: false });
+  if (q) {
+    const queryOr = filtersToWhere(filters).OR;
+    const [ilikeRows, trigramIds] = await Promise.all([
+      queryOr ? prisma.worker.findMany({ where: { AND: [where, { OR: queryOr }] }, select: { id: true } }) : [],
+      prismaTrigramCandidateIds(q),
+    ]);
+    const ids = new Set<string>([...ilikeRows.map((r) => r.id), ...trigramIds]);
+    if (ids.size === 0) {
+      return { items: [], total: 0, tookMs: Math.round(performance.now() - start) };
+    }
+    where.id = { in: [...ids] };
+  }
+
+  // open-now is computed from working hours in JS; "nearest"/radius need
+  // haversine in JS. For those, fetch a capped candidate set and do the work
+  // in memory (documented W1 trade-off).
   const nearestCity = sort === "nearest" && filters.city ? cityBySlug(filters.city) : undefined;
   const jsSort = Boolean(nearestCity);
-  const jsPostFilter = Boolean(filters.openNowOnly) || jsSort;
+  const radiusCenterPoint = filters.radiusKm != null && filters.radiusKm > 0 ? radiusCenter(filters) : undefined;
+  const radiusKm = radiusCenterPoint ? filters.radiusKm! : undefined;
+  const jsPostFilter = Boolean(filters.openNowOnly) || jsSort || radiusKm != null;
   const skip = jsPostFilter ? 0 : (page - 1) * PAGE_SIZE;
   const take = jsPostFilter ? POST_FILTER_FETCH : PAGE_SIZE;
 
@@ -620,9 +716,13 @@ export async function prismaSearchWorkers(filters: SearchFilters): Promise<Searc
 
   let items = rows.map(toDomainWorker);
   if (filters.openNowOnly) items = items.filter((w) => isOpenNow(w));
+  // Geo/radius — drop workers beyond the radius of the resolved centre.
+  if (radiusKm != null && radiusCenterPoint) {
+    items = items.filter((w) => distanceKm(w.lat, w.lng, radiusCenterPoint.lat, radiusCenterPoint.lng) <= radiusKm);
+  }
   // Honest total before any page slicing: exact via SQL count unless open-now
-  // shrank the candidate set in JS (then it's the filtered length, exact up to
-  // the POST_FILTER_FETCH cap — see the module header note).
+  // or the radius shrank the candidate set in JS (then it's the filtered
+  // length, exact up to the POST_FILTER_FETCH cap — see the module header note).
   const filteredTotal = items.length;
   if (jsSort && nearestCity) {
     items = [...items].sort(
@@ -630,17 +730,27 @@ export async function prismaSearchWorkers(filters: SearchFilters): Promise<Searc
         distanceKm(a.lat, a.lng, nearestCity.lat, nearestCity.lng) -
         distanceKm(b.lat, b.lng, nearestCity.lat, nearestCity.lng)
     );
+  } else if (q && sort === "relevance") {
+    // Shared scoring with the demo engine: rank bonus + query terms + the
+    // distance-aware geo boost, so both adapters order identically.
+    const boost = (w: Worker) =>
+      radiusKm != null && radiusCenterPoint
+        ? distanceBoostKm(distanceKm(w.lat, w.lng, radiusCenterPoint.lat, radiusCenterPoint.lng), radiusKm)
+        : 0;
+    items = [...items].sort(
+      (a, b) =>
+        scoreWorkerQuery(b, q) + boost(b) - (scoreWorkerQuery(a, q) + boost(a)) || b.rating - a.rating
+    );
   }
   if (jsPostFilter) items = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   // W1 trust signals — stamped after all JS post-filtering/slicing so only the
   // returned page pays for the two batched queries.
   items = await stampWorkerSignals(items);
 
-  const total = jsPostFilter
-    ? filters.openNowOnly
+  const total =
+    jsPostFilter && (filters.openNowOnly || radiusKm != null)
       ? filteredTotal
-      : await prisma.worker.count({ where })
-    : await prisma.worker.count({ where });
+      : await prisma.worker.count({ where });
 
   return {
     items,
@@ -2238,6 +2348,16 @@ export async function prismaCreateQuoteRequest(
     }
   }
   return { error: "invalid" };
+}
+
+/** id → categorySlug for every quote request (per-category conversion metrics). */
+export async function prismaQuoteRequestCategories(): Promise<Array<{ id: string; categorySlug: string }>> {
+  const rows = await getPrisma().quoteRequest.findMany({
+    select: { id: true, categorySlug: true },
+    orderBy: { createdAt: "desc" },
+    take: 2000,
+  });
+  return rows;
 }
 
 /**

@@ -87,6 +87,13 @@ export interface DispatchResult {
   ok: boolean;
   provider: string;
   error?: string;
+  /**
+   * Provider-side message id when the provider returned one (WhatsApp Cloud
+   * API's `wamid…`). The delivery ledger keys Meta's status callbacks
+   * (sent/delivered/read/failed) off this id — see
+   * src/app/api/webhooks/whatsapp + src/lib/data/whatsapp-deliveries.
+   */
+  providerMessageId?: string;
 }
 
 /** A pluggable outbound channel. */

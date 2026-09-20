@@ -102,10 +102,89 @@ function rankBonus(w: Worker): number {
 export 
 const PAGE_SIZE = 9;
 
+/**
+ * Full relevance score for a worker against a query: rank bonus + query-term
+ * score (exact/prefix/category/city/token) + the substring/fuzzy fallbacks.
+ * Returns 0 when the worker does not match the query at all — callers treat
+ * 0 as "filtered out". EXPORTED so the Prisma adapter ranks identically
+ * (the demo and DB engines can never disagree about ordering).
+ */
+export function scoreWorkerQuery(w: Worker, query: string): number {
+  const queryTokens = tokenize(query);
+  const qs = queryScore(w, queryTokens, query);
+  if (qs > 0) return rankBonus(w) + qs * 4;
+  // ≥3 chars: avoids short stopwords like "al"/"el" (Arabic name prefixes)
+  // that appear in nearly every profile and would match everything.
+  const tokens = queryTokens.filter((t) => t.length >= 3);
+  if (tokens.length === 0) return 0;
+  // Fuzzy-match against SHORT fields only (subsequence over long text
+  // produces false positives). Full-text substring fallback for bio/skills.
+  const cat = categoryBySlug(w.categorySlug);
+  const city = cityBySlug(w.citySlug);
+  const area = city?.areas.find((a) => a.slug === w.areaSlug);
+  const shortFields = [
+    w.nameEn,
+    w.nameAr,
+    w.taglineEn,
+    w.taglineAr,
+    cat?.nameEn ?? "",
+    cat?.nameAr ?? "",
+    cat?.professionEn ?? "",
+    cat?.professionAr ?? "",
+    cat?.taglineEn ?? "",
+    cat?.taglineAr ?? "",
+    city?.nameEn ?? "",
+    city?.nameAr ?? "",
+    area?.nameEn ?? "",
+    area?.nameAr ?? "",
+    ...w.services.flatMap((s) => [s.nameEn, s.nameAr]),
+    ...w.gallery.flatMap((g) => [g.titleEn, g.titleAr]),
+  ].map(normalize);
+  // Fuzzy-match per WORD of each short field — subsequence spanning
+  // multiple words produces false positives.
+  // Substring (not subsequence) over the full searchable text — a stronger
+  // signal than fuzzy subsequence, so it ranks above it.
+  const blob = normalize(searchableText(w)).replace(/\s+/g, " ");
+  if (tokens.some((t) => blob.includes(t))) return rankBonus(w) + 30;
+  if (
+    tokens.some((t) =>
+      shortFields.some((f) => f.split(" ").some((word) => word.length >= 2 && fuzzyMatch(t, word)))
+    )
+  ) {
+    return rankBonus(w) + 20; // fuzzy hit — above base rankBonus, below exact/substring
+  }
+  return 0;
+}
+
+/**
+ * Distance-aware ranking bonus: workers at the centre of a radius search get
+ * +12, fading linearly to 0 at the radius edge. Pure — shared with the
+ * Prisma adapter.
+ */
+export function distanceBoostKm(distKm: number, radiusKm: number): number {
+  if (!(radiusKm > 0) || !(distKm >= 0)) return 0;
+  return Math.max(0, 12 * (1 - Math.min(distKm / radiusKm, 1)));
+}
+
+/**
+ * Resolve the centre a radius search measures from: an explicit coordinate
+ * pair wins, otherwise the selected city's centre. `undefined` when neither
+ * exists — a radius without a centre cannot filter anything.
+ */
+export function radiusCenter(filters: SearchFilters): { lat: number; lng: number } | undefined {
+  if (filters.nearLat != null && filters.nearLng != null && Number.isFinite(filters.nearLat) && Number.isFinite(filters.nearLng)) {
+    return { lat: filters.nearLat, lng: filters.nearLng };
+  }
+  const city = filters.city ? cityBySlug(filters.city) : undefined;
+  return city ? { lat: city.lat, lng: city.lng } : undefined;
+}
+
 export function searchWorkers(filters: SearchFilters): SearchResult {
   const start = performance.now();
   const q = filters.query?.trim() ?? "";
-  const queryTokens = tokenize(q);
+  // Geo/radius — the centre an explicit or city-anchored radius measures from.
+  const center = filters.radiusKm != null && filters.radiusKm > 0 ? radiusCenter(filters) : undefined;
+  const radiusKm = center ? filters.radiusKm! : undefined;
 
   let results: Scored[] = WORKERS.filter((w) => {
     // Hidden from search while the subscription is expired (reactivates on renew).
@@ -125,64 +204,28 @@ export function searchWorkers(filters: SearchFilters): SearchResult {
     // M5 fee-waived filter — same exemption source as the card badge, so the
     // listing and the filter can never disagree (docs/booking-take-rate.md).
     if (filters.feeWaivedOnly && !isPlanFeeExempt(w.subscription.plan)) return false;
+    // Geo/radius — drop workers beyond the radius of the resolved centre.
+    if (radiusKm != null && center && distanceKm(w.lat, w.lng, center.lat, center.lng) > radiusKm) return false;
     return true;
   }).map((w) => ({ ...w, score: rankBonus(w) }));
 
   if (q) {
     results = results.filter((w) => {
-      const qs = queryScore(w, queryTokens, q);
-      if (qs > 0) {
-        // Fold query relevance into the ranking score so exact-name matches
-        // outrank fuzzy matches (previously only rankBonus was used).
-        w.score += qs * 4;
-        return true;
-      }
-      // ≥3 chars: avoids short stopwords like "al"/"el" (Arabic name prefixes)
-      // that appear in nearly every profile and would match everything.
-      const tokens = queryTokens.filter((t) => t.length >= 3);
-      if (tokens.length === 0) return false;
-      // Fuzzy-match against SHORT fields only (subsequence over long text
-      // produces false positives). Full-text substring fallback for bio/skills.
-      const cat = categoryBySlug(w.categorySlug);
-      const city = cityBySlug(w.citySlug);
-      const area = city?.areas.find((a) => a.slug === w.areaSlug);
-      const shortFields = [
-        w.nameEn,
-        w.nameAr,
-        w.taglineEn,
-        w.taglineAr,
-        cat?.nameEn ?? "",
-        cat?.nameAr ?? "",
-        cat?.professionEn ?? "",
-        cat?.professionAr ?? "",
-        cat?.taglineEn ?? "",
-        cat?.taglineAr ?? "",
-        city?.nameEn ?? "",
-        city?.nameAr ?? "",
-        area?.nameEn ?? "",
-        area?.nameAr ?? "",
-        ...w.services.flatMap((s) => [s.nameEn, s.nameAr]),
-        ...w.gallery.flatMap((g) => [g.titleEn, g.titleAr]),
-      ].map(normalize);
-      // Fuzzy-match per WORD of each short field — subsequence spanning
-      // multiple words produces false positives.
-      // Substring (not subsequence) over the full searchable text — a stronger
-      // signal than fuzzy subsequence, so it ranks above it.
-      const blob = normalize(searchableText(w)).replace(/\s+/g, " ");
-      if (tokens.some((t) => blob.includes(t))) {
-        w.score += 30;
-        return true;
-      }
-      if (
-        tokens.some((t) =>
-          shortFields.some((f) => f.split(" ").some((word) => word.length >= 2 && fuzzyMatch(t, word)))
-        )
-      ) {
-        w.score += 20; // fuzzy hit — above base rankBonus, below exact/substring
-        return true;
-      }
-      return false;
+      // Shared scoring (also used by the Prisma adapter): rank bonus + exact/
+      // prefix/category/city/token terms + substring/fuzzy fallbacks.
+      const s = scoreWorkerQuery(w, q);
+      if (s <= 0) return false;
+      w.score = s; // replaces the rankBonus seed (scoreWorkerQuery includes it)
+      return true;
     });
+  }
+
+  // Geo/radius relevance — distance bonus folded in AFTER query scoring so it
+  // refines the order of matching workers without rescuing non-matching ones.
+  if (radiusKm != null && center) {
+    for (const w of results) {
+      w.score += distanceBoostKm(distanceKm(w.lat, w.lng, center.lat, center.lng), radiusKm);
+    }
   }
 
   const city = filters.city ? cityBySlug(filters.city) : undefined;

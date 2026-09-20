@@ -68,20 +68,56 @@ export async function dispatch(payload: ChannelPayload): Promise<DispatchResult[
     }
   }
 
+  // Delivery-ledger seam: every WhatsApp attempt (any provider) lands in the
+  // audit ledger via the recorder registered by src/lib/data/notifications.ts.
+  const whatsappResult = results.find((r) => r.channel === "whatsapp");
+  if (whatsappResult) recordWhatsAppSend(payload, whatsappResult);
+
   return results;
 }
 
-/** Dispatch only the WhatsApp channel for admin-directed outreach. */
-export async function dispatchWhatsApp(payload: ChannelPayload): Promise<DispatchResult> {
-  const channel = createWhatsAppChannel();
+/* ─────────────────── WhatsApp delivery ledger recording ─────────────────── */
+
+/**
+ * Called by the dispatcher after every WhatsApp send (both the fan-out
+ * `dispatch()` and the direct `dispatchWhatsApp()`). The DATA layer registers
+ * the actual recorder at composition time — keeping this module free of data
+ * imports (and import cycles). Errors in recording must never break sending.
+ */
+export type WhatsAppDeliveryRecorder = (payload: ChannelPayload, result: DispatchResult) => void;
+
+let whatsappDeliveryRecorder: WhatsAppDeliveryRecorder | null = null;
+
+export function setWhatsAppDeliveryRecorder(recorder: WhatsAppDeliveryRecorder | null): void {
+  whatsappDeliveryRecorder = recorder;
+}
+
+function recordWhatsAppSend(payload: ChannelPayload, result: DispatchResult): void {
+  if (!whatsappDeliveryRecorder) return;
   try {
-    return await channel.send(payload);
+    whatsappDeliveryRecorder(payload, result);
+  } catch (err) {
+    console.error("[notify:whatsapp] delivery ledger recording failed", err);
+  }
+}
+
+/** Dispatch only the WhatsApp channel for admin-directed outreach. */
+export async function dispatchWhatsApp(
+  payload: ChannelPayload,
+  options: { skipRecord?: boolean } = {}
+): Promise<DispatchResult> {
+  const channel = createWhatsAppChannel();
+  let result: DispatchResult;
+  try {
+    result = await channel.send(payload);
   } catch (error) {
-    return {
+    result = {
       channel: channel.id,
       ok: false,
       provider: channel.provider,
       error: error instanceof Error ? error.message : String(error),
     };
   }
+  if (!options.skipRecord) recordWhatsAppSend(payload, result);
+  return result;
 }

@@ -16,7 +16,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Coins, Handshake, MessageCircle, Save, ShieldCheck, Users } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Coins, Handshake, MessageCircle, Save, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,8 @@ import type { LeadRebate } from "@/lib/data/lead-rebate";
 import type { CreditLedgerEntry } from "@/lib/data/credit-ledger";
 import type { LeadRefundRequest } from "@/lib/data/lead-refunds";
 import type { FeeRuleSet } from "@/lib/data/fee-rules";
+import type { SurgeReport } from "@/lib/data/surge-report";
+import { suggestEmergencyPriceAdjustment } from "@/lib/data/surge-report";
 import { decideLeadRefundAction, grantWorkerCreditsAction, saveLeadMarketConfigAction } from "@/app/actions/leads";
 import { sendWhatsAppLeadNotification, sendBatchWhatsAppNotifications } from "@/app/actions/whatsapp-leads";
 
@@ -86,6 +88,7 @@ export function LeadMarketPanel({
   rebates,
   ratings,
   refundRequests,
+  surgeReport,
 }: {
   ruleSet: FeeRuleSet;
   offers: LeadOffer[];
@@ -95,6 +98,8 @@ export function LeadMarketPanel({
   /** §12 — worker quality ratings of purchased leads. */
   ratings?: import("@/lib/data/lead-rating").LeadRating[];
   refundRequests?: LeadRefundRequest[];
+  /** Phase 2 — the 30-day emergency-surge report; drives the one-click price suggestion. */
+  surgeReport?: SurgeReport | null;
 }) {
   const { locale, t } = useLocale();
   const router = useRouter();
@@ -196,6 +201,12 @@ export function LeadMarketPanel({
   const normalized = leadMarketConfig({ ...ruleSet, leadMarket: draft } as FeeRuleSet);
   const resetDefaults = () => setDraft(DEFAULT_LEAD_MARKET_CONFIG);
 
+  // Phase 2 — when the surge verdict is decisive, offer the matching base
+  // price as a one-click prefill of the emergency input (never auto-published;
+  // the admin still reviews and saves).
+  const applySuggestedEmergencyPrice = (price: number) =>
+    setPrice("emergency", price);
+
   return (
     <Card>
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
@@ -221,6 +232,11 @@ export function LeadMarketPanel({
         {/* Prices per grade (§7) */}
         <section className="space-y-3">
           <h3 className="text-sm font-semibold">{t("leadMarket.adminPricesTitle")}</h3>
+          <SurgePriceSuggestion
+            report={surgeReport ?? null}
+            currentPrice={draft.prices.emergency}
+            onApply={applySuggestedEmergencyPrice}
+          />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {LEAD_GRADES.map((grade) => (
               <label key={grade} className="space-y-1">
@@ -886,5 +902,64 @@ function WhatsAppNotifyButton({
       <MessageCircle className="h-3 w-3" />
       {busy ? "…" : "WA"}
     </button>
+  );
+}
+
+/**
+ * Phase 2 — one-click pricing suggestion under the grade prices.
+ *
+ * When the 30-day surge verdict is decisive, this pre-fills the emergency
+ * price input (never publishes): healthy → try one step up; overpriced →
+ * one step down. Everything else stays quiet — the suggestion must never
+ * contradict the verdict card just below it on the page.
+ */
+function SurgePriceSuggestion({
+  report,
+  currentPrice,
+  onApply,
+}: {
+  report: SurgeReport | null;
+  currentPrice: number;
+  onApply: (price: number) => void;
+}) {
+  const { t } = useLocale();
+  if (!report) return null;
+  const suggestion = suggestEmergencyPriceAdjustment(report.verdict, currentPrice);
+  if (!suggestion.apply) return null;
+
+  const reason =
+    suggestion.direction === "up"
+      ? t("leadMarket.surgeSuggestUpReason", {
+          conversion: report.verdict.conversionPct,
+          purchases: report.verdict.purchases,
+        })
+      : t("leadMarket.surgeSuggestDownReason", {
+          conversion: report.verdict.conversionPct,
+          purchases: report.verdict.purchases,
+        });
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-sm dark:border-brand-800 dark:bg-brand-950"
+      role="status"
+    >
+      <Sparkles className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+      <span className="text-ink-700 dark:text-ink-200">
+        {suggestion.direction === "up" ? (
+          <ArrowUpRight className="me-1 inline h-3.5 w-3.5 text-emerald-600" />
+        ) : (
+          <ArrowDownRight className="me-1 inline h-3.5 w-3.5 text-amber-600" />
+        )}
+        {t("leadMarket.surgeSuggestLabel", { price: suggestion.suggestedPrice })} {reason}
+      </span>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => onApply(suggestion.suggestedPrice)}
+        className="ms-auto"
+      >
+        {t("leadMarket.surgeSuggestApply", { price: suggestion.suggestedPrice })}
+      </Button>
+    </div>
   );
 }

@@ -13,6 +13,7 @@ import { TrendingUp, Star, Target, DollarSign, ArrowLeft, BarChart3 } from "luci
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { LeadQualityAnalytics, GradeWeekStats, WeekAggregate } from "@/lib/data/lead-quality-analytics";
+import type { CategoryConversionReport } from "@/lib/data/category-conversion";
 import type { LeadGrade } from "@/lib/data/lead-market";
 import { StatCard, Sparkline, GradeBarChart, Legend } from "./lead-quality-charts";
 
@@ -37,7 +38,14 @@ const GRADE_BG: Record<LeadGrade, string> = {
   emergency: "bg-red-100 text-red-700",
 };
 
-export function LeadQualityDashboard({ analytics }: { analytics: LeadQualityAnalytics }) {
+export function LeadQualityDashboard({
+  analytics,
+  categoryConversion,
+}: {
+  analytics: LeadQualityAnalytics;
+  /** §2.1 — per-category lead funnel (offered → purchased → job won). */
+  categoryConversion?: CategoryConversionReport;
+}) {
   const [selectedGrade, setSelectedGrade] = useState<LeadGrade | "all">("all");
 
   const { weeks, lifetimeByGrade, lifetimeMultipliers, totalRatings } = analytics;
@@ -316,6 +324,50 @@ export function LeadQualityDashboard({ analytics }: { analytics: LeadQualityAnal
                     <td className="py-2 text-right tabular-nums">{w.byGrade.silver.count || "—"}</td>
                     <td className="py-2 text-right tabular-nums">{w.byGrade.gold.count || "—"}</td>
                     <td className="py-2 text-right tabular-nums">{w.byGrade.emergency.count || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* §2.1 — per-category lead funnel: offered → purchased → job won.
+          Rows with zero purchases still matter — a category where leads are
+          shown but never bought is a pricing or quality signal. */}
+      {categoryConversion && categoryConversion.window.length > 0 && (
+        <div className="rounded-xl border border-ink-100 bg-white p-5 dark:border-ink-800">
+          <h2 className="mb-1 text-sm font-semibold text-ink-700 dark:text-ink-300">
+            Category Conversion (Last {categoryConversion.windowDays} Days)
+          </h2>
+          <p className="mb-3 text-xs text-gray-500">
+            Lead funnel per trade — jobs won are completions attributed by a lead rebate or the worker&apos;s own converted rating.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-ink-100 text-left text-ink-500 dark:border-ink-800">
+                  <th className="pb-2 font-medium">Category</th>
+                  <th className="pb-2 text-right font-medium">Leads</th>
+                  <th className="pb-2 text-right font-medium">Offers</th>
+                  <th className="pb-2 text-right font-medium">Purchased</th>
+                  <th className="pb-2 text-right font-medium">Buy rate</th>
+                  <th className="pb-2 text-right font-medium">Jobs won</th>
+                  <th className="pb-2 text-right font-medium">Lead → job</th>
+                  <th className="pb-2 text-right font-medium">Credits</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categoryConversion.window.map((row) => (
+                  <tr key={row.categorySlug} className="border-b border-ink-50 last:border-0 dark:border-ink-900">
+                    <td className="py-2 font-medium capitalize">{row.categorySlug.replace(/-/g, " ")}</td>
+                    <td className="py-2 text-right tabular-nums">{row.leads}</td>
+                    <td className="py-2 text-right tabular-nums">{row.offers}</td>
+                    <td className="py-2 text-right tabular-nums">{row.purchased}</td>
+                    <td className="py-2 text-right tabular-nums">{row.purchaseRate}%</td>
+                    <td className="py-2 text-right tabular-nums">{row.jobsWon}</td>
+                    <td className="py-2 text-right tabular-nums">{row.jobRate}%</td>
+                    <td className="py-2 text-right tabular-nums">{row.grossCredits}</td>
                   </tr>
                 ))}
               </tbody>

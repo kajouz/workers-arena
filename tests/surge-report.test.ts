@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   computeSurgeReport,
   decideVerdict,
+  EMERGENCY_BASE_PRICE_CREDITS,
+  SURGE_SUGGESTION_MAX_STEP_PCT,
   SURGE_VERDICT_THRESHOLDS,
+  suggestEmergencyPriceAdjustment,
   type SurgeSummary,
 } from "../src/lib/data/surge-report";
 import type { LeadOffer } from "../src/lib/data/lead-market";
@@ -194,5 +197,68 @@ describe("surge report (30-day emergency premium evaluation)", () => {
     const report = computeSurgeReport(offers, [], { nowMs: NOW });
     expect(report.verdict.code).toBe("healthy");
     expect(report.verdict.conversionPct).toBe(60);
+  });
+});
+
+describe("suggestEmergencyPriceAdjustment (the one-click prefill)", () => {
+  const reference = EMERGENCY_BASE_PRICE_CREDITS;
+  const step = Math.round((reference * SURGE_SUGGESTION_MAX_STEP_PCT) / 100); // 11 credits at 35
+
+  it("a healthy verdict suggests one step UP", () => {
+    const s = suggestEmergencyPriceAdjustment(
+      { code: "healthy", conversionPct: 60, offers: 25, purchases: 15 },
+      reference
+    );
+    expect(s.apply).toBe(true);
+    expect(s.direction).toBe("up");
+    expect(s.suggestedPrice).toBe(reference + step);
+  });
+
+  it("an overpriced verdict suggests one step DOWN, never crossing the floor", () => {
+    const s = suggestEmergencyPriceAdjustment(
+      { code: "overpriced", conversionPct: 15, offers: 30, purchases: 4 },
+      reference
+    );
+    expect(s.apply).toBe(true);
+    expect(s.direction).toBe("down");
+    // The full step (35 − 11 = 24) would cross the floor (25), so it clamps.
+    expect(s.suggestedPrice).toBe(Math.max(1, Math.round((reference * (100 - SURGE_SUGGESTION_MAX_STEP_PCT)) / 100)));
+    expect(s.suggestedPrice).toBe(25);
+  });
+
+  it("watch, quality-risk and insufficient-data never suggest", () => {
+    for (const code of ["watch", "quality-risk", "insufficient-data"] as const) {
+      const s = suggestEmergencyPriceAdjustment(
+        { code, conversionPct: 50, offers: 30, purchases: 15 },
+        reference
+      );
+      expect(s.apply).toBe(false);
+    }
+  });
+
+  it("the suggestion respects the ±30% ceiling/floor and stops at the boundaries", () => {
+    const ceiling = reference + step;
+    const floor = Math.max(1, Math.round((reference * (100 - SURGE_SUGGESTION_MAX_STEP_PCT)) / 100));
+    // At the ceiling a healthy verdict has nowhere further to go.
+    expect(suggestEmergencyPriceAdjustment({ code: "healthy", conversionPct: 60, offers: 25, purchases: 15 }, ceiling).apply).toBe(false);
+    // At the floor an overpriced verdict has nowhere further to go.
+    expect(suggestEmergencyPriceAdjustment({ code: "overpriced", conversionPct: 15, offers: 30, purchases: 4 }, floor).apply).toBe(false);
+  });
+
+  it("honours a custom current price and clamps to the floor", () => {
+    // A 30-credit price near the floor steps down but never past it.
+    const floor = Math.max(1, Math.round((reference * (100 - SURGE_SUGGESTION_MAX_STEP_PCT)) / 100));
+    const s = suggestEmergencyPriceAdjustment(
+      { code: "overpriced", conversionPct: 10, offers: 40, purchases: 2 },
+      floor + 5
+    );
+    expect(s.apply).toBe(true);
+    expect(s.suggestedPrice).toBe(floor);
+    // A 3-credit price is below the absolute floor — no down-suggestion at all.
+    const below = suggestEmergencyPriceAdjustment(
+      { code: "overpriced", conversionPct: 10, offers: 40, purchases: 2 },
+      3
+    );
+    expect(below.apply).toBe(false);
   });
 });

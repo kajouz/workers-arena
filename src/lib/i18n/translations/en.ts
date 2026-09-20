@@ -245,6 +245,8 @@ export const en = {
     verifiedOnly: "Verified only",
     featuredOnly: "Featured only",
     feeWaived: "Fee waived (Enterprise)",
+    radiusLabel: "Within",
+    radiusAny: "Any distance",
     sortBy: "Sort by",
     sort: {
       relevance: "Most relevant",
@@ -1690,6 +1692,10 @@ export const en = {
     surgeBucketHigh: ">1.6×: {count}",
     surgeWindow: "Window {from} → {to} · cohort by offer date",
     surgeExportCsv: "Export CSV",
+    surgeSuggestLabel: "Suggested emergency price: {price} credits",
+    surgeSuggestUpReason: "— demand is absorbing the premium ({purchases} bought, {conversion}% conversion), so a step up is worth testing.",
+    surgeSuggestDownReason: "— the premium is suppressing demand ({purchases} bought, {conversion}% conversion), so a step down is worth testing.",
+    surgeSuggestApply: "Use {price}",
     surgeVerdict: {
       "healthy": "Healthy — keep 1.5×",
       "watch": "Watch",
@@ -1749,6 +1755,42 @@ export const en = {
     buyCredits: "Buy Credits",
     notificationChannelsTitle: "Notification Channels",
     notificationChannelsHint: "Choose which channels to notify workers about new lead offers. WhatsApp uses wa.me deep links; Email and SMS use the configured providers.",
+  },
+  // WhatsApp delivery audit — the admin view over the delivery ledger
+  // (every automated WhatsApp send + Meta's status callbacks + retries).
+  whatsappAudit: {
+    title: "WhatsApp deliveries",
+    subtitle: "Live status of every automated WhatsApp message: sent → delivered → read, or failed with its error and retry schedule.",
+    totalBadge: "{total} messages",
+    failed24h: "{count} failed (24h)",
+    filterAll: "All",
+    kindAll: "All types",
+    kindFilter: "Filter by type",
+    searchPlaceholder: "Search phone, worker or message id…",
+    attempts: "{count} attempt(s)",
+    resend: "Re-send",
+    resentOk: "Re-sent — tracking updated.",
+    resentAlready: "That message was already delivered.",
+    resentFail: "Re-send failed: {error}",
+    nextRetry: "Automatic retry scheduled: {at}",
+    noMatches: "No messages match the current filters.",
+    empty: "No automated WhatsApp messages have been sent yet. Messages the platform sends (lead offers, reminders, renewal outreach) appear here with their delivery status. Admin-clicked wa.me links are hand-offs, not API sends, so they do not appear.",
+    scopeNote:
+      "Ledger covers automated channel sends only (console provider in dev, Meta Cloud API in production). Statuses advance from Meta's webhook (/api/webhooks/whatsapp); failed messages retry automatically at 5 min and 30 min (max 3 attempts).",
+    status: {
+      sent: "Sent",
+      delivered: "Delivered",
+      read: "Read",
+      failed: "Failed",
+    },
+    kind: {
+      lead: "Lead",
+      booking: "Booking",
+      subscription: "Subscription",
+      campaign: "Campaign",
+      system: "System",
+      other: "Other",
+    },
   },
   referral: {
     title: "Refer & Earn",

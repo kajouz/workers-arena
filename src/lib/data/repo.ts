@@ -113,7 +113,7 @@ import {
   type LeadPurchaseResult,
 } from "./lead-market-store";
 import { getWorkerCreditBalance, type WorkerCreditBalance } from "./credit-ledger";
-import { getWorkerLeadRebates } from "./lead-rebate";
+import { getWorkerLeadRebates, listLeadRebates } from "./lead-rebate";
 import { getWorkerLeadRefunds } from "./lead-refund-store";
 import {
   submitLeadRating as submitLeadRatingStore,
@@ -1460,6 +1460,47 @@ export async function getCustomerQuoteRequests(
   return realDataEnabled
     ? (await prismaRepo()).prismaGetCustomerQuoteRequests(identifier)
     : demoGetCustomerQuoteRequests(identifier);
+}
+
+/**
+ * Per-category lead-funnel conversion metrics (§2.1) — offers joined with
+ * their lead's category, the completion-attributed rebates (a bought lead
+ * that became a paid job), and the workers' self-reported conversions. Pure
+ * engine: src/lib/data/category-conversion.ts; the admin lead-quality page
+ * renders the table.
+ */
+export async function getCategoryConversionMetrics(
+  windowDays = 30
+): Promise<import("./category-conversion").CategoryConversionReport> {
+  const { computeCategoryConversion } = await import("./category-conversion");
+  // The lead-offer store is dual-adapter already (real mode delegates to
+  // lead-market-prisma), so one call covers both.
+  const offers = await listLeadOffersStore(2000);
+  const leadCategories = new Map<string, string>();
+  if (realDataEnabled) {
+    const rows = await (await prismaRepo()).prismaQuoteRequestCategories();
+    for (const row of rows) leadCategories.set(row.id, row.categorySlug);
+  } else {
+    const { demoGetAllQuoteRequests } = await import("./bookings");
+    for (const q of demoGetAllQuoteRequests()) leadCategories.set(q.id, q.categorySlug);
+  }
+  const [rebates, ratings] = await Promise.all([listLeadRebates(2000), getAllLeadRatings()]);
+  return computeCategoryConversion(
+    offers
+      .filter((o) => leadCategories.has(o.leadId))
+      .map((o) => ({
+        offerId: o.id,
+        leadId: o.leadId,
+        categorySlug: leadCategories.get(o.leadId)!,
+        grade: o.grade,
+        status: o.status,
+        priceCredits: o.priceCredits,
+        offeredAt: o.offeredAt,
+      })),
+    rebates.map((r) => ({ leadId: r.leadId, createdAt: r.createdAt })),
+    ratings.map((r) => ({ offerId: r.offerId, converted: r.converted })),
+    { windowDays }
+  );
 }
 
 /** Worker side: submit a bid on a quote invite (no slot claim — rule 3). */

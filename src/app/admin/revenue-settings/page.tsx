@@ -69,7 +69,7 @@ export default async function RevenueSettingsPage() {
         />
         {/* §7–§10 — the qualified lead marketplace: its policy, the offers it
             created and the credit ledger its purchases debit. */}
-        <LeadMarketPanel ruleSet={feeRuleSet} offers={leadOffers} credits={creditLedger} rebates={leadRebates} ratings={getAllLeadRatings()} refundRequests={refundRequests} />
+        <LeadMarketPanel ruleSet={feeRuleSet} offers={leadOffers} credits={creditLedger} rebates={leadRebates} ratings={getAllLeadRatings()} refundRequests={refundRequests} surgeReport={surgeReport} />
         {/* Phase 2 — measure the 1.5× emergency premium before tuning it. */}
         <SurgeReportCard report={surgeReport} />
         <ReferralConfigPanel ruleSet={feeRuleSet} />

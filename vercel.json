@@ -24,5 +24,11 @@
   "rewrites": [
     { "source": "/sw.js", "destination": "/sw.js" },
     { "source": "/manifest.json", "destination": "/manifest.json" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/admin-digest",
+      "schedule": "0 8 * * 1"
+    }
   ]
 }

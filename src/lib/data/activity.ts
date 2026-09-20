@@ -274,6 +274,10 @@ export const ACTION_CODES = {
   LEAD_REFUND_REQUESTED: "LEAD_REFUND_REQUESTED",
   LEAD_REFUND_APPROVED: "LEAD_REFUND_APPROVED",
   LEAD_REFUND_REJECTED: "LEAD_REFUND_REJECTED",
+  // WhatsApp delivery audit (admin re-sent a failed message from the ledger
+  // view) — the delivery row itself keeps the full attempt trail; this logs
+  // WHO intervened and on which message.
+  WHATSAPP_DELIVERY_RESENT: "WHATSAPP_DELIVERY_RESENT",
   // Generic fallbacks for callers that don't pass an explicit code (kept for
   // backward compatibility with legacy rows / untyped call sites).
   SYSTEM: "SYSTEM",

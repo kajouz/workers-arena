@@ -22,6 +22,7 @@ import {
 import type { WorkerLeadBoard } from "@/lib/data/repo";
 import type { CreditLedgerEntry } from "@/lib/data/credit-ledger";
 import type { LeadRebate } from "@/lib/data/lead-rebate";
+import type { SurgeReport } from "@/lib/data/surge-report";
 
 const { saveLeadMarketConfigActionMock, buyLeadOfferActionMock, grantWorkerCreditsActionMock, refreshMock } = vi.hoisted(
   () => ({
@@ -194,6 +195,52 @@ describe("LeadMarketPanel", () => {
       amount: 10,
       reason: "Goodwill credit",
     });
+  });
+
+  /* ── Phase 2 — the one-click surge suggestion under the grade prices ── */
+
+  /** A minimal healthy-verdict report (the shape the page passes down). */
+  const surgeReport: SurgeReport = {
+    windowDays: 30,
+    from: "2026-08-21T00:00:00.000Z",
+    to: "2026-09-20T00:00:00.000Z",
+    summary: {
+      offers: 25, purchased: 15, conversionPct: 60, avgMultiplier: 1.5,
+      baseCredits: 350, premiumCredits: 175, refundedPremiumCredits: 0,
+      netPremiumCredits: 175, refundRequests: 0, pendingRefunds: 0,
+      approvedRefunds: 0, approvedRefundRatePct: 0,
+    },
+    goldBaseline: { offers: 30, purchased: 12, conversionPct: 40 },
+    verdict: { code: "healthy", conversionPct: 60, approvedRefundRatePct: 0, offers: 25, purchases: 15 },
+    weeks: [],
+    multipliers: { exactly1: 0, upTo1_3: 0, upTo1_6: 25, above1_6: 0 },
+  };
+
+  it("offers a one-click emergency price prefill on a healthy verdict", () => {
+    wrap(
+      <LeadMarketPanel ruleSet={DEFAULT_FEE_RULE_SET} offers={[]} credits={[]} rebates={[]} surgeReport={surgeReport} />
+    );
+    // The banner states the suggestion and its evidence.
+    expect(screen.getByText(/Suggested emergency price: 46 credits/)).toBeInTheDocument();
+    expect(screen.getByText(/demand is absorbing the premium/)).toBeInTheDocument();
+    // One click prefills the emergency input — 35 + 11 (the +30% step).
+    fireEvent.click(screen.getByRole("button", { name: /Use 46/ }));
+    expect(screen.getByDisplayValue("46")).toBeInTheDocument();
+    // Nothing is published by the click itself.
+    expect(saveLeadMarketConfigActionMock).not.toHaveBeenCalled();
+  });
+
+  it("stays silent for verdicts that should not move the price", () => {
+    wrap(
+      <LeadMarketPanel
+        ruleSet={DEFAULT_FEE_RULE_SET}
+        offers={[]}
+        credits={[]}
+        rebates={[]}
+        surgeReport={{ ...surgeReport, verdict: { ...surgeReport.verdict, code: "quality-risk" } }}
+      />
+    );
+    expect(screen.queryByText(/Suggested emergency price/)).not.toBeInTheDocument();
   });
 });
 

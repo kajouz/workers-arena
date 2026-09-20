@@ -17,7 +17,7 @@
  * is a parameter.
  */
 
-import type { LeadOffer, LeadGrade } from "./lead-market";
+import type { LeadGrade, LeadOffer } from "./lead-market";
 import type { LeadRefundRequest } from "./lead-refunds";
 import { isoWeekKey, isoWeekStart } from "./lead-quality-analytics";
 
@@ -67,7 +67,7 @@ export interface SurgeWeekBucket {
   conversionPct: number;
   refundRequests: number;
   approvedRefundCredits: number;
-  /** Average locked pricing multiplier across the week's offers (1 when none carry one). */
+  /** Average locked multiplier across the week's offers (1 when none carry one). */
   avgMultiplier: number;
 }
 
@@ -122,6 +122,57 @@ export interface SurgeReport {
   /** Weeks oldest-first, only weeks with at least one offer. */
   weeks: SurgeWeekBucket[];
   multipliers: SurgeMultiplierBuckets;
+}
+
+/* ─────────────────────── Price-suggestion machinery ───────────────────── */
+
+/**
+ * The reference emergency base price — what `DEFAULT_LEAD_MARKET_CONFIG`
+ * ships for the emergency grade and what the 1.5× `computeSmartPricing`
+ * factor was tuned against.
+ */
+export const EMERGENCY_BASE_PRICE_CREDITS = 35;
+
+/**
+ * How far a one-click suggestion is allowed to move the emergency base
+ * price per step, as a percent of the reference price (§7 prices clamp
+ * absurd values; this bounds the suggestion too). ±30% of $35 ≈ $10.
+ */
+export const SURGE_SUGGESTION_MAX_STEP_PCT = 30;
+
+/**
+ * Translation of a surge verdict into an emergency base-price suggestion.
+ * Pure: takes the verdict facts and the current emergency base price and
+ * returns the suggested price plus the evidence line the UI renders.
+ *
+ * Policy (mirrors the verdict semantics):
+ *   • healthy    → demand absorbs the premium, so try +1 step (capped at
+ *                  the reference price + 30%); refunds must stay low.
+ *   • overpriced → demand is suppressed, so try −1 step (floored at 50% of
+ *                  the reference price); no further data requirement.
+ *   • any other verdict (watch / quality-risk / insufficient-data) → no
+ *                  suggestion; the panel shows nothing rather than guessing.
+ */
+export function suggestEmergencyPriceAdjustment(
+  verdict: Pick<SurgeReport["verdict"], "code" | "conversionPct" | "offers" | "purchases">,
+  currentBasePrice: number,
+  options: { referencePrice?: number; maxStepPct?: number } = {}
+): { apply: boolean; suggestedPrice: number; direction: "up" | "down"; delta: number } {
+  const reference = Math.max(0, Math.trunc(options.referencePrice ?? EMERGENCY_BASE_PRICE_CREDITS));
+  const stepPct = options.maxStepPct ?? SURGE_SUGGESTION_MAX_STEP_PCT;
+  const current = Math.max(0, Math.trunc(currentBasePrice));
+  const step = Math.round((reference * stepPct) / 100);
+  const ceiling = reference + step;
+  const floor = Math.max(1, Math.round((reference * (100 - stepPct)) / 100));
+
+  if (verdict.code === "healthy" && current < ceiling) {
+    return { apply: true, suggestedPrice: Math.min(ceiling, current + step), direction: "up", delta: Math.min(ceiling, current + step) - current };
+  }
+  if (verdict.code === "overpriced" && current > floor) {
+    const target = Math.max(floor, current - step);
+    return { apply: true, suggestedPrice: target, direction: "down", delta: target - current };
+  }
+  return { apply: false, suggestedPrice: current, direction: "up", delta: 0 };
 }
 
 /* ──────────────────────────────── Engine ──────────────────────────────── */

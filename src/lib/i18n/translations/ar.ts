@@ -247,6 +247,8 @@ export const ar: Dictionary = {
     verifiedOnly: "موثّق فقط",
     featuredOnly: "مختار فقط",
     feeWaived: "بدون رسوم منصة (مؤسسات)",
+    radiusLabel: "خلال",
+    radiusAny: "أي مسافة",
     sortBy: "الترتيب",
     sort: {
       relevance: "الأكثر صلة",
@@ -1683,6 +1685,10 @@ export const ar: Dictionary = {
     surgeBucketHigh: ">1.6×: {count}",
     surgeWindow: "الفترة {from} → {to} · التجميع حسب تاريخ العرض",
     surgeExportCsv: "تصدير CSV",
+    surgeSuggestLabel: "السعر المقترح للطوارئ: {price} رصيد",
+    surgeSuggestUpReason: "— الطلب يستوعب العلاوة ({purchases} شراء بنسبة {conversion}%)، لذا تجربة زيادة خطوة تستحق.",
+    surgeSuggestDownReason: "— العلاوة تكبح الطلب ({purchases} شراء بنسبة {conversion}%)، لذا تجربة خفض خطوة تستحق.",
+    surgeSuggestApply: "استخدم {price}",
     surgeVerdict: {
       "healthy": "سليم — أبقِ 1.5×",
       "watch": "مراقبة",
@@ -1742,6 +1748,42 @@ export const ar: Dictionary = {
     buyCredits: "شراء أرصدة",
     notificationChannelsTitle: "قنوات الإشعار",
     notificationChannelsHint: "اختر القنوات لإشعار العمال بعروض العملاء المحتملين الجديدة. واتساب يستخدم روابط wa.me؛ البريد الإلكتروني والرسائل القصيرة يستخدمان المزودين المهيأين.",
+  },
+  // سجل تسليم واتساب — واجهة الإدارة لسجل التسليم
+  // (كل رسالة واتساب آلية + ردود حالات ميتا + إعادة المحاولة).
+  whatsappAudit: {
+    title: "رسائل واتساب",
+    subtitle: "الحالة المباشرة لكل رسالة واتساب آلية: أُرسلت → سُلّمت → قُرئت، أو فشلت مع سبب الخطأ وموعد إعادة المحاولة.",
+    totalBadge: "{total} رسالة",
+    failed24h: "{count} فاشلة (24 ساعة)",
+    filterAll: "الكل",
+    kindAll: "كل الأنواع",
+    kindFilter: "تصفية حسب النوع",
+    searchPlaceholder: "ابحث برقم الهاتف أو العامل أو معرّف الرسالة…",
+    attempts: "{count} محاولة",
+    resend: "إعادة إرسال",
+    resentOk: "أُعيد الإرسال — تم تحديث التتبع.",
+    resentAlready: "تم تسليم هذه الرسالة مسبقًا.",
+    resentFail: "فشلت إعادة الإرسال: {error}",
+    nextRetry: "إعادة محاولة تلقائية مجدولة: {at}",
+    noMatches: "لا توجد رسائل تطابق عوامل التصفية الحالية.",
+    empty: "لم تُرسل أي رسالة واتساب آلية بعد. الرسائل التي يرسلها النظام (عروض العملاء المحتملين، التذكيرات، متابعة التجديد) تظهر هنا مع حالة تسليمها. روابط wa.me التي ينقر عليها المدير يدويًا ليست إرسالًا عبر الواجهة البرمجية فلا تظهر هنا.",
+    scopeNote:
+      "يشمل السجل الإرسال الآلي عبر القنوات فقط (مزيج console في التطوير، وواجهة Meta السحابية في الإنتاج). تتحدث الحالات عبر ويب هوك ميتا (/api/webhooks/whatsapp)، وتُعاد الرسائل الفاشلة تلقائيًا بعد 5 دقائق ثم 30 دقيقة (بحد أقصى 3 محاولات).",
+    status: {
+      sent: "أُرسلت",
+      delivered: "سُلّمت",
+      read: "قُرئت",
+      failed: "فشلت",
+    },
+    kind: {
+      lead: "عميل محتمل",
+      booking: "حجز",
+      subscription: "اشتراك",
+      campaign: "حملة",
+      system: "نظام",
+      other: "أخرى",
+    },
   },
   referral: {
     title: "ادعُ واكسب",

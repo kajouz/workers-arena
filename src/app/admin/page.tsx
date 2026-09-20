@@ -16,6 +16,7 @@ import {
   getSubscriptionAnalytics,
 } from "@/lib/data/repo";
 import { getAdminActivityFeed } from "@/lib/data/activity";
+import { getWhatsAppDeliveries, getWhatsAppDeliveryStats, getWhatsAppDeliveryHealth } from "@/lib/data/whatsapp-delivery-store";
 import { campaignRefundNotification } from "@/lib/data/campaign-notifications";
 import { renderCampaignRefundEmail } from "@/lib/notifications/templates";
 import type { ChannelPayload } from "@/lib/notifications/types";
@@ -49,7 +50,7 @@ export default async function AdminPage({
     feeWaivedOnly: one("feeWaived") === "1" || one("feeWaived") === "true",
   };
 
-  const [{ locale }, analytics, campaigns, verificationQueue, verificationLogs, platformFeeStats, subscriptionAnalytics] = await Promise.all([
+  const [{ locale }, analytics, campaigns, verificationQueue, verificationLogs, platformFeeStats, subscriptionAnalytics, whatsappDeliveries, whatsappDeliveryStats, whatsappHealth] = await Promise.all([
     getI18n(),
     getAnalyticsOverview(),
     getCampaigns(),
@@ -57,6 +58,9 @@ export default async function AdminPage({
     getVerificationLogs(),
     getPlatformFeeStats(30),
     getSubscriptionAnalytics(6),
+    getWhatsAppDeliveries({ limit: 100 }),
+    getWhatsAppDeliveryStats(),
+    getWhatsAppDeliveryHealth(),
   ]);
 
   // Campaign purchases — payment state per campaign for the payments card
@@ -162,6 +166,9 @@ export default async function AdminPage({
       workers={await getAllWorkers()}
       workerManagementInit={workerManagementInit}
       subscriptionAnalytics={subscriptionAnalytics}
+      whatsappDeliveries={whatsappDeliveries}
+      whatsappDeliveryStats={whatsappDeliveryStats}
+      whatsappHealth={whatsappHealth}
     />
   );
 }

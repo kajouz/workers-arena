@@ -55,6 +55,8 @@ export default async function SearchPage({
             verifiedOnly: t("search.verifiedOnly"),
             featuredOnly: t("search.featuredOnly"),
             feeWaived: t("search.feeWaived"),
+            radiusLabel: t("search.radiusLabel"),
+            radiusAny: t("search.radiusAny"),
             sortBy: t("search.sortBy"),
             sortRelevance: t("search.sort.relevance"),
             sortRating: t("search.sort.rating"),
