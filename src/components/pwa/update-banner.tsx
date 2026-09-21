@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePromptSlot } from "@/components/providers/prompt-queue";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, X, Download, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,12 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
   const handleBadgeClick = () => {
     setExpanded(true);
   };
+
+  // Highest priority in the queue: a reader on stale code is a correctness
+  // problem, not an offer, so this one displaces the others rather than
+  // stacking beside them.
+  const hasSlot = usePromptSlot("update", isUpdateAvailable || showUpdated);
+  if (!hasSlot) return null;
 
   return (
     <>

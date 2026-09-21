@@ -23,6 +23,7 @@ import { AnalyticsClients } from "@/components/layout/analytics-clients";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { CurrencyProvider } from "@/components/providers/currency-provider";
+import { PromptQueueProvider } from "@/components/providers/prompt-queue";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 const DEFAULT_APP_URL = "https://workers-arena.vercel.app";
@@ -233,6 +234,8 @@ export default async function RootLayout({
               <SpeedInsights />
             </>
           )}
+          {/* One interruption at a time — see PromptQueueProvider. */}
+          <PromptQueueProvider>
           <InstallBanner />
           <UpdateBanner />
           <ServiceWorkerRegistrar />
@@ -240,6 +243,7 @@ export default async function RootLayout({
           <HelpButton />
           <MobileBannerAd />
           <RetargetingAd />
+          </PromptQueueProvider>
           <CapacitorProvider />
           </ThemeProvider>
           </OnboardingProvider>

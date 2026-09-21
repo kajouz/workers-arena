@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePromptSlot } from "@/components/providers/prompt-queue";
 import { motion, AnimatePresence } from "framer-motion";
 import { Download, X, Wifi, WifiOff, Zap, Smartphone, Share } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -94,9 +95,13 @@ export function InstallBanner({ className }: InstallBannerProps) {
     { icon: Smartphone, key: "benefit4" },
   ];
 
+  // The slot, not just our own eligibility: the update banner targets the same
+  // corner and outranks us, and the retargeting ad shares our 2s timer.
+  const hasSlot = usePromptSlot("install", showBanner);
+
   return (
     <AnimatePresence>
-      {showBanner && (
+      {hasSlot && (
         <motion.div
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { usePromptSlot } from "@/components/providers/prompt-queue";
 import { X, Sparkles, ExternalLink } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +46,9 @@ export function MobileBannerAd({ placement = "mobileBanner", className }: Mobile
     void fetch(`/api/ads/${ad.id}/click`, { method: "POST" }).catch(() => {});
   };
 
-  if (loading || !ad || dismissed) return null;
+  // Lowest priority — an ad is the one thing here that can wait.
+  const hasSlot = usePromptSlot("mobile-ad", !loading && Boolean(ad) && !dismissed);
+  if (!hasSlot || !ad) return null;
 
   return (
     <div

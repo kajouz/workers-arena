@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { usePromptSlot } from "@/components/providers/prompt-queue";
 import { X, Sparkles, ArrowRight, TrendingUp } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useRetargeting } from "@/hooks/use-retargeting";
@@ -166,7 +167,9 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
     }
   };
 
-  if (!ad || !visible || dismissed) return null;
+  // Shares a 2s timer with the install banner, which outranks it.
+  const hasSlot = usePromptSlot("retargeting", Boolean(ad) && visible && !dismissed);
+  if (!hasSlot || !ad) return null;
 
   return (
     <div
