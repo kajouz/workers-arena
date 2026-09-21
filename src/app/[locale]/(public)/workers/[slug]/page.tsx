@@ -10,7 +10,7 @@ import { RelatedWorkers } from "@/components/worker/related-workers";
 import { FloatingWhatsApp } from "@/components/worker/whatsapp-contact";
 import { WorkerPortfolio } from "@/components/worker/worker-portfolio";
 import { WorkerSponsor } from "@/components/worker/worker-sponsor";
-import { getRelated, getWorkerBySlug, getWorkers, getWorkerSlots } from "@/lib/data/repo";
+import { getAllWorkers, getRelated, getWorkerBySlug, getWorkerSlots } from "@/lib/data/repo";
 import { defaultLocale, isLocale } from "@/lib/i18n/config";
 import { localeAlternates } from "@/lib/i18n/routing";
 import { categoryBySlug } from "@/lib/data/categories";
@@ -24,8 +24,10 @@ import { cityBySlug } from "@/lib/data/cities";
  */
 export async function generateStaticParams() {
   try {
-    const { items } = await getWorkers({});
-    return items.map((worker) => ({ slug: worker.slug }));
+    // getWorkers() is the PAGINATED search seam — it returned only the first
+    // page, so most profiles silently fell back to on-demand rendering.
+    const workers = await getAllWorkers();
+    return workers.map((worker) => ({ slug: worker.slug }));
   } catch {
     // A build without a reachable data source still succeeds; every profile
     // just falls back to on-demand rendering.

@@ -339,11 +339,11 @@ describe("Notification actions (public/sw.js)", () => {
   });
 });
 
-describe("PWA debug dashboard (src/app/[locale]/debug/pwa/page.tsx)", () => {
-  const debugPage = readFileSync(src("app/[locale]/debug/pwa/page.tsx"), "utf8");
+describe("PWA debug dashboard (src/app/[locale]/(app)/debug/pwa/page.tsx)", () => {
+  const debugPage = readFileSync(src("app/[locale]/(app)/debug/pwa/page.tsx"), "utf8");
 
   it("debug page exists and exports a default component", () => {
-    expect(existsSync(src("app/[locale]/debug/pwa/page.tsx"))).toBe(true);
+    expect(existsSync(src("app/[locale]/(app)/debug/pwa/page.tsx"))).toBe(true);
     expect(debugPage).toContain("export default function DebugPWAPage");
   });
 

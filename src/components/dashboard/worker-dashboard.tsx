@@ -22,7 +22,7 @@ import {
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
 import type { AnalyticsOverview, Booking, BookingMessage, BookingSlot, Invoice, LedgerEntry, RecurringBooking, Worker, WorkerBalance } from "@/lib/data/types";
-import type { WorkerEmailPreview } from "@/app/[locale]/dashboard/page";
+import type { WorkerEmailPreview } from "@/app/[locale]/(app)/dashboard/page";
 import { PLANS, subscriptionStatus, daysUntil } from "@/lib/data/subscriptions";
 import { computeResponseRate } from "@/lib/data/booking-ui";
 import { WithdrawDialog } from "./withdraw-dialog";

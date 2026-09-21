@@ -12,6 +12,7 @@ import {
   readOnboardingFlag,
   shouldShowOnboarding,
 } from "@/lib/notifications/onboarding";
+import { useSession } from "@/hooks/use-session";
 
 /**
  * One-time homepage prompt for signed-in users: "enable push notifications".
@@ -19,7 +20,16 @@ import {
  * enabled / not denied), never nags twice (localStorage flag), and animates
  * out when dismissed, enabled, or once the browser says no.
  */
-export function PushOnboarding({ signedIn }: { signedIn: boolean }) {
+/**
+ * `signedIn` is resolved HERE rather than passed from the server.
+ *
+ * It was a prop, and it was the last thing making the homepage read a cookie —
+ * one boolean, used to decide whether to offer push notifications, kept the
+ * most-visited page in the app off the prerender list. The hook answers the
+ * same question after hydration, which is soon enough for a prompt that waits
+ * for a user gesture anyway.
+ */
+export function PushOnboarding() {
   const { t } = useLocale();
   const { status, busy, enable } = usePushSubscription();
   // Hydration-safe: the initializer is guarded (SSR renders "loading" with no
@@ -35,7 +45,8 @@ export function PushOnboarding({ signedIn }: { signedIn: boolean }) {
     }
   }, [status]);
 
-  const visible = shouldShowOnboarding(status, signedIn, dismissed);
+  const { role } = useSession();
+  const visible = shouldShowOnboarding(status, role !== null, dismissed);
 
   const onEnable = async () => {
     const ok = await enable();

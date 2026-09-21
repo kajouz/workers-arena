@@ -3,10 +3,8 @@ import "../globals.css";
 import { notFound } from "next/navigation";
 import { defaultLocale, isLocale, localeDir, locales } from "@/lib/i18n/config";
 import { dictionaries } from "@/lib/i18n/dictionaries";
-import { getSession } from "@/lib/auth-demo";
 import { LocaleProvider } from "@/components/providers/locale-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
-import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toast";
 import { ServiceWorkerRegistrar } from "@/components/notifications/service-worker-registrar";
@@ -155,23 +153,15 @@ export default async function RootLayout({
   const dir = localeDir[locale];
 
   /**
-   * The session still renders server-side, which keeps these routes dynamic
-   * rather than prerendered. That is a deliberate stopping point, not an
-   * oversight: the header switches between "Sign in" and the account menu, and
-   * moving that to a client fetch would show every signed-in visitor a
-   * signed-out header on first paint.
+   * No session is read here.
    *
-   * The caching win does not depend on it. With language in the URL and the
-   * theme out of the document, an anonymous request carries no cookie at all,
-   * so src/proxy.ts now answers `public, s-maxage=60, stale-while-revalidate=300`
-   * instead of the `private, no-store` every returning visitor used to get —
-   * crawlers and cold visitors are served from the edge either way.
-   *
-   * Going fully static needs the session out of this shared shell: a
-   * (public)/(app) route-group split, or Next 16 Cache Components, which makes
-   * data dynamic by default and is its own migration.
+   * This layout is shared by every route, so a cookie read in it made every
+   * route dynamic — the build prerendered 4 routes out of ~200. The header is
+   * the only thing that wanted the session, so it moved down into the two
+   * route groups: (app) resolves it server-side (those pages are per-user
+   * anyway), and (public) ships a prerendered header that asks /api/session
+   * after hydration. See the group layouts.
    */
-  const session = await getSession();
 
   /**
    * The theme is NOT read here.
@@ -221,10 +211,9 @@ export default async function RootLayout({
           <CurrencyProvider>
           <OnboardingProvider>
           <ThemeProvider>
-            <Header session={session} />
-          <main id="main-content" tabIndex={-1} className="focus:outline-none pb-20 lg:pb-0">
+            {/* The route groups render <Header> + <main> — see (public)/layout
+                and (app)/layout. Everything below is identical on both. */}
             <ErrorBoundary>{children}</ErrorBoundary>
-          </main>
           <Footer />
           <LayoutClients />
           <AnalyticsClients>

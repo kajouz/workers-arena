@@ -17,7 +17,7 @@ import { respondRecurringBookingAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
 import type { Booking, BookingMessage, RecurringBooking, Worker } from "@/lib/data/types";
 import type { FeeRuleSet } from "@/lib/data/fee-rules";
-import type { WorkerEmailPreview } from "@/app/[locale]/dashboard/page";
+import type { WorkerEmailPreview } from "@/app/[locale]/(app)/dashboard/page";
 
 const FREQ_LABEL_KEY: Record<RecurringBooking["frequency"], string> = {
   weekly: "booking.repeatWeekly",

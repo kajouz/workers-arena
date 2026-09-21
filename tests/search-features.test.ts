@@ -210,7 +210,7 @@ describe("Analytics Dashboard", () => {
     const fs = await import("fs");
     const path = await import("path");
     const exists = fs.existsSync(
-      path.join(process.cwd(), "src/app/[locale]/debug/analytics/page.tsx")
+      path.join(process.cwd(), "src/app/[locale]/(app)/debug/analytics/page.tsx")
     );
     expect(exists).toBe(true);
   });
@@ -219,7 +219,7 @@ describe("Analytics Dashboard", () => {
     const fs = await import("fs");
     const path = await import("path");
     const content = fs.readFileSync(
-      path.join(process.cwd(), "src/app/[locale]/debug/analytics/page.tsx"),
+      path.join(process.cwd(), "src/app/[locale]/(app)/debug/analytics/page.tsx"),
       "utf-8"
     );
     expect(content).toContain("Analytics Dashboard");
@@ -230,7 +230,7 @@ describe("Analytics Dashboard", () => {
     const fs = await import("fs");
     const path = await import("path");
     const content = fs.readFileSync(
-      path.join(process.cwd(), "src/app/[locale]/debug/analytics/page.tsx"),
+      path.join(process.cwd(), "src/app/[locale]/(app)/debug/analytics/page.tsx"),
       "utf-8"
     );
     expect(content).toContain("Page Views");
@@ -241,7 +241,7 @@ describe("Analytics Dashboard", () => {
     const fs = await import("fs");
     const path = await import("path");
     const content = fs.readFileSync(
-      path.join(process.cwd(), "src/app/[locale]/debug/analytics/page.tsx"),
+      path.join(process.cwd(), "src/app/[locale]/(app)/debug/analytics/page.tsx"),
       "utf-8"
     );
     expect(content).toContain("Offline Queue Status");
@@ -252,7 +252,7 @@ describe("Analytics Dashboard", () => {
     const fs = await import("fs");
     const path = await import("path");
     const content = fs.readFileSync(
-      path.join(process.cwd(), "src/app/[locale]/debug/analytics/page.tsx"),
+      path.join(process.cwd(), "src/app/[locale]/(app)/debug/analytics/page.tsx"),
       "utf-8"
     );
     expect(content).toContain("Search History");
@@ -263,7 +263,7 @@ describe("Analytics Dashboard", () => {
     const fs = await import("fs");
     const path = await import("path");
     const content = fs.readFileSync(
-      path.join(process.cwd(), "src/app/[locale]/debug/analytics/page.tsx"),
+      path.join(process.cwd(), "src/app/[locale]/(app)/debug/analytics/page.tsx"),
       "utf-8"
     );
     expect(content).toContain("Network & Sync Status");

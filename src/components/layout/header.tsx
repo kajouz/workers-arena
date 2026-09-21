@@ -12,16 +12,30 @@ import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "./notification-bell";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLocale } from "@/components/providers/locale-provider";
-import type { SessionUser } from "@/lib/auth-demo";
+import type { SessionRole } from "@/lib/auth-demo";
+import { invalidateSession, useSession } from "@/hooks/use-session";
 import { logoutAction } from "@/app/actions/auth";
 import { toast } from "@/components/ui/toast";
 import { useInstallPrompt } from "@/hooks/use-install-prompt"
 
+/**
+ * `session` is a THREE-state prop:
+ *   • a role  — the server resolved it (the app surface, which is per-user)
+ *   • null    — the server checked and nobody is signed in
+ *   • omitted — the server could not know, because this page is prerendered
+ *               and its HTML is shared by every reader. The header asks
+ *               /api/session after hydration instead.
+ *
+ * The distinction matters: while the answer is pending the account area shows
+ * a neutral placeholder, never "Sign in". Collapsing "unknown" into "signed
+ * out" is what makes a logged-in reader watch their account menu get replaced
+ * by a sign-in button a moment after the page paints.
+ */
 export function Header({
   session,
   initialTheme = "light",
 }: {
-  session: SessionUser | null;
+  session?: SessionRole | null;
   initialTheme?: "light" | "dark";
 }) {
   const { locale, t } = useLocale();
@@ -29,6 +43,10 @@ export function Header({
   const [mobileOpen, setMobileOpen] = useState(false);
   const { canInstall, isInstalled, install } = useInstallPrompt();
   const [installing, setInstalling] = useState(false);
+  const account = useSession(session);
+  const role = account.role;
+  const signedIn = account.status === "known" && role !== null;
+  const signedOut = account.status === "known" && role === null;
 
   const handleInstall = async () => {
     setInstalling(true);
@@ -48,9 +66,9 @@ export function Header({
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   const dashboardHref =
-    session?.role === "admin" ? "/admin" : session?.role === "company" ? "/company" : "/dashboard";
+    role === "admin" ? "/admin" : role === "company" ? "/company" : "/dashboard";
   const DashboardIcon =
-    session?.role === "admin" ? ShieldCheck : session?.role === "company" ? Megaphone : LayoutDashboard;
+    role === "admin" ? ShieldCheck : role === "company" ? Megaphone : LayoutDashboard;
 
   return (
     <header className="sticky top-0 z-40">
@@ -79,7 +97,7 @@ export function Header({
           </nav>
 
           <div className="ms-auto flex shrink-0 items-center gap-1.5">
-            {session && (
+            {signedIn && (
               <>
                 <NotificationBell />
                 <Link
@@ -88,9 +106,9 @@ export function Header({
                   className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-100 sm:inline-flex dark:text-ink-200 dark:hover:bg-ink-800"
                 >
                   <DashboardIcon className="size-4" />
-                  {session.role === "admin"
+                  {role === "admin"
                     ? t("nav.admin")
-                    : session.role === "company"
+                    : role === "company"
                       ? t("nav.company")
                       : t("nav.dashboard")}
                 </Link>
@@ -106,12 +124,13 @@ export function Header({
             <LanguageSwitcher />
             <ThemeToggle initialTheme={initialTheme} />
 
-            {session ? (
+            {signedIn && (
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => {
                   logoutAction();
+                  invalidateSession();
                   toast("info", t("common.logout"));
                 }}
                 aria-label={t("common.logout")}
@@ -120,7 +139,8 @@ export function Header({
               >
                 <LogOut className="size-4" />
               </Button>
-            ) : (
+            )}
+            {signedOut && (
               <>
                 <Link href="/auth/login" className="hidden sm:block">
                   <Button variant="ghost" size="sm">
@@ -131,6 +151,16 @@ export function Header({
                   <Button size="sm">{t("nav.listService")}</Button>
                 </Link>
               </>
+            )}
+            {account.status === "pending" && (
+              /* Reserves the width the resolved state will take, so the header
+                 does not reflow when the answer arrives. aria-hidden + a
+                 polite busy flag: there is nothing here for a screen reader to
+                 announce yet. */
+              <span
+                aria-hidden
+                className="hidden h-8 w-[8.5rem] animate-pulse rounded-lg bg-ink-200/60 sm:block dark:bg-ink-800/60"
+              />
             )}
 
             {canInstall && !isInstalled && (
@@ -173,17 +203,17 @@ export function Header({
                 {link.label}
               </Link>
             ))}
-            {session && (
+            {signedIn && (
               <Link
                 href={dashboardHref}
                 onClick={() => setMobileOpen(false)}
                 className="flex items-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
               >
                 <DashboardIcon className="size-5" />
-                {session.role === "admin" ? t("nav.admin") : session.role === "company" ? t("nav.company") : t("nav.dashboard")}
+                {role === "admin" ? t("nav.admin") : role === "company" ? t("nav.company") : t("nav.dashboard")}
               </Link>
             )}
-            {!session && (
+            {signedOut && (
               <>
                 <Link href="/auth/login" onClick={() => setMobileOpen(false)}>
                   <Button variant="outline" className="mt-2 w-full">

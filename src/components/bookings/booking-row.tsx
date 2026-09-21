@@ -25,7 +25,7 @@ import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
 import { BookingSlaCountdown } from "./booking-sla-countdown";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
-import type { CustomerBookingRow } from "@/app/[locale]/bookings/page";
+import type { CustomerBookingRow } from "@/app/[locale]/(app)/bookings/page";
 
 /**
  * One customer booking (docs/booking-customer-ui.md §5.5): worker avatar +

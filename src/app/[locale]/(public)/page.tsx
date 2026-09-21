@@ -13,7 +13,6 @@ import { CTA } from "@/components/home/cta";
 import { getCategories, getFeaturedWorkersList, getPopularSearches } from "@/lib/data/repo";
 import { loadPlanCatalog } from "@/lib/data/fee-rules-store";
 import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
-import { getSession } from "@/lib/auth-demo";
 import { PushOnboarding } from "@/components/notifications/push-onboarding";
 import { MobileAppPromo } from "@/components/home/mobile-app-promo";
 
@@ -42,7 +41,6 @@ export async function generateMetadata({
 export const revalidate = 3600;
 
 export default async function HomePage() {
-  const session = await getSession();
   const [categories, featured, popular, planCatalog] = await Promise.all([
     getCategories(),
     getFeaturedWorkersList(4),
@@ -61,7 +59,7 @@ export default async function HomePage() {
       <Plans catalog={planCatalog} />
       <CTA />
       <MobileAppPromo />
-      <PushOnboarding signedIn={Boolean(session)} />
+      <PushOnboarding />
     </>
   );
 }

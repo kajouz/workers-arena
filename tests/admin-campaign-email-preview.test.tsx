@@ -88,7 +88,7 @@ const payment: CampaignPayment = {
   refundReason: "Campaign violated ad policy",
 } as CampaignPayment;
 
-/** The bilingual previews exactly as src/app/[locale]/admin/page.tsx computes them —
+/** The bilingual previews exactly as src/app/[locale]/(app)/admin/page.tsx computes them —
  * both locales from the ONE shared builder payload. The recipient carries the
  * company's preferred language, which the dialog leads with as the PRIMARY
  * block (what the company received) — the page locale only styles the chrome. */
