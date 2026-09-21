@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { X, Sparkles, ArrowRight, TrendingUp } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useRetargeting } from "@/hooks/use-retargeting";
@@ -84,6 +84,9 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
   const [dismissed, setDismissed] = useState(false);
   const [ad, setAd] = useState<RetargetingAdContent | null>(null);
   const [visible, setVisible] = useState(false);
+  // Impression guard: React StrictMode (dev) mounts effects twice, which used
+  // to double-count the lifetime impression counter and stack two show-timers.
+  const impressionRecorded = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -131,11 +134,19 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
 
     if (selectedAd) {
       setAd(selectedAd);
-      // Track impression
-      const count = Number(localStorage.getItem("retargeting_ad_shown_count") ?? "0");
-      localStorage.setItem("retargeting_ad_shown_count", String(count + 1));
-      localStorage.setItem("retargeting_ad_last_shown", String(Date.now()));
-      // Delay showing the ad for better UX
+      // Track the impression once — StrictMode's mount/unmount/mount cycle
+      // runs this effect twice, which used to double-count the lifetime cap.
+      if (!impressionRecorded.current) {
+        impressionRecorded.current = true;
+        const count = Number(localStorage.getItem("retargeting_ad_shown_count") ?? "0");
+        localStorage.setItem("retargeting_ad_shown_count", String(count + 1));
+        localStorage.setItem("retargeting_ad_last_shown", String(Date.now()));
+      }
+      // Delay showing the ad for better UX. Deliberately NOT cleared on
+      // cleanup: in StrictMode the simulated remount re-enters this effect,
+      // hits the fresh 24h gate above, and early-returns — so a cleared
+      // timer would leave the ad permanently invisible in dev. A timer that
+      // fires after a real unmount only calls a no-op setState.
       setTimeout(() => setVisible(true), 2000);
     }
   }, [getRetargetingData, shouldShowRetargetingAd]);
@@ -160,7 +171,9 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
   return (
     <div
       className={cn(
-        "fixed inset-x-0 bottom-36 z-40 lg:bottom-8 lg:right-6 lg:left-auto lg:w-96",
+        // safe-area: on notched phones the fixed offset must include the
+        // home-indicator inset or the card can sit under gesture areas.
+        "fixed inset-x-0 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-40 lg:bottom-8 lg:right-6 lg:left-auto lg:w-96",
         "transform transition-all duration-500 ease-out",
         visible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
         className
@@ -168,7 +181,9 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
     >
       <div
         className={cn(
-          "mx-4 overflow-hidden rounded-2xl border-2 shadow-lift backdrop-blur-xl",
+          // Width-capped: the card used to be able to exceed narrow (360px)
+          // viewports and clip off-screen (Galaxy Note 9 report).
+          "mx-4 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border-2 shadow-lift backdrop-blur-xl",
           "bg-white/95 dark:bg-ink-950/95",
           "lg:mx-0"
         )}
@@ -187,7 +202,7 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
           </div>
           <button
             onClick={handleDismiss}
-            className="rounded-lg p-1 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
+            className="-m-3.5 rounded-lg p-3.5 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
             aria-label={locale === "ar" ? "إغلاق" : "Dismiss"}
           >
             <X className="size-4" />

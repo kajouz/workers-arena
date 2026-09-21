@@ -70,6 +70,11 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
         <span className="ps-1.5 text-ink-400 sm:ps-2">
           <Search className="size-4 sm:size-5" />
         </span>
+        {/* min-w-0 + w-0: the input's intrinsic size (~177px) used to set the
+            form's min-content, which stretched the hero grid track past the
+            360px viewport and clipped the search bar + H1 off-screen (Galaxy
+            Note 9 report). w-0 zeroes the flex base; flex-1 distributes the
+            real available space. */}
         <input
           ref={inputRef}
           value={query}
@@ -79,7 +84,7 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
           }}
           onFocus={() => setOpen(true)}
           placeholder={t("hero.searchPlaceholder")}
-          className="h-10 flex-1 bg-transparent text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none sm:h-11 sm:text-base dark:text-ink-50"
+          className="h-10 w-0 min-w-0 flex-1 bg-transparent text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none sm:h-11 sm:text-base dark:text-ink-50"
           aria-label={t("common.search")}
         />
         {searching && (

@@ -74,12 +74,11 @@ export function ThemeToggle({ initialTheme }: { initialTheme: "light" | "dark" }
   return (
     <Button
       variant="ghost"
-      size="icon"
       onClick={cycleTheme}
       aria-label={ariaLabel}
       title={mode === "auto" ? "System" : ariaLabel}
       className={cn(
-        "relative",
+        "relative h-11 w-11 sm:h-10 sm:w-10",
         mode === "auto" && "text-brand-500"
       )}
     >

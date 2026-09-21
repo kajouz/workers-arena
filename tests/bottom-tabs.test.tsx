@@ -90,7 +90,7 @@ describe("BottomTabs — auth screens yield the viewport", () => {
 
   it("keeps the five app destinations when it does render", () => {
     renderAt("/");
-    for (const label of ["Home", "Find workers", "My bookings", "Favorites", "My dashboard"]) {
+    for (const label of ["Home", "Find workers", "My bookings", "Favorites", "Dashboard"]) {
       expect(screen.getByRole("link", { name: label }), `${label} tab missing`).toBeInTheDocument();
     }
   });

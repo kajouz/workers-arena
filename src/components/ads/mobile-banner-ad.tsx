@@ -49,7 +49,7 @@ export function MobileBannerAd({ placement = "mobileBanner", className }: Mobile
   return (
     <div
       className={cn(
-        "fixed inset-x-0 bottom-16 z-45 lg:hidden", // Above bottom tabs (z-40), below modals
+        "fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-45 lg:hidden", // Above bottom tabs (z-40), below modals
         "border-t border-ink-200/80 bg-white/95 p-3 shadow-lift backdrop-blur-xl",
         "dark:border-ink-800 dark:bg-ink-950/95",
         className

@@ -20,7 +20,13 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t("misc.switchLocale")} title={t("misc.switchLocale")}>
+        {/* 44px on mobile (Apple/Android minimum touch target), 40px desktop. */}
+        <Button
+          variant="ghost"
+          className="h-11 w-11 sm:h-10 sm:w-10"
+          aria-label={t("misc.switchLocale")}
+          title={t("misc.switchLocale")}
+        >
           <Languages className="size-5" />
         </Button>
       </DropdownMenuTrigger>

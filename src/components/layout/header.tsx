@@ -95,7 +95,8 @@ export function Header({
                       : t("nav.dashboard")}
                 </Link>
                 <Link href="/auth/register">
-                  <Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label={t("nav.listService")}>
+                  {/* 44px mobile touch target (was 32px — below the platform minimum). */}
+                  <Button variant="ghost" className="h-11 w-11 sm:hidden" aria-label={t("nav.listService")}>
                     <UserIcon className="size-4" />
                   </Button>
                 </Link>
@@ -135,12 +136,11 @@ export function Header({
             {canInstall && !isInstalled && (
               <Button
                 variant="ghost"
-                size="icon-sm"
                 onClick={handleInstall}
                 disabled={installing}
                 aria-label={t("mobileInstall.install")}
                 title={t("mobileInstall.install")}
-                className="relative text-brand-600 hover:bg-brand-500/10 dark:text-brand-400"
+                className="relative h-11 w-11 text-brand-600 hover:bg-brand-500/10 sm:h-8 sm:w-8 sm:rounded-lg dark:text-brand-400"
               >
                 <Download className="size-4" />
                 <span className="absolute -top-0.5 -end-0.5 size-2 rounded-full bg-emerald-400 animate-pulse" />

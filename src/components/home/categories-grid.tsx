@@ -19,7 +19,10 @@ export function CategoriesGrid({ categories }: { categories: Category[] }) {
         title={t("categories.subtitle")}
         dir={dir}
       />
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-3 sm:gap-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-7">
+      {/* 2 columns below 380px: at 3 columns a 360px phone leaves ~117px cells
+          where Arabic names and the worker-count sublabel have no air (Note 9
+          report); 2 columns gives ~155px cells. */}
+      <div className="grid grid-cols-2 gap-2 min-[380px]:grid-cols-3 sm:gap-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-7">
         {categories.map((cat, i) => (
           <motion.div
             key={cat.slug}

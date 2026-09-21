@@ -82,6 +82,9 @@ export const en = {
     categories: "Categories",
     favorites: "Favorites",
     dashboard: "My dashboard",
+    // Bottom-tab bar only: must stay under ~9 chars so the five labels never
+    // wrap at 320–360px viewports (the bar gives each tab ~68px at 360px).
+    dashboardShort: "Dashboard",
     admin: "Admin",
     company: "Company",
     advertise: "Advertise",
@@ -90,6 +93,9 @@ export const en = {
   },
   hero: {
     badge: "Trusted by 50,000+ homeowners & businesses",
+    // Mobile hero badge — the full string measures 406px, wider than a 360px
+    // phone's content box; this variant fits below the sm breakpoint.
+    badgeShort: "Trusted by 50,000+",
     title1: "Find trusted",
     titleAccent: "professionals",
     title2: "near you",

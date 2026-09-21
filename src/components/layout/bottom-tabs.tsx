@@ -42,7 +42,10 @@ const TABS: Tab[] = [
   },
   {
     href: "/dashboard",
-    labelKey: "nav.dashboard",
+    // The short label: the bar gives each tab ~68px at 360px viewports and
+    // "My dashboard" measures 75px — it wrapped onto two lines on phones
+    // (user-reported on a Galaxy Note 9). The header keeps the full label.
+    labelKey: "nav.dashboardShort",
     icon: User,
     match: (p) =>
       p.startsWith("/dashboard") ||
@@ -111,7 +114,9 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
                 )}
               </div>
 
-              <span className="text-[11px] font-medium leading-tight text-ink-700 dark:text-ink-300">
+              {/* truncate + nowrap: a label that outgrew its ~68px slot used
+                  to wrap and grow the tab's height (Galaxy Note 9 report). */}
+              <span className="block w-full truncate whitespace-nowrap text-[11px] font-medium leading-tight text-ink-700 dark:text-ink-300">
                 {t(tab.labelKey)}
               </span>
 

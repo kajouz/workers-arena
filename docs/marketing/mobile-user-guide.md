@@ -654,6 +654,23 @@ To force a refresh:
 
 ---
 
+## 9.1 Mobile Design Fixes (September 2026)
+
+Small-screen (320–360 px) layout fixes, verified on a Galaxy Note 9-class viewport:
+
+| Fix | What changed |
+|-----|--------------|
+| **Search bar no longer clips off-screen** | The hero search input can no longer force the page wider than the screen — the bar, headline and subtitle all fit 360 px phones. |
+| **Bottom tab labels never wrap** | Labels truncate with an ellipsis instead of wrapping to two lines; the last tab reads **Dashboard** on phones ("لوحتي" in Arabic). |
+| **Hero badge fits** | Mobile shows the short "Trusted by 50,000+" badge; the full text appears on tablets/desktop. |
+| **Balanced headline** | The headline breaks into even lines with no single-word last line. |
+| **Bigger touch targets** | Header icons (notifications, language, install, profile) are now 44 px — the platform minimum for comfortable tapping. |
+| **Category grid breathes** | Phones narrower than 380 px show 2 columns of category cards instead of 3 cramped ones. |
+| **Ads respect the screen** | The promotional card is width-capped, sits above the home-indicator safe area, and its close button is a full 44 px target. Its frequency caps (once per 24 h, max 5 lifetime, 7-day quiet after dismissal) were hardened to fire exactly once. |
+| **Safe-area aware banners** | Install and banner-ad strips sit above iPhone home-indicator / Android gesture areas. |
+
+---
+
 ## 10. Troubleshooting
 
 ### Common Issues

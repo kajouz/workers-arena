@@ -28,12 +28,17 @@ export function Hero({ popular }: { popular: { en: string; ar: string; href: str
       <div className="absolute top-40 start-10 size-64 rounded-full bg-sky-300/20 blur-3xl" />
 
       <div className="relative mx-auto grid max-w-7xl gap-12 px-5 pb-20 pt-16 sm:px-6 lg:grid-cols-12 lg:items-center lg:pb-28 lg:pt-24 lg:px-8">
-        {/* Copy */}
-        <div className="lg:col-span-7">
+        {/* Copy — min-w-0: the search bar's intrinsic min-content used to
+            stretch this grid track past narrow (360px) viewports, clipping the
+            form and the headline off-screen (Galaxy Note 9 report). */}
+        <div className="min-w-0 lg:col-span-7">
           <motion.div {...fadeUp(0)}>
-            <Badge variant="glass" className="mb-5 rounded-full px-4 py-1.5 text-xs">
-              <ShieldCheck className="size-3.5 text-emerald-500" />
-              {t("hero.badge")}
+            <Badge variant="glass" className="mb-5 max-w-full rounded-full px-4 py-1.5 text-xs">
+              <ShieldCheck className="size-3.5 shrink-0 text-emerald-500" />
+              {/* Short string below sm: the full text measures 406px and
+                  overflowed 360px phone screens (Galaxy Note 9 report). */}
+              <span className="truncate sm:hidden">{t("hero.badgeShort")}</span>
+              <span className="hidden sm:inline">{t("hero.badge")}</span>
             </Badge>
           </motion.div>
 
@@ -42,7 +47,7 @@ export function Hero({ popular }: { popular: { en: string; ar: string; href: str
             initial={{ opacity: 1, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.08, ease: [0.22, 1, 0.36, 1] as const }}
-            className="text-4xl font-black leading-[1.08] tracking-tight text-ink-900 dark:text-ink-50 sm:text-5xl lg:text-6xl"
+            className="text-balance text-[2rem] font-black leading-[1.08] tracking-tight text-ink-900 min-[400px]:text-4xl dark:text-ink-50 sm:text-5xl lg:text-6xl"
           >
             {locale === "ar" ? (
               <>

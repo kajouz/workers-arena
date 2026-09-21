@@ -84,6 +84,8 @@ export const ar: Dictionary = {
     categories: "التصنيفات",
     favorites: "المفضلة",
     dashboard: "لوحتي",
+    // شريط التبويبات السفلي فقط: قصير كي لا يلتفّ في الشاشات الضيقة (٣٢٠–٣٦٠ بكسل).
+    dashboardShort: "لوحتي",
     admin: "الإدارة",
     company: "الشركات",
     advertise: "إعلان",
@@ -92,6 +94,8 @@ export const ar: Dictionary = {
   },
   hero: {
     badge: "موثوق من أكثر من 50,000 منزل وشركة",
+    // شارة الهيرو على الهاتف — النص الكامل أعرض من شاشة ٣٦٠ بكسل.
+    badgeShort: "موثوق من +50,000",
     title1: "اعثر على",
     titleAccent: "محترفين موثوقين",
     title2: "بالقرب منك",

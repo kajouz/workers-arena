@@ -77,7 +77,7 @@ export function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-xl p-2 text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-ink-50"
+        className="relative min-h-11 min-w-11 rounded-xl p-2.5 text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900 sm:min-h-0 sm:min-w-0 sm:p-2 dark:text-ink-300 dark:hover:bg-ink-800 dark:hover:text-ink-50"
         aria-label={t("notifications.title")}
         title={t("notifications.title")}
       >
