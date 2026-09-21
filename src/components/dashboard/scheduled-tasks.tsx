@@ -57,17 +57,17 @@ interface TaskHistory {
 }
 
 const categoryColors: Record<string, string> = {
-  maintenance: "bg-blue-100 text-blue-800",
-  notification: "bg-purple-100 text-purple-800",
-  analytics: "bg-green-100 text-green-800",
-  cleanup: "bg-orange-100 text-orange-800",
-  backup: "bg-gray-100 text-gray-800",
+  maintenance: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  notification: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300",
+  analytics: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  cleanup: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+  backup: "bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100",
 };
 
 const statusColors: Record<string, string> = {
-  success: "bg-green-100 text-green-800",
-  failed: "bg-red-100 text-red-800",
-  running: "bg-yellow-100 text-yellow-800",
+  success: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  failed: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+  running: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
 };
 
 const categoryIcons: Record<string, React.ElementType> = {
@@ -323,54 +323,54 @@ export function ScheduledTasks() {
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Clock className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalTasks}</p>
-              <p className="text-sm text-gray-500">Total Tasks</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.totalTasks}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Total Tasks</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
               <Play className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeTasks}</p>
-              <p className="text-sm text-gray-500">Active</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.activeTasks}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Active</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 rounded-lg">
               <RefreshCw className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalRuns)}</p>
-              <p className="text-sm text-gray-500">Total Runs</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{formatNumber(stats.totalRuns)}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Total Runs</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
               <CheckCircle className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.successRate}%</p>
-              <p className="text-sm text-gray-500">Success Rate</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.successRate}%</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Success Rate</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab("tasks")}
@@ -378,7 +378,7 @@ export function ScheduledTasks() {
               "pb-3 px-1 text-sm font-medium border-b-2 transition-colors",
               activeTab === "tasks"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
             <Clock className="w-4 h-4 inline mr-2" />
@@ -390,7 +390,7 @@ export function ScheduledTasks() {
               "pb-3 px-1 text-sm font-medium border-b-2 transition-colors",
               activeTab === "history"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
             <History className="w-4 h-4 inline mr-2" />
@@ -405,19 +405,19 @@ export function ScheduledTasks() {
           {/* Search and Filter */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
               <input
                 type="text"
                 placeholder="Search tasks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Categories</option>
               <option value="maintenance">Maintenance</option>
@@ -429,7 +429,7 @@ export function ScheduledTasks() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -444,8 +444,8 @@ export function ScheduledTasks() {
               const CategoryIcon = categoryIcons[task.category];
               return (
                 <div key={task.id} className={cn(
-                  "bg-white rounded-xl border p-4 transition-all",
-                  task.isActive ? "border-gray-200 hover:shadow-md" : "border-gray-100 opacity-60"
+                  "bg-white dark:bg-ink-900 rounded-xl border p-4 transition-all",
+                  task.isActive ? "border-ink-200 dark:border-ink-800 hover:shadow-md" : "border-ink-100 dark:border-ink-800 opacity-60"
                 )}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-start gap-3">
@@ -454,18 +454,18 @@ export function ScheduledTasks() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-900">{task.name}</h3>
+                          <h3 className="font-semibold text-ink-900 dark:text-ink-50">{task.name}</h3>
                           <span className={cn("px-2 py-0.5 text-xs font-medium rounded-full", categoryColors[task.category])}>
                             {task.category}
                           </span>
                           {task.lastStatus === "failed" && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300">
                               Last run failed
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500 mt-1">{task.description}</p>
-                        <p className="font-mono text-xs text-gray-400 mt-1">{task.command}</p>
+                        <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">{task.description}</p>
+                        <p className="font-mono text-xs text-ink-400 dark:text-ink-500 mt-1">{task.command}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -480,7 +480,7 @@ export function ScheduledTasks() {
                         onClick={() => handleToggleActive(task.id)}
                         className={cn(
                           "px-3 py-1 text-xs font-medium rounded-full",
-                          task.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                          task.isActive ? "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300" : "bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100"
                         )}
                       >
                         {task.isActive ? "Active" : "Paused"}
@@ -490,27 +490,27 @@ export function ScheduledTasks() {
 
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                     <div>
-                      <p className="text-gray-500">Schedule</p>
+                      <p className="text-ink-500 dark:text-ink-400">Schedule</p>
                       <p className="font-mono font-medium">{task.schedule}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Last Run</p>
+                      <p className="text-ink-500 dark:text-ink-400">Last Run</p>
                       <p className="font-medium">
                         {task.lastRun ? formatDateTime(task.lastRun, locale) : "Never"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Next Run</p>
+                      <p className="text-ink-500 dark:text-ink-400">Next Run</p>
                       <p className="font-medium">{formatDateTime(task.nextRun, locale)}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Avg Duration</p>
+                      <p className="text-ink-500 dark:text-ink-400">Avg Duration</p>
                       <p className="font-medium">
                         {task.averageDuration ? formatDuration(task.averageDuration) : "—"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Runs / Failures</p>
+                      <p className="text-ink-500 dark:text-ink-400">Runs / Failures</p>
                       <p className="font-medium">
                         {formatNumber(task.totalRuns)} / {task.failureRate}%
                       </p>
@@ -525,28 +525,28 @@ export function ScheduledTasks() {
 
       {/* History Tab */}
       {activeTab === "history" && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-ink-50 dark:bg-ink-950">
               <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Task</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Started</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Duration</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Output</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Actions</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Task</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Started</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Duration</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Output</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-ink-200 dark:divide-ink-800">
               {history.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
+                <tr key={item.id} className="hover:bg-ink-50 dark:hover:bg-ink-950">
                   <td className="px-4 py-4">
-                    <p className="font-medium text-gray-900">{item.taskName}</p>
+                    <p className="font-medium text-ink-900 dark:text-ink-50">{item.taskName}</p>
                   </td>
-                  <td className="px-4 py-4 text-sm text-gray-600">
+                  <td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300">
                     {formatDateTime(item.startedAt, locale)}
                   </td>
-                  <td className="px-4 py-4 text-sm text-gray-600">
+                  <td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300">
                     {item.duration ? formatDuration(item.duration) : "—"}
                   </td>
                   <td className="px-4 py-4">
@@ -554,11 +554,11 @@ export function ScheduledTasks() {
                       {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-sm text-gray-600 max-w-xs truncate">
+                  <td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300 max-w-xs truncate">
                     {item.output || item.error || "—"}
                   </td>
                   <td className="px-4 py-4">
-                    <button className="text-gray-400 hover:text-gray-600" title="View Details">
+                    <button className="text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300" title="View Details">
                       <Eye className="w-4 h-4" />
                     </button>
                   </td>

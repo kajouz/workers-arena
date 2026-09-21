@@ -221,7 +221,7 @@ export function VerificationPanel({ userId }: { userId: string }) {
             variant={status[ch.id] ? "default" : "outline"}
             className={cn(
               status[ch.id] &&
-                "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
             )}
           >
             {ch.label}: {status[ch.id] ? "Verified" : "Unverified"}

@@ -73,17 +73,17 @@ const typeLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  open: "bg-yellow-100 text-yellow-800",
-  investigating: "bg-blue-100 text-blue-800",
-  awaiting_evidence: "bg-purple-100 text-purple-800",
-  resolved: "bg-green-100 text-green-800",
-  escalated: "bg-red-100 text-red-800",
+  open: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
+  investigating: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  awaiting_evidence: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300",
+  resolved: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  escalated: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
 };
 
 const priorityColors: Record<string, string> = {
-  low: "bg-gray-100 text-gray-800",
-  medium: "bg-blue-100 text-blue-800",
-  high: "bg-red-100 text-red-800",
+  low: "bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100",
+  medium: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  high: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
 };
 
 export function DisputeResolution() {
@@ -236,44 +236,44 @@ export function DisputeResolution() {
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-          <p className="text-sm text-gray-500">Total Disputes</p>
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
+          <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.total}</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">Total Disputes</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <p className="text-2xl font-bold text-yellow-600">{stats.open}</p>
-          <p className="text-sm text-gray-500">Open</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">Open</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <p className="text-2xl font-bold text-green-600">{stats.resolved}</p>
-          <p className="text-sm text-gray-500">Resolved</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">Resolved</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <p className="text-2xl font-bold text-gray-900">{stats.avgResolutionDays} days</p>
-          <p className="text-sm text-gray-500">Avg Resolution</p>
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
+          <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.avgResolutionDays} days</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">Avg Resolution</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <p className="text-2xl font-bold text-blue-600">${stats.totalRefunded}</p>
-          <p className="text-sm text-gray-500">Total Refunded</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">Total Refunded</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
           <input
             type="text"
             placeholder="Search disputes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg"
+            className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-4 py-2 border border-gray-200 rounded-lg"
+          className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"
         >
           <option value="all">All Status</option>
           <option value="open">Open</option>
@@ -285,7 +285,7 @@ export function DisputeResolution() {
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="px-4 py-2 border border-gray-200 rounded-lg"
+          className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"
         >
           <option value="all">All Types</option>
           <option value="no_show">No Show</option>
@@ -297,41 +297,41 @@ export function DisputeResolution() {
       </div>
 
       {/* Disputes Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
         <table className="w-full">
-          <thead className="bg-gray-50">
+          <thead className="bg-ink-50 dark:bg-ink-950">
             <tr>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Dispute</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Type</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Filed By</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Against</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Deadline</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Actions</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Dispute</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Type</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Filed By</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Against</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Deadline</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-ink-200 dark:divide-ink-800">
             {filteredDisputes.map((dispute) => (
               <tr
                 key={dispute.id}
                 onClick={() => setSelectedDispute(dispute)}
-                className="hover:bg-gray-50 cursor-pointer"
+                className="hover:bg-ink-50 dark:hover:bg-ink-950 cursor-pointer"
               >
                 <td className="px-4 py-4">
                   <div>
-                    <p className="font-medium text-gray-900">{dispute.number}</p>
-                    <p className="text-sm text-gray-500 truncate max-w-xs">{dispute.subject}</p>
+                    <p className="font-medium text-ink-900 dark:text-ink-50">{dispute.number}</p>
+                    <p className="text-sm text-ink-500 dark:text-ink-400 truncate max-w-xs">{dispute.subject}</p>
                   </div>
                 </td>
-                <td className="px-4 py-4 text-sm text-gray-600">{typeLabels[dispute.type]}</td>
-                <td className="px-4 py-4 text-sm text-gray-600">{dispute.filerName}</td>
-                <td className="px-4 py-4 text-sm text-gray-600">{dispute.respondentName}</td>
+                <td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300">{typeLabels[dispute.type]}</td>
+                <td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300">{dispute.filerName}</td>
+                <td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300">{dispute.respondentName}</td>
                 <td className="px-4 py-4">
                   <span className={cn("px-2 py-1 text-xs font-medium rounded-full", statusColors[dispute.status])}>
                     {dispute.status.replace(/_/g, " ")}
                   </span>
                 </td>
-                <td className="px-4 py-4 text-sm text-gray-600">
+                <td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300">
                   {formatDate(dispute.deadline, locale)}
                 </td>
                 <td className="px-4 py-4">
@@ -348,15 +348,15 @@ export function DisputeResolution() {
       {/* Dispute Detail Modal */}
       {selectedDispute && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-dialog p-4">
-          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="bg-white dark:bg-ink-900 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-ink-200 dark:border-ink-800 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">{selectedDispute.number} - {selectedDispute.subject}</h3>
-                <p className="text-sm text-gray-500">Booking: {selectedDispute.bookingNumber}</p>
+                <p className="text-sm text-ink-500 dark:text-ink-400">Booking: {selectedDispute.bookingNumber}</p>
               </div>
               <button
                 onClick={() => setSelectedDispute(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300"
               >
                 <XCircle className="w-6 h-6" />
               </button>
@@ -365,26 +365,26 @@ export function DisputeResolution() {
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Type</p>
+                  <p className="text-sm text-ink-500 dark:text-ink-400">Type</p>
                   <p className="font-medium">{typeLabels[selectedDispute.type]}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Amount</p>
+                  <p className="text-sm text-ink-500 dark:text-ink-400">Amount</p>
                   <p className="font-medium">${selectedDispute.amount}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Filed By</p>
+                  <p className="text-sm text-ink-500 dark:text-ink-400">Filed By</p>
                   <p className="font-medium">{selectedDispute.filerName} ({selectedDispute.filedBy})</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Against</p>
+                  <p className="text-sm text-ink-500 dark:text-ink-400">Against</p>
                   <p className="font-medium">{selectedDispute.respondentName}</p>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm text-gray-500 mb-1">Description</p>
-                <p className="text-gray-700">{selectedDispute.description}</p>
+                <p className="text-sm text-ink-500 dark:text-ink-400 mb-1">Description</p>
+                <p className="text-ink-700 dark:text-ink-200">{selectedDispute.description}</p>
               </div>
 
               {selectedDispute.resolution && (
@@ -401,14 +401,14 @@ export function DisputeResolution() {
 
               {selectedDispute.evidence.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">Evidence</p>
+                  <p className="text-sm font-medium text-ink-700 dark:text-ink-200 mb-2">Evidence</p>
                   <div className="grid grid-cols-3 gap-2">
                     {selectedDispute.evidence.map((item) => (
-                      <div key={item.id} className="border border-gray-200 rounded-lg p-2">
-                        <div className="aspect-video bg-gray-100 rounded flex items-center justify-center">
-                          <FileText className="w-8 h-8 text-gray-400" />
+                      <div key={item.id} className="border border-ink-200 dark:border-ink-800 rounded-lg p-2">
+                        <div className="aspect-video bg-ink-100 dark:bg-ink-800 rounded flex items-center justify-center">
+                          <FileText className="w-8 h-8 text-ink-400 dark:text-ink-500" />
                         </div>
-                        <p className="text-xs text-gray-500 mt-1 truncate">{item.description}</p>
+                        <p className="text-xs text-ink-500 dark:text-ink-400 mt-1 truncate">{item.description}</p>
                       </div>
                     ))}
                   </div>
@@ -417,13 +417,13 @@ export function DisputeResolution() {
 
               {selectedDispute.messages.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">Messages</p>
+                  <p className="text-sm font-medium text-ink-700 dark:text-ink-200 mb-2">Messages</p>
                   <div className="space-y-2">
                     {selectedDispute.messages.map((msg) => (
-                      <div key={msg.id} className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-sm font-medium text-gray-900">{msg.senderName}</p>
-                        <p className="text-sm text-gray-700 mt-1">{msg.message}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                      <div key={msg.id} className="bg-ink-50 dark:bg-ink-950 rounded-lg p-3">
+                        <p className="text-sm font-medium text-ink-900 dark:text-ink-50">{msg.senderName}</p>
+                        <p className="text-sm text-ink-700 dark:text-ink-200 mt-1">{msg.message}</p>
+                        <p className="text-xs text-ink-400 dark:text-ink-500 mt-1">
                           {formatDateTime(msg.createdAt, locale)}
                         </p>
                       </div>
@@ -434,7 +434,7 @@ export function DisputeResolution() {
             </div>
 
             {selectedDispute.status !== "resolved" && (
-              <div className="p-4 border-t border-gray-200 flex items-center justify-between">
+              <div className="p-4 border-t border-ink-200 dark:border-ink-800 flex items-center justify-between">
                 <button
                   onClick={() => handleEscalateDispute(selectedDispute.id)}
                   className="px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
@@ -445,7 +445,7 @@ export function DisputeResolution() {
                   <input
                     type="number"
                     placeholder="Refund amount"
-                    className="w-32 px-3 py-2 border border-gray-200 rounded-lg"
+                    className="w-32 px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"
                   />
                   <button
                     onClick={() => handleResolveDispute(selectedDispute.id, "Issue resolved", 0)}

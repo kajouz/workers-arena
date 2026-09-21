@@ -55,9 +55,9 @@ export function CreditBalanceCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
-        <div className="h-8 bg-gray-200 rounded w-1/4" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4 animate-pulse">
+        <div className="h-4 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-2" />
+        <div className="h-8 bg-ink-200 dark:bg-ink-800 rounded w-1/4" />
       </div>
     );
   }
@@ -67,7 +67,7 @@ export function CreditBalanceCard() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Balance Header */}
       <div className="p-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white">
         <div className="flex items-center justify-between">
@@ -92,16 +92,16 @@ export function CreditBalanceCard() {
       {/* Stats — derived from the platform credit ledger, never stored. */}
       <div className="p-4 grid grid-cols-3 gap-4 text-center">
         <div>
-          <p className="text-lg font-semibold text-gray-900">{balance.totalPurchased}</p>
-          <p className="text-xs text-gray-500">Added</p>
+          <p className="text-lg font-semibold text-ink-900 dark:text-ink-50">{balance.totalPurchased}</p>
+          <p className="text-xs text-ink-500 dark:text-ink-400">Added</p>
         </div>
         <div>
-          <p className="text-lg font-semibold text-gray-900">{balance.totalSpent}</p>
-          <p className="text-xs text-gray-500">Spent</p>
+          <p className="text-lg font-semibold text-ink-900 dark:text-ink-50">{balance.totalSpent}</p>
+          <p className="text-xs text-ink-500 dark:text-ink-400">Spent</p>
         </div>
         <div>
-          <p className="text-lg font-semibold text-gray-900">{balance.totalRefunded}</p>
-          <p className="text-xs text-gray-500">Refunded</p>
+          <p className="text-lg font-semibold text-ink-900 dark:text-ink-50">{balance.totalRefunded}</p>
+          <p className="text-xs text-ink-500 dark:text-ink-400">Refunded</p>
         </div>
       </div>
 
@@ -109,7 +109,7 @@ export function CreditBalanceCard() {
       <div className="px-4 pb-4">
         <Link
           href="/dashboard/leads"
-          className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-orange-400 hover:bg-orange-50"
+          className="flex items-center justify-between rounded-lg border border-ink-200 dark:border-ink-800 px-3 py-2 text-sm font-medium text-ink-700 dark:text-ink-200 transition-colors hover:border-orange-400 hover:bg-orange-50"
         >
           Spend credits on qualified leads
           <ArrowUpRight className="h-4 w-4" />
@@ -130,8 +130,8 @@ export function CreditBalanceCard() {
 
       {/* Purchase Packages */}
       {showPackages && (
-        <div className="p-4 border-t border-gray-200">
-          <h4 className="font-medium text-gray-900 mb-3">Buy Credit Packages</h4>
+        <div className="p-4 border-t border-ink-200 dark:border-ink-800">
+          <h4 className="font-medium text-ink-900 dark:text-ink-50 mb-3">Buy Credit Packages</h4>
           <div className="flex gap-2 mb-3">
             {(["OMT", "WHISH"] as const).map((m) => (
               <button
@@ -140,8 +140,8 @@ export function CreditBalanceCard() {
                 className={cn(
                   "flex-1 py-2 px-3 rounded-lg text-sm font-medium border-2 transition-all",
                   payMethod === m
-                    ? "border-orange-500 bg-orange-50 text-orange-700"
-                    : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    ? "border-orange-500 bg-orange-50 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300"
+                    : "border-ink-200 dark:border-ink-800 text-ink-500 dark:text-ink-400 hover:border-ink-300 dark:hover:border-ink-700"
                 )}
               >
                 {m === "OMT" ? "🏦 OMT" : "💳 Whish"}
@@ -180,18 +180,18 @@ export function CreditBalanceCard() {
                     "p-3 rounded-lg border-2 text-left transition-all hover:border-orange-500 disabled:opacity-50",
                     pkg.popular
                       ? "border-orange-500 bg-orange-50"
-                      : "border-gray-200 hover:bg-gray-50"
+                      : "border-ink-200 dark:border-ink-800 hover:bg-ink-50 dark:hover:bg-ink-950"
                   )}
                 >
                 {pkg.popular && (
-                  <span className="text-xs font-medium text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-medium text-orange-800 bg-orange-100 px-2 py-0.5 rounded-full dark:bg-orange-500/15 dark:text-orange-300">
                     Popular
                   </span>
                 )}
-                <p className="text-lg font-bold text-gray-900 mt-1">
+                <p className="text-lg font-bold text-ink-900 dark:text-ink-50 mt-1">
                   {pkg.credits + pkg.bonusCredits} Credits
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-ink-500 dark:text-ink-400">
                   ${pkg.price} (${(pkg.price / (pkg.credits + pkg.bonusCredits)).toFixed(2)}/credit)
                 </p>
                 {pkg.bonusCredits > 0 && (
@@ -202,7 +202,7 @@ export function CreditBalanceCard() {
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-gray-400 mt-2 text-center">Pay via OMT or Whish · admin confirms, credits granted instantly</p>
+          <p className="text-[11px] text-ink-400 dark:text-ink-500 mt-2 text-center">Pay via OMT or Whish · admin confirms, credits granted instantly</p>
         </div>
       )}
     </div>

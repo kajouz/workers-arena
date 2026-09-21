@@ -197,9 +197,9 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
   };
 
   const statusColors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    completed: "bg-blue-100 text-blue-800",
-    rewarded: "bg-green-100 text-green-800",
+    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
+    completed: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+    rewarded: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
   };
 
   if (!stats) return null;
@@ -208,47 +208,47 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Users className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalReferrals}</p>
-              <p className="text-sm text-gray-500">Total Referrals</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.totalReferrals}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Total Referrals</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.completedReferrals}</p>
-              <p className="text-sm text-gray-500">Completed</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.completedReferrals}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Completed</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 rounded-lg">
               <Gift className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">${stats.totalRewardsEarned}</p>
-              <p className="text-sm text-gray-500">Rewards Earned</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">${stats.totalRewardsEarned}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Rewards Earned</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
               <DollarSign className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">${stats.currentBalance}</p>
-              <p className="text-sm text-gray-500">Balance</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">${stats.currentBalance}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Balance</p>
             </div>
           </div>
         </div>
@@ -314,7 +314,7 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab("overview")}
@@ -322,7 +322,7 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
               "pb-3 px-1 text-sm font-medium border-b-2 transition-colors",
               activeTab === "overview"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
             <Gift className="w-4 h-4 inline mr-2" />
@@ -334,7 +334,7 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
               "pb-3 px-1 text-sm font-medium border-b-2 transition-colors",
               activeTab === "history"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
             <Clock className="w-4 h-4 inline mr-2" />
@@ -346,7 +346,7 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
       {/* Reward Tiers */}
       {activeTab === "overview" && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Reward Tiers</h3>
+          <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-50">Reward Tiers</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {REWARD_TIERS.map((tier, index) => {
               const isUnlocked = stats.completedReferrals >= tier.minReferrals;
@@ -357,24 +357,24 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
                     "p-4 rounded-xl border-2 transition-all",
                     isUnlocked
                       ? "border-green-500 bg-green-50"
-                      : "border-gray-200 bg-gray-50 opacity-60"
+                      : "border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-950 opacity-60"
                   )}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center font-bold",
-                        isUnlocked ? "bg-green-500 text-white" : "bg-gray-300 text-gray-600"
+                        isUnlocked ? "bg-green-500 text-white" : "bg-ink-300 dark:bg-ink-700 text-ink-600 dark:text-ink-300"
                       )}>
                         {index + 1}
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">
+                        <p className="font-semibold text-ink-900 dark:text-ink-50">
                           {tier.type === "credit" && `$${tier.amount} Credit`}
                           {tier.type === "discount" && `${tier.amount}% Discount`}
                           {tier.type === "premium_days" && `${tier.amount} Days Premium`}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-ink-500 dark:text-ink-400">
                           {locale === "ar" ? tier.descriptionAr : tier.description}
                         </p>
                       </div>
@@ -384,18 +384,18 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
                     )}
                   </div>
                   <div className="mt-3 flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="flex-1 h-2 bg-ink-200 dark:bg-ink-800 rounded-full overflow-hidden">
                       <div
                         className={cn(
                           "h-full rounded-full",
-                          isUnlocked ? "bg-green-500" : "bg-gray-400"
+                          isUnlocked ? "bg-green-500" : "bg-ink-400 dark:bg-ink-600"
                         )}
                         style={{
                           width: `${Math.min((stats.completedReferrals / tier.minReferrals) * 100, 100)}%`,
                         }}
                       />
                     </div>
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-ink-600 dark:text-ink-300">
                       {stats.completedReferrals}/{tier.minReferrals}
                     </span>
                   </div>
@@ -408,26 +408,26 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
 
       {/* Referral History */}
       {activeTab === "history" && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-ink-50 dark:bg-ink-950">
               <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Referred User</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Date</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Reward</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Referred User</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Date</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Reward</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-ink-200 dark:divide-ink-800">
               {referrals.map((referral) => (
-                <tr key={referral.id} className="hover:bg-gray-50">
+                <tr key={referral.id} className="hover:bg-ink-50 dark:hover:bg-ink-950">
                   <td className="px-4 py-4">
                     <div>
-                      <p className="font-medium text-gray-900">{referral.referredName}</p>
-                      <p className="text-sm text-gray-500">{referral.referredEmail}</p>
+                      <p className="font-medium text-ink-900 dark:text-ink-50">{referral.referredName}</p>
+                      <p className="text-sm text-ink-500 dark:text-ink-400">{referral.referredEmail}</p>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-sm text-gray-600">
+                  <td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300">
                     {formatDate(referral.createdAt, locale)}
                   </td>
                   <td className="px-4 py-4">
@@ -441,7 +441,7 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
                         +${referral.rewardAmount}
                       </span>
                     ) : (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-ink-400 dark:text-ink-500">—</span>
                     )}
                   </td>
                 </tr>
@@ -474,7 +474,7 @@ export function ReferralBanner({ locale = "en" }: { locale?: "en" | "ar" }) {
               : "Get $10 for each successful referral"}
           </p>
         </div>
-        <button className="px-4 py-2 bg-white text-purple-600 font-medium rounded-lg hover:bg-purple-50 transition-colors">
+        <button className="px-4 py-2 bg-white dark:bg-ink-900 text-purple-600 font-medium rounded-lg hover:bg-purple-50 transition-colors">
           {locale === "ar" ? "شارك الآن" : "Share Now"}
         </button>
       </div>

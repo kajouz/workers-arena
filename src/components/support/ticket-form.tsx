@@ -65,16 +65,16 @@ const CATEGORIES: { id: TicketCategory; label: string; icon: typeof HelpCircle }
 
 const PRIORITIES: { id: TicketPriority; label: string; color: string }[] = [
   { id: "low", label: "Low", color: "bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-400" },
-  { id: "medium", label: "Medium", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" },
-  { id: "high", label: "High", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
-  { id: "urgent", label: "Urgent", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+  { id: "medium", label: "Medium", color: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400" },
+  { id: "high", label: "High", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
+  { id: "urgent", label: "Urgent", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" },
 ];
 
 const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; icon: typeof CheckCircle2 }> = {
-  open: { label: "Open", color: "bg-sky-100 text-sky-700", icon: MessageSquare },
-  in_progress: { label: "In Progress", color: "bg-amber-100 text-amber-700", icon: Clock },
-  waiting: { label: "Waiting", color: "bg-purple-100 text-purple-700", icon: Clock },
-  resolved: { label: "Resolved", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
+  open: { label: "Open", color: "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300", icon: MessageSquare },
+  in_progress: { label: "In Progress", color: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300", icon: Clock },
+  waiting: { label: "Waiting", color: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300", icon: Clock },
+  resolved: { label: "Resolved", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300", icon: CheckCircle2 },
   closed: { label: "Closed", color: "bg-ink-100 text-ink-600", icon: CheckCircle2 },
 };
 

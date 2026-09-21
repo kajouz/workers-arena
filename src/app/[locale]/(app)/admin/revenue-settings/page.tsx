@@ -58,7 +58,7 @@ export default async function RevenueSettingsPage() {
   const surgeReport = computeSurgeReport(leadOffers, refundRequests, { windowDays: 30 });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-ink-50 dark:bg-ink-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <FeeRulesPanel ruleSet={feeRuleSet} versions={feeVersions} snapshots={feeSnapshots.slice(0, 6)} />
         <PromotionsPanel

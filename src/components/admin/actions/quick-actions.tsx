@@ -53,21 +53,21 @@ export function QuickActionsPanel({ className }: QuickActionsPanelProps) {
           id: "approve",
           label: "Approve",
           icon: <CheckCircle className="w-4 h-4" />,
-          color: "bg-green-100 text-green-700 hover:bg-green-200",
+          color: "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-500/15 dark:text-green-300",
           action: () => handleAction("approve", "w1"),
         },
         {
           id: "reject",
           label: "Reject",
           icon: <XCircle className="w-4 h-4" />,
-          color: "bg-red-100 text-red-700 hover:bg-red-200",
+          color: "bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-500/15 dark:text-red-300",
           action: () => handleAction("reject", "w1"),
         },
         {
           id: "view",
           label: "View",
           icon: <Eye className="w-4 h-4" />,
-          color: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+          color: "bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 hover:bg-ink-200 dark:hover:bg-ink-800",
           action: () => handleAction("view", "w1"),
         },
       ],
@@ -83,21 +83,21 @@ export function QuickActionsPanel({ className }: QuickActionsPanelProps) {
           id: "contact",
           label: "Contact Worker",
           icon: <Phone className="w-4 h-4" />,
-          color: "bg-blue-100 text-blue-700 hover:bg-blue-200",
+          color: "bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/15 dark:text-blue-300",
           action: () => handleAction("contact", "b1"),
         },
         {
           id: "escalate",
           label: "Escalate",
           icon: <Zap className="w-4 h-4" />,
-          color: "bg-orange-100 text-orange-700 hover:bg-orange-200",
+          color: "bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-500/15 dark:text-orange-300",
           action: () => handleAction("escalate", "b1"),
         },
         {
           id: "reassign",
           label: "Reassign",
           icon: <MoreVertical className="w-4 h-4" />,
-          color: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+          color: "bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 hover:bg-ink-200 dark:hover:bg-ink-800",
           action: () => handleAction("reassign", "b1"),
         },
       ],
@@ -113,21 +113,21 @@ export function QuickActionsPanel({ className }: QuickActionsPanelProps) {
           id: "dismiss",
           label: "Dismiss",
           icon: <CheckCircle className="w-4 h-4" />,
-          color: "bg-green-100 text-green-700 hover:bg-green-200",
+          color: "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-500/15 dark:text-green-300",
           action: () => handleAction("dismiss", "r1"),
         },
         {
           id: "remove",
           label: "Remove",
           icon: <Ban className="w-4 h-4" />,
-          color: "bg-red-100 text-red-700 hover:bg-red-200",
+          color: "bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-500/15 dark:text-red-300",
           action: () => handleAction("remove", "r1"),
         },
         {
           id: "warn",
           label: "Warn User",
           icon: <MessageSquare className="w-4 h-4" />,
-          color: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200",
+          color: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300",
           action: () => handleAction("warn", "r1"),
         },
       ],
@@ -143,21 +143,21 @@ export function QuickActionsPanel({ className }: QuickActionsPanelProps) {
           id: "mediate",
           label: "Mediate",
           icon: <MessageSquare className="w-4 h-4" />,
-          color: "bg-blue-100 text-blue-700 hover:bg-blue-200",
+          color: "bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/15 dark:text-blue-300",
           action: () => handleAction("mediate", "d1"),
         },
         {
           id: "refund",
           label: "Refund",
           icon: <CheckCircle className="w-4 h-4" />,
-          color: "bg-green-100 text-green-700 hover:bg-green-200",
+          color: "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-500/15 dark:text-green-300",
           action: () => handleAction("refund", "d1"),
         },
         {
           id: "close",
           label: "Close",
           icon: <XCircle className="w-4 h-4" />,
-          color: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+          color: "bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 hover:bg-ink-200 dark:hover:bg-ink-800",
           action: () => handleAction("close", "d1"),
         },
       ],
@@ -204,14 +204,14 @@ export function QuickActionsPanel({ className }: QuickActionsPanelProps) {
   };
 
   return (
-    <div className={cn("bg-white rounded-xl border border-gray-200", className)}>
+    <div className={cn("bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-2">
           <Zap className="w-5 h-5 text-orange-500" />
-          <h3 className="font-semibold text-gray-900">Quick Actions</h3>
+          <h3 className="font-semibold text-ink-900 dark:text-ink-50">Quick Actions</h3>
         </div>
-        <span className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 rounded-full">
+        <span className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded-full dark:bg-orange-500/15 dark:text-orange-300">
           {items.length} pending
         </span>
       </div>
@@ -219,7 +219,7 @@ export function QuickActionsPanel({ className }: QuickActionsPanelProps) {
       {/* Items list */}
       <div className="divide-y max-h-[400px] overflow-y-auto">
         {items.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
+          <div className="p-8 text-center text-ink-500 dark:text-ink-400">
             <CheckCircle className="w-8 h-8 mx-auto text-green-500" />
             <p className="mt-2 font-medium text-green-700">All caught up!</p>
             <p className="text-sm">No pending items require attention</p>
@@ -228,18 +228,18 @@ export function QuickActionsPanel({ className }: QuickActionsPanelProps) {
           items.map((item) => (
             <div
               key={item.id}
-              className="px-4 py-3 hover:bg-gray-50 transition-colors"
+              className="px-4 py-3 hover:bg-ink-50 dark:hover:bg-ink-950 transition-colors"
             >
               <div className="flex items-start gap-3">
                 <span className="text-lg">{getTypeIcon(item.type)}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-500 uppercase">
+                    <span className="text-xs font-medium text-ink-500 dark:text-ink-400 uppercase">
                       {getTypeLabel(item.type)}
                     </span>
                   </div>
-                  <p className="font-medium text-gray-900">{item.title}</p>
-                  <p className="text-sm text-gray-600">{item.subtitle}</p>
+                  <p className="font-medium text-ink-900 dark:text-ink-50">{item.title}</p>
+                  <p className="text-sm text-ink-600 dark:text-ink-300">{item.subtitle}</p>
                   
                   {/* Action buttons */}
                   <div className="flex items-center gap-2 mt-2">

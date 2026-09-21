@@ -17,19 +17,19 @@ export function NotificationTemplates() {
   ]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
-  const typeColors: Record<string, string> = { email: "bg-blue-100 text-blue-800", push: "bg-purple-100 text-purple-800", sms: "bg-green-100 text-green-800" };
+  const typeColors: Record<string, string> = { email: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300", push: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300", sms: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300" };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Notification Templates</h3><button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"><Plus className="w-4 h-4" /> New Template</button></div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {templates.map((t) => (
-          <div key={t.id} onClick={() => setSelectedTemplate(t)} className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-all">
-            <div className="flex items-start justify-between mb-2"><span className={cn("px-2 py-0.5 text-xs font-medium rounded-full", typeColors[t.type])}>{t.type}</span><div className="flex gap-1"><button className="text-gray-400 hover:text-gray-600"><Edit className="w-4 h-4" /></button><button className="text-gray-400 hover:text-gray-600"><Copy className="w-4 h-4" /></button></div></div>
-            <p className="font-medium text-gray-900">{t.name}</p>
-            {t.subject && <p className="text-sm text-gray-500 mt-1">{t.subject}</p>}
-            <p className="text-sm text-gray-400 mt-2 line-clamp-2">{t.body}</p>
-            <p className="text-xs text-gray-400 mt-2">Updated: {formatDate(t.lastUpdated, locale)}</p>
+          <div key={t.id} onClick={() => setSelectedTemplate(t)} className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4 cursor-pointer hover:shadow-md transition-all">
+            <div className="flex items-start justify-between mb-2"><span className={cn("px-2 py-0.5 text-xs font-medium rounded-full", typeColors[t.type])}>{t.type}</span><div className="flex gap-1"><button className="text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300"><Edit className="w-4 h-4" /></button><button className="text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300"><Copy className="w-4 h-4" /></button></div></div>
+            <p className="font-medium text-ink-900 dark:text-ink-50">{t.name}</p>
+            {t.subject && <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">{t.subject}</p>}
+            <p className="text-sm text-ink-400 dark:text-ink-500 mt-2 line-clamp-2">{t.body}</p>
+            <p className="text-xs text-ink-400 dark:text-ink-500 mt-2">Updated: {formatDate(t.lastUpdated, locale)}</p>
           </div>
         ))}
       </div>

@@ -155,10 +155,10 @@ export function DateRangePicker({
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+        className="flex items-center gap-2 px-3 py-2 text-sm border border-ink-200 dark:border-ink-800 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-950"
       >
-        <Calendar className="w-4 h-4 text-gray-500" />
-        <span className="text-gray-700">
+        <Calendar className="w-4 h-4 text-ink-500 dark:text-ink-400" />
+        <span className="text-ink-700 dark:text-ink-200">
           {range.start ? (
             range.end ? (
               <>
@@ -175,23 +175,23 @@ export function DateRangePicker({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50">
+        <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-ink-900 rounded-xl shadow-xl border border-ink-200 dark:border-ink-800 z-50">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-ink-700 dark:text-ink-200">
                 {formatDate(range.start)}
               </span>
-              <span className="text-gray-400">→</span>
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-ink-400 dark:text-ink-500">→</span>
+              <span className="text-sm font-medium text-ink-700 dark:text-ink-200">
                 {formatDate(range.end)}
               </span>
             </div>
             <button
               onClick={handleClear}
-              className="p-1 hover:bg-gray-100 rounded"
+              className="p-1 hover:bg-ink-100 dark:hover:bg-ink-800 rounded"
             >
-              <X className="w-4 h-4 text-gray-400" />
+              <X className="w-4 h-4 text-ink-400 dark:text-ink-500" />
             </button>
           </div>
 
@@ -203,7 +203,7 @@ export function DateRangePicker({
                   <button
                     key={preset.label}
                     onClick={() => handlePresetClick(preset)}
-                    className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200"
+                    className="px-3 py-1.5 text-xs font-medium text-ink-700 dark:text-ink-200 bg-ink-100 dark:bg-ink-800 rounded-full hover:bg-ink-200 dark:hover:bg-ink-800"
                   >
                     {preset.label}
                   </button>
@@ -218,11 +218,11 @@ export function DateRangePicker({
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={prevMonth}
-                className="p-1 hover:bg-gray-100 rounded"
+                className="p-1 hover:bg-ink-100 dark:hover:bg-ink-800 rounded"
               >
-                <ChevronLeft className="w-4 h-4 text-gray-600" />
+                <ChevronLeft className="w-4 h-4 text-ink-600 dark:text-ink-300" />
               </button>
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-ink-900 dark:text-ink-50">
                 {viewDate.toLocaleDateString("en-US", {
                   month: "long",
                   year: "numeric",
@@ -230,9 +230,9 @@ export function DateRangePicker({
               </span>
               <button
                 onClick={nextMonth}
-                className="p-1 hover:bg-gray-100 rounded"
+                className="p-1 hover:bg-ink-100 dark:hover:bg-ink-800 rounded"
               >
-                <ChevronRight className="w-4 h-4 text-gray-600" />
+                <ChevronRight className="w-4 h-4 text-ink-600 dark:text-ink-300" />
               </button>
             </div>
 
@@ -241,7 +241,7 @@ export function DateRangePicker({
               {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
                 <div
                   key={day}
-                  className="text-center text-xs font-medium text-gray-500 py-1"
+                  className="text-center text-xs font-medium text-ink-500 dark:text-ink-400 py-1"
                 >
                   {day}
                 </div>
@@ -262,7 +262,7 @@ export function DateRangePicker({
                     isStart(day) && "bg-blue-600 text-white rounded-r-none",
                     isEnd(day) && "bg-blue-600 text-white rounded-l-none",
                     isInRange(day) && !isStart(day) && !isEnd(day) && "bg-blue-100",
-                    !isInRange(day) && !isStart(day) && !isEnd(day) && "hover:bg-gray-100"
+                    !isInRange(day) && !isStart(day) && !isEnd(day) && "hover:bg-ink-100 dark:hover:bg-ink-800"
                   )}
                 >
                   {day}

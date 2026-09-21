@@ -43,18 +43,18 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
     whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-ink-50 dark:bg-ink-950">
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
+            <Link href="/dashboard" className="text-sm text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200">
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <Receipt className="h-6 w-6 text-brand-500" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Earnings Statement</h1>
-              <p className="text-sm text-gray-500">{workerName}</p>
+              <h1 className="text-2xl font-bold text-ink-900 dark:text-ink-50">Earnings Statement</h1>
+              <p className="text-sm text-ink-500 dark:text-ink-400">{workerName}</p>
             </div>
           </div>
         </div>
@@ -63,7 +63,7 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
         <div className="flex items-center gap-2">
           <Link
             href={`/dashboard/earnings?month=${prevMonth}`}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-100"
+            className="rounded-lg border border-ink-200 dark:border-ink-800 px-3 py-1.5 text-sm hover:bg-ink-100 dark:hover:bg-ink-800"
           >
             ←
           </Link>
@@ -72,7 +72,7 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
             onChange={(e) => {
               window.location.href = `/dashboard/earnings?month=${e.target.value}`;
             }}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium"
+            className="rounded-lg border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 px-3 py-1.5 text-sm font-medium"
           >
             {monthKeys.map((key) => (
               <option key={key} value={key}>
@@ -83,8 +83,8 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
           <Link
             href={`/dashboard/earnings?month=${nextMonth}`}
             className={cn(
-              "rounded-lg border border-gray-200 px-3 py-1.5 text-sm",
-              canGoNext ? "hover:bg-gray-100" : "pointer-events-none opacity-30"
+              "rounded-lg border border-ink-200 dark:border-ink-800 px-3 py-1.5 text-sm",
+              canGoNext ? "hover:bg-ink-100 dark:hover:bg-ink-800" : "pointer-events-none opacity-30"
             )}
           >
             →
@@ -121,22 +121,22 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
 
         {/* Source Breakdown */}
         {statement.gmvFromLeadsMinor > 0 && (
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
-            <h2 className="mb-3 text-sm font-semibold text-gray-700">Earnings by Source</h2>
+          <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-5">
+            <h2 className="mb-3 text-sm font-semibold text-ink-700 dark:text-ink-200">Earnings by Source</h2>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-lg font-bold tabular-nums">{fmt(statement.gmvFromLeadsMinor)}</p>
-                <p className="text-xs text-gray-500">GMV from leads</p>
+                <p className="text-xs text-ink-500 dark:text-ink-400">GMV from leads</p>
               </div>
               <div>
                 <p className="text-lg font-bold tabular-nums">{fmt(statement.rebatesFromLeadsMinor)}</p>
-                <p className="text-xs text-gray-500">Rebates from leads</p>
+                <p className="text-xs text-ink-500 dark:text-ink-400">Rebates from leads</p>
               </div>
               <div>
                 <p className="text-lg font-bold tabular-nums">
                   {fmt(statement.gmvMinor - statement.gmvFromLeadsMinor)}
                 </p>
-                <p className="text-xs text-gray-500">GMV from direct bookings</p>
+                <p className="text-xs text-ink-500 dark:text-ink-400">GMV from direct bookings</p>
               </div>
             </div>
           </div>
@@ -144,16 +144,16 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
 
         {/* Payouts */}
         {statement.payoutsCount > 0 && (
-          <div className="rounded-xl border border-gray-200 bg-white">
-            <div className="border-b border-gray-100 px-5 py-3">
-              <h2 className="text-sm font-semibold text-gray-700">
+          <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900">
+            <div className="border-b border-ink-100 dark:border-ink-800 px-5 py-3">
+              <h2 className="text-sm font-semibold text-ink-700 dark:text-ink-200">
                 Payouts ({statement.payoutsCount}) — {fmt(statement.payoutsMinor)} total
               </h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-100 text-left text-gray-500">
+                  <tr className="border-b border-ink-100 dark:border-ink-800 text-left text-ink-500 dark:text-ink-400">
                     <th className="px-5 py-2 font-medium">Date</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                     <th className="px-3 py-2 font-medium">Reason</th>
@@ -171,17 +171,17 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
         )}
 
         {/* Completed Jobs Table */}
-        <div className="rounded-xl border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-5 py-3">
-            <h2 className="text-sm font-semibold text-gray-700">
+        <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900">
+          <div className="border-b border-ink-100 dark:border-ink-800 px-5 py-3">
+            <h2 className="text-sm font-semibold text-ink-700 dark:text-ink-200">
               Completed Jobs ({statement.completedCount})
             </h2>
           </div>
 
           {statement.completedJobs.length === 0 ? (
             <div className="px-5 py-12 text-center">
-              <Receipt className="mx-auto h-8 w-8 text-gray-300" />
-              <p className="mt-2 text-sm text-gray-500">No completed jobs this month.</p>
+              <Receipt className="mx-auto h-8 w-8 text-ink-300 dark:text-ink-600" />
+              <p className="mt-2 text-sm text-ink-500 dark:text-ink-400">No completed jobs this month.</p>
               <Link
                 href={`/dashboard/earnings?month=${prevMonth}`}
                 className="mt-2 inline-block text-xs text-brand-600 hover:underline"
@@ -193,7 +193,7 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-100 text-left text-gray-500">
+                  <tr className="border-b border-ink-100 dark:border-ink-800 text-left text-ink-500 dark:text-ink-400">
                     <th className="px-5 py-2 font-medium">Job</th>
                     <th className="px-3 py-2 font-medium">Customer</th>
                     <th className="px-3 py-2 text-right font-medium">GMV</th>
@@ -209,8 +209,8 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t-2 border-gray-200 font-semibold">
-                    <td colSpan={2} className="px-5 py-2 text-gray-700">Total</td>
+                  <tr className="border-t-2 border-ink-200 dark:border-ink-800 font-semibold">
+                    <td colSpan={2} className="px-5 py-2 text-ink-700 dark:text-ink-200">Total</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmt(statement.gmvMinor)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmt(statement.effectiveFeesMinor)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmt(statement.rebatesMinor)}</td>
@@ -236,23 +236,23 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
 
         {/* Stats Footer */}
         <div className="grid grid-cols-3 gap-4 text-center">
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="rounded-lg border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-3">
             <p className="text-lg font-bold tabular-nums">
               {statement.completedCount > 0 ? fmt(statement.avgEarningsPerJobMinor) : "—"}
             </p>
-            <p className="text-[11px] text-gray-500">Avg per job</p>
+            <p className="text-[11px] text-ink-500 dark:text-ink-400">Avg per job</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="rounded-lg border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-3">
             <p className="text-lg font-bold tabular-nums">
               {statement.effectiveFeeRateBps > 0 ? `${(statement.effectiveFeeRateBps / 100).toFixed(1)}%` : "—"}
             </p>
-            <p className="text-[11px] text-gray-500">Effective fee rate</p>
+            <p className="text-[11px] text-ink-500 dark:text-ink-400">Effective fee rate</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="rounded-lg border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-3">
             <p className="text-lg font-bold tabular-nums">
               {statement.rebatesMinor > 0 ? fmt(statement.rebatesMinor) : "—"}
             </p>
-            <p className="text-[11px] text-gray-500">Total rebates saved</p>
+            <p className="text-[11px] text-ink-500 dark:text-ink-400">Total rebates saved</p>
           </div>
         </div>
       </div>
@@ -276,20 +276,20 @@ function SummaryCard({
   color?: "emerald" | "default";
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
+    <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-4">
       <div className="flex items-center gap-2">
         {icon}
-        <span className="text-xs font-medium text-gray-500">{label}</span>
+        <span className="text-xs font-medium text-ink-500 dark:text-ink-400">{label}</span>
       </div>
       <p
         className={cn(
           "mt-2 text-2xl font-bold tabular-nums",
-          color === "emerald" ? "text-emerald-600" : "text-gray-900"
+          color === "emerald" ? "text-emerald-600" : "text-ink-900 dark:text-ink-50"
         )}
       >
         {value}
       </p>
-      {subtitle && <p className="mt-0.5 text-[11px] text-gray-400">{subtitle}</p>}
+      {subtitle && <p className="mt-0.5 text-[11px] text-ink-400 dark:text-ink-500">{subtitle}</p>}
     </div>
   );
 }
@@ -302,32 +302,32 @@ function JobRow({
   fmt: (minor: number) => string;
 }) {
   return (
-    <tr className="border-b border-gray-50 hover:bg-gray-50">
+    <tr className="border-b border-ink-50 dark:border-ink-800 hover:bg-ink-50 dark:hover:bg-ink-950">
       <td className="px-5 py-2">
         <div>
-          <p className="font-medium text-gray-900">{job.jobTitle}</p>
-          <p className="text-[10px] text-gray-400 tabular-nums">{job.bookingNumber}</p>
+          <p className="font-medium text-ink-900 dark:text-ink-50">{job.jobTitle}</p>
+          <p className="text-[10px] text-ink-400 dark:text-ink-500 tabular-nums">{job.bookingNumber}</p>
         </div>
       </td>
-      <td className="px-3 py-2 text-gray-600">{job.customerName}</td>
+      <td className="px-3 py-2 text-ink-600 dark:text-ink-300">{job.customerName}</td>
       <td className="px-3 py-2 text-right tabular-nums">{fmt(job.gmvMinor)}</td>
-      <td className="px-3 py-2 text-right tabular-nums text-gray-500">{fmt(job.feeMinor)}</td>
+      <td className="px-3 py-2 text-right tabular-nums text-ink-500 dark:text-ink-400">{fmt(job.feeMinor)}</td>
       <td className="px-3 py-2 text-right tabular-nums">
         {job.rebateMinor > 0 ? (
           <span className="text-emerald-600">-{fmt(job.rebateMinor)}</span>
         ) : (
-          <span className="text-gray-300">—</span>
+          <span className="text-ink-300 dark:text-ink-600">—</span>
         )}
       </td>
       <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(job.netEarningsMinor)}</td>
       <td className="px-5 py-2 text-right">
         {job.fromLead ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">
+          <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-800 dark:bg-purple-500/15 dark:text-purple-300">
             <Target className="h-2.5 w-2.5" />
             lead
           </span>
         ) : (
-          <span className="text-[10px] text-gray-400">direct</span>
+          <span className="text-[10px] text-ink-400 dark:text-ink-500">direct</span>
         )}
       </td>
     </tr>
@@ -344,8 +344,8 @@ function PayoutRow({
   locale: "en" | "ar";
 }) {
   return (
-    <tr className="border-b border-gray-50 hover:bg-gray-50">
-      <td className="px-5 py-2 text-gray-600">{formatDate(payout.time, locale)}</td>
+    <tr className="border-b border-ink-50 dark:border-ink-800 hover:bg-ink-50 dark:hover:bg-ink-950">
+      <td className="px-5 py-2 text-ink-600 dark:text-ink-300">{formatDate(payout.time, locale)}</td>
       <td className="px-3 py-2">
         <Badge
           variant={
@@ -360,7 +360,7 @@ function PayoutRow({
           {payout.status}
         </Badge>
       </td>
-      <td className="px-3 py-2 text-gray-500">{payout.reason || "—"}</td>
+      <td className="px-3 py-2 text-ink-500 dark:text-ink-400">{payout.reason || "—"}</td>
       <td className="px-3 py-2 text-right font-semibold text-red-600">-{fmt(payout.amountMinor)}</td>
     </tr>
   );

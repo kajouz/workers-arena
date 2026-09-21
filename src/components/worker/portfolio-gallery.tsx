@@ -84,11 +84,11 @@ export function PortfolioGallery({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Camera className="w-5 h-5 text-gray-600" />
-          <h3 className="text-lg font-semibold text-gray-900">
+          <Camera className="w-5 h-5 text-ink-600 dark:text-ink-300" />
+          <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-50">
             {locale === "ar" ? "معرض الأعمال" : "Portfolio"}
           </h3>
-          <span className="text-sm text-gray-500">({images.length})</span>
+          <span className="text-sm text-ink-500 dark:text-ink-400">({images.length})</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -97,7 +97,7 @@ export function PortfolioGallery({
             aria-pressed={viewMode === "grid"}
             className={cn(
               "p-3 -m-1 rounded-lg transition-colors",
-              viewMode === "grid" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50"
+              viewMode === "grid" ? "bg-ink-100 dark:bg-ink-800 text-ink-900 dark:text-ink-50" : "text-ink-500 dark:text-ink-400 hover:bg-ink-50 dark:hover:bg-ink-950"
             )}
           >
             <Grid className="w-4 h-4" />
@@ -108,7 +108,7 @@ export function PortfolioGallery({
             aria-pressed={viewMode === "list"}
             className={cn(
               "p-3 -m-1 rounded-lg transition-colors",
-              viewMode === "list" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50"
+              viewMode === "list" ? "bg-ink-100 dark:bg-ink-800 text-ink-900 dark:text-ink-50" : "text-ink-500 dark:text-ink-400 hover:bg-ink-50 dark:hover:bg-ink-950"
             )}
           >
             <List className="w-4 h-4" />
@@ -170,7 +170,7 @@ export function PortfolioGallery({
           {hasMore && !showAll && (
             <button
               onClick={() => setShowAll(true)}
-              className="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
+              className="aspect-square rounded-xl border-2 border-dashed border-ink-300 dark:border-ink-700 flex flex-col items-center justify-center text-ink-500 dark:text-ink-400 hover:border-ink-400 dark:hover:border-ink-600 hover:text-ink-600 dark:hover:text-ink-300 transition-colors"
             >
               <span className="text-2xl font-bold">+{images.length - maxDisplay}</span>
               <span className="text-sm">more</span>
@@ -184,7 +184,7 @@ export function PortfolioGallery({
             <div
               key={image.id}
               onClick={() => handleImageClick(image, displayImages.indexOf(image))}
-              className="flex items-center gap-4 p-3 rounded-xl border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+              className="flex items-center gap-4 p-3 rounded-xl border border-ink-200 dark:border-ink-800 hover:bg-ink-50 dark:hover:bg-ink-950 cursor-pointer transition-colors"
             >
               <div
                 className="w-20 h-20 rounded-lg flex-shrink-0 flex items-center justify-center"
@@ -195,16 +195,16 @@ export function PortfolioGallery({
                 <Camera className="w-8 h-8 text-white/50" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">
+                <p className="font-medium text-ink-900 dark:text-ink-50 truncate">
                   {locale === "ar" ? image.titleAr || image.title : image.title}
                 </p>
                 {image.description && (
-                  <p className="text-sm text-gray-500 truncate">
+                  <p className="text-sm text-ink-500 dark:text-ink-400 truncate">
                     {locale === "ar" ? image.descriptionAr || image.description : image.description}
                   </p>
                 )}
                 {image.category && (
-                  <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+                  <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300 rounded-full">
                     {image.category}
                   </span>
                 )}
@@ -226,7 +226,7 @@ export function PortfolioGallery({
           {/* Close button */}
           <button
             onClick={() => setSelectedImage(null)}
-            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            className="absolute top-4 right-4 text-white hover:text-ink-300 dark:hover:text-ink-600 z-10"
           >
             <X className="w-8 h-8" />
           </button>
@@ -234,13 +234,13 @@ export function PortfolioGallery({
           {/* Navigation */}
           <button
             onClick={() => navigateImage("prev")}
-            className="absolute left-4 text-white hover:text-gray-300 z-10"
+            className="absolute left-4 text-white hover:text-ink-300 dark:hover:text-ink-600 z-10"
           >
             <ChevronLeft className="w-12 h-12" />
           </button>
           <button
             onClick={() => navigateImage("next")}
-            className="absolute right-4 text-white hover:text-gray-300 z-10"
+            className="absolute right-4 text-white hover:text-ink-300 dark:hover:text-ink-600 z-10"
           >
             <ChevronRight className="w-12 h-12" />
           </button>
@@ -252,26 +252,26 @@ export function PortfolioGallery({
               <div className="relative">
                 <div className="relative overflow-hidden rounded-xl">
                   {/* After image (background) */}
-                  <div className="w-full h-[60vh] flex items-center justify-center bg-gray-800">
-                    <Camera className="w-24 h-24 text-gray-600" />
+                  <div className="w-full h-[60vh] flex items-center justify-center bg-ink-800 dark:bg-ink-800">
+                    <Camera className="w-24 h-24 text-ink-600 dark:text-ink-300" />
                   </div>
                   
                   {/* Before image (overlay with clip) */}
                   <div
-                    className="absolute inset-0 flex items-center justify-center bg-gray-700"
+                    className="absolute inset-0 flex items-center justify-center bg-ink-700 dark:bg-ink-800"
                     style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
                   >
-                    <Camera className="w-24 h-24 text-gray-500" />
+                    <Camera className="w-24 h-24 text-ink-500 dark:text-ink-400" />
                   </div>
 
                   {/* Slider line */}
                   <div
-                    className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize"
+                    className="absolute top-0 bottom-0 w-1 bg-white dark:bg-ink-900 cursor-ew-resize"
                     style={{ left: `${sliderPosition}%` }}
                   >
-                    <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg">
-                      <ChevronLeft className="w-4 h-4 text-gray-800" />
-                      <ChevronRight className="w-4 h-4 text-gray-800" />
+                    <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 bg-white dark:bg-ink-900 rounded-full flex items-center justify-center shadow-lg">
+                      <ChevronLeft className="w-4 h-4 text-ink-800 dark:text-ink-100" />
+                      <ChevronRight className="w-4 h-4 text-ink-800 dark:text-ink-100" />
                     </div>
                   </div>
 
@@ -297,8 +297,8 @@ export function PortfolioGallery({
             ) : (
               /* Single image view */
               <div className="rounded-xl overflow-hidden">
-                <div className="w-full h-[60vh] flex items-center justify-center bg-gray-800">
-                  <Camera className="w-24 h-24 text-gray-600" />
+                <div className="w-full h-[60vh] flex items-center justify-center bg-ink-800 dark:bg-ink-800">
+                  <Camera className="w-24 h-24 text-ink-600 dark:text-ink-300" />
                 </div>
               </div>
             )}
@@ -309,7 +309,7 @@ export function PortfolioGallery({
                 {locale === "ar" ? selectedImage.titleAr || selectedImage.title : selectedImage.title}
               </h3>
               {(selectedImage.description || selectedImage.descriptionAr) && (
-                <p className="mt-2 text-gray-300">
+                <p className="mt-2 text-ink-300 dark:text-ink-600">
                   {locale === "ar" 
                     ? selectedImage.descriptionAr || selectedImage.description 
                     : selectedImage.description || selectedImage.descriptionAr}
@@ -350,26 +350,26 @@ export function BeforeAfterSlider({
   return (
     <div className={cn("relative overflow-hidden rounded-xl", className)}>
       {/* After image (background) */}
-      <div className="w-full h-64 md:h-96 flex items-center justify-center bg-gray-200">
-        <Camera className="w-16 h-16 text-gray-400" />
+      <div className="w-full h-64 md:h-96 flex items-center justify-center bg-ink-200 dark:bg-ink-800">
+        <Camera className="w-16 h-16 text-ink-400 dark:text-ink-500" />
       </div>
 
       {/* Before image (overlay) */}
       <div
-        className="absolute inset-0 flex items-center justify-center bg-gray-300"
+        className="absolute inset-0 flex items-center justify-center bg-ink-300 dark:bg-ink-700"
         style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
       >
-        <Camera className="w-16 h-16 text-gray-500" />
+        <Camera className="w-16 h-16 text-ink-500 dark:text-ink-400" />
       </div>
 
       {/* Slider line */}
       <div
-        className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-10"
+        className="absolute top-0 bottom-0 w-1 bg-white dark:bg-ink-900 cursor-ew-resize z-10"
         style={{ left: `${position}%` }}
       >
-        <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg">
-          <ChevronLeft className="w-5 h-5 text-gray-800" />
-          <ChevronRight className="w-5 h-5 text-gray-800" />
+        <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 bg-white dark:bg-ink-900 rounded-full flex items-center justify-center shadow-lg">
+          <ChevronLeft className="w-5 h-5 text-ink-800 dark:text-ink-100" />
+          <ChevronRight className="w-5 h-5 text-ink-800 dark:text-ink-100" />
         </div>
       </div>
 

@@ -35,20 +35,20 @@ export function PromotedCampaignCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
-        <div className="h-8 bg-gray-200 rounded w-1/4" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4 animate-pulse">
+        <div className="h-4 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-2" />
+        <div className="h-8 bg-ink-200 dark:bg-ink-800 rounded w-1/4" />
       </div>
     );
   }
 
   if (!campaign) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6">
         <div className="text-center">
-          <Megaphone className="w-12 h-12 text-gray-300 mx-auto" />
-          <h3 className="mt-2 font-medium text-gray-900">Promote Your Profile</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <Megaphone className="w-12 h-12 text-ink-300 dark:text-ink-600 mx-auto" />
+          <h3 className="mt-2 font-medium text-ink-900 dark:text-ink-50">Promote Your Profile</h3>
+          <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">
             Get more visibility in search results with CPC bidding
           </p>
           <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
@@ -68,7 +68,7 @@ export function PromotedCampaignCard() {
     : "0.00";
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Campaign Header */}
       <div className="p-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white">
         <div className="flex items-center justify-between">
@@ -81,7 +81,7 @@ export function PromotedCampaignCard() {
               "px-2 py-0.5 rounded-full text-xs font-medium",
               campaign.status === "active"
                 ? "bg-green-400/20 text-green-100"
-                : "bg-gray-400/20 text-gray-100"
+                : "bg-ink-400 dark:bg-ink-600/20 text-ink-100 dark:text-ink-800"
             )}>
               {campaign.status === "active" ? "Active" : "Paused"}
             </span>
@@ -110,8 +110,8 @@ export function PromotedCampaignCard() {
             <Eye className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <p className="text-lg font-bold text-gray-900">{formatNumber(campaign.impressions)}</p>
-            <p className="text-xs text-gray-500">Impressions</p>
+            <p className="text-lg font-bold text-ink-900 dark:text-ink-50">{formatNumber(campaign.impressions)}</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Impressions</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -119,8 +119,8 @@ export function PromotedCampaignCard() {
             <MousePointerClick className="w-5 h-5 text-green-600" />
           </div>
           <div>
-            <p className="text-lg font-bold text-gray-900">{campaign.clicks}</p>
-            <p className="text-xs text-gray-500">Clicks</p>
+            <p className="text-lg font-bold text-ink-900 dark:text-ink-50">{campaign.clicks}</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Clicks</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -128,8 +128,8 @@ export function PromotedCampaignCard() {
             <TrendingUp className="w-5 h-5 text-purple-600" />
           </div>
           <div>
-            <p className="text-lg font-bold text-gray-900">{ctr}%</p>
-            <p className="text-xs text-gray-500">CTR</p>
+            <p className="text-lg font-bold text-ink-900 dark:text-ink-50">{ctr}%</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">CTR</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -137,16 +137,16 @@ export function PromotedCampaignCard() {
             <DollarSign className="w-5 h-5 text-orange-600" />
           </div>
           <div>
-            <p className="text-lg font-bold text-gray-900">${campaign.totalSpent}</p>
-            <p className="text-xs text-gray-500">Total Spent</p>
+            <p className="text-lg font-bold text-ink-900 dark:text-ink-50">${campaign.totalSpent}</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Total Spent</p>
           </div>
         </div>
       </div>
 
       {/* Campaign Settings */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-ink-200 dark:border-ink-800">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="font-medium text-gray-900">Campaign Settings</h4>
+          <h4 className="font-medium text-ink-900 dark:text-ink-50">Campaign Settings</h4>
           <button
             onClick={() => setShowSettings(!showSettings)}
             className="text-sm text-blue-600 hover:text-blue-700"
@@ -157,27 +157,27 @@ export function PromotedCampaignCard() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-sm text-gray-500">Max CPC Bid</p>
-            <p className="font-medium text-gray-900">${campaign.maxCpc.toFixed(2)}</p>
+            <p className="text-sm text-ink-500 dark:text-ink-400">Max CPC Bid</p>
+            <p className="font-medium text-ink-900 dark:text-ink-50">${campaign.maxCpc.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Daily Budget</p>
-            <p className="font-medium text-gray-900">${campaign.dailyBudget}</p>
+            <p className="text-sm text-ink-500 dark:text-ink-400">Daily Budget</p>
+            <p className="font-medium text-ink-900 dark:text-ink-50">${campaign.dailyBudget}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Avg. CPC</p>
-            <p className="font-medium text-gray-900">${avgCpc}</p>
+            <p className="text-sm text-ink-500 dark:text-ink-400">Avg. CPC</p>
+            <p className="font-medium text-ink-900 dark:text-ink-50">${avgCpc}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Budget Used Today</p>
+            <p className="text-sm text-ink-500 dark:text-ink-400">Budget Used Today</p>
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="flex-1 h-2 bg-ink-200 dark:bg-ink-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-pink-500 rounded-full"
                   style={{ width: `${Math.min((campaign.totalSpent / (campaign.dailyBudget * 30)) * 100, 100)}%` }}
                 />
               </div>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-ink-500 dark:text-ink-400">
                 {Math.round((campaign.totalSpent / (campaign.dailyBudget * 30)) * 100)}%
               </span>
             </div>
@@ -185,9 +185,9 @@ export function PromotedCampaignCard() {
         </div>
 
         {showSettings && (
-          <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+          <div className="mt-4 pt-4 border-t border-ink-200 dark:border-ink-800 space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">
                 Max CPC Bid ($)
               </label>
               <input
@@ -200,12 +200,12 @@ export function PromotedCampaignCard() {
                 min="0.50"
                 max="10"
                 step="0.25"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
               />
-              <p className="mt-1 text-xs text-gray-500">Min: $0.50, Max: $10.00</p>
+              <p className="mt-1 text-xs text-ink-500 dark:text-ink-400">Min: $0.50, Max: $10.00</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">
                 Daily Budget ($)
               </label>
               <input
@@ -218,9 +218,9 @@ export function PromotedCampaignCard() {
                 min="5"
                 max="100"
                 step="5"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
               />
-              <p className="mt-1 text-xs text-gray-500">Min: $5, Max: $100</p>
+              <p className="mt-1 text-xs text-ink-500 dark:text-ink-400">Min: $5, Max: $100</p>
             </div>
             <button className="w-full px-4 py-2 bg-pink-600 text-white rounded-lg font-medium hover:bg-pink-700 transition-colors">
               Save Changes

@@ -40,7 +40,7 @@ export function WorkerRevenueTools() {
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
         <div className="flex overflow-x-auto">
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -52,8 +52,8 @@ export function WorkerRevenueTools() {
                 className={cn(
                   "flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
                   activeTab === tab.id
-                    ? "border-blue-500 text-blue-600 bg-blue-50"
-                    : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    ? "border-blue-500 text-blue-800 bg-blue-50 dark:bg-blue-500/15 dark:text-blue-300"
+                    : "border-transparent text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50 hover:bg-ink-50 dark:hover:bg-ink-950"
                 )}
               >
                 <Icon className="w-4 h-4" />

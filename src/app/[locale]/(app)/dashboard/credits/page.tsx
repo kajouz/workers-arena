@@ -17,12 +17,12 @@ export default async function CreditsPage() {
   if (session.role !== "worker" && session.role !== "admin") return await localeRedirect("/dashboard");
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-ink-50 dark:bg-ink-950">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            className="flex items-center gap-1 text-sm text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
           >
             <ArrowLeft className="h-4 w-4" />
             Dashboard
@@ -31,19 +31,19 @@ export default async function CreditsPage() {
 
         <div className="flex items-center gap-2">
           <Coins className="h-6 w-6 text-amber-500" />
-          <h1 className="text-2xl font-bold text-gray-900">Platform Credits</h1>
+          <h1 className="text-2xl font-bold text-ink-900 dark:text-ink-50">Platform Credits</h1>
         </div>
 
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-ink-500 dark:text-ink-400">
           Credits let you buy qualified leads from the marketplace. Each credit equals $1.
           Purchase via OMT or Whish — admin confirms, credits granted instantly.
         </p>
 
         <CreditBalanceCard />
 
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <h2 className="font-semibold text-gray-900 mb-2">How credits work</h2>
-          <ul className="space-y-2 text-sm text-gray-600">
+        <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-4">
+          <h2 className="font-semibold text-ink-900 dark:text-ink-50 mb-2">How credits work</h2>
+          <ul className="space-y-2 text-sm text-ink-600 dark:text-ink-300">
             <li className="flex gap-2">
               <span className="text-amber-500 font-bold">1.</span>
               Browse qualified leads at{" "}

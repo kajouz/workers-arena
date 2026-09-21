@@ -102,9 +102,9 @@ export function FlexiblePaymentsCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
-        <div className="h-6 bg-gray-200 rounded w-1/3 mb-4" />
-        <div className="h-32 bg-gray-200 rounded" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6 animate-pulse">
+        <div className="h-6 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-4" />
+        <div className="h-32 bg-ink-200 dark:bg-ink-800 rounded" />
       </div>
     );
   }
@@ -114,7 +114,7 @@ export function FlexiblePaymentsCard() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Header */}
       <div className="p-4 bg-gradient-to-r from-violet-500 to-purple-600 text-white">
         <div className="flex items-center justify-between">
@@ -127,7 +127,7 @@ export function FlexiblePaymentsCard() {
       </div>
 
       {/* Wallet Balance */}
-      <div className="p-4 bg-gradient-to-r from-violet-50 to-purple-50 border-b border-gray-200">
+      <div className="p-4 bg-gradient-to-r from-violet-50 to-purple-50 border-b border-ink-200 dark:border-ink-800">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm text-violet-700">Wallet Balance</div>
@@ -142,7 +142,7 @@ export function FlexiblePaymentsCard() {
       </div>
 
       {/* Section Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <div className="flex overflow-x-auto">
           {[
             { id: "wallet" as const, label: "Top Up", icon: Wallet },
@@ -166,8 +166,8 @@ export function FlexiblePaymentsCard() {
                 className={cn(
                   "flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
                   activeSection === section.id
-                    ? "border-violet-500 text-violet-600 bg-violet-50"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
+                    ? "border-violet-500 text-violet-800 bg-violet-50 dark:bg-violet-500/15 dark:text-violet-300"
+                    : "border-transparent text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50"
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -182,7 +182,7 @@ export function FlexiblePaymentsCard() {
         {/* Wallet Top Up */}
         {activeSection === "wallet" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">Top Up Wallet</h4>
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">Top Up Wallet</h4>
             <div className="space-y-3">
               {options.walletTopUps.map((method) => (
                 <div
@@ -192,7 +192,7 @@ export function FlexiblePaymentsCard() {
                     "p-4 rounded-lg border-2 cursor-pointer transition-all",
                     selectedTopUp === method.id
                       ? "border-violet-500 bg-violet-50"
-                      : "border-gray-200 hover:border-gray-300"
+                      : "border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-700"
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -200,18 +200,18 @@ export function FlexiblePaymentsCard() {
                       <span className="text-2xl">{method.icon}</span>
                       <div>
                         <div className="font-medium">{method.method}</div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-ink-500 dark:text-ink-400">
                           {method.methodAr}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       {method.bonus > 0 && (
-                        <div className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded mb-1">
+                        <div className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded mb-1 dark:bg-green-500/15 dark:text-green-300">
                           +{method.bonus}% bonus
                         </div>
                       )}
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-ink-500 dark:text-ink-400">
                         {method.processingTime}
                       </div>
                     </div>
@@ -222,7 +222,7 @@ export function FlexiblePaymentsCard() {
                       placeholder={`$${method.minAmount} - $${method.maxAmount}`}
                       value={selectedTopUp === method.id ? topUpAmount : ""}
                       onChange={(e) => setTopUpAmount(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="flex-1 px-3 py-2 border border-ink-300 dark:border-ink-700 rounded-lg text-sm"
                       onClick={(e) => e.stopPropagation()}
                     />
                     <button
@@ -241,10 +241,10 @@ export function FlexiblePaymentsCard() {
         {/* Installment Plans */}
         {activeSection === "installments" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               Pay in Installments
             </h4>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-ink-600 dark:text-ink-300">
               Split large purchases into easy monthly payments with 0% interest
               on 3-month plans.
             </p>
@@ -252,15 +252,15 @@ export function FlexiblePaymentsCard() {
               {options.installmentPlans.map((plan) => (
                 <div
                   key={plan.id}
-                  className="p-4 border border-gray-200 rounded-lg"
+                  className="p-4 border border-ink-200 dark:border-ink-800 rounded-lg"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <div className="font-medium">{plan.name}</div>
-                      <div className="text-sm text-gray-500">{plan.nameAr}</div>
+                      <div className="text-sm text-ink-500 dark:text-ink-400">{plan.nameAr}</div>
                     </div>
                     {plan.interestRate === 0 && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded dark:bg-green-500/15 dark:text-green-300">
                         0% Interest
                       </span>
                     )}
@@ -270,20 +270,20 @@ export function FlexiblePaymentsCard() {
                       <div className="text-lg font-bold text-violet-600">
                         ${plan.monthlyPayment.toFixed(2)}
                       </div>
-                      <div className="text-xs text-gray-500">/month</div>
+                      <div className="text-xs text-ink-500 dark:text-ink-400">/month</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold">{plan.months}</div>
-                      <div className="text-xs text-gray-500">months</div>
+                      <div className="text-xs text-ink-500 dark:text-ink-400">months</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold">
                         ${plan.totalAmount}
                       </div>
-                      <div className="text-xs text-gray-500">total</div>
+                      <div className="text-xs text-ink-500 dark:text-ink-400">total</div>
                     </div>
                   </div>
-                  <div className="mt-3 text-xs text-gray-500">
+                  <div className="mt-3 text-xs text-ink-500 dark:text-ink-400">
                     Available for: {plan.eligibleProducts.join(", ")}
                   </div>
                   <button className="w-full mt-3 py-2 bg-violet-500 text-white rounded-lg text-sm hover:bg-violet-600 transition-colors">
@@ -298,10 +298,10 @@ export function FlexiblePaymentsCard() {
         {/* Business Accounts */}
         {activeSection === "business" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               Business Accounts
             </h4>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-ink-600 dark:text-ink-300">
               For companies managing multiple workers. Get bulk discounts and
               dedicated support.
             </p>
@@ -313,13 +313,13 @@ export function FlexiblePaymentsCard() {
                     "p-4 rounded-lg border-2",
                     account.tier === "Business"
                       ? "border-violet-500 bg-violet-50"
-                      : "border-gray-200"
+                      : "border-ink-200 dark:border-ink-800"
                   )}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <div className="font-bold text-lg">{account.tier}</div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-ink-500 dark:text-ink-400">
                         {account.tierAr}
                       </div>
                     </div>
@@ -327,14 +327,14 @@ export function FlexiblePaymentsCard() {
                       <div className="text-2xl font-bold text-violet-600">
                         ${account.monthlyFee}
                       </div>
-                      <div className="text-xs text-gray-500">/month</div>
+                      <div className="text-xs text-ink-500 dark:text-ink-400">/month</div>
                     </div>
                   </div>
                   <ul className="space-y-2 mb-4">
                     {account.features.map((feature, i) => (
                       <li
                         key={i}
-                        className="flex items-center gap-2 text-sm text-gray-700"
+                        className="flex items-center gap-2 text-sm text-ink-700 dark:text-ink-200"
                       >
                         <Check className="w-4 h-4 text-violet-500" />
                         {feature}
@@ -342,7 +342,7 @@ export function FlexiblePaymentsCard() {
                     ))}
                   </ul>
                   <div className="flex items-center justify-between text-sm mb-3">
-                    <span className="text-gray-600">
+                    <span className="text-ink-600 dark:text-ink-300">
                       Bulk Discount:
                     </span>
                     <span className="font-medium text-green-600">
@@ -350,7 +350,7 @@ export function FlexiblePaymentsCard() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm mb-3">
-                    <span className="text-gray-600">Credit Limit:</span>
+                    <span className="text-ink-600 dark:text-ink-300">Credit Limit:</span>
                     <span className="font-medium">
                       ${formatNumber(account.creditLimit)}
                     </span>
@@ -366,7 +366,7 @@ export function FlexiblePaymentsCard() {
                       "w-full mt-3 py-2 rounded-lg text-sm transition-colors",
                       account.tier === "Business"
                         ? "bg-violet-500 text-white hover:bg-violet-600"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200 hover:bg-ink-200 dark:hover:bg-ink-800"
                     )}
                   >
                     {account.tier === "Business" ? "Current Plan" : "Upgrade"}
@@ -381,7 +381,7 @@ export function FlexiblePaymentsCard() {
         {activeSection === "methods" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium text-gray-900">
+              <h4 className="font-medium text-ink-900 dark:text-ink-50">
                 Saved Payment Methods
               </h4>
               <button className="text-sm text-violet-600 hover:text-violet-700">
@@ -398,29 +398,29 @@ export function FlexiblePaymentsCard() {
                       "p-4 rounded-lg border-2",
                       method.isDefault
                         ? "border-violet-500 bg-violet-50"
-                        : "border-gray-200"
+                        : "border-ink-200 dark:border-ink-800"
                     )}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <Icon className="w-5 h-5 text-gray-600" />
+                        <div className="w-10 h-10 bg-ink-100 dark:bg-ink-800 rounded-lg flex items-center justify-center">
+                          <Icon className="w-5 h-5 text-ink-600 dark:text-ink-300" />
                         </div>
                         <div>
                           <div className="font-medium">{method.name}</div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-ink-500 dark:text-ink-400">
                             {method.nameAr}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {method.isDefault && (
-                          <span className="px-2 py-1 bg-violet-100 text-violet-700 text-xs font-medium rounded">
+                          <span className="px-2 py-1 bg-violet-100 text-violet-800 text-xs font-medium rounded dark:bg-violet-500/15 dark:text-violet-300">
                             Default
                           </span>
                         )}
                         {method.expiryDate && (
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm text-ink-500 dark:text-ink-400">
                             Exp: {method.expiryDate}
                           </span>
                         )}

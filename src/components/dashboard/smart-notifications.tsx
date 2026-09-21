@@ -47,10 +47,10 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 const SEVERITY_STYLES: Record<string, string> = {
-  info: "bg-blue-50 border-blue-200 text-blue-800",
-  warning: "bg-amber-50 border-amber-200 text-amber-800",
-  success: "bg-green-50 border-green-200 text-green-800",
-  urgent: "bg-red-50 border-red-200 text-red-800",
+  info: "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  warning: "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
+  success: "bg-green-50 border-green-200 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  urgent: "bg-red-50 border-red-200 text-red-800 dark:bg-red-500/15 dark:text-red-300",
 };
 
 const SEVERITY_ICON_STYLES: Record<string, string> = {
@@ -99,9 +99,9 @@ export function SmartNotificationsCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-        <div className="h-5 bg-gray-200 rounded w-1/3 mb-2" />
-        <div className="h-16 bg-gray-200 rounded" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4 animate-pulse">
+        <div className="h-5 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-2" />
+        <div className="h-16 bg-ink-200 dark:bg-ink-800 rounded" />
       </div>
     );
   }
@@ -117,7 +117,7 @@ export function SmartNotificationsCard() {
     : notifications.slice(0, 3);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Header */}
       <div className="p-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white">
         <div className="flex items-center justify-between">
@@ -241,7 +241,7 @@ export function SmartNotificationsCard() {
         {notifications.length > 3 && !expanded && (
           <button
             onClick={() => setExpanded(true)}
-            className="w-full mt-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+            className="w-full mt-3 py-2 text-sm text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50 hover:bg-ink-50 dark:hover:bg-ink-950 rounded-lg transition-colors"
           >
             Show all {notifications.length} notifications
           </button>

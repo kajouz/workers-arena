@@ -16,7 +16,7 @@ export function BackupManagement() {
     { id: "4", name: "backup-2025-01-15-0200", size: "238 MB", createdAt: "2025-01-15T02:00:00Z", status: "completed", type: "automatic" },
   ]);
 
-  const statusColors: Record<string, string> = { completed: "bg-green-100 text-green-800", in_progress: "bg-yellow-100 text-yellow-800", failed: "bg-red-100 text-red-800" };
+  const statusColors: Record<string, string> = { completed: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300", in_progress: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300", failed: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300" };
 
   return (
     <div className="space-y-6">
@@ -27,14 +27,14 @@ export function BackupManagement() {
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-gray-900">{backups.length}</p><p className="text-sm text-gray-500">Total Backups</p></div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-green-600">{backups.filter((b) => b.status === "completed").length}</p><p className="text-sm text-gray-500">Completed</p></div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-gray-900">30 days</p><p className="text-sm text-gray-500">Retention</p></div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200"><p className="text-2xl font-bold text-gray-900">245 MB</p><p className="text-sm text-gray-500">Latest Size</p></div>
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800"><p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{backups.length}</p><p className="text-sm text-ink-500 dark:text-ink-400">Total Backups</p></div>
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800"><p className="text-2xl font-bold text-green-600">{backups.filter((b) => b.status === "completed").length}</p><p className="text-sm text-ink-500 dark:text-ink-400">Completed</p></div>
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800"><p className="text-2xl font-bold text-ink-900 dark:text-ink-50">30 days</p><p className="text-sm text-ink-500 dark:text-ink-400">Retention</p></div>
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800"><p className="text-2xl font-bold text-ink-900 dark:text-ink-50">245 MB</p><p className="text-sm text-ink-500 dark:text-ink-400">Latest Size</p></div>
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full"><thead className="bg-gray-50"><tr><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Backup</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Size</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Type</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Created</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Actions</th></tr></thead>
-          <tbody className="divide-y divide-gray-200">{backups.map((backup) => (<tr key={backup.id} className="hover:bg-gray-50"><td className="px-4 py-4 font-mono text-sm text-gray-900">{backup.name}</td><td className="px-4 py-4 text-sm text-gray-600">{backup.size}</td><td className="px-4 py-4"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", backup.type === "automatic" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800")}>{backup.type}</span></td><td className="px-4 py-4"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", statusColors[backup.status])}>{backup.status}</span></td><td className="px-4 py-4 text-sm text-gray-500">{formatDateTime(backup.createdAt, locale)}</td><td className="px-4 py-4"><button className="text-blue-600 hover:text-blue-700"><Download className="w-4 h-4" /></button></td></tr>))}</tbody>
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
+        <table className="w-full"><thead className="bg-ink-50 dark:bg-ink-950"><tr><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Backup</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Size</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Type</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Created</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th></tr></thead>
+          <tbody className="divide-y divide-ink-200 dark:divide-ink-800">{backups.map((backup) => (<tr key={backup.id} className="hover:bg-ink-50 dark:hover:bg-ink-950"><td className="px-4 py-4 font-mono text-sm text-ink-900 dark:text-ink-50">{backup.name}</td><td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300">{backup.size}</td><td className="px-4 py-4"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", backup.type === "automatic" ? "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300" : "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300")}>{backup.type}</span></td><td className="px-4 py-4"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", statusColors[backup.status])}>{backup.status}</span></td><td className="px-4 py-4 text-sm text-ink-500 dark:text-ink-400">{formatDateTime(backup.createdAt, locale)}</td><td className="px-4 py-4"><button className="text-blue-600 hover:text-blue-700"><Download className="w-4 h-4" /></button></td></tr>))}</tbody>
         </table>
       </div>
     </div>

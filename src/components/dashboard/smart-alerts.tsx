@@ -284,54 +284,54 @@ export function SmartAlerts() {
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Bell className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalRules}</p>
-              <p className="text-sm text-gray-500">Total Rules</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.totalRules}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Total Rules</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeRules}</p>
-              <p className="text-sm text-gray-500">Active Rules</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.activeRules}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Active Rules</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
               <Activity className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.alertsTriggered}</p>
-              <p className="text-sm text-gray-500">Triggered</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.alertsTriggered}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Triggered</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-red-100 rounded-lg">
               <AlertTriangle className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.unacknowledged}</p>
-              <p className="text-sm text-gray-500">Unacknowledged</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.unacknowledged}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Unacknowledged</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab("rules")}
@@ -339,7 +339,7 @@ export function SmartAlerts() {
               "pb-3 px-1 text-sm font-medium border-b-2 transition-colors",
               activeTab === "rules"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
             <Bell className="w-4 h-4 inline mr-2" />
@@ -351,7 +351,7 @@ export function SmartAlerts() {
               "pb-3 px-1 text-sm font-medium border-b-2 transition-colors",
               activeTab === "history"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
             <Clock className="w-4 h-4 inline mr-2" />
@@ -366,19 +366,19 @@ export function SmartAlerts() {
           {/* Search and Filter */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
               <input
                 type="text"
                 placeholder="Search rules..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -397,25 +397,25 @@ export function SmartAlerts() {
           <div className="space-y-4">
             {filteredRules.map((rule) => (
               <div key={rule.id} className={cn(
-                "bg-white rounded-xl border p-4 transition-all",
-                rule.isActive ? "border-gray-200 hover:shadow-md" : "border-gray-100 opacity-60"
+                "bg-white dark:bg-ink-900 rounded-xl border p-4 transition-all",
+                rule.isActive ? "border-ink-200 dark:border-ink-800 hover:shadow-md" : "border-ink-100 dark:border-ink-800 opacity-60"
               )}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-900">{rule.name}</h3>
-                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                      <h3 className="font-semibold text-ink-900 dark:text-ink-50">{rule.name}</h3>
+                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300">
                         {metricLabels[rule.metric]}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">{rule.description}</p>
+                    <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">{rule.description}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleToggleActive(rule.id)}
                       className={cn(
                         "px-3 py-1 text-xs font-medium rounded-full",
-                        rule.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                        rule.isActive ? "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300" : "bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100"
                       )}
                     >
                       {rule.isActive ? "Active" : "Paused"}
@@ -432,36 +432,36 @@ export function SmartAlerts() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
-                    <p className="text-gray-500">Condition</p>
+                    <p className="text-ink-500 dark:text-ink-400">Condition</p>
                     <p className="font-medium capitalize">{rule.condition} {rule.threshold}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Timeframe</p>
+                    <p className="text-ink-500 dark:text-ink-400">Timeframe</p>
                     <p className="font-medium capitalize">{rule.timeframe}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Recipients</p>
+                    <p className="text-ink-500 dark:text-ink-400">Recipients</p>
                     <p className="font-medium">{rule.recipients.length}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500">Triggered</p>
+                    <p className="text-ink-500 dark:text-ink-400">Triggered</p>
                     <p className="font-medium">{rule.triggerCount} times</p>
                   </div>
                 </div>
 
                 <div className="mt-3 flex items-center gap-4 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-500">Channels:</span>
+                    <span className="text-ink-500 dark:text-ink-400">Channels:</span>
                     <div className="flex gap-1">
                       {rule.channels.map((channel) => (
-                        <span key={channel} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded capitalize">
+                        <span key={channel} className="px-2 py-0.5 text-xs bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300 rounded capitalize">
                           {channel}
                         </span>
                       ))}
                     </div>
                   </div>
                   {rule.lastTriggered && (
-                    <div className="text-gray-500">
+                    <div className="text-ink-500 dark:text-ink-400">
                       Last triggered: {formatDate(rule.lastTriggered, locale)}
                     </div>
                   )}
@@ -477,23 +477,23 @@ export function SmartAlerts() {
         <div className="space-y-4">
           {history.map((alert) => (
             <div key={alert.id} className={cn(
-              "bg-white rounded-xl border p-4",
+              "bg-white dark:bg-ink-900 rounded-xl border p-4",
               !alert.acknowledged && "border-l-4 border-l-orange-500"
             )}>
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900">{alert.ruleName}</h3>
+                    <h3 className="font-semibold text-ink-900 dark:text-ink-50">{alert.ruleName}</h3>
                     {!alert.acknowledged && (
-                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
+                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300">
                         New
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">{alert.message}</p>
+                  <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">{alert.message}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-600">{formatDateTime(alert.triggeredAt, locale)}</p>
+                  <p className="text-sm text-ink-600 dark:text-ink-300">{formatDateTime(alert.triggeredAt, locale)}</p>
                   {!alert.acknowledged && (
                     <button
                       onClick={() => handleAcknowledge(alert.id)}
@@ -507,21 +507,21 @@ export function SmartAlerts() {
 
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-500">Metric</p>
+                  <p className="text-ink-500 dark:text-ink-400">Metric</p>
                   <p className="font-medium">{alert.metric}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500">Current Value</p>
+                  <p className="text-ink-500 dark:text-ink-400">Current Value</p>
                   <p className="font-medium">{alert.currentValue}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500">Threshold</p>
+                  <p className="text-ink-500 dark:text-ink-400">Threshold</p>
                   <p className="font-medium">{alert.threshold}</p>
                 </div>
               </div>
 
               {alert.acknowledged && (
-                <div className="mt-3 pt-3 border-t border-gray-100 text-sm text-gray-500">
+                <div className="mt-3 pt-3 border-t border-ink-100 dark:border-ink-800 text-sm text-ink-500 dark:text-ink-400">
                   Acknowledged by {alert.acknowledgedBy} at {formatDateTime(alert.acknowledgedAt!, locale)}
                 </div>
               )}
@@ -533,40 +533,40 @@ export function SmartAlerts() {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-dialog">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-ink-900 rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Create Alert Rule</h3>
-              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowCreateModal(false)} className="text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300">
                 <XCircle className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rule Name</label>
+                <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Rule Name</label>
                 <input
                   type="text"
                   value={newRule.name}
                   onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
                   placeholder="e.g., Revenue Drop Alert"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Description</label>
                 <input
                   type="text"
                   value={newRule.description}
                   onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
                   placeholder="Brief description of when this alert triggers"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Metric</label>
+                <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Metric</label>
                 <select
                   value={newRule.metric}
                   onChange={(e) => setNewRule({ ...newRule, metric: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {Object.entries(metricLabels).map(([value, label]) => (
                     <option key={value} value={value}>{label}</option>
@@ -575,11 +575,11 @@ export function SmartAlerts() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Condition</label>
+                  <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Condition</label>
                   <select
                     value={newRule.condition}
                     onChange={(e) => setNewRule({ ...newRule, condition: e.target.value as AlertRule["condition"] })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="above">Above</option>
                     <option value="below">Below</option>
@@ -588,21 +588,21 @@ export function SmartAlerts() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Threshold</label>
+                  <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Threshold</label>
                   <input
                     type="number"
                     value={newRule.threshold}
                     onChange={(e) => setNewRule({ ...newRule, threshold: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Timeframe</label>
+                <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Timeframe</label>
                 <select
                   value={newRule.timeframe}
                   onChange={(e) => setNewRule({ ...newRule, timeframe: e.target.value as AlertRule["timeframe"] })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="hour">Hour</option>
                   <option value="day">Day</option>
@@ -611,17 +611,17 @@ export function SmartAlerts() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Recipients (comma-separated)</label>
+                <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Recipients (comma-separated)</label>
                 <input
                   type="text"
                   value={newRule.recipients}
                   onChange={(e) => setNewRule({ ...newRule, recipients: e.target.value })}
                   placeholder="admin@workersarena.com"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Channels</label>
+                <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-2">Channels</label>
                 <div className="flex gap-4">
                   {["email", "push", "slack"].map((channel) => (
                     <label key={channel} className="flex items-center gap-2">
@@ -635,9 +635,9 @@ export function SmartAlerts() {
                             setNewRule({ ...newRule, channels: newRule.channels.filter((c) => c !== channel) });
                           }
                         }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-ink-300 dark:border-ink-700 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="text-sm text-gray-700 capitalize">{channel}</span>
+                      <span className="text-sm text-ink-700 dark:text-ink-200 capitalize">{channel}</span>
                     </label>
                   ))}
                 </div>
@@ -645,7 +645,7 @@ export function SmartAlerts() {
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 text-ink-600 dark:text-ink-300 hover:text-ink-800 dark:hover:text-ink-100"
                 >
                   Cancel
                 </button>

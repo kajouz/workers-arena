@@ -154,7 +154,7 @@ export function RevenueSettingsDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+        <RefreshCw className="w-6 h-6 animate-spin text-ink-400 dark:text-ink-500" />
       </div>
     );
   }
@@ -164,8 +164,8 @@ export function RevenueSettingsDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Revenue Streams</h2>
-          <p className="text-gray-500">Configure and manage all revenue streams</p>
+          <h2 className="text-2xl font-bold text-ink-900 dark:text-ink-50">Revenue Streams</h2>
+          <p className="text-ink-500 dark:text-ink-400">Configure and manage all revenue streams</p>
         </div>
         <button
           onClick={handleSaveAll}
@@ -174,7 +174,7 @@ export function RevenueSettingsDashboard() {
             "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors",
             hasChanges
               ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-ink-100 dark:bg-ink-800 text-ink-400 dark:text-ink-500 cursor-not-allowed"
           )}
         >
           {saving ? (
@@ -188,36 +188,36 @@ export function RevenueSettingsDashboard() {
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
               <DollarSign className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Monthly Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">${formatNumber(totalMonthlyRevenue)}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Monthly Revenue</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">${formatNumber(totalMonthlyRevenue)}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <BarChart3 className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Active Streams</p>
-              <p className="text-2xl font-bold text-gray-900">{enabledCount} / {streams.length}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Active Streams</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{enabledCount} / {streams.length}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 rounded-lg">
               <TrendingUp className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Avg. Growth</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-ink-500 dark:text-ink-400">Avg. Growth</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">
                 {analytics.length > 0 
                   ? Math.round(analytics.reduce((sum, a) => sum + a.growthPercent, 0) / analytics.length)
                   : 0}%
@@ -237,36 +237,36 @@ export function RevenueSettingsDashboard() {
           return (
             <div
               key={stream.id}
-              className="bg-white rounded-xl border border-gray-200 overflow-hidden"
+              className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden"
             >
               {/* Stream Header */}
               <div
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-ink-50 dark:hover:bg-ink-950"
                 onClick={() => setExpandedStream(isExpanded ? null : stream.id)}
               >
                 <div className="flex items-center gap-4">
                   <div className={cn(
                     "p-2 rounded-lg",
-                    stream.enabled ? "bg-green-100" : "bg-gray-100"
+                    stream.enabled ? "bg-green-100" : "bg-ink-100 dark:bg-ink-800"
                   )}>
                     <Icon className={cn(
                       "w-5 h-5",
-                      stream.enabled ? "text-green-600" : "text-gray-400"
+                      stream.enabled ? "text-green-600" : "text-ink-400 dark:text-ink-500"
                     )} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-semibold text-gray-900">{stream.name}</p>
-                      <span className="text-sm text-gray-500">({stream.nameAr})</span>
+                      <p className="font-semibold text-ink-900 dark:text-ink-50">{stream.name}</p>
+                      <span className="text-sm text-ink-500 dark:text-ink-400">({stream.nameAr})</span>
                     </div>
-                    <p className="text-sm text-gray-500">{stream.description}</p>
+                    <p className="text-sm text-ink-500 dark:text-ink-400">{stream.description}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4">
                   {streamAnalytics && (
                     <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-ink-900 dark:text-ink-50">
                         ${formatNumber(streamAnalytics.monthlyRevenue)}/mo
                       </p>
                       <p className="text-xs text-green-600">
@@ -282,7 +282,7 @@ export function RevenueSettingsDashboard() {
                     }}
                     className={cn(
                       "relative w-12 h-6 rounded-full transition-colors",
-                      stream.enabled ? "bg-green-500" : "bg-gray-200"
+                      stream.enabled ? "bg-green-500" : "bg-ink-200 dark:bg-ink-800"
                     )}
                   >
                     <span
@@ -294,20 +294,20 @@ export function RevenueSettingsDashboard() {
                   </button>
 
                   {isExpanded ? (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                    <ChevronDown className="w-5 h-5 text-ink-400 dark:text-ink-500" />
                   ) : (
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                    <ChevronRight className="w-5 h-5 text-ink-400 dark:text-ink-500" />
                   )}
                 </div>
               </div>
 
               {/* Stream Settings (Expanded) */}
               {isExpanded && (
-                <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="p-4 border-t border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-950">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(stream.settings).map(([key, value]) => (
                       <div key={key} className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-gray-700 capitalize">
+                        <label className="text-sm font-medium text-ink-700 dark:text-ink-200 capitalize">
                           {key.replace(/([A-Z])/g, ' $1').trim()}
                         </label>
                         {typeof value === "boolean" ? (
@@ -318,7 +318,7 @@ export function RevenueSettingsDashboard() {
                             })}
                             className={cn(
                               "relative w-10 h-5 rounded-full transition-colors",
-                              value ? "bg-blue-500" : "bg-gray-200"
+                              value ? "bg-blue-500" : "bg-ink-200 dark:bg-ink-800"
                             )}
                           >
                             <span
@@ -336,7 +336,7 @@ export function RevenueSettingsDashboard() {
                               ...stream.settings,
                               [key]: parseFloat(e.target.value) || 0,
                             })}
-                            className="w-24 px-2 py-1 border border-gray-200 rounded-lg text-sm"
+                            className="w-24 px-2 py-1 border border-ink-200 dark:border-ink-800 rounded-lg text-sm"
                           />
                         ) : (
                           <input
@@ -346,7 +346,7 @@ export function RevenueSettingsDashboard() {
                               ...stream.settings,
                               [key]: e.target.value,
                             })}
-                            className="w-32 px-2 py-1 border border-gray-200 rounded-lg text-sm"
+                            className="w-32 px-2 py-1 border border-ink-200 dark:border-ink-800 rounded-lg text-sm"
                           />
                         )}
                       </div>
@@ -354,23 +354,23 @@ export function RevenueSettingsDashboard() {
                   </div>
 
                   {streamAnalytics && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Analytics</h4>
+                    <div className="mt-4 pt-4 border-t border-ink-200 dark:border-ink-800">
+                      <h4 className="text-sm font-medium text-ink-700 dark:text-ink-200 mb-2">Analytics</h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                          <p className="text-xs text-gray-500">Total Revenue</p>
+                          <p className="text-xs text-ink-500 dark:text-ink-400">Total Revenue</p>
                           <p className="font-medium">${formatNumber(streamAnalytics.totalRevenue)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Transactions</p>
+                          <p className="text-xs text-ink-500 dark:text-ink-400">Transactions</p>
                           <p className="font-medium">{streamAnalytics.transactionCount}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Avg. Value</p>
+                          <p className="text-xs text-ink-500 dark:text-ink-400">Avg. Value</p>
                           <p className="font-medium">${streamAnalytics.averageTransactionValue.toFixed(2)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Growth</p>
+                          <p className="text-xs text-ink-500 dark:text-ink-400">Growth</p>
                           <p className="font-medium text-green-600">+{streamAnalytics.growthPercent}%</p>
                         </div>
                       </div>

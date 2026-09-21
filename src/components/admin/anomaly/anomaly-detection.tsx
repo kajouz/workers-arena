@@ -115,13 +115,13 @@ export function AnomalyDetection({ className }: AnomalyDetectionProps) {
   const getSeverityColor = (severity: Anomaly["severity"]) => {
     switch (severity) {
       case "critical":
-        return "bg-red-100 text-red-700 border-red-200";
+        return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300";
       case "high":
-        return "bg-orange-100 text-orange-700 border-orange-200";
+        return "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300";
       case "medium":
-        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+        return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300";
       case "low":
-        return "bg-blue-100 text-blue-700 border-blue-200";
+        return "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300";
     }
   };
 
@@ -169,25 +169,25 @@ export function AnomalyDetection({ className }: AnomalyDetectionProps) {
   const unacknowledgedCount = anomalies.filter((a) => !a.acknowledged).length;
 
   return (
-    <div className={cn("bg-white rounded-xl border border-gray-200", className)}>
+    <div className={cn("bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 text-orange-500" />
-          <h3 className="font-semibold text-gray-900">Anomaly Detection</h3>
+          <h3 className="font-semibold text-ink-900 dark:text-ink-50">Anomaly Detection</h3>
         </div>
         <div className="flex items-center gap-2">
           {unacknowledgedCount > 0 && (
-            <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
+            <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full dark:bg-red-500/15 dark:text-red-300">
               {unacknowledgedCount} new
             </span>
           )}
           <button
             onClick={refreshAnomalies}
             disabled={loading}
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-lg transition-colors"
           >
-            <RefreshCw className={cn("w-4 h-4 text-gray-500", loading && "animate-spin")} />
+            <RefreshCw className={cn("w-4 h-4 text-ink-500 dark:text-ink-400", loading && "animate-spin")} />
           </button>
         </div>
       </div>
@@ -195,8 +195,8 @@ export function AnomalyDetection({ className }: AnomalyDetectionProps) {
       {/* Anomalies list */}
       <div className="divide-y max-h-[400px] overflow-y-auto">
         {anomalies.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <Info className="w-8 h-8 mx-auto text-gray-300" />
+          <div className="p-8 text-center text-ink-500 dark:text-ink-400">
+            <Info className="w-8 h-8 mx-auto text-ink-300 dark:text-ink-600" />
             <p className="mt-2">No anomalies detected</p>
             <p className="text-sm">All metrics are within normal ranges</p>
           </div>
@@ -221,31 +221,31 @@ export function AnomalyDetection({ className }: AnomalyDetectionProps) {
                     )}>
                       {anomaly.severity}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-ink-500 dark:text-ink-400">
                       {formatTime(anomaly.detectedAt)}
                     </span>
                   </div>
-                  <p className="font-medium text-gray-900 mt-1">{anomaly.metric}</p>
-                  <p className="text-sm text-gray-600">{anomaly.description}</p>
+                  <p className="font-medium text-ink-900 dark:text-ink-50 mt-1">{anomaly.metric}</p>
+                  <p className="text-sm text-ink-600 dark:text-ink-300">{anomaly.description}</p>
                   
                   {/* Values */}
                   <div className="flex items-center gap-4 mt-2 text-sm">
                     <div>
-                      <span className="text-gray-500">Current: </span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-ink-500 dark:text-ink-400">Current: </span>
+                      <span className="font-medium text-ink-900 dark:text-ink-50">
                         {anomaly.currentValue}{anomaly.unit === "%" ? "%" : ` ${anomaly.unit}`}
                       </span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Expected: </span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-ink-500 dark:text-ink-400">Expected: </span>
+                      <span className="font-medium text-ink-900 dark:text-ink-50">
                         {anomaly.expectedValue}{anomaly.unit === "%" ? "%" : ` ${anomaly.unit}`}
                       </span>
                     </div>
                   </div>
 
                   {anomaly.details && (
-                    <p className="text-xs text-gray-500 mt-2">{anomaly.details}</p>
+                    <p className="text-xs text-ink-500 dark:text-ink-400 mt-2">{anomaly.details}</p>
                   )}
 
                   {/* Actions */}
@@ -253,7 +253,7 @@ export function AnomalyDetection({ className }: AnomalyDetectionProps) {
                     {!anomaly.acknowledged && (
                       <button
                         onClick={() => acknowledgeAnomaly(anomaly.id)}
-                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-ink-700 dark:text-ink-200 bg-ink-100 dark:bg-ink-800 rounded-lg hover:bg-ink-200 dark:hover:bg-ink-800"
                       >
                         <BellOff className="w-3 h-3" />
                         Acknowledge
@@ -261,11 +261,11 @@ export function AnomalyDetection({ className }: AnomalyDetectionProps) {
                     )}
                     <button
                       onClick={() => dismissAnomaly(anomaly.id)}
-                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100"
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-800 bg-red-50 rounded-lg hover:bg-red-100 dark:bg-red-500/15 dark:text-red-300"
                     >
                       Dismiss
                     </button>
-                    <button className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100">
+                    <button className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-800 bg-blue-50 rounded-lg hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300">
                       <ChevronRight className="w-3 h-3" />
                       Details
                     </button>

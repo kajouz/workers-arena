@@ -257,7 +257,7 @@ export default async function CityPage({ params }: CityPageProps) {
           </p>
           <Link
             href="/auth/register"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-brand-600 transition-colors hover:bg-brand-50"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white dark:bg-ink-900 px-6 py-3 text-sm font-bold text-brand-600 transition-colors hover:bg-brand-50"
           >
             {locale === "ar" ? "ابدأ الإدراج مجاناً" : "Start listing for free"}
             <ArrowRight className="size-4" />

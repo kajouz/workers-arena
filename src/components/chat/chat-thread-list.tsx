@@ -114,11 +114,11 @@ export default function ChatThreadList({ role }: ChatThreadListProps) {
   const statusColor = (status: string) => {
     switch (status) {
       case "REQUESTED":
-        return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+        return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
       case "CONFIRMED":
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
       case "IN_PROGRESS":
-        return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
+        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
       case "COMPLETED":
         return "bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-400";
       default:

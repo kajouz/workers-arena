@@ -63,19 +63,19 @@ interface TicketStats {
 }
 
 const priorityColors: Record<string, string> = {
-  low: "bg-gray-100 text-gray-800",
-  medium: "bg-blue-100 text-blue-800",
-  high: "bg-orange-100 text-orange-800",
-  urgent: "bg-red-100 text-red-800",
+  low: "bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100",
+  medium: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  high: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+  urgent: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
 };
 
 const statusColors: Record<string, string> = {
-  open: "bg-yellow-100 text-yellow-800",
-  in_progress: "bg-blue-100 text-blue-800",
-  waiting_customer: "bg-purple-100 text-purple-800",
-  waiting_internal: "bg-orange-100 text-orange-800",
-  resolved: "bg-green-100 text-green-800",
-  closed: "bg-gray-100 text-gray-800",
+  open: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
+  in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  waiting_customer: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300",
+  waiting_internal: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+  resolved: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  closed: "bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100",
 };
 
 const categoryLabels: Record<string, string> = {
@@ -309,48 +309,48 @@ export function SupportTickets() {
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-          <p className="text-sm text-gray-500">Total Tickets</p>
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
+          <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.total}</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">Total Tickets</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <p className="text-2xl font-bold text-yellow-600">{stats.open}</p>
-          <p className="text-sm text-gray-500">Open</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">Open</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
-          <p className="text-sm text-gray-500">In Progress</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">In Progress</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <p className="text-2xl font-bold text-red-600">{stats.slaBreached}</p>
-          <p className="text-sm text-gray-500">SLA Breached</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">SLA Breached</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <p className="text-2xl font-bold text-gray-900">{stats.avgResponseTime}m</p>
-          <p className="text-sm text-gray-500">Avg Response</p>
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
+          <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.avgResponseTime}m</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">Avg Response</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
-          <p className="text-2xl font-bold text-gray-900">{stats.avgResolutionTime}h</p>
-          <p className="text-sm text-gray-500">Avg Resolution</p>
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
+          <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.avgResolutionTime}h</p>
+          <p className="text-sm text-ink-500 dark:text-ink-400">Avg Resolution</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
           <input
             type="text"
             placeholder="Search tickets..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-4 py-2 border border-gray-200 rounded-lg"
+          className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"
         >
           <option value="all">All Status</option>
           <option value="open">Open</option>
@@ -362,7 +362,7 @@ export function SupportTickets() {
         <select
           value={filterPriority}
           onChange={(e) => setFilterPriority(e.target.value)}
-          className="px-4 py-2 border border-gray-200 rounded-lg"
+          className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"
         >
           <option value="all">All Priority</option>
           <option value="low">Low</option>
@@ -381,19 +381,19 @@ export function SupportTickets() {
               key={ticket.id}
               onClick={() => setSelectedTicket(ticket)}
               className={cn(
-                "bg-white rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md",
+                "bg-white dark:bg-ink-900 rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md",
                 selectedTicket?.id === ticket.id && "border-blue-500 ring-2 ring-blue-200",
                 ticket.slaBreached && "border-red-300"
               )}
             >
               <div className="flex items-start justify-between mb-2">
-                <span className="font-mono text-xs text-gray-500">{ticket.number}</span>
+                <span className="font-mono text-xs text-ink-500 dark:text-ink-400">{ticket.number}</span>
                 <span className={cn("px-2 py-0.5 text-xs font-medium rounded-full", priorityColors[ticket.priority])}>
                   {ticket.priority}
                 </span>
               </div>
-              <p className="font-medium text-gray-900 text-sm line-clamp-2">{ticket.subject}</p>
-              <p className="text-xs text-gray-500 mt-1">{ticket.customerName}</p>
+              <p className="font-medium text-ink-900 dark:text-ink-50 text-sm line-clamp-2">{ticket.subject}</p>
+              <p className="text-xs text-ink-500 dark:text-ink-400 mt-1">{ticket.customerName}</p>
               <div className="flex items-center justify-between mt-2">
                 <span className={cn("px-2 py-0.5 text-xs font-medium rounded-full", statusColors[ticket.status])}>
                   {ticket.status.replace(/_/g, " ")}
@@ -411,13 +411,13 @@ export function SupportTickets() {
         {/* Ticket Detail */}
         <div className="lg:col-span-2">
           {selectedTicket ? (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
               {/* Header */}
-              <div className="p-4 border-b border-gray-200">
+              <div className="p-4 border-b border-ink-200 dark:border-ink-800">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm text-gray-500">{selectedTicket.number}</span>
+                      <span className="font-mono text-sm text-ink-500 dark:text-ink-400">{selectedTicket.number}</span>
                       <span className={cn("px-2 py-0.5 text-xs font-medium rounded-full", priorityColors[selectedTicket.priority])}>
                         {selectedTicket.priority}
                       </span>
@@ -425,15 +425,15 @@ export function SupportTickets() {
                         {selectedTicket.status.replace(/_/g, " ")}
                       </span>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mt-1">{selectedTicket.subject}</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="text-lg font-semibold text-ink-900 dark:text-ink-50 mt-1">{selectedTicket.subject}</h3>
+                    <p className="text-sm text-ink-500 dark:text-ink-400">
                       {selectedTicket.customerName} • {categoryLabels[selectedTicket.category]}
                     </p>
                   </div>
                   <select
                     value={selectedTicket.status}
                     onChange={(e) => handleChangeStatus(selectedTicket.id, e.target.value as Ticket["status"])}
-                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg"
+                    className="px-3 py-1.5 text-sm border border-ink-200 dark:border-ink-800 rounded-lg"
                   >
                     <option value="open">Open</option>
                     <option value="in_progress">In Progress</option>
@@ -457,17 +457,17 @@ export function SupportTickets() {
                   >
                     <div className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium",
-                      msg.senderType === "customer" ? "bg-blue-500" : msg.senderType === "agent" ? "bg-green-500" : "bg-gray-500"
+                      msg.senderType === "customer" ? "bg-blue-500" : msg.senderType === "agent" ? "bg-green-500" : "bg-ink-500 dark:bg-ink-600"
                     )}>
                       {msg.senderName.charAt(0)}
                     </div>
                     <div className={cn(
                       "max-w-[70%] rounded-xl p-3",
-                      msg.senderType === "customer" ? "bg-gray-100" : msg.isInternal ? "bg-yellow-100" : "bg-blue-100"
+                      msg.senderType === "customer" ? "bg-ink-100 dark:bg-ink-800" : msg.isInternal ? "bg-yellow-100" : "bg-blue-100"
                     )}>
-                      <p className="text-sm font-medium text-gray-900">{msg.senderName}</p>
-                      <p className="text-sm text-gray-700 mt-1">{msg.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-sm font-medium text-ink-900 dark:text-ink-50">{msg.senderName}</p>
+                      <p className="text-sm text-ink-700 dark:text-ink-200 mt-1">{msg.message}</p>
+                      <p className="text-xs text-ink-400 dark:text-ink-500 mt-1">
                         {formatDateTime(msg.createdAt, locale)}
                         {msg.isInternal && " • Internal Note"}
                       </p>
@@ -477,14 +477,14 @@ export function SupportTickets() {
               </div>
 
               {/* Reply */}
-              <div className="p-4 border-t border-gray-200">
+              <div className="p-4 border-t border-ink-200 dark:border-ink-800">
                 <div className="flex items-center gap-2 mb-2">
                   <label className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       checked={internalNote}
                       onChange={(e) => setInternalNote(e.target.checked)}
-                      className="rounded border-gray-300"
+                      className="rounded border-ink-300 dark:border-ink-700"
                     />
                     Internal Note
                   </label>
@@ -495,7 +495,7 @@ export function SupportTickets() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type your reply..."
                     rows={2}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
                     onClick={handleSendMessage}
@@ -508,9 +508,9 @@ export function SupportTickets() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-              <Headphones className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">Select a ticket to view details</p>
+            <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-12 text-center">
+              <Headphones className="w-12 h-12 text-ink-400 dark:text-ink-500 mx-auto mb-4" />
+              <p className="text-ink-500 dark:text-ink-400">Select a ticket to view details</p>
             </div>
           )}
         </div>

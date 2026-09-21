@@ -102,9 +102,9 @@ export function PromotedEnhancedCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
-        <div className="h-6 bg-gray-200 rounded w-1/3 mb-4" />
-        <div className="h-32 bg-gray-200 rounded" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6 animate-pulse">
+        <div className="h-6 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-4" />
+        <div className="h-32 bg-ink-200 dark:bg-ink-800 rounded" />
       </div>
     );
   }
@@ -114,7 +114,7 @@ export function PromotedEnhancedCard() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Header */}
       <div className="p-4 bg-gradient-to-r from-pink-500 to-rose-600 text-white">
         <div className="flex items-center justify-between">
@@ -127,7 +127,7 @@ export function PromotedEnhancedCard() {
       </div>
 
       {/* Section Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <div className="flex overflow-x-auto">
           {[
             { id: "targeting" as const, label: "Targeting", icon: MapPin },
@@ -143,8 +143,8 @@ export function PromotedEnhancedCard() {
                 className={cn(
                   "flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
                   activeSection === section.id
-                    ? "border-pink-500 text-pink-600 bg-pink-50"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
+                    ? "border-pink-500 text-pink-800 bg-pink-50 dark:bg-pink-500/15 dark:text-pink-300"
+                    : "border-transparent text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50"
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -160,7 +160,7 @@ export function PromotedEnhancedCard() {
         {activeSection === "targeting" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium text-gray-900">
+              <h4 className="font-medium text-ink-900 dark:text-ink-50">
                 Geographic & Category Targeting
               </h4>
               <button
@@ -179,15 +179,15 @@ export function PromotedEnhancedCard() {
                 const enabledCount = items.filter((t) => t.enabled).length;
 
                 return (
-                  <div key={type} className="border border-gray-200 rounded-lg">
-                    <div className="flex items-center justify-between p-3 bg-gray-50">
+                  <div key={type} className="border border-ink-200 dark:border-ink-800 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-ink-50 dark:bg-ink-950">
                       <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-gray-600" />
+                        <Icon className="w-4 h-4 text-ink-600 dark:text-ink-300" />
                         <span className="font-medium text-sm capitalize">
                           {type}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-ink-500 dark:text-ink-400">
                         {enabledCount}/{items.length} active
                       </span>
                     </div>
@@ -203,7 +203,7 @@ export function PromotedEnhancedCard() {
                                 "w-4 h-4 rounded-full border-2 flex items-center justify-center",
                                 item.enabled
                                   ? "bg-pink-500 border-pink-500"
-                                  : "border-gray-300"
+                                  : "border-ink-300 dark:border-ink-700"
                               )}
                             >
                               {item.enabled && (
@@ -212,7 +212,7 @@ export function PromotedEnhancedCard() {
                             </div>
                             <span className="text-sm">{item.name}</span>
                             {item.extraCost > 0 && (
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-ink-500 dark:text-ink-400">
                                 +${item.extraCost}%
                               </span>
                             )}
@@ -230,7 +230,7 @@ export function PromotedEnhancedCard() {
         {/* A/B Testing */}
         {activeSection === "abtest" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               Ad Creative A/B Testing
             </h4>
             <div className="space-y-3">
@@ -241,7 +241,7 @@ export function PromotedEnhancedCard() {
                     "p-4 rounded-lg border-2 transition-all",
                     variant.isWinner
                       ? "border-green-500 bg-green-50"
-                      : "border-gray-200"
+                      : "border-ink-200 dark:border-ink-800"
                   )}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -256,25 +256,25 @@ export function PromotedEnhancedCard() {
                     <span
                       className={cn(
                         "font-bold",
-                        variant.ctr >= 4.5 ? "text-green-600" : "text-gray-600"
+                        variant.ctr >= 4.5 ? "text-green-600" : "text-ink-600 dark:text-ink-300"
                       )}
                     >
                       {variant.ctr}% CTR
                     </span>
                   </div>
-                  <p className="text-sm font-medium text-gray-800">
+                  <p className="text-sm font-medium text-ink-800 dark:text-ink-100">
                     {variant.headline}
                   </p>
-                  <p className="text-sm text-gray-600">{variant.description}</p>
-                  <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                  <p className="text-sm text-ink-600 dark:text-ink-300">{variant.description}</p>
+                  <div className="flex items-center gap-4 mt-3 text-xs text-ink-500 dark:text-ink-400">
                     <span>{variant.impressions} impressions</span>
                     <span>{variant.clicks} clicks</span>
                   </div>
-                  <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="mt-2 h-2 bg-ink-200 dark:bg-ink-800 rounded-full overflow-hidden">
                     <div
                       className={cn(
                         "h-full rounded-full",
-                        variant.isWinner ? "bg-green-500" : "bg-gray-400"
+                        variant.isWinner ? "bg-green-500" : "bg-ink-400 dark:bg-ink-600"
                       )}
                       style={{
                         width: `${(variant.ctr / 5) * 100}%`,
@@ -291,7 +291,7 @@ export function PromotedEnhancedCard() {
         {activeSection === "quality" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium text-gray-900">
+              <h4 className="font-medium text-ink-900 dark:text-ink-50">
                 Profile Quality Score
               </h4>
               <div className="flex items-center gap-2">
@@ -307,7 +307,7 @@ export function PromotedEnhancedCard() {
                 >
                   {data.qualityScore.overall}
                 </div>
-                <span className="text-sm text-gray-500">/100</span>
+                <span className="text-sm text-ink-500 dark:text-ink-400">/100</span>
               </div>
             </div>
 
@@ -322,10 +322,10 @@ export function PromotedEnhancedCard() {
                 { label: "Reviews", value: data.qualityScore.reviewQuality },
                 { label: "Bookings", value: data.qualityScore.bookingRate },
               ].map((item) => (
-                <div key={item.label} className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-600">{item.label}</div>
+                <div key={item.label} className="p-3 bg-ink-50 dark:bg-ink-950 rounded-lg">
+                  <div className="text-sm text-ink-600 dark:text-ink-300">{item.label}</div>
                   <div className="text-xl font-bold">{item.value}%</div>
-                  <div className="mt-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="mt-1 h-2 bg-ink-200 dark:bg-ink-800 rounded-full overflow-hidden">
                     <div
                       className={cn(
                         "h-full rounded-full",
@@ -344,7 +344,7 @@ export function PromotedEnhancedCard() {
 
             {/* Factors */}
             <div>
-              <h5 className="text-sm font-medium text-gray-700 mb-2">
+              <h5 className="text-sm font-medium text-ink-700 dark:text-ink-200 mb-2">
                 What&apos;s working:
               </h5>
               <div className="space-y-1">
@@ -359,14 +359,14 @@ export function PromotedEnhancedCard() {
 
             {/* Suggestions */}
             <div>
-              <h5 className="text-sm font-medium text-gray-700 mb-2">
+              <h5 className="text-sm font-medium text-ink-700 dark:text-ink-200 mb-2">
                 Improve your score:
               </h5>
               <div className="space-y-2">
                 {data.qualityScore.suggestions.map((suggestion, i) => (
                   <div
                     key={i}
-                    className="p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800"
+                    className="p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800 dark:bg-blue-500/15 dark:text-blue-300"
                   >
                     {suggestion}
                   </div>
@@ -379,7 +379,7 @@ export function PromotedEnhancedCard() {
         {/* Competitors */}
         {activeSection === "competitors" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               Competitor Insights
             </h4>
 
@@ -406,14 +406,14 @@ export function PromotedEnhancedCard() {
 
             {/* Bid Comparison */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                <span className="text-sm text-gray-600">Average Bid</span>
+              <div className="flex items-center justify-between p-3 bg-ink-50 dark:bg-ink-950 rounded">
+                <span className="text-sm text-ink-600 dark:text-ink-300">Average Bid</span>
                 <span className="font-medium">
                   ${data.competitorData.avgBid.toFixed(2)}
                 </span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                <span className="text-sm text-gray-600">Top Bid</span>
+              <div className="flex items-center justify-between p-3 bg-ink-50 dark:bg-ink-950 rounded">
+                <span className="text-sm text-ink-600 dark:text-ink-300">Top Bid</span>
                 <span className="font-medium text-green-600">
                   ${data.competitorData.topBid.toFixed(2)}
                 </span>
@@ -429,8 +429,8 @@ export function PromotedEnhancedCard() {
             </div>
 
             {/* Estimates */}
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <h5 className="font-medium text-gray-900 mb-3">
+            <div className="p-4 bg-ink-50 dark:bg-ink-950 rounded-lg">
+              <h5 className="font-medium text-ink-900 dark:text-ink-50 mb-3">
                 Monthly Estimates (at current bid)
               </h5>
               <div className="grid grid-cols-3 gap-3 text-center">
@@ -438,19 +438,19 @@ export function PromotedEnhancedCard() {
                   <div className="text-2xl font-bold text-blue-600">
                     {formatNumber(data.estimatedReach)}
                   </div>
-                  <div className="text-xs text-gray-500">Reach</div>
+                  <div className="text-xs text-ink-500 dark:text-ink-400">Reach</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-green-600">
                     {data.estimatedClicks}
                   </div>
-                  <div className="text-xs text-gray-500">Clicks</div>
+                  <div className="text-xs text-ink-500 dark:text-ink-400">Clicks</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-amber-600">
                     ${data.estimatedCost}
                   </div>
-                  <div className="text-xs text-gray-500">Cost</div>
+                  <div className="text-xs text-ink-500 dark:text-ink-400">Cost</div>
                 </div>
               </div>
             </div>

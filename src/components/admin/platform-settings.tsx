@@ -187,8 +187,8 @@ export function PlatformSettings() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Platform Settings</h2>
-          <p className="text-gray-500">Configure your platform settings and feature flags</p>
+          <h2 className="text-2xl font-bold text-ink-900 dark:text-ink-50">Platform Settings</h2>
+          <p className="text-ink-500 dark:text-ink-400">Configure your platform settings and feature flags</p>
         </div>
         <button
           onClick={handleSave}
@@ -197,7 +197,7 @@ export function PlatformSettings() {
             "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors",
             hasChanges
               ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-ink-100 dark:bg-ink-800 text-ink-400 dark:text-ink-500 cursor-not-allowed"
           )}
         >
           {saving ? (
@@ -216,38 +216,38 @@ export function PlatformSettings() {
           const isExpanded = expandedSection === section.id;
           
           return (
-            <div key={section.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div key={section.id} className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
               <button
                 onClick={() => setExpandedSection(isExpanded ? null : section.id)}
-                className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
+                className="w-full flex items-center justify-between p-4 hover:bg-ink-50 dark:hover:bg-ink-950"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <Icon className="w-5 h-5 text-gray-600" />
+                  <div className="p-2 bg-ink-100 dark:bg-ink-800 rounded-lg">
+                    <Icon className="w-5 h-5 text-ink-600 dark:text-ink-300" />
                   </div>
                   <div className="text-left">
-                    <p className="font-medium text-gray-900">{section.title}</p>
-                    <p className="text-sm text-gray-500">{section.description}</p>
+                    <p className="font-medium text-ink-900 dark:text-ink-50">{section.title}</p>
+                    <p className="text-sm text-ink-500 dark:text-ink-400">{section.description}</p>
                   </div>
                 </div>
                 {isExpanded ? (
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                  <ChevronDown className="w-5 h-5 text-ink-400 dark:text-ink-500" />
                 ) : (
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="w-5 h-5 text-ink-400 dark:text-ink-500" />
                 )}
               </button>
 
               {isExpanded && (
-                <div className="p-4 border-t border-gray-200 space-y-4">
+                <div className="p-4 border-t border-ink-200 dark:border-ink-800 space-y-4">
                   {section.settings.map((setting) => (
                     <div key={setting.id} className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{setting.label}</p>
-                        <p className="text-sm text-gray-500">{setting.description}</p>
+                        <p className="font-medium text-ink-900 dark:text-ink-50">{setting.label}</p>
+                        <p className="text-sm text-ink-500 dark:text-ink-400">{setting.description}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         {setting.requiresRestart && (
-                          <span className="text-xs text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                          <span className="text-xs text-orange-800 bg-orange-100 px-2 py-0.5 rounded-full dark:bg-orange-500/15 dark:text-orange-300">
                             Requires restart
                           </span>
                         )}
@@ -256,7 +256,7 @@ export function PlatformSettings() {
                             onClick={() => handleSettingChange(section.id, setting.id, !setting.value)}
                             className={cn(
                               "relative w-11 h-6 rounded-full transition-colors",
-                              setting.value ? "bg-blue-600" : "bg-gray-200"
+                              setting.value ? "bg-blue-600" : "bg-ink-200 dark:bg-ink-800"
                             )}
                           >
                             <span className={cn(
@@ -270,7 +270,7 @@ export function PlatformSettings() {
                             type="text"
                             value={setting.value as string}
                             onChange={(e) => handleSettingChange(section.id, setting.id, e.target.value)}
-                            className="w-64 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-64 px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         )}
                         {setting.type === "number" && (
@@ -278,14 +278,14 @@ export function PlatformSettings() {
                             type="number"
                             value={setting.value as number}
                             onChange={(e) => handleSettingChange(section.id, setting.id, Number(e.target.value))}
-                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-32 px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         )}
                         {setting.type === "select" && (
                           <select
                             value={setting.value as string}
                             onChange={(e) => handleSettingChange(section.id, setting.id, e.target.value)}
-                            className="w-48 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-48 px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             {setting.options?.map((opt) => (
                               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -297,7 +297,7 @@ export function PlatformSettings() {
                             value={setting.value as string}
                             onChange={(e) => handleSettingChange(section.id, setting.id, e.target.value)}
                             rows={3}
-                            className="w-80 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-80 px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         )}
                       </div>

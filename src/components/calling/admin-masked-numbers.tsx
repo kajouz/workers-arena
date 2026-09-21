@@ -171,7 +171,7 @@ export function AdminMaskedNumbers() {
                     "p-4 rounded-lg border",
                     mn.isActive
                       ? "bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800"
-                      : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                      : "bg-ink-50 dark:bg-ink-950 dark:bg-ink-800 border-ink-200 dark:border-ink-800 dark:border-ink-700"
                   )}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -232,11 +232,11 @@ export function AdminMaskedNumbers() {
                               </DialogDescription>
                             </DialogHeader>
                             <div className="py-4 space-y-4">
-                              <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
-                                <p className="text-xs text-gray-500 mb-1">
+                              <div className="p-4 rounded-lg bg-ink-50 dark:bg-ink-950 dark:bg-ink-800">
+                                <p className="text-xs text-ink-500 dark:text-ink-400 mb-1">
                                   {t("calling.realNumberFor") || "Real number for"} {mn.partyType}
                                 </p>
-                                <p className="text-2xl font-mono font-bold text-gray-900 dark:text-gray-100">
+                                <p className="text-2xl font-mono font-bold text-ink-900 dark:text-ink-50 dark:text-ink-100">
                                   {mn.realNumber}
                                 </p>
                               </div>

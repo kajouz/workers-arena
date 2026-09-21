@@ -208,9 +208,9 @@ export function RealtimeDashboard() {
                   className={cn(
                     "rounded-full px-2 py-0.5 font-bold",
                     event.type === "pageview"
-                      ? "bg-blue-100 text-blue-700"
+                      ? "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300"
                       : event.type === "error"
-                      ? "bg-red-100 text-red-700"
+                      ? "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300"
                       : "bg-ink-100 text-ink-700"
                   )}
                 >

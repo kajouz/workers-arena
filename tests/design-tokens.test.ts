@@ -207,3 +207,92 @@ describe("globals.css does not hardcode what it has tokens for", () => {
     expect(declarations).toHaveLength(1);
   });
 });
+
+/**
+ * ────────────────────────────────────────────────────────────────────────────
+ * DARK MODE IS NOT OPTIONAL PER COMPONENT
+ * ────────────────────────────────────────────────────────────────────────────
+ * 73 components — the whole admin console and a third of the worker dashboard —
+ * were written with raw Tailwind grays and no `dark:` variants, so the theme
+ * toggle left them as near-black text on a near-black page. They shipped that
+ * way for as long as dark mode existed, because the only thing checking colour
+ * was an axe run over five public pages in light mode.
+ *
+ * These are the cheap source-level guards. tests/playwright/dark-mode.spec.ts
+ * is the real check — it audits the admin surface, signed in, theme flipped.
+ * ────────────────────────────────────────────────────────────────────────────
+ */
+describe("colour comes from the design system", () => {
+  /** Quoted strings that are class lists. */
+  const CLASS_STRING = /(["'`])((?:(?!\1)[^\\\n])*)\1/g;
+
+  function classListsIn(src: string): string[][] {
+    const out: string[][] = [];
+    let m: RegExpExecArray | null;
+    const re = new RegExp(CLASS_STRING.source, "g");
+    while ((m = re.exec(src))) {
+      const tokens = m[2].split(/\s+/).filter(Boolean);
+      if (tokens.some((t) => /^(?:[a-z-]+:)*(?:bg|text|border|ring|divide)-/.test(t))) out.push(tokens);
+    }
+    return out;
+  }
+
+  it("uses the ink tokens, never raw Tailwind grays", () => {
+    const offenders: string[] = [];
+    for (const file of componentFiles()) {
+      const src = readFileSync(file, "utf8");
+      const hits = src.match(/\b[a-z-]*gray-\d+\b/g);
+      if (hits) offenders.push(`${relative(process.cwd(), file)} — ${[...new Set(hits)].join(", ")}`);
+    }
+    expect(
+      offenders,
+      "`gray-*` has no dark-mode partner and is not the app's neutral. Use " +
+        "`ink-*`:\n  " + offenders.join("\n  ")
+    ).toEqual([]);
+  });
+
+  it("never pairs a dark foreground with a light surface in the same class list", () => {
+    // The shape that produced the actual bug: a chip whose text flipped for
+    // dark mode sitting on a card whose background did not, so light-on-light.
+    const LIGHT_SURFACE = /^bg-(?:white|(?:ink|red|orange|amber|yellow|green|emerald|blue|indigo|violet|purple|pink|rose|teal|cyan|sky)-(?:50|100|200))$/;
+    const offenders: string[] = [];
+    for (const file of componentFiles()) {
+      for (const tokens of classListsIn(readFileSync(file, "utf8"))) {
+        const hasDarkText = tokens.some((t) => t.startsWith("dark:text-"));
+        const hasDarkBg = tokens.some((t) => t.startsWith("dark:bg-"));
+        if (hasDarkText && !hasDarkBg && tokens.some((t) => LIGHT_SURFACE.test(t))) {
+          offenders.push(`${relative(process.cwd(), file)} — ${tokens.join(" ").slice(0, 90)}`);
+        }
+      }
+    }
+    expect(
+      offenders,
+      "These flip their text for dark mode but keep a light background:\n  " + offenders.join("\n  ")
+    ).toEqual([]);
+  });
+
+  it("keeps status chips at a text step that clears AA on their tint", () => {
+    // `text-orange-600` on `bg-orange-100` measures 3.13:1. The convention is
+    // the -100/-800 pair, which is 6.14:1 at worst across the palettes in use.
+    const COLORS = "red|orange|amber|yellow|green|emerald|blue|indigo|violet|purple|pink|rose|teal|cyan|sky";
+    const offenders: string[] = [];
+    for (const file of componentFiles()) {
+      for (const tokens of classListsIn(readFileSync(file, "utf8"))) {
+        for (const token of tokens) {
+          const bg = new RegExp(`^bg-(${COLORS})-(?:50|100)$`).exec(token);
+          if (!bg) continue;
+          const text = tokens.find((t) => new RegExp(`^text-${bg[1]}-\\d+$`).test(t));
+          if (!text) continue;
+          const step = Number(text.split("-")[2]);
+          if (step < 800) {
+            offenders.push(`${relative(process.cwd(), file)} — ${token} + ${text}`);
+          }
+        }
+      }
+    }
+    expect(
+      offenders,
+      "Tinted chips need the -800 foreground to clear AA:\n  " + offenders.join("\n  ")
+    ).toEqual([]);
+  });
+});

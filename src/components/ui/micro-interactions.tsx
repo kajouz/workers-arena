@@ -47,7 +47,7 @@ export function AnimatedHeart({
         "relative flex items-center justify-center rounded-full transition-colors",
         sizes[size],
         liked
-          ? "bg-red-50 text-red-500 dark:bg-red-950/40"
+          ? "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300"
           : "bg-ink-100 text-ink-400 hover:bg-ink-200 dark:bg-ink-800 dark:text-ink-500 dark:hover:bg-ink-700"
       )}
       aria-label={liked ? "Remove from favorites" : "Add to favorites"}

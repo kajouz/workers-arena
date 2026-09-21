@@ -76,11 +76,11 @@ export function RevenueAnalyticsCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
-        <div className="h-6 bg-gray-200 rounded w-1/3 mb-4" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6 animate-pulse">
+        <div className="h-6 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-4" />
         <div className="grid grid-cols-2 gap-4">
-          <div className="h-24 bg-gray-200 rounded" />
-          <div className="h-24 bg-gray-200 rounded" />
+          <div className="h-24 bg-ink-200 dark:bg-ink-800 rounded" />
+          <div className="h-24 bg-ink-200 dark:bg-ink-800 rounded" />
         </div>
       </div>
     );
@@ -95,7 +95,7 @@ export function RevenueAnalyticsCard() {
   );
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Header */}
       <div className="p-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
         <div className="flex items-center justify-between">
@@ -108,7 +108,7 @@ export function RevenueAnalyticsCard() {
       </div>
 
       {/* View Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <div className="flex overflow-x-auto">
           {[
             { id: "overview" as const, label: "Overview" },
@@ -122,8 +122,8 @@ export function RevenueAnalyticsCard() {
               className={cn(
                 "px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
                 activeView === view.id
-                  ? "border-indigo-500 text-indigo-600 bg-indigo-50"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
+                  ? "border-indigo-500 text-indigo-800 bg-indigo-50 dark:bg-indigo-500/15 dark:text-indigo-300"
+                  : "border-transparent text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50"
               )}
             >
               {view.label}
@@ -137,8 +137,8 @@ export function RevenueAnalyticsCard() {
         {activeView === "overview" && (
           <div className="space-y-4">
             {/* Monthly Trend */}
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm text-gray-600">This Month</span>
+            <div className="flex items-center justify-between p-3 bg-ink-50 dark:bg-ink-950 rounded-lg">
+              <span className="text-sm text-ink-600 dark:text-ink-300">This Month</span>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-lg">
                   ${analytics.monthlyTrend.currentMonth}
@@ -191,7 +191,7 @@ export function RevenueAnalyticsCard() {
                 />
               ))}
             </div>
-            <div className="flex justify-between text-xs text-gray-500">
+            <div className="flex justify-between text-xs text-ink-500 dark:text-ink-400">
               <span>6 months ago</span>
               <span>Now</span>
             </div>
@@ -201,7 +201,7 @@ export function RevenueAnalyticsCard() {
         {/* Spending History */}
         {activeView === "spending" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">Spending History</h4>
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">Spending History</h4>
             <div className="space-y-2">
               {analytics.spendingHistory
                 .slice()
@@ -210,9 +210,9 @@ export function RevenueAnalyticsCard() {
                 .map((entry, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                    className="flex items-center justify-between p-2 bg-ink-50 dark:bg-ink-950 rounded"
                   >
-                    <span className="text-sm text-gray-600">{entry.date}</span>
+                    <span className="text-sm text-ink-600 dark:text-ink-300">{entry.date}</span>
                     <div className="flex items-center gap-4 text-sm">
                       <span className="text-amber-600">
                         {entry.credits} cr
@@ -230,7 +230,7 @@ export function RevenueAnalyticsCard() {
                   </div>
                 ))}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-ink-500 dark:text-ink-400">
               cr = credits, tk = tokens, $ = promoted spend
             </div>
           </div>
@@ -239,14 +239,14 @@ export function RevenueAnalyticsCard() {
         {/* ROI by Tool */}
         {activeView === "roi" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               ROI by Revenue Tool
             </h4>
             <div className="space-y-3">
               {analytics.roiByTool.map((tool, i) => (
-                <div key={i} className="p-3 bg-gray-50 rounded-lg">
+                <div key={i} className="p-3 bg-ink-50 dark:bg-ink-950 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-ink-900 dark:text-ink-50">
                       {tool.tool}
                     </span>
                     <span
@@ -262,11 +262,11 @@ export function RevenueAnalyticsCard() {
                       {tool.roi}% ROI
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-sm text-gray-600">
+                  <div className="flex items-center justify-between text-sm text-ink-600 dark:text-ink-300">
                     <span>Spent: ${tool.spent}</span>
                     <span>Revenue: ${tool.revenueGenerated}</span>
                   </div>
-                  <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="mt-2 h-2 bg-ink-200 dark:bg-ink-800 rounded-full overflow-hidden">
                     <div
                       className={cn(
                         "h-full rounded-full",
@@ -279,7 +279,7 @@ export function RevenueAnalyticsCard() {
                       style={{ width: `${Math.min(tool.usage, 100)}%` }}
                     />
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-ink-500 dark:text-ink-400 mt-1">
                     Usage: {tool.usage}%
                   </div>
                 </div>
@@ -291,7 +291,7 @@ export function RevenueAnalyticsCard() {
         {/* Recommendations */}
         {activeView === "recommendations" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900 flex items-center gap-2">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50 flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-amber-500" />
               Smart Recommendations
             </h4>
@@ -301,8 +301,8 @@ export function RevenueAnalyticsCard() {
                   key={i}
                   className="p-3 bg-amber-50 border border-amber-200 rounded-lg"
                 >
-                  <p className="text-sm text-gray-800">{rec}</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-sm text-ink-800 dark:text-ink-100">{rec}</p>
+                  <p className="text-xs text-ink-500 dark:text-ink-400 mt-1">
                     {analytics.recommendationsAr[i]}
                   </p>
                 </div>

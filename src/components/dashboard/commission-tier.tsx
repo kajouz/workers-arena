@@ -89,9 +89,9 @@ export function CommissionTierCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
-        <div className="h-8 bg-gray-200 rounded w-1/4" />
+      <div className="bg-white dark:bg-ink-900 dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4 animate-pulse">
+        <div className="h-4 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-2" />
+        <div className="h-8 bg-ink-200 dark:bg-ink-800 rounded w-1/4" />
       </div>
     );
   }
@@ -107,7 +107,7 @@ export function CommissionTierCard() {
     : 100;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Current Tier */}
       <div className="p-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
         <div className="flex items-center justify-between">
@@ -127,24 +127,24 @@ export function CommissionTierCard() {
 
       {/* Progress to Next Tier */}
       {nextTier && (
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-ink-200 dark:border-ink-800">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600">Progress to {nextTier.name}</p>
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm text-ink-600 dark:text-ink-300">Progress to {nextTier.name}</p>
+            <p className="text-sm font-medium text-ink-900 dark:text-ink-50">
               ${formatNumber(nextTier.minBillings - info.lifetimeBillings)} to go
             </p>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-2 bg-ink-200 dark:bg-ink-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all"
               style={{ width: `${Math.min(progressToNext, 100)}%` }}
             />
           </div>
           <div className="flex items-center justify-between mt-1">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-ink-500 dark:text-ink-400">
               ${formatNumber(info.tier.minBillings)}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-ink-500 dark:text-ink-400">
               ${formatNumber(nextTier.minBillings)}
             </p>
           </div>
@@ -155,13 +155,13 @@ export function CommissionTierCard() {
       <div className="p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-500">Lifetime Billings</p>
-            <p className="text-xl font-bold text-gray-900">
+            <p className="text-sm text-ink-500 dark:text-ink-400">Lifetime Billings</p>
+            <p className="text-xl font-bold text-ink-900 dark:text-ink-50">
               ${formatNumber(info.lifetimeBillings)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-500">You save</p>
+            <p className="text-sm text-ink-500 dark:text-ink-400">You save</p>
             <p className="text-xl font-bold text-green-600">
               {(7 - info.tier.ratePercent)}%
             </p>
@@ -170,8 +170,8 @@ export function CommissionTierCard() {
       </div>
 
       {/* All Tiers */}
-      <div className="p-4 border-t border-gray-200 bg-gray-50">
-        <p className="text-sm font-medium text-gray-700 mb-3">All Tiers</p>
+      <div className="p-4 border-t border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-950">
+        <p className="text-sm font-medium text-ink-700 dark:text-ink-200 mb-3">All Tiers</p>
         <div className="space-y-2">
           {info.allTiers.map((tier, index) => (
             <div
@@ -180,7 +180,7 @@ export function CommissionTierCard() {
                 "flex items-center justify-between p-2 rounded-lg",
                 tier.id === info.tier.id
                   ? "bg-emerald-100 border border-emerald-200"
-                  : "bg-white"
+                  : "bg-white dark:bg-ink-900"
               )}
             >
               <div className="flex items-center gap-2">
@@ -188,20 +188,20 @@ export function CommissionTierCard() {
                   "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
                   tier.id === info.tier.id
                     ? "bg-emerald-500 text-white"
-                    : "bg-gray-200 text-gray-600"
+                    : "bg-ink-200 dark:bg-ink-800 text-ink-600 dark:text-ink-300"
                 )}>
                   {index + 1}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{tier.name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm font-medium text-ink-900 dark:text-ink-50">{tier.name}</p>
+                  <p className="text-xs text-ink-500 dark:text-ink-400">
                     ${formatNumber(tier.minBillings)}+
                   </p>
                 </div>
               </div>
               <p className={cn(
                 "text-sm font-bold",
-                tier.id === info.tier.id ? "text-emerald-600" : "text-gray-600"
+                tier.id === info.tier.id ? "text-emerald-600" : "text-ink-600 dark:text-ink-300"
               )}>
                 {tier.ratePercent}%
               </p>

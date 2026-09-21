@@ -26,21 +26,21 @@ export function SystemLogs() {
     return matchesLevel && matchesSearch;
   });
 
-  const levelColors: Record<string, string> = { error: "bg-red-100 text-red-800", warn: "bg-yellow-100 text-yellow-800", info: "bg-blue-100 text-blue-800", debug: "bg-gray-100 text-gray-800" };
+  const levelColors: Record<string, string> = { error: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300", warn: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300", info: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300", debug: "bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100" };
   const levelIcons: Record<string, React.ElementType> = { error: AlertCircle, warn: AlertTriangle, info: Info, debug: Bug };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Search logs..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg" /></div>
-        <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="px-4 py-2 border border-gray-200 rounded-lg"><option value="all">All Levels</option><option value="error">Error</option><option value="warn">Warning</option><option value="info">Info</option><option value="debug">Debug</option></select>
-        <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50"><Download className="w-4 h-4" /> Export</button>
+        <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" /><input type="text" placeholder="Search logs..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" /></div>
+        <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"><option value="all">All Levels</option><option value="error">Error</option><option value="warn">Warning</option><option value="info">Info</option><option value="debug">Debug</option></select>
+        <button className="flex items-center gap-2 px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-950"><Download className="w-4 h-4" /> Export</button>
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="p-4 border-b border-gray-200 bg-gray-50"><p className="text-sm font-medium text-gray-600">{filteredLogs.length} log entries</p></div>
-        <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
+        <div className="p-4 border-b border-ink-200 dark:border-ink-800 bg-ink-50 dark:bg-ink-950"><p className="text-sm font-medium text-ink-600 dark:text-ink-300">{filteredLogs.length} log entries</p></div>
+        <div className="divide-y divide-ink-200 dark:divide-ink-800 max-h-96 overflow-y-auto">
           {filteredLogs.map((log) => { const Icon = levelIcons[log.level]; return (
-            <div key={log.id} className="p-4 hover:bg-gray-50"><div className="flex items-start gap-3"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", levelColors[log.level])}><Icon className="w-3 h-3 inline mr-1" />{log.level}</span><div className="flex-1"><div className="flex items-center gap-2"><span className="text-xs text-gray-500">{formatDateTime(log.timestamp, locale)}</span><span className="text-xs font-mono text-gray-400">{log.source}</span></div><p className="text-sm text-gray-900 mt-1">{log.message}</p>{log.details && <p className="text-xs text-gray-500 mt-1">{log.details}</p>}</div></div></div>
+            <div key={log.id} className="p-4 hover:bg-ink-50 dark:hover:bg-ink-950"><div className="flex items-start gap-3"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", levelColors[log.level])}><Icon className="w-3 h-3 inline mr-1" />{log.level}</span><div className="flex-1"><div className="flex items-center gap-2"><span className="text-xs text-ink-500 dark:text-ink-400">{formatDateTime(log.timestamp, locale)}</span><span className="text-xs font-mono text-ink-400 dark:text-ink-500">{log.source}</span></div><p className="text-sm text-ink-900 dark:text-ink-50 mt-1">{log.message}</p>{log.details && <p className="text-xs text-ink-500 dark:text-ink-400 mt-1">{log.details}</p>}</div></div></div>
           ); })}
         </div>
       </div>

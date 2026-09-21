@@ -348,7 +348,7 @@ export function BrandingPackage() {
                 "rounded-xl border-2 p-4 transition-all",
                 feature.enabled
                   ? "border-green-500 bg-green-50 dark:bg-green-900/20"
-                  : "border-gray-200 bg-white hover:border-brand-300"
+                  : "border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 hover:border-brand-300"
               )}
             >
               <div className="flex items-start justify-between">
@@ -356,7 +356,7 @@ export function BrandingPackage() {
                   <div
                     className={cn(
                       "rounded-lg p-2",
-                      feature.enabled ? "bg-green-100" : "bg-gray-100"
+                      feature.enabled ? "bg-green-100" : "bg-ink-100 dark:bg-ink-800"
                     )}
                   >
                     <Icon
@@ -364,13 +364,13 @@ export function BrandingPackage() {
                         "size-5",
                         feature.enabled
                           ? "text-green-600"
-                          : "text-gray-500"
+                          : "text-ink-500 dark:text-ink-400"
                       )}
                     />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">{feature.name}</p>
-                    <p className="text-xs text-gray-500">{feature.nameAr}</p>
+                    <p className="font-semibold text-ink-900 dark:text-ink-50">{feature.name}</p>
+                    <p className="text-xs text-ink-500 dark:text-ink-400">{feature.nameAr}</p>
                   </div>
                 </div>
                 <button
@@ -378,7 +378,7 @@ export function BrandingPackage() {
                   disabled={saving}
                   className={cn(
                     "relative h-6 w-11 rounded-full transition-colors",
-                    feature.enabled ? "bg-green-500" : "bg-gray-200"
+                    feature.enabled ? "bg-green-500" : "bg-ink-200 dark:bg-ink-800"
                   )}
                 >
                   <span
@@ -390,7 +390,7 @@ export function BrandingPackage() {
                 </button>
               </div>
 
-              <p className="mt-3 text-sm text-gray-600">{feature.description}</p>
+              <p className="mt-3 text-sm text-ink-600 dark:text-ink-300">{feature.description}</p>
 
               <div className="mt-3 flex items-center justify-between">
                 <div className="flex items-center gap-1">
@@ -399,7 +399,7 @@ export function BrandingPackage() {
                   ) : (
                     <Star className="size-3 text-purple-500" />
                   )}
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-ink-700 dark:text-ink-200">
                     ${feature.price}
                     {feature.priceType === "monthly" && "/mo"}
                   </span>
@@ -431,7 +431,7 @@ export function BrandingPackage() {
                       Save
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-ink-500 dark:text-ink-400">
                     workersarena.com/{customUrl || "your-name"}
                   </p>
                 </div>
@@ -448,7 +448,7 @@ export function BrandingPackage() {
                           "flex-1 rounded-lg border px-3 py-2 text-xs font-medium capitalize",
                           selectedDesign === design
                             ? "border-brand-500 bg-brand-50 text-brand-700"
-                            : "border-gray-200 text-gray-600 hover:border-gray-300"
+                            : "border-ink-200 dark:border-ink-800 text-ink-600 dark:text-ink-300 hover:border-ink-300 dark:hover:border-ink-700"
                         )}
                       >
                         {design}
@@ -480,7 +480,7 @@ export function BrandingPackage() {
               {feature.enabled && feature.id === "profile_theme" && (
                 <div className="mt-3 space-y-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-700">
+                    <label className="text-xs font-medium text-ink-700 dark:text-ink-200">
                       Accent Color
                     </label>
                     <div className="mt-1 flex gap-2">
@@ -492,8 +492,8 @@ export function BrandingPackage() {
                             className={cn(
                               "h-8 w-8 rounded-full border-2",
                               accentColor === color
-                                ? "border-gray-900 scale-110"
-                                : "border-gray-200"
+                                ? "border-ink-900 dark:border-ink-900 scale-110"
+                                : "border-ink-200 dark:border-ink-800"
                             )}
                             style={{ backgroundColor: color }}
                           />
@@ -502,7 +502,7 @@ export function BrandingPackage() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-700">
+                    <label className="text-xs font-medium text-ink-700 dark:text-ink-200">
                       Card Design
                     </label>
                     <div className="mt-1 flex gap-2">
@@ -514,7 +514,7 @@ export function BrandingPackage() {
                             "flex-1 rounded-lg border px-2 py-1 text-xs capitalize",
                             selectedDesign === design
                               ? "border-brand-500 bg-brand-50"
-                              : "border-gray-200"
+                              : "border-ink-200 dark:border-ink-800"
                           )}
                         >
                           {design}
@@ -523,7 +523,7 @@ export function BrandingPackage() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-700">
+                    <label className="text-xs font-medium text-ink-700 dark:text-ink-200">
                       Profile Frame
                     </label>
                     <div className="mt-1 flex gap-2">
@@ -535,7 +535,7 @@ export function BrandingPackage() {
                             "flex-1 rounded-lg border px-2 py-1 text-xs capitalize",
                             selectedFrame === frame
                               ? "border-brand-500 bg-brand-50"
-                              : "border-gray-200"
+                              : "border-ink-200 dark:border-ink-800"
                           )}
                         >
                           {frame}
@@ -556,9 +556,9 @@ export function BrandingPackage() {
 
               {feature.enabled && feature.id === "video_intro" && (
                 <div className="mt-3">
-                  <div className="rounded-lg border-2 border-dashed border-gray-300 p-4 text-center">
-                    <Video className="mx-auto size-8 text-gray-400" />
-                    <p className="mt-2 text-sm text-gray-600">
+                  <div className="rounded-lg border-2 border-dashed border-ink-300 dark:border-ink-700 p-4 text-center">
+                    <Video className="mx-auto size-8 text-ink-400 dark:text-ink-500" />
+                    <p className="mt-2 text-sm text-ink-600 dark:text-ink-300">
                       Upload a 30-second video introduction
                     </p>
                     <button className="mt-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
@@ -593,41 +593,41 @@ export function BrandingPackage() {
 
       {/* Bundle Offers */}
       <div className="rounded-xl border border-brand-200 bg-brand-50 p-6">
-        <h3 className="text-lg font-bold text-gray-900">Bundle & Save</h3>
-        <p className="text-sm text-gray-600">
+        <h3 className="text-lg font-bold text-ink-900 dark:text-ink-50">Bundle & Save</h3>
+        <p className="text-sm text-ink-600 dark:text-ink-300">
           Get multiple features at a discounted rate
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h4 className="font-semibold text-gray-900">Starter Kit</h4>
-            <p className="text-sm text-gray-600">Custom URL + Business Card</p>
+          <div className="rounded-lg border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-4">
+            <h4 className="font-semibold text-ink-900 dark:text-ink-50">Starter Kit</h4>
+            <p className="text-sm text-ink-600 dark:text-ink-300">Custom URL + Business Card</p>
             <p className="mt-2 text-2xl font-bold text-brand-600">$20</p>
-            <p className="text-xs text-gray-500">Save $5</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Save $5</p>
             <button className="mt-3 w-full rounded-lg border border-brand-500 px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50">
               Get Starter
             </button>
           </div>
-          <div className="relative rounded-lg border-2 border-brand-500 bg-white p-4">
+          <div className="relative rounded-lg border-2 border-brand-500 bg-white dark:bg-ink-900 p-4">
             <span className="absolute -top-2.5 left-4 rounded-full bg-brand-500 px-2 py-0.5 text-xs font-bold text-white">
               Popular
             </span>
-            <h4 className="font-semibold text-gray-900">Social Pro</h4>
-            <p className="text-sm text-gray-600">
+            <h4 className="font-semibold text-ink-900 dark:text-ink-50">Social Pro</h4>
+            <p className="text-sm text-ink-600 dark:text-ink-300">
               URL + Business Card + Social Kit
             </p>
             <p className="mt-2 text-2xl font-bold text-brand-600">$35</p>
-            <p className="text-xs text-gray-500">Save $10</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Save $10</p>
             <button className="mt-3 w-full rounded-lg bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-600">
               Get Social Pro
             </button>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <h4 className="font-semibold text-gray-900">Full Branding</h4>
-            <p className="text-sm text-gray-600">All features included</p>
+          <div className="rounded-lg border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-4">
+            <h4 className="font-semibold text-ink-900 dark:text-ink-50">Full Branding</h4>
+            <p className="text-sm text-ink-600 dark:text-ink-300">All features included</p>
             <p className="mt-2 text-2xl font-bold text-brand-600">
               $50 + $5/mo
             </p>
-            <p className="text-xs text-gray-500">Save $30+</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Save $30+</p>
             <button className="mt-3 w-full rounded-lg border border-brand-500 px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50">
               Get Full Branding
             </button>

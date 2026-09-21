@@ -109,9 +109,9 @@ export function GamificationCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
-        <div className="h-6 bg-gray-200 rounded w-1/3 mb-4" />
-        <div className="h-32 bg-gray-200 rounded" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6 animate-pulse">
+        <div className="h-6 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-4" />
+        <div className="h-32 bg-ink-200 dark:bg-ink-800 rounded" />
       </div>
     );
   }
@@ -125,7 +125,7 @@ export function GamificationCard() {
   const activeChallenges = data.challenges.filter((c) => !c.completed);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Header */}
       <div className="p-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
         <div className="flex items-center justify-between">
@@ -138,7 +138,7 @@ export function GamificationCard() {
       </div>
 
       {/* Level Progress */}
-      <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-gray-200">
+      <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-ink-200 dark:border-ink-800">
         <div className="flex items-center justify-between mb-2">
           <div>
             <div className="text-sm text-amber-700">
@@ -181,7 +181,7 @@ export function GamificationCard() {
       </div>
 
       {/* Section Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <div className="flex overflow-x-auto">
           {[
             { id: "badges" as const, label: "Badges", icon: Award },
@@ -197,8 +197,8 @@ export function GamificationCard() {
                 className={cn(
                   "flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
                   activeSection === section.id
-                    ? "border-amber-500 text-amber-600 bg-amber-50"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
+                    ? "border-amber-500 text-amber-800 bg-amber-50 dark:bg-amber-500/15 dark:text-amber-300"
+                    : "border-transparent text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50"
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -215,7 +215,7 @@ export function GamificationCard() {
           <div className="space-y-4">
             {/* Earned Badges */}
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">
+              <h4 className="font-medium text-ink-900 dark:text-ink-50 mb-3">
                 Earned ({earnedBadges.length})
               </h4>
               <div className="grid grid-cols-2 gap-3">
@@ -226,7 +226,7 @@ export function GamificationCard() {
                   >
                     <div className="text-3xl mb-2">{badge.icon}</div>
                     <div className="font-medium text-sm">{badge.name}</div>
-                    <div className="text-xs text-gray-500">{badge.nameAr}</div>
+                    <div className="text-xs text-ink-500 dark:text-ink-400">{badge.nameAr}</div>
                     <div className="text-xs text-amber-600 mt-1">
                       Earned {badge.earnedAt}
                     </div>
@@ -237,23 +237,23 @@ export function GamificationCard() {
 
             {/* Available Badges */}
             <div>
-              <h4 className="font-medium text-gray-900 mb-3">
+              <h4 className="font-medium text-ink-900 dark:text-ink-50 mb-3">
                 In Progress ({availableBadges.length})
               </h4>
               <div className="space-y-2">
                 {availableBadges.map((badge) => (
                   <div
                     key={badge.id}
-                    className="p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                    className="p-3 bg-ink-50 dark:bg-ink-950 border border-ink-200 dark:border-ink-800 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
                       <div className="text-2xl opacity-50">{badge.icon}</div>
                       <div className="flex-1">
                         <div className="font-medium text-sm">{badge.name}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-ink-500 dark:text-ink-400">
                           {badge.description}
                         </div>
-                        <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="mt-2 h-2 bg-ink-200 dark:bg-ink-800 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-amber-500 rounded-full"
                             style={{
@@ -265,7 +265,7 @@ export function GamificationCard() {
                             }}
                           />
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-ink-500 dark:text-ink-400 mt-1">
                           {badge.progress}/{badge.maxProgress}
                         </div>
                       </div>
@@ -280,7 +280,7 @@ export function GamificationCard() {
         {/* Streaks */}
         {activeSection === "streaks" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               Activity Streaks
             </h4>
             <div className="space-y-3">
@@ -293,7 +293,7 @@ export function GamificationCard() {
                       "p-4 rounded-lg border-2",
                       streak.isActive
                         ? "border-amber-500 bg-amber-50"
-                        : "border-gray-200"
+                        : "border-ink-200 dark:border-ink-800"
                     )}
                   >
                     <div className="flex items-center justify-between mb-3">
@@ -303,14 +303,14 @@ export function GamificationCard() {
                             "w-6 h-6",
                             streak.isActive
                               ? "text-amber-500"
-                              : "text-gray-400"
+                              : "text-ink-400 dark:text-ink-500"
                           )}
                         />
                         <div>
                           <div className="font-medium capitalize">
                             {streak.type} Streak
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-ink-500 dark:text-ink-400">
                             {streak.type === "daily"
                               ? "يومي"
                               : streak.type === "weekly"
@@ -323,7 +323,7 @@ export function GamificationCard() {
                         <div className="text-3xl font-bold text-amber-600">
                           {streak.current}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-ink-500 dark:text-ink-400">
                           Best: {streak.best}
                         </div>
                       </div>
@@ -332,9 +332,9 @@ export function GamificationCard() {
                       {streak.isActive ? (
                         <Flame className="w-4 h-4 text-orange-500" />
                       ) : (
-                        <Clock className="w-4 h-4 text-gray-400" />
+                        <Clock className="w-4 h-4 text-ink-400 dark:text-ink-500" />
                       )}
-                      <span className="text-gray-600">
+                      <span className="text-ink-600 dark:text-ink-300">
                         {streak.isActive ? "Active" : "Streak ended"}
                       </span>
                     </div>
@@ -348,7 +348,7 @@ export function GamificationCard() {
         {/* Challenges */}
         {activeSection === "challenges" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               Active Challenges
             </h4>
             <div className="space-y-3">
@@ -361,30 +361,30 @@ export function GamificationCard() {
                 return (
                   <div
                     key={challenge.id}
-                    className="p-4 border border-gray-200 rounded-lg"
+                    className="p-4 border border-ink-200 dark:border-ink-800 rounded-lg"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div>
                         <div className="font-medium">{challenge.name}</div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-ink-500 dark:text-ink-400">
                           {challenge.nameAr}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 text-sm font-medium rounded">
+                      <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-800 text-sm font-medium rounded dark:bg-amber-500/15 dark:text-amber-300">
                         <RewardIcon className="w-4 h-4" />
                         +{challenge.reward}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-ink-600 dark:text-ink-300 mb-3">
                       {challenge.description}
                     </p>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">Progress</span>
+                      <span className="text-sm text-ink-500 dark:text-ink-400">Progress</span>
                       <span className="text-sm font-medium">
                         {challenge.progress}/{challenge.maxProgress}
                       </span>
                     </div>
-                    <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-3 bg-ink-200 dark:bg-ink-800 rounded-full overflow-hidden">
                       <div
                         className={cn(
                           "h-full rounded-full",
@@ -399,7 +399,7 @@ export function GamificationCard() {
                         }}
                       />
                     </div>
-                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                    <div className="flex items-center justify-between mt-2 text-xs text-ink-500 dark:text-ink-400">
                       <span>
                         {challenge.completed ? "Completed!" : `${daysLeft} days left`}
                       </span>
@@ -417,7 +417,7 @@ export function GamificationCard() {
         {/* Level Up */}
         {activeSection === "level" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               Level Progress
             </h4>
 
@@ -432,16 +432,16 @@ export function GamificationCard() {
             </div>
 
             {/* XP Progress */}
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-4 bg-ink-50 dark:bg-ink-950 rounded-lg">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-ink-600 dark:text-ink-300">
                   Experience Points
                 </span>
                 <span className="font-medium">
                   {formatNumber(data.totalXP)} XP
                 </span>
               </div>
-              <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-4 bg-ink-200 dark:bg-ink-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
                   style={{
@@ -453,7 +453,7 @@ export function GamificationCard() {
                   }}
                 />
               </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <div className="flex justify-between text-xs text-ink-500 dark:text-ink-400 mt-1">
                 <span>Level {data.level}</span>
                 <span>
                   {data.achievement.xpToNextLevel} XP to Level {data.level + 1}
@@ -464,7 +464,7 @@ export function GamificationCard() {
 
             {/* Level Benefits */}
             <div className="p-4 border border-amber-200 rounded-lg">
-              <h5 className="font-medium text-gray-900 mb-3">
+              <h5 className="font-medium text-ink-900 dark:text-ink-50 mb-3">
                 Level {data.level + 1} Benefits
               </h5>
               <ul className="space-y-2 text-sm">

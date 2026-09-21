@@ -49,17 +49,17 @@ interface RiskPattern {
 }
 
 const severityColors: Record<string, string> = {
-  low: "bg-blue-100 text-blue-800",
-  medium: "bg-yellow-100 text-yellow-800",
-  high: "bg-orange-100 text-orange-800",
-  critical: "bg-red-100 text-red-800",
+  low: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  medium: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
+  high: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+  critical: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
 };
 
 const statusColors: Record<string, string> = {
-  new: "bg-purple-100 text-purple-800",
-  investigating: "bg-blue-100 text-blue-800",
-  resolved: "bg-green-100 text-green-800",
-  dismissed: "bg-gray-100 text-gray-800",
+  new: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300",
+  investigating: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  resolved: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  dismissed: "bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100",
 };
 
 const typeLabels: Record<string, string> = {
@@ -273,54 +273,54 @@ export function FraudDetection() {
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 rounded-lg">
               <AlertTriangle className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalAlerts}</p>
-              <p className="text-sm text-gray-500">Total Alerts</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.totalAlerts}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Total Alerts</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
               <Bell className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.newAlerts}</p>
-              <p className="text-sm text-gray-500">New Alerts</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.newAlerts}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">New Alerts</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-red-100 rounded-lg">
               <Shield className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.highRisk}</p>
-              <p className="text-sm text-gray-500">High Risk</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.highRisk}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">High Risk</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-200">
+        <div className="bg-white dark:bg-ink-900 rounded-xl p-4 border border-ink-200 dark:border-ink-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.resolvedToday}</p>
-              <p className="text-sm text-gray-500">Resolved Today</p>
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">{stats.resolvedToday}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">Resolved Today</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <nav className="flex gap-6">
           <button
             onClick={() => setActiveTab("alerts")}
@@ -328,7 +328,7 @@ export function FraudDetection() {
               "pb-3 px-1 text-sm font-medium border-b-2 transition-colors",
               activeTab === "alerts"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
             <AlertTriangle className="w-4 h-4 inline mr-2" />
@@ -340,7 +340,7 @@ export function FraudDetection() {
               "pb-3 px-1 text-sm font-medium border-b-2 transition-colors",
               activeTab === "patterns"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
             <Activity className="w-4 h-4 inline mr-2" />
@@ -352,7 +352,7 @@ export function FraudDetection() {
               "pb-3 px-1 text-sm font-medium border-b-2 transition-colors",
               activeTab === "analytics"
                 ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
             <BarChart3 className="w-4 h-4 inline mr-2" />
@@ -367,19 +367,19 @@ export function FraudDetection() {
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
               <input
                 type="text"
                 placeholder="Search alerts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <select
               value={filterSeverity}
               onChange={(e) => setFilterSeverity(e.target.value)}
-              className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Severity</option>
               <option value="low">Low</option>
@@ -390,7 +390,7 @@ export function FraudDetection() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Status</option>
               <option value="new">New</option>
@@ -404,9 +404,9 @@ export function FraudDetection() {
           <div className="space-y-4">
             {filteredAlerts.map((alert) => (
               <div key={alert.id} className={cn(
-                "bg-white rounded-xl border p-4 transition-all",
+                "bg-white dark:bg-ink-900 rounded-xl border p-4 transition-all",
                 alert.severity === "critical" ? "border-red-300" :
-                alert.severity === "high" ? "border-orange-300" : "border-gray-200"
+                alert.severity === "high" ? "border-orange-300" : "border-ink-200 dark:border-ink-800"
               )}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
@@ -416,32 +416,32 @@ export function FraudDetection() {
                     <span className={cn("px-2 py-1 text-xs font-medium rounded-full", statusColors[alert.status])}>
                       {alert.status.charAt(0).toUpperCase() + alert.status.slice(1)}
                     </span>
-                    <span className="text-sm text-gray-500">{typeLabels[alert.type]}</span>
+                    <span className="text-sm text-ink-500 dark:text-ink-400">{typeLabels[alert.type]}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={cn("text-lg font-bold", getRiskColor(alert.riskScore))}>
                       {alert.riskScore}
                     </span>
-                    <span className="text-xs text-gray-500">risk</span>
+                    <span className="text-xs text-ink-500 dark:text-ink-400">risk</span>
                   </div>
                 </div>
 
                 <div className="mb-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <User className="w-4 h-4 text-gray-400" />
-                    <span className="font-medium text-gray-900">{alert.userName}</span>
-                    <span className="text-gray-500">({alert.userEmail})</span>
+                    <User className="w-4 h-4 text-ink-400 dark:text-ink-500" />
+                    <span className="font-medium text-ink-900 dark:text-ink-50">{alert.userName}</span>
+                    <span className="text-ink-500 dark:text-ink-400">({alert.userEmail})</span>
                   </div>
-                  <p className="text-gray-600">{alert.description}</p>
+                  <p className="text-ink-600 dark:text-ink-300">{alert.description}</p>
                 </div>
 
                 {/* Evidence */}
-                <div className="bg-gray-50 rounded-lg p-3 mb-3">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Evidence:</p>
+                <div className="bg-ink-50 dark:bg-ink-950 rounded-lg p-3 mb-3">
+                  <p className="text-sm font-medium text-ink-700 dark:text-ink-200 mb-2">Evidence:</p>
                   <ul className="space-y-1">
                     {alert.evidence.map((item, i) => (
-                      <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                        <span className="text-gray-400">•</span>
+                      <li key={i} className="text-sm text-ink-600 dark:text-ink-300 flex items-start gap-2">
+                        <span className="text-ink-400 dark:text-ink-500">•</span>
                         {item}
                       </li>
                     ))}
@@ -449,7 +449,7 @@ export function FraudDetection() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-ink-500 dark:text-ink-400">
                     {alert.assignedTo && (
                       <span>Assigned to: <span className="font-medium">{alert.assignedTo}</span></span>
                     )}
@@ -465,7 +465,7 @@ export function FraudDetection() {
                     </button>
                     <button
                       onClick={() => handleDismissAlert(alert.id)}
-                      className="px-3 py-1.5 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm"
+                      className="px-3 py-1.5 text-ink-600 dark:text-ink-300 border border-ink-200 dark:border-ink-800 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-950 text-sm"
                     >
                       Dismiss
                     </button>
@@ -485,42 +485,42 @@ export function FraudDetection() {
 
       {/* Risk Patterns Tab */}
       {activeTab === "patterns" && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-ink-50 dark:bg-ink-950">
               <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Pattern</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Description</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Severity</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Triggers</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Last Triggered</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Pattern</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Description</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Severity</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Triggers</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Last Triggered</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-ink-200 dark:divide-ink-800">
               {patterns.map((pattern) => (
-                <tr key={pattern.id} className="hover:bg-gray-50">
+                <tr key={pattern.id} className="hover:bg-ink-50 dark:hover:bg-ink-950">
                   <td className="px-4 py-4">
-                    <p className="font-medium text-gray-900">{pattern.name}</p>
+                    <p className="font-medium text-ink-900 dark:text-ink-50">{pattern.name}</p>
                   </td>
                   <td className="px-4 py-4">
-                    <p className="text-sm text-gray-600">{pattern.description}</p>
+                    <p className="text-sm text-ink-600 dark:text-ink-300">{pattern.description}</p>
                   </td>
                   <td className="px-4 py-4">
                     <span className={cn("px-2 py-1 text-xs font-medium rounded-full", severityColors[pattern.severity])}>
                       {pattern.severity.charAt(0).toUpperCase() + pattern.severity.slice(1)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-sm text-gray-600">
+                  <td className="px-4 py-4 text-sm text-ink-600 dark:text-ink-300">
                     {formatNumber(pattern.triggerCount)}
                   </td>
-                  <td className="px-4 py-4 text-sm text-gray-500">
+                  <td className="px-4 py-4 text-sm text-ink-500 dark:text-ink-400">
                     {formatDateTime(pattern.lastTriggered, locale)}
                   </td>
                   <td className="px-4 py-4">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" className="sr-only peer" checked={pattern.isActive} readOnly />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-ink-200 dark:bg-ink-800 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-ink-300 dark:after:border-ink-700 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </td>
                 </tr>
@@ -533,8 +533,8 @@ export function FraudDetection() {
       {/* Analytics Tab */}
       {activeTab === "analytics" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Alerts by Type</h3>
+          <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6">
+            <h3 className="font-semibold text-ink-900 dark:text-ink-50 mb-4">Alerts by Type</h3>
             <div className="space-y-3">
               {Object.entries(typeLabels).map(([type, label]) => {
                 const count = alerts.filter((a) => a.type === type).length;
@@ -542,10 +542,10 @@ export function FraudDetection() {
                 return (
                   <div key={type}>
                     <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-gray-600">{label}</span>
+                      <span className="text-ink-600 dark:text-ink-300">{label}</span>
                       <span className="font-medium">{count}</span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-ink-100 dark:bg-ink-800 rounded-full overflow-hidden">
                       <div className="h-full bg-blue-500 rounded-full" style={{ width: `${percentage}%` }} />
                     </div>
                   </div>
@@ -554,8 +554,8 @@ export function FraudDetection() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Risk Score Distribution</h3>
+          <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6">
+            <h3 className="font-semibold text-ink-900 dark:text-ink-50 mb-4">Risk Score Distribution</h3>
             <div className="space-y-3">
               {[
                 { label: "Critical (80-100)", count: alerts.filter((a) => a.riskScore >= 80).length, color: "bg-red-500" },
@@ -567,10 +567,10 @@ export function FraudDetection() {
                 return (
                   <div key={item.label}>
                     <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-gray-600">{item.label}</span>
+                      <span className="text-ink-600 dark:text-ink-300">{item.label}</span>
                       <span className="font-medium">{item.count}</span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-ink-100 dark:bg-ink-800 rounded-full overflow-hidden">
                       <div className={`h-full ${item.color} rounded-full`} style={{ width: `${percentage}%` }} />
                     </div>
                   </div>
@@ -579,8 +579,8 @@ export function FraudDetection() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Alert Status</h3>
+          <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6">
+            <h3 className="font-semibold text-ink-900 dark:text-ink-50 mb-4">Alert Status</h3>
             <div className="space-y-3">
               {Object.entries(statusColors).map(([status, colorClass]) => {
                 const count = alerts.filter((a) => a.status === status).length;
@@ -588,10 +588,10 @@ export function FraudDetection() {
                 return (
                   <div key={status}>
                     <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-gray-600 capitalize">{status}</span>
+                      <span className="text-ink-600 dark:text-ink-300 capitalize">{status}</span>
                       <span className="font-medium">{count}</span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-ink-100 dark:bg-ink-800 rounded-full overflow-hidden">
                       <div className="h-full bg-blue-500 rounded-full" style={{ width: `${percentage}%` }} />
                     </div>
                   </div>
@@ -600,8 +600,8 @@ export function FraudDetection() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Recent Activity</h3>
+          <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6">
+            <h3 className="font-semibold text-ink-900 dark:text-ink-50 mb-4">Recent Activity</h3>
             <div className="space-y-3">
               {alerts.slice(0, 5).map((alert) => (
                 <div key={alert.id} className="flex items-center gap-3">
@@ -609,10 +609,10 @@ export function FraudDetection() {
                     {alert.severity.charAt(0).toUpperCase()}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{alert.userName}</p>
-                    <p className="text-xs text-gray-500 truncate">{typeLabels[alert.type]}</p>
+                    <p className="text-sm font-medium text-ink-900 dark:text-ink-50 truncate">{alert.userName}</p>
+                    <p className="text-xs text-ink-500 dark:text-ink-400 truncate">{typeLabels[alert.type]}</p>
                   </div>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-ink-400 dark:text-ink-500">
                     {formatTime(alert.createdAt, locale)}
                   </span>
                 </div>

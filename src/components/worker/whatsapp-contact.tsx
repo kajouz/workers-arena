@@ -86,7 +86,7 @@ export function WhatsAppContact({
   
   const variantClasses = {
     primary: "bg-green-500 hover:bg-green-600 text-white shadow-md",
-    secondary: "bg-green-100 hover:bg-green-200 text-green-700 border border-green-200",
+    secondary: "bg-green-100 hover:bg-green-200 text-green-800 border border-green-200 dark:bg-green-500/15 dark:text-green-300",
     icon: "bg-green-500 hover:bg-green-600 text-white p-2 rounded-full",
     floating: "bg-green-500 hover:bg-green-600 text-white shadow-lg rounded-full fixed bottom-6 right-6 z-dialog",
   };
@@ -165,7 +165,7 @@ export function QuickContactButtons({
       />
       <a
         href={telUrl}
-        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
+        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors dark:bg-blue-500/15 dark:text-blue-300"
       >
         <Phone className="w-5 h-5" />
         <span>{locale === "ar" ? "اتصل" : "Call"}</span>

@@ -56,15 +56,15 @@ export function SaasMarketplace() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
-        <div className="h-8 bg-gray-200 rounded w-1/4" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4 animate-pulse">
+        <div className="h-4 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-2" />
+        <div className="h-8 bg-ink-200 dark:bg-ink-800 rounded w-1/4" />
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Header */}
       <div className="p-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
         <div className="flex items-center justify-between">
@@ -103,7 +103,7 @@ export function SaasMarketplace() {
       </div>
 
       {/* Category Filter */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-ink-200 dark:border-ink-800">
         <div className="flex gap-2 overflow-x-auto">
           {categories.map((cat) => (
             <button
@@ -112,8 +112,8 @@ export function SaasMarketplace() {
               className={cn(
                 "px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors",
                 selectedCategory === cat.id
-                  ? "bg-blue-100 text-blue-700 font-medium"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-blue-100 text-blue-800 font-medium dark:bg-blue-500/15 dark:text-blue-300"
+                  : "bg-ink-100 dark:bg-ink-800 text-ink-600 dark:text-ink-300 hover:bg-ink-200 dark:hover:bg-ink-800"
               )}
             >
               {cat.name}
@@ -127,28 +127,28 @@ export function SaasMarketplace() {
         {filteredTools.map((tool) => (
           <div
             key={tool.id}
-            className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-colors"
+            className="border border-ink-200 dark:border-ink-800 rounded-xl p-4 hover:border-blue-300 transition-colors"
           >
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="font-semibold text-gray-900">{tool.name}</h3>
-                <p className="text-sm text-gray-500">{tool.nameAr}</p>
+                <h3 className="font-semibold text-ink-900 dark:text-ink-50">{tool.name}</h3>
+                <p className="text-sm text-ink-500 dark:text-ink-400">{tool.nameAr}</p>
               </div>
               {tool.trialEnabled && (
-                <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-medium text-green-800 bg-green-100 px-2 py-0.5 rounded-full dark:bg-green-500/15 dark:text-green-300">
                   {tool.trialDays}d Free Trial
                 </span>
               )}
             </div>
             
-            <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+            <p className="mt-2 text-sm text-ink-600 dark:text-ink-300 line-clamp-2">
               {tool.description}
             </p>
 
             <div className="mt-3">
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-ink-900 dark:text-ink-50">
                 ${billingPeriod === "monthly" ? tool.monthlyPrice : (tool.annualPrice / 12).toFixed(2)}
-                <span className="text-sm font-normal text-gray-500">/mo</span>
+                <span className="text-sm font-normal text-ink-500 dark:text-ink-400">/mo</span>
               </p>
               {billingPeriod === "annual" && (
                 <p className="text-xs text-green-600">
@@ -159,13 +159,13 @@ export function SaasMarketplace() {
 
             <div className="mt-3 space-y-1">
               {tool.features.slice(0, 3).map((feature, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm text-gray-600">
+                <div key={i} className="flex items-center gap-2 text-sm text-ink-600 dark:text-ink-300">
                   <Check className="w-4 h-4 text-green-500" />
                   {feature}
                 </div>
               ))}
               {tool.features.length > 3 && (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-500 dark:text-ink-400">
                   +{tool.features.length - 3} more features
                 </p>
               )}
@@ -181,8 +181,8 @@ export function SaasMarketplace() {
 
       {filteredTools.length === 0 && (
         <div className="p-8 text-center">
-          <Package className="w-12 h-12 text-gray-300 mx-auto" />
-          <p className="mt-2 text-gray-500">No tools in this category</p>
+          <Package className="w-12 h-12 text-ink-300 dark:text-ink-600 mx-auto" />
+          <p className="mt-2 text-ink-500 dark:text-ink-400">No tools in this category</p>
         </div>
       )}
     </div>

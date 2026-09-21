@@ -56,9 +56,9 @@ export function TokenWalletCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
-        <div className="h-8 bg-gray-200 rounded w-1/4" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4 animate-pulse">
+        <div className="h-4 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-2" />
+        <div className="h-8 bg-ink-200 dark:bg-ink-800 rounded w-1/4" />
       </div>
     );
   }
@@ -68,7 +68,7 @@ export function TokenWalletCard() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Balance Header */}
       <div className="p-4 bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
         <div className="flex items-center justify-between">
@@ -97,8 +97,8 @@ export function TokenWalletCard() {
             <Gift className="w-4 h-4 text-green-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{balance.totalEarned}</p>
-            <p className="text-xs text-gray-500">Earned</p>
+            <p className="text-sm font-medium text-ink-900 dark:text-ink-50">{balance.totalEarned}</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Earned</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -106,8 +106,8 @@ export function TokenWalletCard() {
             <Zap className="w-4 h-4 text-blue-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{balance.totalSpent}</p>
-            <p className="text-xs text-gray-500">Spent</p>
+            <p className="text-sm font-medium text-ink-900 dark:text-ink-50">{balance.totalSpent}</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Spent</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -115,8 +115,8 @@ export function TokenWalletCard() {
             <ShoppingCart className="w-4 h-4 text-purple-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{balance.totalPurchased}</p>
-            <p className="text-xs text-gray-500">Purchased</p>
+            <p className="text-sm font-medium text-ink-900 dark:text-ink-50">{balance.totalPurchased}</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Purchased</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -124,8 +124,8 @@ export function TokenWalletCard() {
             <Clock className="w-4 h-4 text-red-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900">{balance.totalExpired}</p>
-            <p className="text-xs text-gray-500">Expired</p>
+            <p className="text-sm font-medium text-ink-900 dark:text-ink-50">{balance.totalExpired}</p>
+            <p className="text-xs text-ink-500 dark:text-ink-400">Expired</p>
           </div>
         </div>
       </div>
@@ -144,18 +144,18 @@ export function TokenWalletCard() {
 
       {/* How to Earn */}
       <div className="px-4 pb-4">
-        <p className="text-xs font-medium text-gray-500 mb-2">How to earn tokens:</p>
+        <p className="text-xs font-medium text-ink-500 dark:text-ink-400 mb-2">How to earn tokens:</p>
         <div className="space-y-1">
-          <p className="text-xs text-gray-600">• Complete a booking: +2 tokens</p>
-          <p className="text-xs text-gray-600">• Get a 5-star review: +1 token</p>
-          <p className="text-xs text-gray-600">• Monthly activity bonus: +5 tokens</p>
+          <p className="text-xs text-ink-600 dark:text-ink-300">• Complete a booking: +2 tokens</p>
+          <p className="text-xs text-ink-600 dark:text-ink-300">• Get a 5-star review: +1 token</p>
+          <p className="text-xs text-ink-600 dark:text-ink-300">• Monthly activity bonus: +5 tokens</p>
         </div>
       </div>
 
       {/* Purchase Packages */}
       {showPackages && (
-        <div className="p-4 border-t border-gray-200">
-          <h4 className="font-medium text-gray-900 mb-3">Buy Token Packages</h4>
+        <div className="p-4 border-t border-ink-200 dark:border-ink-800">
+          <h4 className="font-medium text-ink-900 dark:text-ink-50 mb-3">Buy Token Packages</h4>
           <div className="grid grid-cols-3 gap-3">
             {packages.map((pkg) => (
               <button
@@ -164,18 +164,18 @@ export function TokenWalletCard() {
                   "p-3 rounded-lg border-2 text-left transition-all hover:border-purple-500",
                   pkg.popular
                     ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200 hover:bg-gray-50"
+                    : "border-ink-200 dark:border-ink-800 hover:bg-ink-50 dark:hover:bg-ink-950"
                 )}
               >
                 {pkg.popular && (
-                  <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-medium text-purple-800 bg-purple-100 px-2 py-0.5 rounded-full dark:bg-purple-500/15 dark:text-purple-300">
                     Popular
                   </span>
                 )}
-                <p className="text-lg font-bold text-gray-900 mt-1">
+                <p className="text-lg font-bold text-ink-900 dark:text-ink-50 mt-1">
                   {pkg.tokens + pkg.bonusTokens}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-ink-500 dark:text-ink-400">
                   ${pkg.price}
                 </p>
                 {pkg.bonusTokens > 0 && (

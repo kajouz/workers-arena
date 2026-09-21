@@ -5,12 +5,12 @@ import { ContentManagement } from "@/components/admin/content-management";
 
 export default function CMSPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-ink-50 dark:bg-ink-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href="/admin" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+        <Link href="/admin" className="flex items-center gap-2 text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50 mb-4">
           <ArrowLeft className="w-4 h-4" /> Back to Dashboard
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Content Management</h1>
+        <h1 className="text-3xl font-bold text-ink-900 dark:text-ink-50 mb-8">Content Management</h1>
         <ContentManagement />
       </div>
     </div>

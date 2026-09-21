@@ -112,10 +112,10 @@ export function WidgetManager({ className }: WidgetManagerProps) {
   };
 
   return (
-    <div className={cn("bg-white rounded-xl border border-gray-200", className)}>
+    <div className={cn("bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h3 className="font-semibold text-gray-900">Dashboard Widgets</h3>
+        <h3 className="font-semibold text-ink-900 dark:text-ink-50">Dashboard Widgets</h3>
         <div className="flex items-center gap-2">
           {isEditing ? (
             <>
@@ -128,7 +128,7 @@ export function WidgetManager({ className }: WidgetManagerProps) {
               </button>
               <button
                 onClick={handleReset}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-ink-700 dark:text-ink-200 bg-ink-100 dark:bg-ink-800 rounded-lg hover:bg-ink-200 dark:hover:bg-ink-800"
               >
                 <RotateCcw className="w-4 h-4" />
                 Reset
@@ -137,7 +137,7 @@ export function WidgetManager({ className }: WidgetManagerProps) {
           ) : (
             <button
               onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-ink-700 dark:text-ink-200 bg-ink-100 dark:bg-ink-800 rounded-lg hover:bg-ink-200 dark:hover:bg-ink-800"
             >
               <Settings className="w-4 h-4" />
               Customize
@@ -157,24 +157,24 @@ export function WidgetManager({ className }: WidgetManagerProps) {
             onDragEnd={handleDragEnd}
             className={cn(
               "flex items-center gap-3 px-4 py-3 transition-colors",
-              isEditing && "cursor-move hover:bg-gray-50",
+              isEditing && "cursor-move hover:bg-ink-50 dark:hover:bg-ink-950",
               draggedWidget === widget.id && "opacity-50"
             )}
           >
             {isEditing && (
-              <GripVertical className="w-5 h-5 text-gray-400" />
+              <GripVertical className="w-5 h-5 text-ink-400 dark:text-ink-500" />
             )}
             <span className="text-lg">{getTypeIcon(widget.type)}</span>
             <div className="flex-1">
-              <p className="font-medium text-gray-900">{widget.name}</p>
-              <p className="text-sm text-gray-500 capitalize">{widget.type}</p>
+              <p className="font-medium text-ink-900 dark:text-ink-50">{widget.name}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400 capitalize">{widget.type}</p>
             </div>
             {isEditing && (
               <div className="flex items-center gap-2">
                 <select
                   value={widget.size}
                   onChange={(e) => handleSizeChange(widget.id, e.target.value as Widget["size"])}
-                  className="px-2 py-1 text-sm border border-gray-200 rounded-lg"
+                  className="px-2 py-1 text-sm border border-ink-200 dark:border-ink-800 rounded-lg"
                 >
                   <option value="small">Small</option>
                   <option value="medium">Medium</option>
@@ -185,8 +185,8 @@ export function WidgetManager({ className }: WidgetManagerProps) {
                   className={cn(
                     "p-1.5 rounded-lg transition-colors",
                     widget.enabled
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-500"
+                      ? "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300"
+                      : "bg-ink-100 dark:bg-ink-800 text-ink-500 dark:text-ink-400"
                   )}
                 >
                   {widget.enabled ? (
@@ -200,7 +200,7 @@ export function WidgetManager({ className }: WidgetManagerProps) {
             {!isEditing && (
               <div className={cn(
                 "w-2 h-2 rounded-full",
-                widget.enabled ? "bg-green-500" : "bg-gray-300"
+                widget.enabled ? "bg-green-500" : "bg-ink-300 dark:bg-ink-700"
               )} />
             )}
           </div>

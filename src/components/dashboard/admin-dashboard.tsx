@@ -406,7 +406,7 @@ export function AdminDashboard({
             <Link href="/admin/automation" className="group inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-3 py-2 text-xs font-semibold text-indigo-700 transition-all hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:shadow-sm dark:text-indigo-300">
               <Zap className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Automation
             </Link>
-            <Link href="/admin/logs" className="group inline-flex items-center gap-1.5 rounded-xl border border-gray-500/20 bg-gray-500/5 px-3 py-2 text-xs font-semibold text-gray-700 transition-all hover:border-gray-500/40 hover:bg-gray-500/10 hover:shadow-sm dark:text-gray-300">
+            <Link href="/admin/logs" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500 dark:border-ink-600/20 bg-ink-500 dark:bg-ink-600/5 px-3 py-2 text-xs font-semibold text-ink-700 dark:text-ink-200 transition-all hover:border-ink-500 dark:hover:border-ink-600/40 hover:bg-ink-500 dark:hover:bg-ink-600/10 hover:shadow-sm dark:text-ink-300">
               <FileText className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Logs
             </Link>
           </div>

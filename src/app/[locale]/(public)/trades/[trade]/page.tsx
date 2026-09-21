@@ -303,7 +303,7 @@ export default async function TradePage({ params }: TradePageProps) {
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href={`/search?category=${trade}`}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-brand-600 transition-colors hover:bg-brand-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-ink-900 px-6 py-3 text-sm font-bold text-brand-600 transition-colors hover:bg-brand-50"
             >
               Find a {category.professionEn}
               <ArrowRight className="size-4" />

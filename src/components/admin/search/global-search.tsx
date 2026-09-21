@@ -179,13 +179,13 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
   const getTypeColor = (type: SearchResult["type"]) => {
     switch (type) {
       case "worker":
-        return "bg-blue-100 text-blue-700";
+        return "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300";
       case "customer":
-        return "bg-green-100 text-green-700";
+        return "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300";
       case "booking":
-        return "bg-orange-100 text-orange-700";
+        return "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300";
       case "invoice":
-        return "bg-purple-100 text-purple-700";
+        return "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300";
     }
   };
 
@@ -194,11 +194,11 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
       {/* Search trigger button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+        className="flex items-center gap-2 px-4 py-2 text-sm text-ink-600 dark:text-ink-300 bg-ink-100 dark:bg-ink-800 rounded-lg hover:bg-ink-200 dark:hover:bg-ink-800 transition-colors"
       >
         <Search className="w-4 h-4" />
         <span>Search...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 bg-gray-200 rounded">
+        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-ink-500 dark:text-ink-400 bg-ink-200 dark:bg-ink-800 rounded">
           ⌘K
         </kbd>
       </button>
@@ -210,10 +210,10 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
           <div className="absolute inset-0 bg-black/50" onClick={() => setIsOpen(false)} />
 
           {/* Search panel */}
-          <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden">
+          <div className="relative w-full max-w-2xl bg-white dark:bg-ink-900 rounded-xl shadow-2xl overflow-hidden">
             {/* Search input */}
             <div className="flex items-center gap-3 px-4 py-3 border-b">
-              <Search className="w-5 h-5 text-gray-400" />
+              <Search className="w-5 h-5 text-ink-400 dark:text-ink-500" />
               <input
                 ref={inputRef}
                 type="text"
@@ -225,23 +225,23 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
               />
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-gray-100 rounded"
+                className="p-1 hover:bg-ink-100 dark:hover:bg-ink-800 rounded"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-5 h-5 text-ink-400 dark:text-ink-500" />
               </button>
             </div>
 
             {/* Results */}
             <div className="max-h-[400px] overflow-y-auto">
               {loading && (
-                <div className="p-8 text-center text-gray-500">
-                  <div className="animate-spin w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full mx-auto" />
+                <div className="p-8 text-center text-ink-500 dark:text-ink-400">
+                  <div className="animate-spin w-6 h-6 border-2 border-ink-300 dark:border-ink-700 border-t-blue-600 rounded-full mx-auto" />
                   <p className="mt-2">Searching...</p>
                 </div>
               )}
 
               {!loading && query.length >= 2 && results.length === 0 && (
-                <div className="p-8 text-center text-gray-500">
+                <div className="p-8 text-center text-ink-500 dark:text-ink-400">
                   <p>No results found for &quot;{query}&quot;</p>
                 </div>
               )}
@@ -255,7 +255,7 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
 
                     return (
                       <div key={type}>
-                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
+                        <div className="px-4 py-2 text-xs font-semibold text-ink-500 dark:text-ink-400 uppercase">
                           {type}s
                         </div>
                         {typeResults.map((result) => {
@@ -266,18 +266,18 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
                               onClick={() => handleSelect(result)}
                               onMouseEnter={() => setSelectedIndex(index)}
                               className={cn(
-                                "w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors",
-                                index === selectedIndex && "bg-gray-50"
+                                "w-full flex items-center gap-3 px-4 py-3 hover:bg-ink-50 dark:hover:bg-ink-950 transition-colors",
+                                index === selectedIndex && "bg-ink-50 dark:bg-ink-950"
                               )}
                             >
                               <div className={cn("p-2 rounded-lg", getTypeColor(result.type))}>
                                 {getTypeIcon(result.type)}
                               </div>
                               <div className="flex-1 text-left">
-                                <p className="font-medium text-gray-900">{result.title}</p>
-                                <p className="text-sm text-gray-500">{result.subtitle}</p>
+                                <p className="font-medium text-ink-900 dark:text-ink-50">{result.title}</p>
+                                <p className="text-sm text-ink-500 dark:text-ink-400">{result.subtitle}</p>
                               </div>
-                              <ChevronRight className="w-4 h-4 text-gray-400" />
+                              <ChevronRight className="w-4 h-4 text-ink-400 dark:text-ink-500" />
                             </button>
                           );
                         })}
@@ -288,7 +288,7 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
               )}
 
               {query.length < 2 && (
-                <div className="p-8 text-center text-gray-500">
+                <div className="p-8 text-center text-ink-500 dark:text-ink-400">
                   <p>Type at least 2 characters to search</p>
                   <p className="mt-1 text-sm">
                     Search across workers, customers, bookings, and invoices
@@ -298,15 +298,15 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
             </div>
 
             {/* Footer */}
-            <div className="px-4 py-3 border-t bg-gray-50 text-xs text-gray-500">
+            <div className="px-4 py-3 border-t bg-ink-50 dark:bg-ink-950 text-xs text-ink-500 dark:text-ink-400">
               <div className="flex items-center justify-between">
                 <span>
-                  <kbd className="px-1.5 py-0.5 bg-gray-200 rounded">↑↓</kbd> to navigate
+                  <kbd className="px-1.5 py-0.5 bg-ink-200 dark:bg-ink-800 rounded">↑↓</kbd> to navigate
                   <span className="mx-2">•</span>
-                  <kbd className="px-1.5 py-0.5 bg-gray-200 rounded">Enter</kbd> to select
+                  <kbd className="px-1.5 py-0.5 bg-ink-200 dark:bg-ink-800 rounded">Enter</kbd> to select
                 </span>
                 <span>
-                  <kbd className="px-1.5 py-0.5 bg-gray-200 rounded">Esc</kbd> to close
+                  <kbd className="px-1.5 py-0.5 bg-ink-200 dark:bg-ink-800 rounded">Esc</kbd> to close
                 </span>
               </div>
             </div>

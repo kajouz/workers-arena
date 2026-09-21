@@ -401,12 +401,12 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
 
                 {/* Success/Error Messages */}
                 {addError && (
-                  <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                  <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-400">
                     {addError}
                   </div>
                 )}
                 {addSuccess && (
-                  <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
+                  <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400">
                     ✓ Customer &quot;{addSuccess.name}&quot; created successfully!
                   </div>
                 )}

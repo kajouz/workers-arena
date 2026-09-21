@@ -153,17 +153,17 @@ export function ActivityFeed({
   const getTypeColor = (type: ActivityItem["type"]) => {
     switch (type) {
       case "registration":
-        return "bg-green-100 text-green-700";
+        return "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300";
       case "booking":
-        return "bg-blue-100 text-blue-700";
+        return "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300";
       case "payment":
-        return "bg-purple-100 text-purple-700";
+        return "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300";
       case "review":
-        return "bg-yellow-100 text-yellow-700";
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300";
       case "message":
-        return "bg-indigo-100 text-indigo-700";
+        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300";
       case "alert":
-        return "bg-red-100 text-red-700";
+        return "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300";
     }
   };
 
@@ -182,23 +182,23 @@ export function ActivityFeed({
   };
 
   return (
-    <div className={cn("bg-white rounded-xl border border-gray-200", className)}>
+    <div className={cn("bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <h3 className="font-semibold text-gray-900">Activity Feed</h3>
+          <h3 className="font-semibold text-ink-900 dark:text-ink-50">Activity Feed</h3>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-ink-500 dark:text-ink-400">
             Updated {formatTime(lastRefresh)}
           </span>
           <button
             onClick={fetchActivities}
             disabled={loading}
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-lg transition-colors"
           >
-            <RefreshCw className={cn("w-4 h-4 text-gray-500", loading && "animate-spin")} />
+            <RefreshCw className={cn("w-4 h-4 text-ink-500 dark:text-ink-400", loading && "animate-spin")} />
           </button>
         </div>
       </div>
@@ -206,34 +206,34 @@ export function ActivityFeed({
       {/* Activity list */}
       <div className="divide-y max-h-[400px] overflow-y-auto">
         {loading && activities.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <div className="animate-spin w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full mx-auto" />
+          <div className="p-8 text-center text-ink-500 dark:text-ink-400">
+            <div className="animate-spin w-6 h-6 border-2 border-ink-300 dark:border-ink-700 border-t-blue-600 rounded-full mx-auto" />
             <p className="mt-2">Loading activities...</p>
           </div>
         ) : activities.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <CheckCircle className="w-8 h-8 mx-auto text-gray-300" />
+          <div className="p-8 text-center text-ink-500 dark:text-ink-400">
+            <CheckCircle className="w-8 h-8 mx-auto text-ink-300 dark:text-ink-600" />
             <p className="mt-2">No recent activity</p>
           </div>
         ) : (
           activities.map((activity) => (
             <div
               key={activity.id}
-              className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+              className="flex items-start gap-3 px-4 py-3 hover:bg-ink-50 dark:hover:bg-ink-950 transition-colors"
             >
               <div className={cn("p-2 rounded-lg mt-0.5", getTypeColor(activity.type))}>
                 {getTypeIcon(activity.type)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900">{activity.title}</p>
-                <p className="text-sm text-gray-600 truncate">{activity.description}</p>
+                <p className="font-medium text-ink-900 dark:text-ink-50">{activity.title}</p>
+                <p className="text-sm text-ink-600 dark:text-ink-300 truncate">{activity.description}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <Clock className="w-3 h-3 text-gray-400" />
-                  <span className="text-xs text-gray-500">{formatTime(activity.timestamp)}</span>
+                  <Clock className="w-3 h-3 text-ink-400 dark:text-ink-500" />
+                  <span className="text-xs text-ink-500 dark:text-ink-400">{formatTime(activity.timestamp)}</span>
                   {activity.user && (
                     <>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-xs text-gray-500">{activity.user}</span>
+                      <span className="text-ink-300 dark:text-ink-600">•</span>
+                      <span className="text-xs text-ink-500 dark:text-ink-400">{activity.user}</span>
                     </>
                   )}
                 </div>
@@ -244,7 +244,7 @@ export function ActivityFeed({
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t bg-gray-50">
+      <div className="px-4 py-2 border-t bg-ink-50 dark:bg-ink-950">
         <button className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium">
           View all activity →
         </button>

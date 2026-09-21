@@ -121,13 +121,13 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
   const getStatusColor = (status: VerificationRequest["status"]) => {
     switch (status) {
       case "pending":
-        return "bg-yellow-100 text-yellow-700";
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300";
       case "in_review":
-        return "bg-blue-100 text-blue-700";
+        return "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300";
       case "approved":
-        return "bg-green-100 text-green-700";
+        return "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300";
       case "rejected":
-        return "bg-red-100 text-red-700";
+        return "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300";
     }
   };
 
@@ -147,15 +147,15 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
   const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   return (
-    <div className={cn("bg-white rounded-xl border border-gray-200", className)}>
+    <div className={cn("bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800", className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-blue-600" />
-          <h3 className="font-semibold text-gray-900">Verification Queue</h3>
+          <h3 className="font-semibold text-ink-900 dark:text-ink-50">Verification Queue</h3>
         </div>
         {pendingCount > 0 && (
-          <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 rounded-full">
+          <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full dark:bg-yellow-500/15 dark:text-yellow-300">
             {pendingCount} pending
           </span>
         )}
@@ -170,22 +170,22 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
               setSelectedRequest(null);
               setCurrentStep(0);
             }}
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 mb-4"
+            className="flex items-center gap-1 text-sm text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50 mb-4"
           >
             ← Back to queue
           </button>
 
           {/* Worker info */}
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-lg font-bold text-gray-600">
+            <div className="w-12 h-12 bg-ink-200 dark:bg-ink-800 rounded-full flex items-center justify-center">
+              <span className="text-lg font-bold text-ink-600 dark:text-ink-300">
                 {selectedRequest.workerName.charAt(0)}
               </span>
             </div>
             <div>
-              <p className="font-semibold text-gray-900">{selectedRequest.workerName}</p>
-              <p className="text-sm text-gray-500">{selectedRequest.workerNameAr}</p>
-              <p className="text-sm text-gray-500">{selectedRequest.category}</p>
+              <p className="font-semibold text-ink-900 dark:text-ink-50">{selectedRequest.workerName}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">{selectedRequest.workerNameAr}</p>
+              <p className="text-sm text-ink-500 dark:text-ink-400">{selectedRequest.category}</p>
             </div>
           </div>
 
@@ -198,7 +198,7 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
                     "flex items-center justify-center w-8 h-8 rounded-full",
                     index <= currentStep
                       ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-500"
+                      : "bg-ink-200 dark:bg-ink-800 text-ink-500 dark:text-ink-400"
                   )}
                 >
                   {index < currentStep ? (
@@ -211,7 +211,7 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
                   <div
                     className={cn(
                       "w-12 h-1 mx-2",
-                      index < currentStep ? "bg-blue-600" : "bg-gray-200"
+                      index < currentStep ? "bg-blue-600" : "bg-ink-200 dark:bg-ink-800"
                     )}
                   />
                 )}
@@ -221,7 +221,7 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
 
           {/* Step content */}
           <div className="mb-4">
-            <h4 className="font-medium text-gray-900 mb-2">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50 mb-2">
               {steps[currentStep].label}
             </h4>
 
@@ -230,27 +230,27 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
                 {selectedRequest.documents.map((doc) => (
                   <div
                     key={doc.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-ink-50 dark:bg-ink-950 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
                       {getDocumentIcon(doc.type)}
                       <div>
-                        <p className="font-medium text-gray-900">{doc.name}</p>
-                        <p className="text-xs text-gray-500 capitalize">{doc.type}</p>
+                        <p className="font-medium text-ink-900 dark:text-ink-50">{doc.name}</p>
+                        <p className="text-xs text-ink-500 dark:text-ink-400 capitalize">{doc.type}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button className="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200">
+                      <button className="px-3 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-lg hover:bg-blue-200 dark:bg-blue-500/15 dark:text-blue-300">
                         View
                       </button>
                       <span
                         className={cn(
                           "px-2 py-0.5 text-xs font-medium rounded-full",
                           doc.status === "approved"
-                            ? "bg-green-100 text-green-700"
+                            ? "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300"
                             : doc.status === "rejected"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-gray-100 text-gray-700"
+                            ? "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300"
+                            : "bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200"
                         )}
                       >
                         {doc.status}
@@ -262,16 +262,16 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
             )}
 
             {currentStep === 1 && (
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-600">
+              <div className="p-4 bg-ink-50 dark:bg-ink-950 rounded-lg">
+                <p className="text-ink-600 dark:text-ink-300">
                   Verify the worker&apos;s identity by comparing the ID document with their profile photo and information.
                 </p>
               </div>
             )}
 
             {currentStep === 2 && (
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-600">
+              <div className="p-4 bg-ink-50 dark:bg-ink-950 rounded-lg">
+                <p className="text-ink-600 dark:text-ink-300">
                   Check the validity of certificates and licenses. Ensure they are current and match the worker&apos;s claimed expertise.
                 </p>
               </div>
@@ -280,13 +280,13 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
             {currentStep === 3 && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">
                     Notes (optional)
                   </label>
                   <textarea
                     value={actionNotes}
                     onChange={(e) => setActionNotes(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="Add any notes about this verification..."
                   />
@@ -316,7 +316,7 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
             <button
               onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
               disabled={currentStep === 0}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-medium text-ink-700 dark:text-ink-200 bg-ink-100 dark:bg-ink-800 rounded-lg hover:bg-ink-200 dark:hover:bg-ink-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
@@ -333,7 +333,7 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
       ) : (
         <div className="divide-y max-h-[400px] overflow-y-auto">
           {requests.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-ink-500 dark:text-ink-400">
               <CheckCircle className="w-8 h-8 mx-auto text-green-500" />
               <p className="mt-2 font-medium text-green-700">All caught up!</p>
               <p className="text-sm">No pending verifications</p>
@@ -342,17 +342,17 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
             requests.map((request) => (
               <div
                 key={request.id}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-ink-50 dark:hover:bg-ink-950 cursor-pointer"
                 onClick={() => setSelectedRequest(request)}
               >
-                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                  <span className="font-bold text-gray-600">
+                <div className="w-10 h-10 bg-ink-200 dark:bg-ink-800 rounded-full flex items-center justify-center">
+                  <span className="font-bold text-ink-600 dark:text-ink-300">
                     {request.workerName.charAt(0)}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{request.workerName}</p>
-                  <p className="text-sm text-gray-500">{request.category}</p>
+                  <p className="font-medium text-ink-900 dark:text-ink-50">{request.workerName}</p>
+                  <p className="text-sm text-ink-500 dark:text-ink-400">{request.category}</p>
                 </div>
                 <div className="text-right">
                   <span
@@ -363,11 +363,11 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
                   >
                     {request.status.replace("_", " ")}
                   </span>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-ink-500 dark:text-ink-400 mt-1">
                     {request.documents.length} docs
                   </p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
+                <ChevronRight className="w-5 h-5 text-ink-400 dark:text-ink-500" />
               </div>
             ))
           )}

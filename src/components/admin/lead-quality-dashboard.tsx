@@ -19,7 +19,7 @@ import { StatCard, Sparkline, GradeBarChart, Legend } from "./lead-quality-chart
 
 const GRADE_COLORS: Record<LeadGrade, string> = {
   bronze: "bg-amber-600",
-  silver: "bg-gray-400",
+  silver: "bg-ink-400 dark:bg-ink-600",
   gold: "bg-yellow-500",
   emergency: "bg-red-500",
 };
@@ -32,10 +32,10 @@ const GRADE_LABELS: Record<LeadGrade, string> = {
 };
 
 const GRADE_BG: Record<LeadGrade, string> = {
-  bronze: "bg-amber-100 text-amber-800",
-  silver: "bg-gray-100 text-gray-700",
-  gold: "bg-yellow-100 text-yellow-800",
-  emergency: "bg-red-100 text-red-700",
+  bronze: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
+  silver: "bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-200",
+  gold: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
+  emergency: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
 };
 
 export function LeadQualityDashboard({
@@ -106,15 +106,15 @@ export function LeadQualityDashboard({
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Link href="/admin/revenue-settings" className="text-sm text-gray-500 hover:text-gray-700">
+          <Link href="/admin/revenue-settings" className="text-sm text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <BarChart3 className="h-6 w-6 text-brand-500" />
-          <h1 className="text-2xl font-bold text-gray-900">Lead Quality Analytics</h1>
+          <h1 className="text-2xl font-bold text-ink-900 dark:text-ink-50">Lead Quality Analytics</h1>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
-          <BarChart3 className="mx-auto h-12 w-12 text-gray-300" />
-          <p className="mt-4 text-sm text-gray-500">
+        <div className="rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-12 text-center">
+          <BarChart3 className="mx-auto h-12 w-12 text-ink-300 dark:text-ink-600" />
+          <p className="mt-4 text-sm text-ink-500 dark:text-ink-400">
             No lead ratings yet. Once workers rate purchased leads, trends will appear here.
           </p>
           <Link
@@ -132,13 +132,13 @@ export function LeadQualityDashboard({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href="/admin/revenue-settings" className="text-sm text-gray-500 hover:text-gray-700">
+        <Link href="/admin/revenue-settings" className="text-sm text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <BarChart3 className="h-6 w-6 text-brand-500" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lead Quality Analytics</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-ink-900 dark:text-ink-50">Lead Quality Analytics</h1>
+          <p className="text-sm text-ink-500 dark:text-ink-400">
             {totalRatings} ratings across {weeks.length} weeks
             {analytics.earliestRating && analytics.latestRating
               ? ` · ${analytics.earliestRating.slice(0, 10)} → ${analytics.latestRating.slice(0, 10)}`
@@ -194,7 +194,7 @@ export function LeadQualityDashboard({
       </div>
 
       {/* Weekly Trend */}
-      <div className="rounded-xl border border-ink-100 bg-white p-5 dark:border-ink-800">
+      <div className="rounded-xl border border-ink-100 bg-white dark:bg-ink-900 p-5 dark:border-ink-800">
         <h2 className="mb-3 text-sm font-semibold text-ink-700 dark:text-ink-300">
           Weekly Quality Trend{selectedGrade !== "all" ? ` — ${GRADE_LABELS[selectedGrade]}` : ""}
         </h2>
@@ -208,7 +208,7 @@ export function LeadQualityDashboard({
       {/* Two-column layout: Grade breakdown + Price multiplier */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Ratings by Grade */}
-        <div className="rounded-xl border border-ink-100 bg-white p-5 dark:border-ink-800">
+        <div className="rounded-xl border border-ink-100 bg-white dark:bg-ink-900 p-5 dark:border-ink-800">
           <h2 className="mb-3 text-sm font-semibold text-ink-700 dark:text-ink-300">
             Ratings by Grade
           </h2>
@@ -216,7 +216,7 @@ export function LeadQualityDashboard({
         </div>
 
         {/* Price Multiplier Impact */}
-        <div className="rounded-xl border border-ink-100 bg-white p-5 dark:border-ink-800">
+        <div className="rounded-xl border border-ink-100 bg-white dark:bg-ink-900 p-5 dark:border-ink-800">
           <h2 className="mb-3 text-sm font-semibold text-ink-700 dark:text-ink-300">
             Price Multiplier Impact
           </h2>
@@ -228,7 +228,7 @@ export function LeadQualityDashboard({
       </div>
 
       {/* Per-Grade Detail Table */}
-      <div className="rounded-xl border border-ink-100 bg-white p-5 dark:border-ink-800">
+      <div className="rounded-xl border border-ink-100 bg-white dark:bg-ink-900 p-5 dark:border-ink-800">
         <h2 className="mb-3 text-sm font-semibold text-ink-700 dark:text-ink-300">
           Lifetime Grade Details
         </h2>
@@ -295,7 +295,7 @@ export function LeadQualityDashboard({
 
       {/* Weekly Breakdown Table */}
       {recentWeeks.length > 0 && (
-        <div className="rounded-xl border border-ink-100 bg-white p-5 dark:border-ink-800">
+        <div className="rounded-xl border border-ink-100 bg-white dark:bg-ink-900 p-5 dark:border-ink-800">
           <h2 className="mb-3 text-sm font-semibold text-ink-700 dark:text-ink-300">
             Weekly Breakdown (Last {recentWeeks.length} Weeks)
           </h2>
@@ -336,11 +336,11 @@ export function LeadQualityDashboard({
           Rows with zero purchases still matter — a category where leads are
           shown but never bought is a pricing or quality signal. */}
       {categoryConversion && categoryConversion.window.length > 0 && (
-        <div className="rounded-xl border border-ink-100 bg-white p-5 dark:border-ink-800">
+        <div className="rounded-xl border border-ink-100 bg-white dark:bg-ink-900 p-5 dark:border-ink-800">
           <h2 className="mb-1 text-sm font-semibold text-ink-700 dark:text-ink-300">
             Category Conversion (Last {categoryConversion.windowDays} Days)
           </h2>
-          <p className="mb-3 text-xs text-gray-500">
+          <p className="mb-3 text-xs text-ink-500 dark:text-ink-400">
             Lead funnel per trade — jobs won are completions attributed by a lead rebate or the worker&apos;s own converted rating.
           </p>
           <div className="overflow-x-auto">

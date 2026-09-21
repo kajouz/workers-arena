@@ -27,7 +27,7 @@ interface AriaLiveRegionProps {
  * <AriaLiveRegion
  *   message="Form submitted successfully"
  *   visible
- *   className="bg-green-100 text-green-800 p-4 rounded"
+ *   className="bg-green-100 text-green-800 p-4 rounded dark:bg-green-500/15 dark:text-green-300"
  * />
  */
 export function AriaLiveRegion({

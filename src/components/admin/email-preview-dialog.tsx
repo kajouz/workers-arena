@@ -98,7 +98,7 @@ export function EmailPreviewDialog({
           title={subject}
           srcDoc={html}
           sandbox=""
-          className="h-[70vh] w-full rounded-xl border border-ink-200 bg-white dark:border-ink-800"
+          className="h-[70vh] w-full rounded-xl border border-ink-200 bg-white dark:bg-ink-900 dark:border-ink-800"
         />
       </DialogContent>
     </Dialog>

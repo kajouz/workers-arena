@@ -115,9 +115,9 @@ export function ReferralRevenueCard() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
-        <div className="h-6 bg-gray-200 rounded w-1/3 mb-4" />
-        <div className="h-32 bg-gray-200 rounded" />
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6 animate-pulse">
+        <div className="h-6 bg-ink-200 dark:bg-ink-800 rounded w-1/3 mb-4" />
+        <div className="h-32 bg-ink-200 dark:bg-ink-800 rounded" />
       </div>
     );
   }
@@ -134,7 +134,7 @@ export function ReferralRevenueCard() {
   );
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
       {/* Header */}
       <div className="p-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white">
         <div className="flex items-center justify-between">
@@ -147,7 +147,7 @@ export function ReferralRevenueCard() {
       </div>
 
       {/* Section Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-ink-200 dark:border-ink-800">
         <div className="flex overflow-x-auto">
           {[
             { id: "overview" as const, label: "Overview", icon: TrendingUp },
@@ -163,8 +163,8 @@ export function ReferralRevenueCard() {
                 className={cn(
                   "flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2",
                   activeSection === section.id
-                    ? "border-emerald-500 text-emerald-600 bg-emerald-50"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
+                    ? "border-emerald-500 text-emerald-800 bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-300"
+                    : "border-transparent text-ink-600 dark:text-ink-300 hover:text-ink-900 dark:hover:text-ink-50"
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -185,7 +185,7 @@ export function ReferralRevenueCard() {
                 Your Referral Code
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex-1 px-4 py-3 bg-white border border-emerald-300 rounded-lg text-center">
+                <div className="flex-1 px-4 py-3 bg-white dark:bg-ink-900 border border-emerald-300 rounded-lg text-center">
                   <span className="text-2xl font-mono font-bold text-emerald-700">
                     {program.referralCode}
                   </span>
@@ -235,9 +235,9 @@ export function ReferralRevenueCard() {
             </div>
 
             {/* Earnings */}
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-4 bg-ink-50 dark:bg-ink-950 rounded-lg">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-ink-900 dark:text-ink-50">
                   Earnings Summary
                 </span>
                 <span className="text-2xl font-bold text-emerald-600">
@@ -246,13 +246,13 @@ export function ReferralRevenueCard() {
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-500">This Month:</span>
+                  <span className="text-ink-500 dark:text-ink-400">This Month:</span>
                   <span className="ml-2 font-medium">
                     {program.earnings.thisMonth}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Last Month:</span>
+                  <span className="text-ink-500 dark:text-ink-400">Last Month:</span>
                   <span className="ml-2 font-medium">
                     {program.earnings.lastMonth}
                   </span>
@@ -300,7 +300,7 @@ export function ReferralRevenueCard() {
         {/* Leaderboard */}
         {activeSection === "leaderboard" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               Top Referrers This Month
             </h4>
             <div className="space-y-2">
@@ -311,7 +311,7 @@ export function ReferralRevenueCard() {
                     "flex items-center gap-3 p-3 rounded-lg",
                     entry.isCurrentUser
                       ? "bg-emerald-50 border border-emerald-200"
-                      : "bg-gray-50"
+                      : "bg-ink-50 dark:bg-ink-950"
                   )}
                 >
                   <div
@@ -320,17 +320,17 @@ export function ReferralRevenueCard() {
                       entry.rank === 1
                         ? "bg-yellow-400 text-yellow-900"
                         : entry.rank === 2
-                        ? "bg-gray-300 text-gray-700"
+                        ? "bg-ink-300 dark:bg-ink-700 text-ink-700 dark:text-ink-200"
                         : entry.rank === 3
                         ? "bg-amber-600 text-amber-100"
-                        : "bg-gray-200 text-gray-600"
+                        : "bg-ink-200 dark:bg-ink-800 text-ink-600 dark:text-ink-300"
                     )}
                   >
                     {entry.rank}
                   </div>
                   <div className="flex-1">
                     <div className="font-medium">{entry.name}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-ink-500 dark:text-ink-400">
                       {entry.nameAr}
                     </div>
                   </div>
@@ -338,7 +338,7 @@ export function ReferralRevenueCard() {
                     <div className="font-bold text-emerald-600">
                       {entry.referrals} referrals
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-ink-500 dark:text-ink-400">
                       {entry.earned} credits earned
                     </div>
                   </div>
@@ -351,22 +351,22 @@ export function ReferralRevenueCard() {
         {/* Rules */}
         {activeSection === "rules" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               How to Earn Referral Credits
             </h4>
             <div className="space-y-3">
               {program.bonusRules.map((rule, i) => (
-                <div key={i} className="p-3 bg-gray-50 rounded-lg">
+                <div key={i} className="p-3 bg-ink-50 dark:bg-ink-950 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-ink-900 dark:text-ink-50">
                       {rule.action}
                     </span>
-                    <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-sm font-medium rounded">
+                    <span className="px-2 py-1 bg-emerald-100 text-emerald-800 text-sm font-medium rounded dark:bg-emerald-500/15 dark:text-emerald-300">
                       +{rule.reward} credits
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600">{rule.description}</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-sm text-ink-600 dark:text-ink-300">{rule.description}</p>
+                  <p className="text-xs text-ink-500 dark:text-ink-400 mt-1">
                     {rule.descriptionAr}
                   </p>
                 </div>
@@ -378,7 +378,7 @@ export function ReferralRevenueCard() {
         {/* Tiers */}
         {activeSection === "tiers" && (
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">
+            <h4 className="font-medium text-ink-900 dark:text-ink-50">
               Referral Tier Benefits
             </h4>
             <div className="space-y-3">
@@ -389,7 +389,7 @@ export function ReferralRevenueCard() {
                     "p-4 rounded-lg border-2",
                     currentTier?.tier === tier.tier
                       ? "border-emerald-500 bg-emerald-50"
-                      : "border-gray-200"
+                      : "border-ink-200 dark:border-ink-800"
                   )}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -405,14 +405,14 @@ export function ReferralRevenueCard() {
                       {tier.bonusMultiplier}x bonus
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500 mb-2">
+                  <div className="text-xs text-ink-500 dark:text-ink-400 mb-2">
                     {tier.minReferrals}+ referrals required
                   </div>
                   <ul className="space-y-1">
                     {tier.perks.map((perk, i) => (
                       <li
                         key={i}
-                        className="flex items-center gap-2 text-sm text-gray-700"
+                        className="flex items-center gap-2 text-sm text-ink-700 dark:text-ink-200"
                       >
                         <Check className="w-4 h-4 text-emerald-500" />
                         {perk}

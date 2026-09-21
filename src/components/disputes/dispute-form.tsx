@@ -66,10 +66,10 @@ const CATEGORIES: { id: DisputeCategory; label: string; icon: typeof AlertTriang
 ];
 
 const STATUS_CONFIG: Record<DisputeStatus, { label: string; color: string; icon: typeof CheckCircle2 }> = {
-  open: { label: "Open", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", icon: AlertTriangle },
-  under_review: { label: "Under Review", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400", icon: Clock },
-  awaiting_response: { label: "Awaiting Response", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400", icon: MessageSquare },
-  resolved: { label: "Resolved", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", icon: CheckCircle2 },
+  open: { label: "Open", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", icon: AlertTriangle },
+  under_review: { label: "Under Review", color: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400", icon: Clock },
+  awaiting_response: { label: "Awaiting Response", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400", icon: MessageSquare },
+  resolved: { label: "Resolved", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400", icon: CheckCircle2 },
   closed: { label: "Closed", color: "bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-400", icon: XCircle },
 };
 

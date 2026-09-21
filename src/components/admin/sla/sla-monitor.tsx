@@ -131,13 +131,13 @@ export function SLAMonitor({ className }: SLAMonitorProps) {
   const getSeverityColor = (severity: SLABreach["severity"]) => {
     switch (severity) {
       case "critical":
-        return "bg-red-100 text-red-700 border-red-200";
+        return "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/15 dark:text-red-300";
       case "high":
-        return "bg-orange-100 text-orange-700 border-orange-200";
+        return "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300";
       case "medium":
-        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+        return "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300";
       case "low":
-        return "bg-blue-100 text-blue-700 border-blue-200";
+        return "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300";
     }
   };
 
@@ -180,10 +180,10 @@ export function SLAMonitor({ className }: SLAMonitorProps) {
         {metrics.map((metric) => (
           <div
             key={metric.id}
-            className="bg-white rounded-xl border border-gray-200 p-4"
+            className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-4"
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-500">{metric.name}</span>
+              <span className="text-sm font-medium text-ink-500 dark:text-ink-400">{metric.name}</span>
               <div className="flex items-center gap-1">
                 {metric.trend === "up" && (
                   <TrendingUp className="w-4 h-4 text-green-500" />
@@ -192,7 +192,7 @@ export function SLAMonitor({ className }: SLAMonitorProps) {
                   <TrendingDown className="w-4 h-4 text-green-500" />
                 )}
                 {metric.trend === "stable" && (
-                  <ArrowRight className="w-4 h-4 text-gray-400" />
+                  <ArrowRight className="w-4 h-4 text-ink-400 dark:text-ink-500" />
                 )}
               </div>
             </div>
@@ -200,12 +200,12 @@ export function SLAMonitor({ className }: SLAMonitorProps) {
               <span className={cn("text-2xl font-bold", getStatusColor(metric.status))}>
                 {metric.unit === "percent" ? `${metric.current}%` : `${metric.current}h`}
               </span>
-              <span className="text-sm text-gray-500 mb-1">
+              <span className="text-sm text-ink-500 dark:text-ink-400 mb-1">
                 / {formatTarget(metric.target, metric.unit)}
               </span>
             </div>
             {/* Progress bar */}
-            <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="mt-2 h-2 bg-ink-100 dark:bg-ink-800 rounded-full overflow-hidden">
               <div
                 className={cn(
                   "h-full rounded-full",
@@ -223,24 +223,24 @@ export function SLAMonitor({ className }: SLAMonitorProps) {
       </div>
 
       {/* Breaches list */}
-      <div className="bg-white rounded-xl border border-gray-200">
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-orange-500" />
-            <h3 className="font-semibold text-gray-900">SLA Breaches</h3>
+            <h3 className="font-semibold text-ink-900 dark:text-ink-50">SLA Breaches</h3>
           </div>
           <button
             onClick={refreshMetrics}
             disabled={loading}
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-ink-100 dark:hover:bg-ink-800 rounded-lg transition-colors"
           >
-            <RefreshCw className={cn("w-4 h-4 text-gray-500", loading && "animate-spin")} />
+            <RefreshCw className={cn("w-4 h-4 text-ink-500 dark:text-ink-400", loading && "animate-spin")} />
           </button>
         </div>
 
         <div className="divide-y max-h-[300px] overflow-y-auto">
           {breaches.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-ink-500 dark:text-ink-400">
               <CheckCircle className="w-8 h-8 mx-auto text-green-500" />
               <p className="mt-2 font-medium text-green-700">No SLA breaches</p>
               <p className="text-sm">All metrics are within targets</p>
@@ -256,22 +256,22 @@ export function SLAMonitor({ className }: SLAMonitorProps) {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900">{breach.bookingNumber}</span>
-                    <span className="text-sm text-gray-500">•</span>
-                    <span className="text-sm text-gray-500 capitalize">{breach.breachType}</span>
+                    <span className="font-medium text-ink-900 dark:text-ink-50">{breach.bookingNumber}</span>
+                    <span className="text-sm text-ink-500 dark:text-ink-400">•</span>
+                    <span className="text-sm text-ink-500 dark:text-ink-400 capitalize">{breach.breachType}</span>
                   </div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-ink-600 dark:text-ink-300">
                     {breach.workerName} → {breach.customerName}
                   </p>
                 </div>
                 <div className="text-right">
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-ink-900 dark:text-ink-50">
                       {formatElapsed(breach.elapsed, breach.unit)}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-ink-500 dark:text-ink-400">
                     Target: {formatElapsed(breach.target, breach.unit)}
                   </p>
                 </div>
@@ -286,7 +286,7 @@ export function SLAMonitor({ className }: SLAMonitorProps) {
         </div>
 
         {breaches.length > 0 && (
-          <div className="px-4 py-2 border-t bg-gray-50">
+          <div className="px-4 py-2 border-t bg-ink-50 dark:bg-ink-950">
             <button className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium">
               View all breaches →
             </button>

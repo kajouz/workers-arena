@@ -46,8 +46,8 @@ export function ContentManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" placeholder="Search pages..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
+          <input type="text" placeholder="Search pages..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" />
         </div>
         <button onClick={() => setEditingPage({ id: "", slug: "", titleEn: "", titleAr: "", contentEn: "", contentAr: "", metaTitleEn: "", metaTitleAr: "", metaDescriptionEn: "", metaDescriptionAr: "", status: "draft", updatedAt: new Date().toISOString() })} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           <Plus className="w-4 h-4" /> New Page
@@ -55,36 +55,36 @@ export function ContentManagement() {
       </div>
 
       {editingPage ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">{editingPage.id ? "Edit Page" : "New Page"}</h3>
-            <button onClick={() => setEditingPage(null)} className="text-gray-400 hover:text-gray-600">Cancel</button>
+            <button onClick={() => setEditingPage(null)} className="text-ink-400 dark:text-ink-500 hover:text-ink-600 dark:hover:text-ink-300">Cancel</button>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Slug</label><input type="text" value={editingPage.slug} onChange={(e) => setEditingPage({ ...editingPage, slug: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Status</label><select value={editingPage.status} onChange={(e) => setEditingPage({ ...editingPage, status: e.target.value as "published" | "draft" })} className="w-full px-3 py-2 border border-gray-200 rounded-lg"><option value="draft">Draft</option><option value="published">Published</option></select></div>
+            <div><label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Slug</label><input type="text" value={editingPage.slug} onChange={(e) => setEditingPage({ ...editingPage, slug: e.target.value })} className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" /></div>
+            <div><label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Status</label><select value={editingPage.status} onChange={(e) => setEditingPage({ ...editingPage, status: e.target.value as "published" | "draft" })} className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"><option value="draft">Draft</option><option value="published">Published</option></select></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Title (EN)</label><input type="text" value={editingPage.titleEn} onChange={(e) => setEditingPage({ ...editingPage, titleEn: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Title (AR)</label><input type="text" value={editingPage.titleAr} onChange={(e) => setEditingPage({ ...editingPage, titleAr: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg" dir="rtl" /></div>
+            <div><label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Title (EN)</label><input type="text" value={editingPage.titleEn} onChange={(e) => setEditingPage({ ...editingPage, titleEn: e.target.value })} className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" /></div>
+            <div><label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Title (AR)</label><input type="text" value={editingPage.titleAr} onChange={(e) => setEditingPage({ ...editingPage, titleAr: e.target.value })} className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" dir="rtl" /></div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Content (EN)</label><textarea value={editingPage.contentEn} onChange={(e) => setEditingPage({ ...editingPage, contentEn: e.target.value })} rows={6} className="w-full px-3 py-2 border border-gray-200 rounded-lg" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 mb-1">Content (AR)</label><textarea value={editingPage.contentAr} onChange={(e) => setEditingPage({ ...editingPage, contentAr: e.target.value })} rows={6} className="w-full px-3 py-2 border border-gray-200 rounded-lg" dir="rtl" /></div>
+            <div><label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Content (EN)</label><textarea value={editingPage.contentEn} onChange={(e) => setEditingPage({ ...editingPage, contentEn: e.target.value })} rows={6} className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" /></div>
+            <div><label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Content (AR)</label><textarea value={editingPage.contentAr} onChange={(e) => setEditingPage({ ...editingPage, contentAr: e.target.value })} rows={6} className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" dir="rtl" /></div>
           </div>
           <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"><Save className="w-4 h-4" /> Save Page</button>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50"><tr><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Page</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Slug</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Updated</th><th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Actions</th></tr></thead>
-            <tbody className="divide-y divide-gray-200">
+            <thead className="bg-ink-50 dark:bg-ink-950"><tr><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Page</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Slug</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Updated</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th></tr></thead>
+            <tbody className="divide-y divide-ink-200 dark:divide-ink-800">
               {filteredPages.map((page) => (
-                <tr key={page.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-4"><p className="font-medium text-gray-900">{page.titleEn}</p><p className="text-sm text-gray-500">{page.titleAr}</p></td>
-                  <td className="px-4 py-4 font-mono text-sm text-gray-600">/{page.slug}</td>
-                  <td className="px-4 py-4"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", page.status === "published" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800")}>{page.status}</span></td>
-                  <td className="px-4 py-4 text-sm text-gray-500">{formatDate(page.updatedAt, locale)}</td>
+                <tr key={page.id} className="hover:bg-ink-50 dark:hover:bg-ink-950">
+                  <td className="px-4 py-4"><p className="font-medium text-ink-900 dark:text-ink-50">{page.titleEn}</p><p className="text-sm text-ink-500 dark:text-ink-400">{page.titleAr}</p></td>
+                  <td className="px-4 py-4 font-mono text-sm text-ink-600 dark:text-ink-300">/{page.slug}</td>
+                  <td className="px-4 py-4"><span className={cn("px-2 py-1 text-xs font-medium rounded-full", page.status === "published" ? "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300" : "bg-ink-100 dark:bg-ink-800 text-ink-800 dark:text-ink-100")}>{page.status}</span></td>
+                  <td className="px-4 py-4 text-sm text-ink-500 dark:text-ink-400">{formatDate(page.updatedAt, locale)}</td>
                   <td className="px-4 py-4"><button onClick={() => setEditingPage(page)} className="text-blue-600 hover:text-blue-700"><Edit className="w-4 h-4" /></button></td>
                 </tr>
               ))}
