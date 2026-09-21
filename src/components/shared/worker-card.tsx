@@ -8,7 +8,8 @@ import { isPlanFeeExempt } from "@/lib/data/booking-ui";
 import { categoryBySlug } from "@/lib/data/categories";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useFavoritesStore } from "@/lib/store";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatNumber, isOpenNow } from "@/lib/utils";
+import { useSsrSafeNow } from "@/hooks/use-ssr-safe-now";
 import { WorkerCover } from "./worker-cover";
 import { Rating } from "@/components/ui/rating";
 import { GradientAvatar } from "@/components/ui/avatar";
@@ -17,14 +18,39 @@ import { EmergencyBadge, PremiumBadge, VerifiedBadge } from "./badges";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 
-export function WorkerCard({ worker, index = 0 }: { worker: Worker; index?: number }) {
+export function WorkerCard({
+  worker,
+  index = 0,
+  nowSeed,
+}: {
+  worker: Worker;
+  index?: number;
+  /** Server render time, when the parent has one — see useSsrSafeNow. */
+  nowSeed?: number;
+}) {
   const { locale, t } = useLocale();
   const cat = categoryBySlug(worker.categorySlug);
   const favIds = useFavoritesStore((s) => s.ids);
   const toggle = useFavoritesStore((s) => s.toggle);
   const isFav = favIds.includes(worker.id);
   const name = locale === "ar" ? worker.nameAr : worker.nameEn;
-  const openNow = worker.emergency;
+
+  /**
+   * "Open" means open — read from the worker's working hours, not from their
+   * emergency flag.
+   *
+   * This pill (a pulsing green dot, the universal live-status affordance) was
+   * wired to `worker.emergency`, which says the worker OFFERS 24/7 callouts.
+   * So a plumber who advertises emergency work showed as open at 3am on a
+   * Sunday whether or not they were, and a worker open right now showed as
+   * closed unless they happened to offer emergency service. The one signal a
+   * customer acts on immediately was telling them something else entirely.
+   *
+   * Evaluated after mount: these cards are prerendered, so a clock read during
+   * the build would bake in whatever "now" meant at deploy time.
+   */
+  const now = useSsrSafeNow(nowSeed ?? 0);
+  const openNow = now > 0 && isOpenNow(worker, new Date(now));
 
   return (
     <motion.div

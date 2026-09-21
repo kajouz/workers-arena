@@ -205,10 +205,24 @@ export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 /** Is the worker open right now, per their weekly hours (00:00–00:00 = 24/7)? */
-export function isOpenNow(worker: { hours: { day: number; open: string; close: string; closed?: boolean }[] }): boolean {
-  const now = new Date();
+/**
+ * Is this worker open at `at`?
+ *
+ * `hours` is treated as OPTIONAL. It is typed as required, but a worker row can
+ * reach the UI without it — the Prisma adapter does not always load the
+ * relation, and a worker who has not filled in their schedule has none. The
+ * previous version went straight to `worker.hours.find(...)` and threw, which
+ * only stayed hidden because the one caller was reading `worker.emergency`
+ * instead. No hours on file means no claim: not open.
+ */
+export function isOpenNow(
+  worker: { hours?: { day: number; open: string; close: string; closed?: boolean }[] },
+  /** Injectable clock — callers on prerendered pages pass a post-mount time. */
+  at: Date = new Date()
+): boolean {
+  const now = at;
   const day = now.getDay(); // 0 = Sunday
-  const dayInfo = worker.hours.find((h) => h.day === day);
+  const dayInfo = worker.hours?.find((h) => h.day === day);
   if (!dayInfo || dayInfo.closed) return false;
   if (dayInfo.open === "00:00" && dayInfo.close === "00:00") return true; // 24/7
   const mins = now.getHours() * 60 + now.getMinutes();

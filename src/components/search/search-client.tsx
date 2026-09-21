@@ -127,12 +127,14 @@ export function SearchClient({
   } = useGeolocation();
 
   const hasMore = results.items.length < results.total;
+  const cityCount = cities.length;
   const activeCount = useMemo(() => {
     let n = 0;
     if (filters.category) n++;
-    // Beirut is the only city (tenant lb) — the pinned default never counts
-    // as a user filter, otherwise "Clear filters" would always show.
-    if (filters.city && filters.city !== "beirut") n++;
+    // A city only counts as a narrowing choice when there is another one to
+    // choose. The lb tenant has exactly one, so its pinned default is not a
+    // filter — counting it would leave "Clear filters" permanently lit.
+    if (filters.city && cityCount > 1) n++;
     if (filters.area) n++;
     if (filters.minRating) n++;
     if (filters.priceMin != null || filters.priceMax != null) n++;
@@ -146,7 +148,7 @@ export function SearchClient({
     if (filters.radiusKm != null) n++;
     if (filters.sort && filters.sort !== "relevance") n++;
     return n;
-  }, [filters]);
+  }, [filters, cityCount]);
 
   /** Fetch results for the current filters (resets pagination). */
   const runSearch = useCallback(
@@ -248,7 +250,8 @@ export function SearchClient({
 
   const clearAll = () => {
     setQuery("");
-    setFilters({ city: "beirut" });
+    // Clearing returns to the tenant's default city, not to a hardcoded one.
+    setFilters(cities.length === 1 ? { city: cities[0].slug } : {});
   };
 
   const beirutCity = useMemo(() => cities.find((c) => c.slug === "beirut") ?? cities[0], [cities]);
@@ -256,12 +259,26 @@ export function SearchClient({
   const city = cities.find((c) => c.slug === effectiveCitySlug) ?? beirutCity;
   const areaOptions = city?.areas ?? beirutCity?.areas ?? [];
 
-  // Single-country scope: coerce any non-beirut city (e.g. legacy deep links) to beirut.
+  /**
+   * Legacy deep links: a URL naming a city this tenant does not serve is
+   * coerced to the one it does.
+   *
+   * Guarded on the REGISTRY rather than on the literal "beirut". The previous
+   * version rewrote any city that was not Beirut, unconditionally — correct
+   * today, because the Lebanon tenant has exactly one city, and a silent trap
+   * the moment a second is added: every /search?city=tripoli would have been
+   * rewritten to Beirut with no error and no visible filter change, and the
+   * active-filter count (which also special-cases "beirut") would have kept
+   * reporting zero. Now it only fires while there is genuinely nowhere else
+   * to go.
+   */
   useEffect(() => {
-    if (filters.city && filters.city !== "beirut") {
-      setFilters((f) => ({ ...f, city: "beirut", area: undefined }));
+    if (cities.length > 1) return;
+    const only = cities[0]?.slug;
+    if (only && filters.city && filters.city !== only) {
+      setFilters((f) => ({ ...f, city: only, area: undefined }));
     }
-  }, [filters.city]);
+  }, [filters.city, cities]);
 
   const { listening, supported, toggle } = useVoiceSearch((transcript) => {
     setQuery(transcript);
