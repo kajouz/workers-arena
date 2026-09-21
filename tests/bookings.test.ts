@@ -7,6 +7,18 @@ import { rm } from "node:fs/promises";
 // action's zod layer is testable in vitest (the demo adapter underneath stays
 // real, so these are true action-level round-trips).
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+
+// The booking actions resolve the caller before mutating (src/lib/data/authz.ts),
+// so the suite has to act as someone. Most of this file drives worker-side
+// actions on bk-1001, so the default identity is that booking's worker; the
+// blocks that need another party switch explicitly.
+const { getSessionMock } = vi.hoisted(() => ({ getSessionMock: vi.fn() }));
+vi.mock("@/lib/auth-demo", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getSession: getSessionMock,
+}));
+import { ACTING, STRANGER } from "./helpers/acting-session";
+
 import {
   availableSlotsAction,
   cancelBookingAction,
@@ -82,6 +94,7 @@ let activityFile: string;
 
 beforeEach(() => {
   resetBookingsStore();
+  getSessionMock.mockResolvedValue(ACTING.worker);
   activityFile = path.join(tmpdir(), `bookings-activity-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
   vi.stubEnv("ADMIN_ACTIVITY_FILE", activityFile);
 });
@@ -1067,7 +1080,7 @@ describe("M4 server actions — transition & cancel zod layer", () => {
     expect(booking.status).toBe("inProgress");
   });
 
-  it("cancels with a reason and defaults the actor to worker", async () => {
+  it("cancels with a reason and takes the actor from the session", async () => {
     await respondBookingAction("bk-1001", acceptFd());
     const fd = new FormData();
     fd.set("reason", "No longer available");
@@ -1078,12 +1091,29 @@ describe("M4 server actions — transition & cancel zod layer", () => {
     expect(booking.events.at(-1)).toMatchObject({ actorType: "worker", reason: "No longer available" });
   });
 
-  it("rejects a malformed actor", async () => {
+  it("files a customer's cancel as the customer, from their session alone", async () => {
+    await respondBookingAction("bk-1001", acceptFd());
+    getSessionMock.mockResolvedValue(ACTING.customer);
+    const res = await cancelBookingAction("bk-1001", new FormData());
+    expect(res).toEqual({ ok: true });
+    const booking = bookingOf((await getWorkerBookings(khaled().id))[0] ?? { error: "not-found" });
+    expect(booking.events.at(-1)?.actorType).toBe("customer");
+  });
+
+  /**
+   * `by` used to arrive in the form. That let a worker file their own
+   * cancellation as the CUSTOMER's — and the two differ in money: a paid
+   * deposit is always refunded on a customer cancel, but kept when a worker
+   * cancels inside the 24h window. The field is now ignored outright.
+   */
+  it("ignores a client-supplied actor on cancel", async () => {
     await respondBookingAction("bk-1001", acceptFd());
     const fd = new FormData();
-    fd.set("by", "admin");
+    fd.set("by", "customer"); // the worker is acting; this must not stick
     const res = await cancelBookingAction("bk-1001", fd);
-    expect(res).toEqual({ ok: false, error: "invalid" });
+    expect(res).toEqual({ ok: true });
+    const booking = bookingOf((await getWorkerBookings(khaled().id))[0] ?? { error: "not-found" });
+    expect(booking.events.at(-1)?.actorType).toBe("worker");
   });
 });
 
@@ -1192,7 +1222,7 @@ describe("rescheduleBookingAction — server-action zod layer", () => {
     expect(booking.startAt).toBe(target.startAt);
   });
 
-  it("defaults the actor to worker when by is absent", async () => {
+  it("takes the actor from the session when rescheduling", async () => {
     await respondBookingAction("bk-1001", acceptFd());
     const target = demoAddSlot(khaled().id, "2027-06-06T11:00:00.000Z", "2027-06-06T12:00:00.000Z", "available");
     const fd = new FormData();
@@ -1203,21 +1233,32 @@ describe("rescheduleBookingAction — server-action zod layer", () => {
     expect(booking.events.at(-1)?.actorType).toBe("worker");
   });
 
+  it("files a customer's reschedule as the customer", async () => {
+    await respondBookingAction("bk-1001", acceptFd());
+    const target = demoAddSlot(khaled().id, "2027-06-07T11:00:00.000Z", "2027-06-07T12:00:00.000Z", "available");
+    getSessionMock.mockResolvedValue(ACTING.customer);
+    const fd = new FormData();
+    fd.set("targetSlotId", target.id);
+    expect(await rescheduleBookingAction("bk-1001", fd)).toEqual({ ok: true });
+    const booking = bookingOf((await getWorkerBookings(khaled().id))[0] ?? { error: "not-found" });
+    expect(booking.events.at(-1)?.actorType).toBe("customer");
+  });
+
   it("rejects a missing target slot", async () => {
     await respondBookingAction("bk-1001", acceptFd());
-    const fd = new FormData();
-    fd.set("by", "worker");
-    const res = await rescheduleBookingAction("bk-1001", fd);
+    const res = await rescheduleBookingAction("bk-1001", new FormData());
     expect(res).toEqual({ ok: false, error: "invalid" });
   });
 
-  it("rejects a malformed actor", async () => {
+  it("ignores a client-supplied actor on reschedule", async () => {
     await respondBookingAction("bk-1001", acceptFd());
+    const target = demoAddSlot(khaled().id, "2027-06-08T11:00:00.000Z", "2027-06-08T12:00:00.000Z", "available");
     const fd = new FormData();
-    fd.set("targetSlotId", "slot-khaled-9");
-    fd.set("by", "admin");
-    const res = await rescheduleBookingAction("bk-1001", fd);
-    expect(res).toEqual({ ok: false, error: "invalid" });
+    fd.set("targetSlotId", target.id);
+    fd.set("by", "customer"); // the worker is acting
+    expect(await rescheduleBookingAction("bk-1001", fd)).toEqual({ ok: true });
+    const booking = bookingOf((await getWorkerBookings(khaled().id))[0] ?? { error: "not-found" });
+    expect(booking.events.at(-1)?.actorType).toBe("worker");
   });
 
   it("availableSlotsAction returns only future AVAILABLE slots", async () => {
@@ -1527,6 +1568,9 @@ describe("multi-candidate quotes (demo adapter + seams)", () => {
     fd.set("customerPhone", "+961 70 123 456");
     fd.set("customerEmail", "noor@example.com");
     fd.set("jobTitle", "Fix a leaking pipe under the kitchen sink");
+    // Noor posts the job as a GUEST — no session, so the job stays phone-keyed
+    // and her phone remains her credential for the pick at the end.
+    getSessionMock.mockResolvedValue(null);
     const res = await createQuoteRequestAction([khaled().slug, ali().slug], fd);
     expect(res.ok).toBe(true);
     // More than MAX_QUOTE_WORKERS slugs → too-many at the action layer.
@@ -1538,17 +1582,59 @@ describe("multi-candidate quotes (demo adapter + seams)", () => {
     const bidFd = new FormData();
     bidFd.set("quote", "250"); // major units
     bidFd.set("deposit", "50");
+    // The bid is posted BY the invited worker — khaled is job.bookings[0]'s.
+    getSessionMock.mockResolvedValue(ACTING.worker);
     expect((await submitQuoteAction(bid.id, bidFd)).ok).toBe(true);
     const quoted = job.bookings[0]!;
     expect(quoted.quote).toBe(25000); // ×100 minor units
     expect(quoted.deposit).toBe(5000);
 
+    // …and the winner is picked by the CUSTOMER. Noor booked as a guest, so
+    // her credential is the phone she used — the same one the /bookings read
+    // view accepts. This is the guest write path end to end.
+    getSessionMock.mockResolvedValue(null);
     const slot = demoAddSlot(khaled().id, new Date(2027, 0, 7, 9).toISOString(), new Date(2027, 0, 7, 10).toISOString());
     const pickFd = new FormData();
     pickFd.set("winnerBookingId", bid.id);
     pickFd.set("slotId", slot.id);
+    pickFd.set("guestPhone", "+961 70 123 456");
     const picked = await selectQuoteAction(job.id, pickFd);
     expect(picked.ok).toBe(true);
+  });
+
+  it("refuses a quote pick from a stranger, and from a guest with the wrong phone", async () => {
+    const { createQuoteRequestAction, selectQuoteAction } = await import("../src/app/actions/bookings");
+    const fd = new FormData();
+    fd.set("customerName", "Noor E.");
+    fd.set("customerPhone", "+961 70 123 456");
+    fd.set("customerEmail", "noor@example.com");
+    fd.set("jobTitle", "Fix a leaking pipe under the kitchen sink");
+    getSessionMock.mockResolvedValue(null);
+    expect((await createQuoteRequestAction([khaled().slug, ali().slug], fd)).ok).toBe(true);
+
+    const job = (await getCustomerQuoteRequests({ email: "noor@example.com" }))[0]!;
+    const slot = demoAddSlot(khaled().id, new Date(2027, 0, 8, 9).toISOString(), new Date(2027, 0, 8, 10).toISOString());
+    const pickFd = () => {
+      const f = new FormData();
+      f.set("winnerBookingId", job.bookings[0]!.id);
+      f.set("slotId", slot.id);
+      return f;
+    };
+
+    // A signed-in stranger.
+    getSessionMock.mockResolvedValue(STRANGER);
+    expect(await selectQuoteAction(job.id, pickFd())).toEqual({ ok: false, error: "unauthorized" });
+
+    // A bidding worker must never pick the winner — the pick declines every
+    // other candidate in the same transaction.
+    getSessionMock.mockResolvedValue(ACTING.worker);
+    expect(await selectQuoteAction(job.id, pickFd())).toEqual({ ok: false, error: "unauthorized" });
+
+    // A guest presenting someone else's phone.
+    getSessionMock.mockResolvedValue(null);
+    const wrongPhone = pickFd();
+    wrongPhone.set("guestPhone", "+961 70 999 999");
+    expect(await selectQuoteAction(job.id, wrongPhone)).toEqual({ ok: false, error: "unauthorized" });
   });
 
   it("quote bookings count in the admin funnel without converting (requested-only conversion is untouched)", async () => {

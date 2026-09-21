@@ -16,6 +16,7 @@ import { dialPrefix } from "@/lib/tenant/countries";
 import { cancelRecurringContractAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
 import { QuoteRequestCard } from "./quote-request-card";
+import { GuestProofProvider, useGuestProof } from "./guest-proof";
 import type { CustomerBookingRow, CustomerQuoteRow, CustomerRecurringRow } from "@/app/bookings/page";
 import type { BookingStatus, RecurringBooking } from "@/lib/data/types";
 
@@ -37,6 +38,7 @@ function RecurringContractCard({ row }: { row: CustomerRecurringRow }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const withGuestProof = useGuestProof();
   const contract = row.recurring;
 
   const upcoming = contract.occurrences.filter((o) => UPCOMING.includes(o.status)).slice(0, 3);
@@ -47,7 +49,7 @@ function RecurringContractCard({ row }: { row: CustomerRecurringRow }) {
   const cancel = async () => {
     if (busy) return;
     setBusy(true);
-    const res = await cancelRecurringContractAction(contract.id, new FormData());
+    const res = await cancelRecurringContractAction(contract.id, withGuestProof(new FormData()));
     setBusy(false);
     setConfirming(false);
     if (res.ok) {
@@ -133,6 +135,7 @@ export function BookingsClient({
   quoteRows,
   signedIn,
   lookedUp,
+  guestPhone,
   nowSeed,
 }: {
   rows: CustomerBookingRow[];
@@ -140,6 +143,8 @@ export function BookingsClient({
   quoteRows: CustomerQuoteRow[];
   signedIn: boolean;
   lookedUp: boolean;
+  /** A signed-out guest's credential — see GuestProofProvider. */
+  guestPhone?: string;
   /** Date.now() at server render time — the rows' hydration-safe now seed. */
   nowSeed: number;
 }) {
@@ -178,6 +183,7 @@ export function BookingsClient({
   const noResults = rows.length === 0;
 
   return (
+    <GuestProofProvider phone={guestPhone}>
     <div className="mt-8">
       <Tabs defaultValue="upcoming">
         <TabsList>
@@ -255,5 +261,6 @@ export function BookingsClient({
         </TabsContent>
       </Tabs>
     </div>
+    </GuestProofProvider>
   );
 }

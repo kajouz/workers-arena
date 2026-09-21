@@ -125,7 +125,20 @@ export default async function BookingsPage({
       </h1>
       <p className="mt-2 text-ink-500 dark:text-ink-400">{t("booking.myBookingsSubtitle")}</p>
 
-      <BookingsClient rows={rows} recurringRows={recRows} quoteRows={quoteRows} signedIn={Boolean(session)} lookedUp={lookedUp} nowSeed={nowSeed} />
+      {/* guestPhone: only for a signed-out lookup. The booking mutations
+          resolve the caller server-side, and a guest's only credential is the
+          phone they already used to open this page — so it travels with their
+          writes too. A signed-in customer sends nothing: their session is the
+          stronger credential and the authz seam prefers it. */}
+      <BookingsClient
+        rows={rows}
+        recurringRows={recRows}
+        quoteRows={quoteRows}
+        signedIn={Boolean(session)}
+        lookedUp={lookedUp}
+        guestPhone={lookedUp ? phoneParam : undefined}
+        nowSeed={nowSeed}
+      />
     </div>
   );
 }

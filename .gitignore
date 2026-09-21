@@ -65,3 +65,7 @@ backups/
 test-results/
 playwright-report/
 .env.production
+
+# Vercel CLI writes a short-lived OIDC token here (`vercel env pull`, `vercel dev`).
+# It was committed once already — never again.
+.env.vercel

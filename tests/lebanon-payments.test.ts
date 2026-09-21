@@ -59,6 +59,10 @@ beforeEach(() => {
   resetPurchaseStore();
   resetFeeRuleStore();
   getSessionMock.mockReset();
+  // payBookingAction mints the deposit checkout for the booking's CUSTOMER,
+  // so that is the default caller here; the admin/worker/company cases below
+  // each override it before the call they are about.
+  getSessionMock.mockResolvedValue(CUSTOMER);
   activityFile = `${tmpdir()}/lebanon-activity-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
   vi.stubEnv("ADMIN_ACTIVITY_FILE", activityFile);
 });

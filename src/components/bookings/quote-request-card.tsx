@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/toast";
 import { useLocale } from "@/components/providers/locale-provider";
 import { formatSlotRange } from "@/lib/data/booking-ui";
 import { availableSlotsAction, selectQuoteAction } from "@/app/actions/bookings";
+import { useGuestProof } from "./guest-proof";
 import { cn, durationParts, fillDuration } from "@/lib/utils";
 import { QUOTE_SLA_MS } from "@/lib/data/types";
 import { useSsrSafeNow } from "@/hooks/use-ssr-safe-now";
@@ -78,6 +79,7 @@ export function QuoteRequestCard({
   const [slots, setSlots] = useState<{ id: string; startAt: string; endAt: string }[] | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selecting, setSelecting] = useState<string | null>(null); // slot id in flight
+  const withGuestProof = useGuestProof();
 
   const loadSlots = async (bookingId: string) => {
     setLoadingSlots(true);
@@ -94,7 +96,7 @@ export function QuoteRequestCard({
     const fd = new FormData();
     fd.set("winnerBookingId", bookingId);
     fd.set("slotId", slotId);
-    const res = await selectQuoteAction(quoteRequest.id, fd);
+    const res = await selectQuoteAction(quoteRequest.id, withGuestProof(fd));
     setSelecting(null);
     if (res.ok) {
       toast("success", t("booking.quotesSelectSuccess"));

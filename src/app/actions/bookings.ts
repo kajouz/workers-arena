@@ -4,6 +4,16 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getSession } from "@/lib/auth-demo";
 import {
+  requireBookingCustomer,
+  requireBookingWorker,
+  requireRole,
+  requireWorkerProfile,
+  resolveBookingParty,
+  resolveQuoteRequestParty,
+  resolveRecurringParty,
+  type GuestProof,
+} from "@/lib/data/authz";
+import {
   cancelBooking,
   refundBookingDeposit,
   cancelRecurringContract,
@@ -54,7 +64,22 @@ import { sanitizeText } from "@/lib/security";
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-export type BookingActionResult = { ok: boolean; error?: "slot-taken" | "invalid" | "not-found" };
+export type BookingActionResult = {
+  ok: boolean;
+  error?: "slot-taken" | "invalid" | "not-found" | "unauthorized";
+};
+
+/**
+ * The credential a signed-out guest carries on /bookings?phone=… — the same
+ * string that already unlocks the read view, forwarded on writes so the
+ * authz seam can match it against the record's `customerPhone`. Absent for
+ * signed-in customers, whose session is the stronger credential.
+ * See the caveat in src/lib/data/authz.ts's header.
+ */
+function guestProofFrom(formData: FormData): GuestProof {
+  const phone = formData.get("guestPhone");
+  return typeof phone === "string" && phone.trim() ? { guestPhone: phone.trim() } : {};
+}
 
 const requestSchema = z.object({
   slotId: z.string().min(1),
@@ -147,6 +172,12 @@ export async function requestRecurringBookingAction(
   const worker = await getWorkerBySlug(workerSlug);
   if (!worker) return { ok: false, error: "invalid" };
 
+  // Public action, exactly like requestBookingAction: a signed-out visitor may
+  // start a contract. The session is read only to STAMP the owner — a
+  // signed-in customer's contract carries their id, which is what later gives
+  // them session-backed access to it instead of the weaker guest-phone path.
+  const session = await getSession();
+
   const cleanCustomerName = sanitizeText(parsed.data.customerName, 100);
   const cleanJobTitle = sanitizeText(parsed.data.jobTitle, 200);
   const cleanNote = parsed.data.note ? sanitizeText(parsed.data.note, 2000) : undefined;
@@ -154,6 +185,7 @@ export async function requestRecurringBookingAction(
   const result = await createRecurringRequest({
     workerId: worker.id,
     slotId: parsed.data.slotId,
+    customerId: session?.id,
     customerName: cleanCustomerName,
     customerPhone: parsed.data.customerPhone,
     customerEmail: parsed.data.customerEmail || undefined,
@@ -184,11 +216,21 @@ const respondSchema = z.object({
   declineReason: z.string().optional(),
 });
 
-/** Worker side: accept (with optional quote/deposit) or decline a request. */
+/**
+ * Worker side: accept (with optional quote/deposit) or decline a request.
+ *
+ * Permission: the booking's own worker, or an admin. The quote and deposit
+ * this action writes are the price the customer is then asked to pay, so an
+ * unauthenticated caller reaching it could set an arbitrary price on someone
+ * else's job — the party check is what makes the money fields safe to accept.
+ */
 export async function respondBookingAction(
   bookingId: string,
   formData: FormData
 ): Promise<BookingActionResult> {
+  const party = await requireBookingWorker(bookingId);
+  if (!party.ok) return party;
+
   const parsed = respondSchema.safeParse({
     accept: formData.get("accept"),
     // formData.get() returns null for absent fields, but the optional fields
@@ -220,11 +262,20 @@ export async function respondBookingAction(
   return { ok: true };
 }
 
-/** M1 — worker accepts (quote/deposit) or declines a whole recurring contract. */
+/**
+ * M1 — worker accepts (quote/deposit) or declines a whole recurring contract.
+ *
+ * Permission: the contract's own worker, or an admin — the accept materializes
+ * the whole cadence at the quoted price.
+ */
 export async function respondRecurringBookingAction(
   recurringId: string,
   formData: FormData
 ): Promise<BookingActionResult> {
+  const party = await resolveRecurringParty(recurringId);
+  if (!party.ok) return party;
+  if (party.actor === "customer") return { ok: false, error: "unauthorized" };
+
   const parsed = respondSchema.safeParse({
     accept: formData.get("accept"),
     quote: formData.get("quote") || undefined,
@@ -250,11 +301,21 @@ export async function respondRecurringBookingAction(
   return { ok: true };
 }
 
-/** Customer side: cancel an active recurring contract — future visits stop. */
+/**
+ * Customer side: cancel an active recurring contract — future visits stop.
+ *
+ * Permission: the contract's customer (session, or the guest phone it is
+ * keyed on) or an admin. A worker cannot cancel a customer's contract from
+ * here — they decline it through respondRecurringBookingAction instead.
+ */
 export async function cancelRecurringContractAction(
   recurringId: string,
   formData: FormData
 ): Promise<BookingActionResult> {
+  const party = await resolveRecurringParty(recurringId, guestProofFrom(formData));
+  if (!party.ok) return party;
+  if (party.actor === "worker") return { ok: false, error: "unauthorized" };
+
   const rawReason = String(formData.get("reason") ?? "").trim().slice(0, 500);
   const reason = rawReason ? sanitizeText(rawReason, 500) : undefined;
   const recurring = await cancelRecurringContract(recurringId, reason);
@@ -263,13 +324,19 @@ export async function cancelRecurringContractAction(
   return { ok: true };
 }
 
-/** Worker side: generate AVAILABLE slots from the weekly hours template (M2). */
+/**
+ * Worker side: generate AVAILABLE slots from the weekly hours template (M2).
+ *
+ * Permission: only the worker who owns the profile, or an admin — a stranger
+ * must not be able to write onto someone else's calendar.
+ */
 export async function generateSlotsAction(
   workerSlug: string,
   formData: FormData
-): Promise<{ ok: boolean; created?: number; error?: "invalid" }> {
-  const worker = await getWorkerBySlug(workerSlug);
-  if (!worker) return { ok: false, error: "invalid" };
+): Promise<{ ok: boolean; created?: number; error?: "invalid" | "not-found" | "unauthorized" }> {
+  const party = await requireWorkerProfile(workerSlug);
+  if (!party.ok) return party;
+  const { worker } = party;
 
   // Window defaults to the next 14 days (the customer-facing picker range).
   const from = new Date();
@@ -295,11 +362,18 @@ const transitionSchema = z.object({
  * completed / noShow. `to` arrives as a plain serializable arg (the doc's
  * signature); the state machine (BOOKING_TRANSITION_FROM) rejects illegal
  * moves in the repo layer.
+ *
+ * Permission: the booking's own worker, or an admin. The state machine only
+ * constrains WHICH move is legal, never WHO may make it — marking a job
+ * completed or no-show has money and reputation consequences for both sides.
  */
 export async function transitionBookingAction(
   bookingId: string,
   to: BookingTransitionTarget
 ): Promise<BookingActionResult> {
+  const party = await requireBookingWorker(bookingId);
+  if (!party.ok) return party;
+
   const parsed = transitionSchema.safeParse({ to });
   if (!parsed.success) return { ok: false, error: "invalid" };
 
@@ -315,9 +389,19 @@ export async function transitionBookingAction(
  * §2.3 customer-confirms-completion — the customer confirms a staged
  * completion (completionPending → completed; earnings credit + worker
  * notified). Returns not-found unless the booking is staged.
+ *
+ * Permission: the booking's customer (session, or the guest phone it is keyed
+ * on) or an admin. The confirmation releases the worker's earnings, so the
+ * worker must not be able to sign it off on the customer's behalf.
  */
-export async function confirmCompletionAction(bookingId: string): Promise<BookingActionResult> {
+export async function confirmCompletionAction(
+  bookingId: string,
+  formData: FormData = new FormData()
+): Promise<BookingActionResult> {
   if (!bookingId) return { ok: false, error: "invalid" };
+  const party = await requireBookingCustomer(bookingId, guestProofFrom(formData));
+  if (!party.ok) return party;
+
   const booking = await confirmBookingCompletion(bookingId);
   if (!booking) return { ok: false, error: "not-found" };
   revalidatePath("/dashboard");
@@ -326,26 +410,39 @@ export async function confirmCompletionAction(bookingId: string): Promise<Bookin
 }
 
 const cancelSchema = z.object({
-  by: z.enum(["customer", "worker", "system"]).default("worker"),
   reason: z.string().max(500).optional(),
 });
 
 /**
  * Worker or customer side: cancel a booking (M4) — frees the slot, stores
  * the reason + actor, and notifies the other party.
+ *
+ * Permission: either party to the booking (the customer by session or guest
+ * phone, the worker by profile) or an admin.
+ *
+ * The actor is DERIVED from the resolved party, never read from the form. It
+ * used to arrive as a `by` field, which let a caller attribute their own
+ * cancellation to the other side — and `by` decides the refund treatment
+ * (the deposit-refund window applies only to worker cancels), so a
+ * client-supplied actor was a way to move money. Admin cancels keep their own
+ * action (adminCancelBookingAction), which refunds unconditionally; an admin
+ * arriving here is recorded as "system".
  */
 export async function cancelBookingAction(
   bookingId: string,
   formData: FormData
 ): Promise<BookingActionResult> {
+  const party = await resolveBookingParty(bookingId, guestProofFrom(formData));
+  if (!party.ok) return party;
+  const by = party.actor === "admin" ? "system" : party.actor;
+
   const parsed = cancelSchema.safeParse({
-    by: (formData.get("by") as string | null) ?? undefined,
     reason: formData.get("reason") || undefined,
   });
   if (!parsed.success) return { ok: false, error: "invalid" };
   const cleanCancelReason = parsed.data.reason ? sanitizeText(parsed.data.reason, 500) : undefined;
 
-  const booking = await cancelBooking(bookingId, { by: parsed.data.by, reason: cleanCancelReason });
+  const booking = await cancelBooking(bookingId, { by, reason: cleanCancelReason });
   if (!booking) return { ok: false, error: "not-found" };
 
   revalidatePath("/dashboard");
@@ -413,16 +510,20 @@ const setSlotBlockedSchema = z.object({
 export async function setSlotBlockedAction(
   workerSlug: string,
   formData: FormData
-): Promise<{ ok: boolean; error?: "invalid" | "not-found" }> {
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+  // Permission: only the worker who owns the calendar, or an admin. Blocking
+  // slots on someone else's profile is a denial-of-service on a competitor —
+  // their availability simply disappears from search and the booking dialog.
+  const party = await requireWorkerProfile(workerSlug);
+  if (!party.ok) return party;
+  const { worker } = party;
+
   const parsed = setSlotBlockedSchema.safeParse({
     slotId: formData.get("slotId"),
     blocked: formData.get("blocked"),
     note: formData.get("note") || undefined,
   });
   if (!parsed.success) return { ok: false, error: "invalid" };
-
-  const worker = await getWorkerBySlug(workerSlug);
-  if (!worker) return { ok: false, error: "invalid" };
 
   const cleanNote = parsed.data.note ? sanitizeText(parsed.data.note, 200) : undefined;
   const slot = await setSlotBlocked(
@@ -459,29 +560,37 @@ export async function availableSlotsAction(
 
 const rescheduleSchema = z.object({
   targetSlotId: z.string().min(1),
-  by: z.enum(["customer", "worker"]),
   reason: z.string().max(500).optional(),
 });
 
 /**
  * M4 — move a scheduled booking to a new slot (worker or customer side).
- * Submits the target slot + who's asking; the repo validates the status and
- * performs the atomic slot swap.
+ * Submits the target slot; the repo validates the status and performs the
+ * atomic slot swap.
+ *
+ * Permission: either party to the booking, or an admin. Like the cancel
+ * action, the actor is derived from the resolved party rather than read from
+ * a `by` form field — it is stamped on the audit trail and drives which side
+ * gets notified. An admin is recorded as the worker side, matching the
+ * repo's two-value vocabulary.
  */
 export async function rescheduleBookingAction(
   bookingId: string,
   formData: FormData
-): Promise<{ ok: boolean; error?: "invalid" | "not-found" }> {
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+  const party = await resolveBookingParty(bookingId, guestProofFrom(formData));
+  if (!party.ok) return party;
+  const by = party.actor === "customer" ? "customer" : "worker";
+
   const parsed = rescheduleSchema.safeParse({
     targetSlotId: formData.get("targetSlotId"),
-    by: formData.get("by") || "worker",
     reason: formData.get("reason") || undefined,
   });
   if (!parsed.success) return { ok: false, error: "invalid" };
 
   const cleanRescheduleReason = parsed.data.reason ? sanitizeText(parsed.data.reason, 500) : undefined;
   const booking = await rescheduleBooking(bookingId, parsed.data.targetSlotId, {
-    by: parsed.data.by,
+    by,
     reason: cleanRescheduleReason,
   });
   if (!booking) return { ok: false, error: "not-found" };
@@ -505,9 +614,17 @@ const toProviderMethod = (m: "stripe" | "omt" | "whish") => (m === "omt" ? "OMT"
  */
 export async function payBookingAction(
   bookingId: string,
-  method: "stripe" | "omt" | "whish" = "stripe"
-): Promise<{ ok: boolean; url?: string; error?: "invalid" | "not-found" }> {
+  method: "stripe" | "omt" | "whish" = "stripe",
+  formData: FormData = new FormData()
+): Promise<{ ok: boolean; url?: string; error?: "invalid" | "not-found" | "unauthorized" }> {
   if (!bookingId) return { ok: false, error: "invalid" };
+  // Permission: the paying customer (session or guest phone), or an admin.
+  // The checkout it mints is a signed, booking-scoped payment instruction —
+  // minting one for a booking you are not party to leaks its amount and
+  // reference to a stranger.
+  const party = await requireBookingCustomer(bookingId, guestProofFrom(formData));
+  if (!party.ok) return party;
+
   const parsed = paymentMethodSchema.safeParse(method);
   if (!parsed.success) return { ok: false, error: "invalid" };
   const checkout = await createBookingCheckout(bookingId, toProviderMethod(parsed.data));
@@ -516,14 +633,27 @@ export async function payBookingAction(
 }
 
 /**
- * M3 — the payment webhook/simulated callback runs the same confirm path as
- * the repo; this action exists so the success page can reflect the outcome.
- * Returns ok when the booking is confirmed.
+ * M3 — admin-only manual confirmation of a booking payment.
+ *
+ * Payment confirmation has TWO authenticated paths already: the provider
+ * webhook (/api/payments/webhook, whose `stripe-signature` is verified
+ * against STRIPE_WEBHOOK_SECRET) and the simulated callback
+ * (/api/payments/simulate, which verifies a signed booking-scoped token).
+ * This action was a third door onto the same confirm path with neither a
+ * signature nor a session — any caller could mark any booking PAID with an
+ * arbitrary provider reference, crediting the worker and issuing a receipt
+ * for money that never moved. Nothing in the app called it.
+ *
+ * It is kept, restricted to admins, for the manual-reconciliation case (an
+ * OMT/Whish transfer confirmed out-of-band by an operator). Customer-facing
+ * payment confirmation must stay on the two verified paths.
  */
 export async function confirmPaymentAction(
   bookingId: string,
   providerRef: string
-): Promise<{ ok: boolean; error?: "invalid" | "not-found" }> {
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+  const auth = await requireRole("admin");
+  if (!auth.ok) return auth;
   if (!bookingId || !providerRef) return { ok: false, error: "invalid" };
   const booking = await confirmBookingPayment(bookingId, providerRef);
   if (!booking) return { ok: false, error: "not-found" };
@@ -626,7 +756,13 @@ export async function createQuoteRequestAction(
 export async function submitQuoteAction(
   bookingId: string,
   formData: FormData
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; error?: "unauthorized" | "not-found" }> {
+  // Permission: the invited worker on this candidate booking, or an admin.
+  // A bid is the price the customer compares — an outsider able to post one
+  // could undercut the real candidates or poison a competitor's bid.
+  const party = await requireBookingWorker(bookingId);
+  if (!party.ok) return party;
+
   const quoteRaw = formData.get("quote");
   const quote = typeof quoteRaw === "string" && quoteRaw.trim() ? Number(quoteRaw) : NaN;
   if (!Number.isFinite(quote) || quote <= 0) return { ok: false };
@@ -652,7 +788,17 @@ export async function submitQuoteAction(
 export async function selectQuoteAction(
   quoteRequestId: string,
   formData: FormData
-): Promise<{ ok: boolean; error?: "slot-taken" | "invalid" | "not-quoted" | "closed" }> {
+): Promise<{
+  ok: boolean;
+  error?: "slot-taken" | "invalid" | "not-quoted" | "closed" | "not-found" | "unauthorized";
+}> {
+  // Permission: the customer who posted the job (session or guest phone), or
+  // an admin. Picking the winner declines every other candidate in the same
+  // transaction, so a bidding worker must never be able to run it.
+  const party = await resolveQuoteRequestParty(quoteRequestId, guestProofFrom(formData));
+  if (!party.ok) return party;
+  if (party.actor === "worker") return { ok: false, error: "unauthorized" };
+
   const winnerBookingId = formData.get("winnerBookingId");
   const slotId = formData.get("slotId");
   if (

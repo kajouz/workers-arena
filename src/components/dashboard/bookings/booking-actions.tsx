@@ -41,8 +41,10 @@ export function BookingActions({ booking }: { booking: Booking }) {
 
   const submitCancel = async () => {
     setBusy("cancel");
+    // No `by` field: the server derives the actor from the session, so a
+    // worker's cancel can't be filed under the customer's name (the two carry
+    // different deposit-refund treatment).
     const f = new FormData();
-    f.set("by", "worker");
     if (cancelReason.trim()) f.set("reason", cancelReason.trim());
     const res = await cancelBookingAction(booking.id, f);
     setBusy(null);
@@ -97,7 +99,7 @@ export function BookingActions({ booking }: { booking: Booking }) {
       )}
 
       {(booking.status === "confirmed" || booking.status === "inProgress") && (
-        <RescheduleDialog booking={booking} by="worker" />
+        <RescheduleDialog booking={booking} />
       )}
 
       <Dialog

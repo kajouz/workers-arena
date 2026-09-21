@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CalendarClock, CalendarX2, Loader2 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { availableSlotsAction, rescheduleBookingAction } from "@/app/actions/bookings";
+import { useGuestProof } from "./guest-proof";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,10 +32,14 @@ function formatOption(s: SlotOption, locale: "en" | "ar"): string {
  * M4 reschedule dialog (docs/booking-scheduling.md §7) — shared by the worker
  * dashboard (BookingsPanel) and the customer /bookings page. Fetches the
  * worker's future AVAILABLE slots, lets the user pick one, and submits the
- * atomic slot swap via rescheduleBookingAction. `by` decides who gets the
- * "rescheduled" notification (the other party).
+ * atomic slot swap via rescheduleBookingAction.
+ *
+ * Who is rescheduling — which decides who gets the "rescheduled"
+ * notification — is resolved SERVER-side from the session, not sent from
+ * here: it lands on the booking's audit trail, so a client-supplied value
+ * would let either side sign the other's name to the move.
  */
-export function RescheduleDialog({ booking, by }: { booking: Booking; by: "worker" | "customer" }) {
+export function RescheduleDialog({ booking }: { booking: Booking }) {
   const { locale, t } = useLocale();
   const router = useRouter();
 
@@ -43,6 +48,7 @@ export function RescheduleDialog({ booking, by }: { booking: Booking; by: "worke
   const [selected, setSelected] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const withGuestProof = useGuestProof();
 
   useEffect(() => {
     if (!open) return;
@@ -59,9 +65,8 @@ export function RescheduleDialog({ booking, by }: { booking: Booking; by: "worke
     setBusy(true);
     const f = new FormData();
     f.set("targetSlotId", selected);
-    f.set("by", by);
     if (reason.trim()) f.set("reason", reason.trim());
-    const res = await rescheduleBookingAction(booking.id, f);
+    const res = await rescheduleBookingAction(booking.id, withGuestProof(f));
     setBusy(false);
     if (res.ok) {
       toast("success", t("booking.rescheduleSuccess"));

@@ -3,6 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // The server action imports next/cache — mock it so the action layer is
 // testable (the demo adapter underneath stays real).
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+
+// The payment actions resolve the caller before doing anything (payBooking =
+// the booking's customer, confirmPayment = an admin), so the suite has to act
+// as someone. See tests/helpers/acting-session.ts.
+const { getSessionMock } = vi.hoisted(() => ({ getSessionMock: vi.fn() }));
+vi.mock("@/lib/auth-demo", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getSession: getSessionMock,
+}));
+import { ACTING, STRANGER } from "./helpers/acting-session";
+
 import { confirmPaymentAction, payBookingAction } from "../src/app/actions/bookings";
 import {
   cancelBooking,
@@ -34,6 +45,8 @@ function bookingOf(r: Booking | { error: string }): Booking {
 
 beforeEach(() => {
   resetBookingsStore();
+  // bk-1001's own customer — the default caller for the payment actions.
+  getSessionMock.mockResolvedValue(ACTING.customer);
 });
 
 afterEach(() => {
@@ -265,8 +278,38 @@ describe("M3 server actions", () => {
     expect(res).toEqual({ ok: false, error: "not-found" });
   });
 
-  it("confirmPaymentAction confirms + revalidates", async () => {
+  /**
+   * These actions used to run for ANY caller: a bare POST to the action
+   * endpoint could mint a checkout for a stranger's booking, or — far worse —
+   * mark one PAID with a made-up provider reference, crediting the worker for
+   * money that never moved. Both now resolve the caller first.
+   */
+  it("payBookingAction refuses a caller who is not the booking's customer", async () => {
     await acceptWithDeposit();
+    getSessionMock.mockResolvedValue(STRANGER);
+    expect(await payBookingAction("bk-1001")).toEqual({ ok: false, error: "unauthorized" });
+  });
+
+  it("payBookingAction refuses a signed-out caller with no guest credential", async () => {
+    await acceptWithDeposit();
+    getSessionMock.mockResolvedValue(null);
+    expect(await payBookingAction("bk-1001")).toEqual({ ok: false, error: "unauthorized" });
+  });
+
+  it("confirmPaymentAction refuses everyone but an admin", async () => {
+    await acceptWithDeposit();
+    for (const actor of [null, ACTING.customer, ACTING.worker, ACTING.company, STRANGER]) {
+      getSessionMock.mockResolvedValue(actor);
+      expect(await confirmPaymentAction("bk-1001", "sim_pay-bk-1001")).toEqual({
+        ok: false,
+        error: "unauthorized",
+      });
+    }
+  });
+
+  it("confirmPaymentAction confirms + revalidates (as an admin)", async () => {
+    await acceptWithDeposit();
+    getSessionMock.mockResolvedValue(ACTING.admin);
     const res = await confirmPaymentAction("bk-1001", "sim_pay-bk-1001");
     expect(res).toEqual({ ok: true });
     const booking = bookingOf(

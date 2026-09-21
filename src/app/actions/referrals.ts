@@ -13,6 +13,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth-demo";
+import { getWorkerByUserId } from "@/lib/data/repo";
 import {
   getOrCreateReferralCode,
   getReferralStats,
@@ -126,18 +127,38 @@ export async function getReferralStatsAction(): Promise<{
  * Record that a new worker was referred by an existing worker.
  * Called during registration when the invitee uses a referral code.
  */
+/**
+ * Record that the CALLING worker was referred by `referralCode`.
+ *
+ * The invitee used to arrive as a `newWorkerId` argument, which made this a
+ * public endpoint for writing arbitrary referral edges: any caller could
+ * attribute any worker to any code and poison the attribution the payout is
+ * later computed from. (The payout itself was never directly reachable —
+ * applyReferralBonusAction is admin-gated — so this was integrity, not theft.)
+ *
+ * The invitee is now the session's own worker profile. That is also the only
+ * thing the flow ever meant: a worker records their own referral right after
+ * signing up.
+ */
 export async function trackReferralAction(input: {
   referralCode: string;
-  newWorkerId: string;
 }): Promise<{ ok: true; referrerName: string } | ReferralError> {
+  const session = await getSession();
+  if (!session) return { ok: false, error: "Sign in to record a referral." };
+  const invitee = await getWorkerByUserId(session.id);
+  if (!invitee) return { ok: false, error: "Only workers can be referred." };
+
   // Look up the referrer
   const referrer = await findWorkerByReferralCode(input.referralCode);
   if (!referrer) return { ok: false, error: "Invalid referral code." };
+  if (referrer.workerId === invitee.id) {
+    return { ok: false, error: "You cannot refer yourself." };
+  }
 
   try {
     await recordReferral({
       referrerWorkerId: referrer.workerId,
-      inviteeWorkerId: input.newWorkerId,
+      inviteeWorkerId: invitee.id,
       code: input.referralCode,
     });
 

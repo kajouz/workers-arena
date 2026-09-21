@@ -15,6 +15,7 @@ import { durationParts, fillDuration, formatDate, formatNumber, formatPrice } fr
 import { Price } from "@/components/shared/price";
 import { confirmCompletionAction, payBookingAction } from "@/app/actions/bookings";
 import { RescheduleDialog } from "./reschedule-dialog";
+import { useGuestProof } from "./guest-proof";
 import { BookingTimeline } from "./booking-timeline";
 import { BookingChat } from "./booking-chat";
 import { BookingPrintButton } from "./booking-print-button";
@@ -39,6 +40,7 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
   const [confirming, setConfirming] = useState(false);
   const [payMethod, setPayMethod] = useState<CheckoutMethod>("stripe");
   const [, startTransition] = useTransition();
+  const withGuestProof = useGuestProof();
   const { booking, worker } = row;
   const name = locale === "ar" ? worker?.nameAr : worker?.nameEn;
   const needsPayment = booking.status === "pendingPayment" && booking.deposit !== undefined;
@@ -50,7 +52,7 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
     if (paying) return;
     setPaying(true);
     startTransition(async () => {
-      const res = await payBookingAction(booking.id, payMethod);
+      const res = await payBookingAction(booking.id, payMethod, withGuestProof(new FormData()));
       if (res.ok && res.url) {
         window.location.href = res.url;
       } else {
@@ -182,7 +184,7 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
 
             {(booking.status === "confirmed" || booking.status === "inProgress") && (
               <div className="mt-3">
-                <RescheduleDialog booking={booking} by="customer" />
+                <RescheduleDialog booking={booking} />
               </div>
             )}
 
@@ -201,7 +203,7 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
                     if (confirming) return;
                     setConfirming(true);
                     startTransition(async () => {
-                      const res = await confirmCompletionAction(booking.id);
+                      const res = await confirmCompletionAction(booking.id, withGuestProof(new FormData()));
                       setConfirming(false);
                       if (res.ok) {
                         toast("success", t("booking.confirmCompletionToast"));
