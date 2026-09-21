@@ -5,6 +5,29 @@ import { hasPersonalizationCookie } from "@/lib/personalization-cookie";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 import { buildCsp } from "@/lib/security/csp";
+import { LOCALE_COOKIE_NAME } from "@/lib/personalization-cookie";
+import { defaultLocale, isLocale, type Locale } from "@/lib/i18n/config";
+import { isUnprefixedPath, localeFromPath, localePath } from "@/lib/i18n/routing";
+
+/**
+ * Which language to send a prefix-less visitor to: their saved choice first,
+ * then what their browser asks for, then English.
+ *
+ * This is the ONLY thing the wa_locale cookie still decides. It used to pick
+ * the language of every rendered page, which made each document
+ * browser-specific and therefore impossible to cache in a shared cache. Now it
+ * only chooses a destination, and the destination URL is what renders.
+ */
+function preferredLocale(request: NextRequest): Locale {
+  const saved = request.cookies.get(LOCALE_COOKIE_NAME)?.value;
+  if (isLocale(saved)) return saved;
+  const accept = request.headers.get("accept-language") ?? "";
+  for (const pref of accept.split(",").map((s) => s.split(";")[0].trim().toLowerCase())) {
+    if (pref.startsWith("ar")) return "ar";
+    if (pref.startsWith("en")) return "en";
+  }
+  return defaultLocale;
+}
 
 // Content Security Policy — single-sourced in @/lib/security/csp (shared with
 // next.config.ts's static fallback for _next assets, which this matcher skips).
@@ -40,6 +63,23 @@ export async function proxy(request: NextRequest) {
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(self)"
   );
+
+  // ── Locale routing ────────────────────────────────────────────────────────
+  // Every page lives under /{locale}/…. A request without a locale prefix is
+  // either an old link or a first visit, so send it to the right language once
+  // and let everything downstream deal in prefixed paths only.
+  //
+  // 301 rather than 307: these are permanent URL moves and search engines
+  // should transfer the old URLs' signal to the localized ones. GET/HEAD only
+  // — a 301 on a POST is rewritten to GET by browsers, which would silently
+  // drop a form submission or a Server Action payload.
+  if (!isUnprefixedPath(pathname) && !localeFromPath(pathname)) {
+    if (request.method === "GET" || request.method === "HEAD") {
+      const url = request.nextUrl.clone();
+      url.pathname = localePath(preferredLocale(request), pathname);
+      return NextResponse.redirect(url, 301);
+    }
+  }
 
   // ── Origin check for state-changing requests (M4) ──
   const skipOriginCheck =

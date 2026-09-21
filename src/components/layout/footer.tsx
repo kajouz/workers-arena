@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { useState } from "react";
 import { Send, Github, Twitter, Instagram, Facebook } from "lucide-react";
-import { useLocale } from "@/components/providers/locale-provider";
+import { useLocale, useSetLocale } from "@/components/providers/locale-provider";
 import { Logo } from "@/components/shared/logo";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 
 export function Footer() {
-  const { locale, t, setLocale } = useLocale();
+  const { locale, t } = useLocale();
+  const setLocale = useSetLocale();
   const [email, setEmail] = useState("");
 
   const groups = [

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { useRouter } from "next/navigation";
 import { CalendarX2, Loader2, Repeat, Search, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,7 +17,7 @@ import { cancelRecurringContractAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
 import { QuoteRequestCard } from "./quote-request-card";
 import { GuestProofProvider, useGuestProof } from "./guest-proof";
-import type { CustomerBookingRow, CustomerQuoteRow, CustomerRecurringRow } from "@/app/bookings/page";
+import type { CustomerBookingRow, CustomerQuoteRow, CustomerRecurringRow } from "@/app/[locale]/bookings/page";
 import type { BookingStatus, RecurringBooking } from "@/lib/data/types";
 
 const UPCOMING: BookingStatus[] = ["requested", "pendingPayment", "confirmed", "inProgress"];

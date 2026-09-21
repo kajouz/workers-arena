@@ -9,13 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useLocale } from "@/components/providers/locale-provider";
+import { useLocale, useSetLocale } from "@/components/providers/locale-provider";
 import { locales, localeNames } from "@/lib/i18n/config";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
-  const { locale, t, setLocale } = useLocale();
+  const { locale, t } = useLocale();
+  const setLocale = useSetLocale();
 
   return (
     <DropdownMenu>

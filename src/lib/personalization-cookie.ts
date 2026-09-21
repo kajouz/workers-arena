@@ -1,31 +1,41 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Personalization-cookie names — dependency-free on purpose.
 //
-// The root layout renders <html lang dir class> from the wa_locale and
-// wa_theme cookies, so EVERY document response is personalized per browser.
-// src/proxy.ts uses these names to decide the Cache-Control policy: a request
-// carrying any of them must never be publicly cached (a shared cache or the
-// browser's stale-while-revalidate would serve the previous locale/theme's
-// document after the user flips the toggle). Edge-safe: cookie NAME knowledge
-// only — the values are read server-side via next/headers.
+// NEITHER of these cookies personalizes a document any more, and the list is
+// deliberately empty. It is kept because the reasoning is worth not losing:
+//
+//   • wa_locale used to decide the language of every rendered page. Language
+//     now comes from the URL (/en/…, /ar/…), so the cookie only picks where to
+//     send a visitor who arrives without a prefix — a redirect decision, not a
+//     rendering one. See preferredLocale() in src/proxy.ts.
+//   • wa_theme used to stamp <html class="dark"> server-side. The layout no
+//     longer reads it; the blocking bootstrap script applies the theme before
+//     first paint instead.
+//
+// Together those two made EVERY returning visitor's document uncacheable: the
+// theme script writes wa_theme on the first page view, so from the second view
+// on, every request carried a personalization cookie and src/proxy.ts answered
+// `private, no-store`. Anonymous traffic — which is all crawler and
+// first-visit traffic — now gets a shared-cacheable response.
+//
+// Edge-safe: cookie NAME knowledge only.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Locale cookie (src/lib/i18n/server.ts) — the SSR lang/dir source. */
+/** Locale cookie — the saved language preference; picks a redirect target only. */
 export const LOCALE_COOKIE_NAME = "wa_locale";
 
-/** Theme cookie (src/app/layout.tsx) — the SSR dark-class source. */
+/** Theme cookie — read only by the pre-hydration bootstrap script, never by SSR. */
 export const THEME_COOKIE_NAME = "wa_theme";
 
 /**
  * Cookie names whose presence marks an anonymous request's document as
- * personalized. Deliberately narrow: only the two SSR-personalizing cookies —
- * consent or analytics cookies don't change the rendered markup, so keying on
- * them would needlessly disable public caching for the whole site.
+ * personalized — i.e. names that must defeat shared caching.
+ *
+ * Empty today, and that is the point: nothing an anonymous visitor carries
+ * changes their markup any more. Add a name here the moment some cookie starts
+ * influencing SSR output again, and the cache policy follows automatically.
  */
-export const PERSONALIZATION_COOKIE_NAMES: readonly string[] = [
-  LOCALE_COOKIE_NAME,
-  THEME_COOKIE_NAME,
-];
+export const PERSONALIZATION_COOKIE_NAMES: readonly string[] = [];
 
 /**
  * True when the raw `Cookie` header carries a personalization cookie — the

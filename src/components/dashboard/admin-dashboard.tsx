@@ -27,7 +27,7 @@ import {
   Calculator,
   TrendingUp,
 } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useLocale } from "@/components/providers/locale-provider";

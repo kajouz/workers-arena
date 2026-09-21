@@ -1,10 +1,10 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { sanitizeText } from "@/lib/security";
 import { startTrialSubscription } from "@/lib/data/subscriptions";
 import { trialDaysForPlan } from "@/lib/data/subscription-plans";
+import { localeRedirect } from "@/lib/i18n/redirect";
 
 const onboardSchema = z.object({
   nameEn: z.string().min(1).max(100),
@@ -55,7 +55,7 @@ export async function createWorkerProfileAction(
     const existing = await prisma.worker.findFirst({
       where: { userId: session.id },
     });
-    if (existing) redirect("/dashboard");
+    if (existing) return await localeRedirect("/dashboard");
 
     const { nameEn, nameAr, categoryId, cityId, areaId, phone } = parsed.data;
 
@@ -140,7 +140,7 @@ export async function createWorkerProfileAction(
       });
     });
 
-    redirect("/dashboard");
+    return await localeRedirect("/dashboard");
   } catch (e) {
     if ((e as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw e;
     return { error: "server" };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { motion } from "framer-motion";
 import { MessageSquare, Eye, ChevronUp, Pin, Lock, Clock } from "lucide-react";
 import type { ForumPost as ForumPostType, ForumCategory } from "@/lib/forum/types";

@@ -2,7 +2,7 @@
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import type { WorkerRoi } from "@/lib/data/worker-roi";
 
 const money = (minor: number) => `$${(minor / 100).toFixed(2)}`;

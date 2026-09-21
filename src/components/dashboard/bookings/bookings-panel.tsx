@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { useRouter } from "next/navigation";
 import { CalendarClock, Inbox, ArrowUpRight, Loader2, Repeat } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -17,7 +17,7 @@ import { respondRecurringBookingAction } from "@/app/actions/bookings";
 import { BookingRow } from "./booking-row";
 import type { Booking, BookingMessage, RecurringBooking, Worker } from "@/lib/data/types";
 import type { FeeRuleSet } from "@/lib/data/fee-rules";
-import type { WorkerEmailPreview } from "@/app/dashboard/page";
+import type { WorkerEmailPreview } from "@/app/[locale]/dashboard/page";
 
 const FREQ_LABEL_KEY: Record<RecurringBooking["frequency"], string> = {
   weekly: "booking.repeatWeekly",

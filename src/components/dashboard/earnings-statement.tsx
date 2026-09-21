@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import {
   ArrowLeft,
   ArrowUpRight,

@@ -10,7 +10,7 @@
 
 import { useMemo, useState } from "react";
 import { TrendingUp, Star, Target, DollarSign, ArrowLeft, BarChart3 } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { cn } from "@/lib/utils";
 import type { LeadQualityAnalytics, GradeWeekStats, WeekAggregate } from "@/lib/data/lead-quality-analytics";
 import type { CategoryConversionReport } from "@/lib/data/category-conversion";

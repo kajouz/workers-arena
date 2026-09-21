@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { useRouter } from "next/navigation";
 import { CalendarClock, CheckCircle2, Hourglass, Loader2, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

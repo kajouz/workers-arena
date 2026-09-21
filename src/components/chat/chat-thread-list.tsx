@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { useLocale } from "@/components/providers/locale-provider";
 import { formatDate } from "@/lib/utils";
 

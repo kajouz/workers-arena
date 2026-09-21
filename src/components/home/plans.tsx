@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { motion } from "framer-motion";
 import { Calculator, Check, Crown } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";

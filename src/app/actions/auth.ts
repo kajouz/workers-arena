@@ -7,6 +7,7 @@ import { DEMO_USERS, SESSION_COOKIE, realAuthEnabled, type SessionRole } from "@
 import { addLead, addReview, registerView } from "@/lib/data/repo";
 import { getLocale } from "@/lib/i18n/server";
 import { DEMO_PASSWORD, hashPassword, sanitizeText, signSessionPayload } from "@/lib/security";
+import { localeRedirect } from "@/lib/i18n/redirect";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -69,7 +70,7 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
   if (realAuthEnabled()) {
     const error = await realSignIn(parsed.data.email, parsed.data.password);
     if (error) return { error };
-    redirect("/dashboard");
+    return await localeRedirect("/dashboard");
   }
 
   const role: SessionRole = parsed.data.email.includes("admin")
@@ -80,7 +81,7 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
         ? "worker"
         : "customer";
   await setSession(DEMO_USERS[role]);
-  redirect("/dashboard");
+  return await localeRedirect("/dashboard");
 }
 
 /** One-click demo role sign-in (real mode: signs into the seeded demo account). */
@@ -88,10 +89,10 @@ export async function loginDemoAction(role: SessionRole): Promise<void> {
   if (realAuthEnabled()) {
     const error = await realSignIn(DEMO_USERS[role].email, DEMO_PASSWORD);
     if (error) return; // stay on the login page — action returns without redirect
-    redirect("/dashboard");
+    return await localeRedirect("/dashboard");
   }
   await setSession(DEMO_USERS[role]);
-  redirect("/dashboard");
+  return await localeRedirect("/dashboard");
 }
 
 export async function registerAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
@@ -171,18 +172,18 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
     role: parsed.data.role,
     hue: 210,
   });
-  redirect("/dashboard");
+  return await localeRedirect("/dashboard");
 }
 
 export async function logoutAction(): Promise<void> {
   if (realAuthEnabled()) {
     const { signOut } = await import("@/auth");
     await signOut({ redirect: false });
-    redirect("/");
+    return await localeRedirect("/");
   }
   const store = await cookies();
   store.delete(SESSION_COOKIE);
-  redirect("/");
+  return await localeRedirect("/");
 }
 
 /** Record a profile view (debounced client-side too, but server-confirmed). */

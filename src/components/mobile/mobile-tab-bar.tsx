@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { usePathname } from "next/navigation";
 import { Home, Search, Bell, User, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLocaleRouter } from "@/components/i18n/link";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +72,7 @@ function SparkBar({ series, pick }: { series: WorkerRoi[]; pick: (r: WorkerRoi) 
 
 export function WorkerRoiDashboard({ report }: { report: WorkerRoiReport | null }) {
   const { t } = useLocale();
-  const router = useRouter();
+  const router = useLocaleRouter();
   const [month, setMonth] = useState(report?.month.key ?? "");
 
   const roi = report?.roi;

@@ -23,7 +23,7 @@ import { GradientAvatar } from "@/components/ui/avatar";
 import { formatCompact, formatDate } from "@/lib/utils";
 import { payCampaignAction } from "@/app/actions/business";
 import { CampaignBuilder } from "./campaign-builder";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 

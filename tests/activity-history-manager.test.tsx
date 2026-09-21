@@ -106,7 +106,9 @@ describe("ActivityHistoryManager — manual-payment confirms (admin identity)", 
   it("deep-links the booking confirm to its admin dispute view", () => {
     renderPage("en");
     const link = screen.getByRole("link", { name: "Khaled Al-Harbi confirmed BK-1001" });
-    expect(link).toHaveAttribute("href", "/admin/bookings/BK-1001");
+    // Locale-prefixed: the app's <Link> resolves the reader's language, so the
+    // rendered href carries it. The component still writes the plain app path.
+    expect(link).toHaveAttribute("href", "/en/admin/bookings/BK-1001");
   });
 
   it("falls back to the mono actor badge for entries without a resolvable actorId", () => {

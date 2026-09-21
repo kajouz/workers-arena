@@ -5,7 +5,7 @@ import type { SessionUser } from "@/lib/auth-demo";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, BarChart3 } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { CampaignAnalytics } from "./campaign-analytics";
 
 export function CompanyAnalyticsView({ session }: { session: SessionUser }) {

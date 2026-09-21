@@ -24,7 +24,7 @@
     "docs:manual": "node scripts/generate-user-manual.mjs",
     "docs:revenue-guide": "node scripts/generate-revenue-test-guide.mjs",
     "pwa:icons": "node scripts/generate-pwa-icons.mjs",
-    "precache:sw": "node scripts/generate-sw-precache.mjs",
+    "precache:sw": "tsx scripts/generate-sw-precache.mjs",
     "check:vapid": "node scripts/check-vapid-config.mjs",
     "check:trigram": "node scripts/check-trigram.mjs",
     "prebuild": "npx prisma generate 2>/dev/null || true; npm run precache:sw",

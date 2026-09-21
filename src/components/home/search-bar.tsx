@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Link, useLocaleRouter } from "@/components/i18n/link";
 import { Search, Mic, Sparkles, TrendingUp, UserRound, ShieldCheck } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 export function SearchBar({ popular }: { popular: { en: string; ar: string; href: string }[] }) {
   const { locale, t } = useLocale();
-  const router = useRouter();
+  const router = useLocaleRouter();
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -180,17 +180,13 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
         {/* M5 — the fee-waiver perk as a first-class hero chip: jumps straight
             to the fee-waived search filter, the same /search?feeWaived=1 the
             search sidebar toggle produces (docs/booking-take-rate.md). */}
-        <a
+        <Link
           href="/search?feeWaived=1"
-          onClick={(e) => {
-            e.preventDefault();
-            router.push("/search?feeWaived=1");
-          }}
           className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-700 backdrop-blur-sm transition-all hover:bg-emerald-500/20 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400"
         >
           <ShieldCheck className="size-3.5" />
           {t("hero.noPlatformFee")}
-        </a>
+        </Link>
       </div>
     </div>
   );

@@ -9,7 +9,7 @@
  * the premium earned net of refunds, and a deterministic verdict.
  */
 
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { AlertTriangle, Scale } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Badge } from "@/components/ui/badge";

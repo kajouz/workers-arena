@@ -1,49 +1,20 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { Locale } from "@/lib/i18n/config";
 import { dictionaries, translate, type Dictionary } from "@/lib/i18n/dictionaries";
 import { LOCALE_COOKIE_NAME } from "@/lib/personalization-cookie";
+import { localePath } from "@/lib/i18n/routing";
 
 interface LocaleContextValue {
   locale: Locale;
   dir: "ltr" | "rtl";
   dict: Dictionary;
   t: (key: string, vars?: Record<string, string | number>) => string;
-  setLocale: (locale: Locale) => void;
 }
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
-
-/** localStorage key — deliberately the SAME name as the cookie, so the two
- * stores can never drift into holding different locales. */
-const LOCALE_LS_KEY = LOCALE_COOKIE_NAME;
-
-function readLocaleFromLS(): Locale | null {
-  try {
-    const v = localStorage.getItem(LOCALE_LS_KEY);
-    return v === "en" || v === "ar" ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-/** The `wa_locale` cookie as the CLIENT sees it (it is not httpOnly) — the same
- * value the server read to render `<html lang dir>`. Null when it is absent,
- * which is the only case the localStorage fallback is for. */
-function readLocaleCookie(): Locale | null {
-  try {
-    for (const part of document.cookie.split(";")) {
-      const trimmed = part.trim();
-      if (!trimmed.startsWith(`${LOCALE_COOKIE_NAME}=`)) continue;
-      const value = decodeURIComponent(trimmed.slice(LOCALE_COOKIE_NAME.length + 1));
-      return value === "en" || value === "ar" ? value : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 export function LocaleProvider({
   locale,
@@ -56,59 +27,70 @@ export function LocaleProvider({
 }) {
   const dict = dictionaries[locale];
 
-  /**
-   * localStorage is a FALLBACK for a missing cookie, never an override of a
-   * present one.
-   *
-   * The first version of this effect reloaded the page whenever localStorage
-   * disagreed with the server-rendered locale. That made a stale saved value
-   * able to undo an explicit cookie change — e.g. a session set by the e2e
-   * harness or a link — and bounce the document back to the old language: the
-   * server renders EN from the cookie, hydration then rewrites the cookie to
-   * the stale AR value and reloads, so the page ends up in the language nobody
-   * asked for (and anything waiting on the just-rendered EN copy never sees
-   * it). The cookie is the SSR source of truth, so when it is present its value
-   * wins and only the client-side fallback is re-synced.
-   */
-  useEffect(() => {
-    try {
-      const saved = readLocaleFromLS();
-      const cookieLocale = readLocaleCookie();
-      if (cookieLocale) {
-        if (saved !== cookieLocale) localStorage.setItem(LOCALE_LS_KEY, cookieLocale);
-        return;
-      }
-      // No cookie (cleared, expired, or a fresh browser): restore the saved
-      // choice once, so the preference survives a lost cookie.
-      if (saved && saved !== locale) {
-        document.cookie = `${LOCALE_COOKIE_NAME}=${saved};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
-        window.location.reload();
-      }
-    } catch { /* ignore */ }
-  }, [locale]);
-
-  const setLocale = useCallback((next: Locale) => {
-    // Persist to both cookie (SSR source of truth) and localStorage (client fallback)
-    document.cookie = `${LOCALE_COOKIE_NAME}=${next};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
-    try { localStorage.setItem(LOCALE_LS_KEY, next); } catch { /* ignore */ }
-    window.location.reload();
-  }, []);
-
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>) => translate(dict, key, vars),
     [dict]
   );
 
-  const value = useMemo(
-    () => ({ locale, dir, dict, t, setLocale }),
-    [locale, dir, dict, t, setLocale]
-  );
+  const value = useMemo(() => ({ locale, dir, dict, t }), [locale, dir, dict, t]);
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
+}
+
+/**
+ * Switch language: a NAVIGATION to the same page in the other language
+ * (/ar/search?q=… → /en/search?q=…).
+ *
+ * It used to be `setLocale` on the context, writing a cookie and calling
+ * window.location.reload() — which threw away scroll position, form state and
+ * in-flight search results, and left the URL unchanged so the reader could not
+ * link anyone to what they were looking at.
+ *
+ * It lives in a hook rather than on the provider so the provider stays free of
+ * router hooks. The provider wraps the whole app, including component tests
+ * that mount without an app-router context, and useRouter() there throws
+ * "invariant expected app router to be mounted". Only the two components that
+ * actually switch language pay for the router.
+ *
+ * The cookie is still written, as a preference only: it decides where a later
+ * prefix-less visit (a bare bookmark, a shared "/" link) lands. localStorage is
+ * gone — it existed to survive a lost cookie, and its reconciliation effect
+ * could bounce a reader into a language they had not chosen. The URL is the
+ * source of truth now and nothing overrides it.
+ */
+export function useSetLocale(): (locale: Locale) => void {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  return useCallback(
+    (next: Locale) => {
+      try {
+        document.cookie = `${LOCALE_COOKIE_NAME}=${next};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
+      } catch {
+        /* a blocked cookie only costs the remembered preference */
+      }
+      // Query read from the live URL at click time, not via useSearchParams():
+      // that hook opts its whole subtree out of static rendering, and this
+      // module is imported by every page in the app.
+      const query = typeof window === "undefined" ? "" : window.location.search;
+      router.push(localePath(next, pathname ?? "/") + query);
+      router.refresh();
+    },
+    [router, pathname]
+  );
 }
 
 export function useLocale(): LocaleContextValue {
   const ctx = useContext(LocaleContext);
   if (!ctx) throw new Error("useLocale must be used within LocaleProvider");
   return ctx;
+}
+
+/**
+ * The locale context if there is one, else null — for components that legally
+ * render outside the provider (error boundaries, the skip link) and must not
+ * throw there.
+ */
+export function useOptionalLocale(): LocaleContextValue | null {
+  return useContext(LocaleContext);
 }

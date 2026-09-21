@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { useRouter } from "next/navigation";
 import { CalendarClock, CheckCircle2, CreditCard, ExternalLink, FileText, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +25,7 @@ import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
 import { BookingSlaCountdown } from "./booking-sla-countdown";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
-import type { CustomerBookingRow } from "@/app/bookings/page";
+import type { CustomerBookingRow } from "@/app/[locale]/bookings/page";
 
 /**
  * One customer booking (docs/booking-customer-ui.md §5.5): worker avatar +

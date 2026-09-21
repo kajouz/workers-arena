@@ -1,32 +1,46 @@
 // @vitest-environment jsdom
 /**
- * LocaleProvider's cookie ↔ localStorage precedence.
+ * ────────────────────────────────────────────────────────────────────────────
+ * THE URL IS THE SOURCE OF TRUTH FOR LANGUAGE
+ * ────────────────────────────────────────────────────────────────────────────
+ * The locale comes from the path — `/en/search`, `/ar/search` — and the
+ * provider simply renders whatever the route segment resolved to.
  *
- * The provider keeps the locale in BOTH stores: the `wa_locale` cookie (what
- * the root layout reads to render `<html lang dir>`, so it is the SSR source of
- * truth) and localStorage (a client-side fallback for when the cookie is gone).
+ * It used to come from the `wa_locale` cookie, with localStorage as a fallback
+ * and an effect reconciling the two. That reconciliation was a real source of
+ * bugs: a STALE saved value could override an explicit cookie, so the server
+ * would render EN, hydration would rewrite the cookie to an older AR choice
+ * and reload, and the reader landed in a language nobody asked for. The e2e
+ * smoke hit exactly that — a booking flow set `wa_locale=en` after an earlier
+ * UI switch had saved `ar`, and the page stayed Arabic, so the English control
+ * the test waited for never appeared.
  *
- * Its first version reloaded the page whenever localStorage disagreed with the
- * server-rendered locale, which let a STALE saved value override an explicit
- * cookie: the server renders EN from the cookie, hydration rewrites the cookie
- * to the old saved AR value and reloads, so the document lands in the language
- * nobody asked for. The e2e smoke hit exactly this — the booking flow sets
- * `wa_locale=en` after an earlier UI switch had saved `ar`, and 20 s later the
- * page was still an Arabic `/dashboard`, so the English control it waited for
- * never appeared.
+ * None of that machinery exists now. There is nothing to reconcile: the path
+ * decides, and the tests below pin the three properties that replaced it.
  *
- * The rule these tests pin: a PRESENT cookie always wins (localStorage is only
- * re-synced); a MISSING cookie is the one case where the saved value is
- * restored, and that path reloads once.
+ * The cookie survives as a PREFERENCE only — it picks where a prefix-less
+ * visit lands (see preferredLocale() in src/proxy.ts) and never overrides a
+ * URL. localStorage is gone entirely.
+ * ────────────────────────────────────────────────────────────────────────────
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
-import { LocaleProvider, useLocale } from "@/components/providers/locale-provider";
+import { LocaleProvider, useLocale, useSetLocale } from "@/components/providers/locale-provider";
 
 const LOCALE_COOKIE = "wa_locale";
 const tick = (ms = 30) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Every Set-Cookie the provider wrote, in order (jsdom keeps one per name). */
+const { pushMock, refreshMock, pathnameMock } = vi.hoisted(() => ({
+  pushMock: vi.fn(),
+  refreshMock: vi.fn(),
+  pathnameMock: vi.fn<() => string>(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
+  usePathname: () => pathnameMock(),
+}));
+
 function cookieValue(): string | null {
   const hit = document.cookie
     .split(";")
@@ -43,88 +57,96 @@ function clearCookie(): void {
   document.cookie = `${LOCALE_COOKIE}=;path=/;max-age=0`;
 }
 
-/** Renders the provider and reports the locale it handed to children. */
-function renderProvider(locale: "en" | "ar") {
-  return render(
+/** Mounts the provider and exposes both hooks to the test. */
+function renderProbe(locale: "en" | "ar") {
+  const api: { locale?: ReturnType<typeof useLocale>; setLocale?: (l: "en" | "ar") => void } = {};
+  function Probe() {
+    api.locale = useLocale();
+    api.setLocale = useSetLocale();
+    return null;
+  }
+  render(
     <LocaleProvider locale={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
-      <span data-testid="child">child</span>
+      <Probe />
     </LocaleProvider>
   );
+  return api;
 }
 
-describe("LocaleProvider — the cookie is the source of truth", () => {
-  let reload: ReturnType<typeof vi.fn>;
+beforeEach(() => {
+  vi.clearAllMocks();
+  pathnameMock.mockReturnValue("/en/search");
+  localStorage.clear();
+  clearCookie();
+});
 
-  beforeEach(() => {
-    reload = vi.fn();
-    // jsdom's location.reload is not implemented (it warns and does nothing),
-    // so replace the object to observe the call instead.
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      writable: true,
-      value: { reload },
-    });
-    localStorage.clear();
-    clearCookie();
-  });
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  clearCookie();
+});
 
-  afterEach(() => {
-    cleanup();
-    localStorage.clear();
-    clearCookie();
-  });
-
-  it("keeps a present cookie and re-syncs a stale localStorage instead of reloading", async () => {
-    setCookie("en");
-    localStorage.setItem(LOCALE_COOKIE, "ar"); // stale saved value
-    renderProvider("en");
+describe("LocaleProvider — the route segment decides", () => {
+  it("renders the locale it was given, even when a stale cookie disagrees", async () => {
+    setCookie("ar"); // an older preference
+    const api = renderProbe("en"); // …but /en/… is what is being rendered
     await tick();
 
-    expect(reload, "a stale saved locale must not reload the page").not.toHaveBeenCalled();
-    expect(cookieValue(), "the cookie keeps its explicit value").toBe("en");
-    expect(localStorage.getItem(LOCALE_COOKIE), "the fallback is re-synced to the cookie").toBe("en");
+    expect(api.locale!.locale, "the URL's locale wins over the cookie").toBe("en");
+    expect(api.locale!.dir).toBe("ltr");
+    expect(cookieValue(), "and the provider does not rewrite the cookie behind the reader").toBe("ar");
   });
 
-  it("restores the saved locale once when the cookie is absent", async () => {
+  it("never reloads or navigates on mount", async () => {
+    setCookie("ar");
     localStorage.setItem(LOCALE_COOKIE, "ar");
-    renderProvider("en");
+    renderProbe("en");
     await tick();
 
-    expect(cookieValue(), "the saved choice is written back to the cookie").toBe("ar");
-    expect(reload, "restoring the cookie needs the reload").toHaveBeenCalledTimes(1);
+    // The old reconciliation effect called window.location.reload() here.
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(refreshMock).not.toHaveBeenCalled();
   });
 
-  it("is a no-op when both stores already agree", async () => {
-    setCookie("en");
-    localStorage.setItem(LOCALE_COOKIE, "en");
-    renderProvider("en");
+  it("writes no localStorage at all", async () => {
+    renderProbe("en");
     await tick();
+    expect(localStorage.getItem(LOCALE_COOKIE)).toBeNull();
+  });
+});
 
-    expect(reload).not.toHaveBeenCalled();
-    expect(cookieValue()).toBe("en");
-    expect(localStorage.getItem(LOCALE_COOKIE)).toBe("en");
+describe("useSetLocale — switching language is a navigation", () => {
+  it("navigates to the same page in the other language and keeps the query", async () => {
+    pathnameMock.mockReturnValue("/en/search");
+    window.history.replaceState({}, "", "/en/search?q=plumber&city=beirut");
+
+    const api = renderProbe("en");
+    await tick();
+    api.setLocale!("ar");
+
+    expect(pushMock).toHaveBeenCalledWith("/ar/search?q=plumber&city=beirut");
+    expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
-  it("writes the cookie name the server reads when the user switches language", async () => {
-    // The provider and the server must agree on the NAME (a rename on one side
-    // would silently stop the switch from sticking). `setLocale` writes both
-    // stores; the cookie is asserted through the literal the SSR reader uses.
-    localStorage.setItem(LOCALE_COOKIE, "en");
-    let api: ReturnType<typeof useLocale> | null = null;
-    function Probe() {
-      api = useLocale();
-      return null;
-    }
-    render(
-      <LocaleProvider locale="en" dir="ltr">
-        <Probe />
-      </LocaleProvider>
-    );
-    await tick();
+  it("maps the site root onto the other language's root", async () => {
+    pathnameMock.mockReturnValue("/en");
+    window.history.replaceState({}, "", "/en");
 
-    api!.setLocale("ar");
+    const api = renderProbe("en");
+    await tick();
+    api.setLocale!("ar");
+
+    expect(pushMock).toHaveBeenCalledWith("/ar");
+  });
+
+  it("records the choice under the cookie name the proxy reads", async () => {
+    // The client and the proxy must agree on the NAME — a rename on one side
+    // would silently stop the preference from sticking, and a prefix-less
+    // visit would keep landing in the old language.
+    const api = renderProbe("en");
+    await tick();
+    api.setLocale!("ar");
+
     expect(cookieValue()).toBe("ar");
-    expect(localStorage.getItem(LOCALE_COOKIE)).toBe("ar");
-    expect(reload).toHaveBeenCalledTimes(1);
   });
 });

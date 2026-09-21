@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link } from "@/components/i18n/link";
+import { useLocaleRouter } from "@/components/i18n/link";
 import { ShieldCheck, Search, ArrowUpRight, Download, ChevronDown } from "lucide-react";
 import type { SubscriptionPlan, Worker } from "@/lib/data/types";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
@@ -44,7 +44,7 @@ export function WorkerManagementTable({
   init?: { query?: string; sort?: "name" | "planAsc" | "planDesc"; feeWaivedOnly?: boolean };
 }) {
   const { locale, t } = useLocale();
-  const router = useRouter();
+  const router = useLocaleRouter();
   const [feeWaivedOnly, setFeeWaivedOnly] = useState(init?.feeWaivedOnly ?? false);
   const [query, setQuery] = useState(init?.query ?? "");
   const [sort, setSort] = useState<"name" | "planAsc" | "planDesc">(init?.sort ?? "planAsc");

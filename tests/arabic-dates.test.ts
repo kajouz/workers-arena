@@ -190,7 +190,7 @@ describe("the numeric date/time formats are pinned too", () => {
  */
 const DATE_TAG_ALLOWLIST = [
   {
-    file: path.join("src", "app", "blog", "page.tsx"),
+    file: path.join("src", "app", "[locale]", "blog", "page.tsx"),
     why: "English-only marketing content (its articles and UI copy are English)",
   },
   {
@@ -253,7 +253,7 @@ function findHardcodedDateTags(): string[] {
  */
 const RUNTIME_LOCALE_ALLOWLIST = [
   {
-    file: path.join("src", "app", "debug", "analytics", "page.tsx"),
+    file: path.join("src", "app", "[locale]", "debug", "analytics", "page.tsx"),
     why: "hidden English-only debug page (its generated HTML report is English)",
   },
   {

@@ -25,6 +25,11 @@ vi.mock("next/link", () => ({
 // next/navigation — the table syncs its audit state back into the URL via
 // router.replace, and refreshes after a plan change, so the mock records the
 // calls for the persistence test and stubs the refresh.
+//
+// The table calls useLocaleRouter() (src/components/i18n/link.tsx), which wraps
+// this router and prefixes the path with the reader's language — so the
+// recorded calls carry the /en prefix even though the component passes a plain
+// app path.
 const { replaceMock, refreshMock } = vi.hoisted(() => ({
   replaceMock: vi.fn(),
   refreshMock: vi.fn(),
@@ -210,8 +215,10 @@ describe("WorkerManagementTable", () => {
     // Both Business and Pro rows use plain name search links because neither
     // is fee-exempt under the Phase 1 policy.
     expect(links.every((l) => !l.getAttribute("href")?.includes("feeWaived=1"))).toBe(true);
-    expect(links.find((l) => l.getAttribute("href") === "/search?q=Bilal%20Mansour")).toHaveAttribute("target", "_blank");
-    expect(links.find((l) => l.getAttribute("href") === "/search?q=Khaled%20Al-Harbi")).toBeInTheDocument();
+    // Hrefs carry the reader's locale — the component writes "/search?q=…" and
+    // the app's <Link> prefixes it.
+    expect(links.find((l) => l.getAttribute("href") === "/en/search?q=Bilal%20Mansour")).toHaveAttribute("target", "_blank");
+    expect(links.find((l) => l.getAttribute("href") === "/en/search?q=Khaled%20Al-Harbi")).toBeInTheDocument();
   });
 
   it("shows the empty state when the filter matches nothing", () => {
@@ -232,17 +239,17 @@ describe("WorkerManagementTable", () => {
     fireEvent.change(screen.getByLabelText("Search name or category…"), {
       target: { value: "bilal" },
     });
-    expect(replaceMock).toHaveBeenCalledWith("/admin?wm=bilal", { scroll: false });
+    expect(replaceMock).toHaveBeenCalledWith("/en/admin?wm=bilal", { scroll: false });
 
     // The fee-waived switch composes with the existing query.
     fireEvent.click(screen.getByRole("switch"));
-    expect(replaceMock).toHaveBeenLastCalledWith("/admin?wm=bilal&feeWaived=1", { scroll: false });
+    expect(replaceMock).toHaveBeenLastCalledWith("/en/admin?wm=bilal&feeWaived=1", { scroll: false });
 
     // Non-default sort appends its param.
     fireEvent.click(screen.getByRole("combobox", { name: "Sort by" }));
     fireEvent.click(screen.getByText("Plan (enterprise → basic)"));
     expect(replaceMock).toHaveBeenLastCalledWith(
-      "/admin?wm=bilal&sort=planDesc&feeWaived=1",
+      "/en/admin?wm=bilal&sort=planDesc&feeWaived=1",
       { scroll: false }
     );
   });

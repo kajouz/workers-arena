@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { motion } from "framer-motion";
 import { Home, Search, Calendar, Heart, User } from "lucide-react";
 import { cn } from "@/lib/utils";

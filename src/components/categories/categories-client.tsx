@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { motion } from "framer-motion";
 import { ArrowUpRight, ChevronDown, Sparkles } from "lucide-react";
 import type { Category } from "@/lib/data/types";
@@ -50,12 +50,12 @@ export function CategoriesClient({ categories, locale }: CategoriesClientProps) 
               <p className="text-sm text-ink-500 dark:text-ink-400">{locale === "ar" ? "أضف حملتك الإعلانية هنا" : "Place your campaign here"}</p>
             </div>
           </div>
-          <a
+          <Link
             href="/company"
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-600 px-4 py-2 text-sm font-bold text-white shadow-lg transition-all hover:from-violet-600 hover:to-fuchsia-700"
           >
             {t("company.createCampaign")}
-          </a>
+          </Link>
         </div>
       </div>
 

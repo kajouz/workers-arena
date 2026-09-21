@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "@/components/i18n/link";
 
 interface AdPayload {
   id: string;
@@ -69,13 +70,13 @@ export function AdSlot({ placement = "homepage", className }: { placement?: stri
           </p>
         </div>
       </div>
-      <a
+      <Link
         href="/company"
         onClick={trackClick}
         className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-ink-950 transition-all hover:bg-brand-400"
       >
         {t("company.createCampaign")}
-      </a>
+      </Link>
     </div>
   );
 }

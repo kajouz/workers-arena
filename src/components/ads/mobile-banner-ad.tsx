@@ -5,6 +5,7 @@ import { X, Sparkles, ExternalLink } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Link } from "@/components/i18n/link";
 
 interface MobileBannerAdProps {
   placement?: string;
@@ -77,14 +78,14 @@ export function MobileBannerAd({ placement = "mobileBanner", className }: Mobile
         </div>
 
         {/* CTA Button */}
-        <a
+        <Link
           href="/company"
           onClick={trackClick}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-lg transition-all hover:from-amber-600 hover:to-orange-700"
         >
           {locale === "ar" ? "المزيد" : "Learn more"}
           <ExternalLink className="size-3" />
-        </a>
+        </Link>
 
         {/* Dismiss Button */}
         <button

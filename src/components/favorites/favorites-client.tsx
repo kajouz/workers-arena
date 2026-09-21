@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { Heart } from "lucide-react";
 import type { Worker } from "@/lib/data/types";
 import { useLocale } from "@/components/providers/locale-provider";

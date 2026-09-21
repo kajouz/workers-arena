@@ -12,8 +12,8 @@ import "@testing-library/jest-dom/vitest";
 import { BookingRow } from "@/components/bookings/booking-row";
 import { BookingRow as WorkerBookingRow } from "@/components/dashboard/bookings/booking-row";
 import { LocaleProvider } from "@/components/providers/locale-provider";
-import type { CustomerBookingRow } from "@/app/bookings/page";
-import type { WorkerEmailPreview } from "@/app/dashboard/page";
+import type { CustomerBookingRow } from "@/app/[locale]/bookings/page";
+import type { WorkerEmailPreview } from "@/app/[locale]/dashboard/page";
 import type { Booking, Worker } from "@/lib/data/types";
 
 const { payBookingActionMock, confirmCompletionActionMock, availableSlotsActionMock, rescheduleBookingActionMock, respondBookingActionMock, submitQuoteActionMock, cancelBookingActionMock, transitionBookingActionMock, emailBookingAuditActionMock, sendBookingMessageActionMock, markChatReadActionMock, setChatTypingActionMock, getChatPresenceActionMock, refreshMock } = vi.hoisted(() => ({

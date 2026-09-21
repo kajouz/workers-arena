@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { motion } from "framer-motion";
 import {
   Eye,
@@ -22,7 +22,7 @@ import {
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionUser } from "@/lib/auth-demo";
 import type { AnalyticsOverview, Booking, BookingMessage, BookingSlot, Invoice, LedgerEntry, RecurringBooking, Worker, WorkerBalance } from "@/lib/data/types";
-import type { WorkerEmailPreview } from "@/app/dashboard/page";
+import type { WorkerEmailPreview } from "@/app/[locale]/dashboard/page";
 import { PLANS, subscriptionStatus, daysUntil } from "@/lib/data/subscriptions";
 import { computeResponseRate } from "@/lib/data/booking-ui";
 import { WithdrawDialog } from "./withdraw-dialog";

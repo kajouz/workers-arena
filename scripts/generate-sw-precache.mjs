@@ -19,51 +19,37 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const swPath = resolve(root, "public", "sw.js");
-const workersSrc = resolve(root, "src", "lib", "data", "workers.ts");
 const searchSrc = resolve(root, "src", "lib", "data", "search.ts");
 const categoriesSrc = resolve(root, "src", "lib", "data", "categories.ts");
 
 // ── Parse featured worker slugs from workers.ts ──────────────────────────
 
-function extractFeaturedSlugs(workersSource) {
-  const slugs = [];
-  // Match CONFIGS entries with featured: true
-  // Each config block starts with { nameEn: "...", ... featured: true ... }
-  const configBlocks = workersSource.split(/\{[^{}]*\}/g);
-
-  // Simpler: scan for nameEn + featured pairs
-  const lines = workersSource.split("\n");
-  let currentNameEn = null;
-  let currentCategory = null;
-  let isFeatured = false;
-
-  for (const line of lines) {
-    const nameMatch = line.match(/nameEn:\s*"([^"]+)"/);
-    if (nameMatch) {
-      currentNameEn = nameMatch[1];
-    }
-    const catMatch = line.match(/category:\s*"([^"]+)"/);
-    if (catMatch) {
-      currentCategory = catMatch[1];
-    }
-    if (line.includes("featured: true")) {
-      isFeatured = true;
-    }
-    // End of config block (closing brace with comma or just closing)
-    if ((line.includes("},") || line.includes("};")) && currentNameEn && currentCategory) {
-      if (isFeatured) {
-        // Replicate slug generation: nameEn.toLowerCase().replace(/[^a-z]+/g, "-") + "-" + category
-        const slug = `${currentNameEn.toLowerCase().replace(/[^a-z]+/g, "-")}-${currentCategory}`;
-        slugs.push(slug);
-      }
-      currentNameEn = null;
-      currentCategory = null;
-      isFeatured = false;
-    }
+/**
+ * Featured worker slugs, read from the real dataset.
+ *
+ * This used to regex-scrape `nameEn:` / `featured: true` pairs out of
+ * workers.ts and rebuild the slug by hand. That silently returned ZERO once
+ * the dataset moved to generated recipes — the script kept "succeeding" and
+ * the committed precache list quietly went stale, so the service worker was
+ * precaching profiles that no longer matched the data.
+ *
+ * Importing the module instead means the slug can never drift from the one the
+ * router serves, and a failure is loud.
+ */
+async function extractFeaturedSlugs() {
+  const { getFeaturedWorkers } = await import("../src/lib/data/search.ts");
+  const slugs = getFeaturedWorkers(FEATURED_COUNT).map((w) => w.slug);
+  if (slugs.length === 0) {
+    throw new Error(
+      "No featured workers found — the precache list would ship without any " +
+        "profile pages. Check getFeaturedWorkers() in src/lib/data/search.ts."
+    );
   }
-
   return slugs;
 }
+
+/** How many profiles to precache for offline access. */
+const FEATURED_COUNT = 4;
 
 // ── Parse popular search category hrefs from search.ts ───────────────────
 
@@ -95,9 +81,20 @@ function extractCategorySlugs(categoriesSource) {
 
 // ── Rewrite the PRECACHE_URLS block in sw.js ────────────────────────────
 
+/**
+ * Locales the app serves. Page URLs live under /{locale}/… since the locale
+ * moved into the path, so precaching a bare "/categories" would cache a 301
+ * redirect instead of the page and break offline browsing. Assets under
+ * /public keep their single unprefixed URL.
+ *
+ * Kept in step with src/lib/i18n/config.ts — the docs-links check and the
+ * precache test both read the generated list, so a drift shows up there.
+ */
+const LOCALES = ["en", "ar"];
+
 function rewriteSwPrecache(swContent, workerSlugs, categorySlugs) {
-  const shellUrls = [
-    '  "/",',
+  // Files, not routes — served straight from /public, never locale-prefixed.
+  const assetUrls = [
     '  "/offline.html",',
     '  "/manifest.webmanifest",',
     '  "/icon.svg",',
@@ -105,20 +102,22 @@ function rewriteSwPrecache(swContent, workerSlugs, categorySlugs) {
     '  "/icons/icon-512.png",',
     '  "/icons/maskable-512.png",',
     '  "/icons/apple-touch-icon.png",',
-    '  "/categories",',
   ];
 
-  const workerUrls = workerSlugs.map(
-    (slug) => `  "/workers/${slug}",`
-  );
+  // Page routes, one copy per language: an Arabic reader who goes offline
+  // should get the Arabic shell, not a redirect or the English page.
+  const pageUrls = [];
+  for (const locale of LOCALES) {
+    pageUrls.push(`  "/${locale}",`);
+    pageUrls.push(`  "/${locale}/categories",`);
+    for (const slug of workerSlugs) pageUrls.push(`  "/${locale}/workers/${slug}",`);
+    // Browsing by trade offline — the categories page links to these.
+    for (const slug of categorySlugs) pageUrls.push(`  "/${locale}/search?category=${slug}",`);
+  }
 
-  // Precache /search?category=… for every category so browsing by trade
-  // works fully offline — the categories page links to these.
-  const categorySearchUrls = categorySlugs.map(
-    (slug) => `  "/search?category=${slug}",`
-  );
-
-  const allUrls = [...shellUrls, ...workerUrls, ...categorySearchUrls];
+  // "/" itself redirects to a locale, but it is what a home-screen launch and
+  // a bare bookmark request, so the redirect is worth having in the cache.
+  const allUrls = ['  "/",', ...assetUrls, ...pageUrls];
 
   const newBlock = `const PRECACHE_URLS = [\n${allUrls.join("\n")}\n];`;
 
@@ -133,11 +132,10 @@ function rewriteSwPrecache(swContent, workerSlugs, categorySlugs) {
 
 // ── Main ─────────────────────────────────────────────────────────────────
 
-const workersSource = readFileSync(workersSrc, "utf8");
 const categoriesSource = readFileSync(categoriesSrc, "utf8");
 const swContent = readFileSync(swPath, "utf8");
 
-const featuredSlugs = extractFeaturedSlugs(workersSource);
+const featuredSlugs = await extractFeaturedSlugs();
 const categorySlugs = extractCategorySlugs(categoriesSource);
 
 console.log(`Found ${featuredSlugs.length} featured workers:`);

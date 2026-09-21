@@ -82,15 +82,21 @@ describe("Service worker (public/sw.js)", () => {
     for (const entry of ["/", "/offline.html", "/manifest.webmanifest", "/icon.svg", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/maskable-512.png", "/icons/apple-touch-icon.png"]) {
       expect(sw).toContain(entry);
     }
-    // Categories listing page for offline trade browsing
-    expect(sw).toContain('"/categories"');
-    // Top worker profiles (featured workers for offline access)
-    for (const slug of ["khaled-al-harbi-plumbing", "omar-al-mutairi-ac-technician", "bilal-mansour-cleaning", "ali-hassan-carpentry"]) {
-      expect(sw).toContain(`/workers/${slug}`);
-    }
-    // Every category search page for offline trade browsing
-    for (const cat of ["plumbing", "electrical", "ac-technician", "carpentry", "cleaning", "painting", "masonry", "satellite-technician", "mechanic", "welding", "blacksmith", "roofing", "movers", "gardening", "pest-control", "locksmith", "glass-works", "aluminum-works", "gypsum-works", "interior-design", "construction"]) {
-      expect(sw).toContain(`/search?category=${cat}`);
+    // Page routes are precached PER LOCALE. A bare "/categories" would cache
+    // the proxy's 301 to /en/categories instead of the page, so an offline
+    // reader would get a redirect to nothing — and an Arabic reader would get
+    // the English shell. Assets above stay unprefixed: they are files.
+    for (const locale of ["en", "ar"]) {
+      expect(sw).toContain(`"/${locale}"`);
+      expect(sw).toContain(`"/${locale}/categories"`);
+      // Top worker profiles (featured workers for offline access)
+      for (const slug of ["khaled-al-harbi-plumbing", "omar-al-mutairi-ac-technician", "bilal-mansour-cleaning", "ali-hassan-carpentry"]) {
+        expect(sw).toContain(`/${locale}/workers/${slug}`);
+      }
+      // Every category search page for offline trade browsing
+      for (const cat of ["plumbing", "electrical", "ac-technician", "carpentry", "cleaning", "painting", "masonry", "satellite-technician", "mechanic", "welding", "blacksmith", "roofing", "movers", "gardening", "pest-control", "locksmith", "glass-works", "aluminum-works", "gypsum-works", "interior-design", "construction"]) {
+        expect(sw).toContain(`/${locale}/search?category=${cat}`);
+      }
     }
     expect(existsSync(pub("offline.html"))).toBe(true);
     expect(existsSync(pub("icons/apple-touch-icon.png"))).toBe(true);
@@ -234,8 +240,8 @@ describe("Offline page (public/offline.html)", () => {
   });
 });
 
-describe("Root layout PWA metadata (src/app/layout.tsx)", () => {
-  const layout = readFileSync(src("app/layout.tsx"), "utf8");
+describe("Root layout PWA metadata (src/app/[locale]/layout.tsx)", () => {
+  const layout = readFileSync(src("app/[locale]/layout.tsx"), "utf8");
 
   it("declares apple-web-app capable + title and the apple-touch-icon", () => {
     expect(layout).toContain("appleWebApp");
@@ -263,7 +269,7 @@ describe("Install banner (src/components/pwa/install-banner.tsx)", () => {
   const hook = readFileSync(src("hooks/use-install-prompt.ts"), "utf8");
   const en = readFileSync(src("lib/i18n/translations/en.ts"), "utf8");
   const ar = readFileSync(src("lib/i18n/translations/ar.ts"), "utf8");
-  const layout = readFileSync(src("app/layout.tsx"), "utf8");
+  const layout = readFileSync(src("app/[locale]/layout.tsx"), "utf8");
 
   it("install banner component exists and uses framer-motion for animation", () => {
     expect(existsSync(src("components/pwa/install-banner.tsx"))).toBe(true);
@@ -333,11 +339,11 @@ describe("Notification actions (public/sw.js)", () => {
   });
 });
 
-describe("PWA debug dashboard (src/app/debug/pwa/page.tsx)", () => {
-  const debugPage = readFileSync(src("app/debug/pwa/page.tsx"), "utf8");
+describe("PWA debug dashboard (src/app/[locale]/debug/pwa/page.tsx)", () => {
+  const debugPage = readFileSync(src("app/[locale]/debug/pwa/page.tsx"), "utf8");
 
   it("debug page exists and exports a default component", () => {
-    expect(existsSync(src("app/debug/pwa/page.tsx"))).toBe(true);
+    expect(existsSync(src("app/[locale]/debug/pwa/page.tsx"))).toBe(true);
     expect(debugPage).toContain("export default function DebugPWAPage");
   });
 

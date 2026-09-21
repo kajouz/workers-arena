@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,

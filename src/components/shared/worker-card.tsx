@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/components/i18n/link";
 import { motion } from "framer-motion";
 import { Heart, MapPin, Clock, ArrowUpRight, Zap, CalendarCheck2, ShieldCheck } from "lucide-react";
 import type { Worker } from "@/lib/data/types";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLocaleRouter } from "@/components/i18n/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Mic, SlidersHorizontal, X, MapPin } from "lucide-react";
 import type { Category, City, SearchFilters, SearchResult, Suggestion } from "@/lib/data/types";
@@ -89,7 +89,7 @@ export function SearchClient({
   initialResults: SearchResult;
   dictLabels: Labels;
 }) {
-  const router = useRouter();
+  const router = useLocaleRouter();
 
   const [filters, setFilters] = useState<SearchFilters>(() => ({
     ...initialFilters,

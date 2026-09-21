@@ -25,7 +25,7 @@ import { CallButton } from "@/components/calling/call-button";
 import { BookingActions } from "./booking-actions";
 import { submitQuoteAction } from "@/app/actions/bookings";
 import type { Booking, BookingMessage, Worker } from "@/lib/data/types";
-import type { WorkerEmailPreview } from "@/app/dashboard/page";
+import type { WorkerEmailPreview } from "@/app/[locale]/dashboard/page";
 
 /**
  * One booking as the WORKER sees it (docs/booking-scheduling.md §6): the
