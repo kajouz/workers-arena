@@ -332,7 +332,9 @@ export function SearchClient({
                 title={L.voice}
                 aria-label={L.voice}
                 className={cn(
-                  "absolute end-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 transition-colors",
+                  // -mx compensation: the 40px+ tap box extends outside the
+                  // visual icon without shifting the input's caret padding.
+                  "absolute end-2.5 top-1/2 -translate-y-1/2 -mx-2.5 rounded-lg p-3 transition-colors",
                   listening ? "bg-red-500 text-white animate-pulse-soft" : "text-ink-400 hover:bg-brand-500/10 hover:text-brand-600"
                 )}
               >
@@ -388,7 +390,7 @@ export function SearchClient({
               }}
               disabled={geoLoading}
               className={cn(
-                "gap-2",
+                "h-11 gap-2 sm:h-8 sm:rounded-lg",
                 filters.sort === "nearest" && "border-brand-500 bg-brand-500/10 text-brand-600"
               )}
             >

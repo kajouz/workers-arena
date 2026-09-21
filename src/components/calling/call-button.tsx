@@ -119,10 +119,15 @@ export function CallButton({ bookingId, partyType, partyName, className }: CallB
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
+        {/* h-11 on mobile: the booking row's primary call action was a 32px
+            target — below the 40px+ touch minimum. */}
         <Button
           variant="outline"
           size="sm"
-          className={cn("gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50", className)}
+          className={cn(
+            "h-11 gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 sm:h-8 sm:rounded-lg",
+            className
+          )}
         >
           <Phone className="size-4" />
           {t("calling.call") || "Call"}

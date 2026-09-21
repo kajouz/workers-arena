@@ -71,7 +71,9 @@ export function StarInput({
           aria-checked={value === n}
           aria-label={`${n} star${n === 1 ? "" : "s"}`}
           onClick={() => onChange(n)}
-          className="transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-sm"
+          // -mx-1: 28px stars gain a ~36px tap box; the gap keeps the hit
+          // areas from overlapping between adjacent stars.
+          className="-mx-1 p-1.5 transition-transform hover:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded-sm"
         >
           <Star
             className={cn(

@@ -78,7 +78,7 @@ export function Footer() {
                   key={i}
                   href="#"
                   aria-label={t("common.followUs")}
-                  className="rounded-lg border border-ink-200 p-2 text-ink-500 transition-all hover:border-brand-500/40 hover:text-brand-600 dark:border-ink-800 dark:text-ink-400 dark:hover:text-brand-400"
+                  className="-m-1 rounded-lg border border-ink-200 p-3 text-ink-500 transition-all hover:border-brand-500/40 hover:text-brand-600 dark:border-ink-800 dark:text-ink-400 dark:hover:text-brand-400"
                 >
                   <Icon className="size-4" />
                 </a>
@@ -97,7 +97,9 @@ export function Footer() {
                     <li key={link.label}>
                       <Link
                         href={link.href}
-                        className="text-sm text-ink-500 transition-colors hover:text-brand-600 dark:text-ink-400 dark:hover:text-brand-400"
+                        // inline-block + py: the bare text links were ~17px
+                        // tall — far under the 40px touch minimum.
+                        className="inline-block py-2.5 text-sm text-ink-500 transition-colors hover:text-brand-600 dark:text-ink-400 dark:hover:text-brand-400"
                       >
                         {link.label}
                       </Link>

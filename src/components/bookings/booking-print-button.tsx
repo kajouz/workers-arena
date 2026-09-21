@@ -63,7 +63,7 @@ export function BookingPrintButton({
             {t("booking.print")}
           </button>
         ) : (
-          <Button variant="outline" size="sm" className="h-8">
+          <Button variant="outline" size="sm" className="h-11 sm:h-8 sm:rounded-lg">
             <Printer className="size-4" />
             {t("booking.print")}
           </Button>

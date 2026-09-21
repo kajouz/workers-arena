@@ -96,7 +96,7 @@ export function PortfolioGallery({
             aria-label="Grid view"
             aria-pressed={viewMode === "grid"}
             className={cn(
-              "p-2 rounded-lg transition-colors",
+              "p-3 -m-1 rounded-lg transition-colors",
               viewMode === "grid" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50"
             )}
           >
@@ -107,7 +107,7 @@ export function PortfolioGallery({
             aria-label="List view"
             aria-pressed={viewMode === "list"}
             className={cn(
-              "p-2 rounded-lg transition-colors",
+              "p-3 -m-1 rounded-lg transition-colors",
               viewMode === "list" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50"
             )}
           >

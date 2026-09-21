@@ -235,7 +235,7 @@ export function BookingChat({
           <button
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            className="flex items-center gap-1.5 text-xs font-bold text-ink-400 transition-colors hover:text-ink-600 dark:hover:text-ink-200"
+            className="-my-3 flex items-center gap-1.5 py-3 text-xs font-bold text-ink-400 transition-colors hover:text-ink-600 dark:hover:text-ink-200"
           >
             <MessageCircle className="size-3.5" />
             {t("booking.chatTitle")}

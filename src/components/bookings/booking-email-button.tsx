@@ -81,7 +81,7 @@ export function BookingEmailButton({
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8">
+        <Button variant="outline" size="sm" className="h-11 sm:h-8 sm:rounded-lg">
           <Mail className="size-4" />
           {t("booking.emailAudit")}
         </Button>

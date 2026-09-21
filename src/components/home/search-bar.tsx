@@ -97,7 +97,9 @@ export function SearchBar({ popular }: { popular: { en: string; ar: string; href
             aria-label={t("search.voice")}
             title={t("search.voice")}
             className={cn(
-              "rounded-xl p-2.5 transition-colors",
+              // p-3 + -m-1: a 40px+ tap box that doesn't change the visual
+              // rhythm of the pill (the old p-2.5 left a 28px-wide target).
+              "-m-1 rounded-xl p-3 transition-colors",
               listening
                 ? "bg-red-500 text-white animate-pulse-soft"
                 : "text-ink-400 hover:bg-brand-500/10 hover:text-brand-600"
