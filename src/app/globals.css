@@ -3,12 +3,26 @@
 /* Class-based dark mode (toggled by the theme provider) */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Touch-pointer variant: `coarse:h-11` on a component means "at least 44px
+   when a finger is doing the pointing". Pairs with the touch-target floor at
+   the bottom of this file. */
+@custom-variant coarse (@media (pointer: coarse));
+
 @theme {
   /* Typography */
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-arabic: "Cairo", "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  /* Brand — "embers" orange scale (trades, energy, trust) */
+  /* Brand — "embers" orange scale (trades, energy, trust).
+
+     Note on 600/700: they are 5.02:1 and 5.18:1 on white — visually the same
+     weight, so the ramp has no usable step there, and 600 sits at hue 26deg
+     against 700's 17deg. That is deliberate rather than accidental: 600 is
+     held dark because it is the brand's TEXT colour on light backgrounds, and
+     the canonical orange-600 (#ea580c) only reaches 3.56:1, which fails AA for
+     body text. The clean fix is a semantic token (brand text vs brand surface)
+     rather than making one ramp step do both jobs — worth doing before the
+     palette grows, not worth churning 100 call sites for today. */
   --color-brand-50: #fff7ed;
   --color-brand-100: #ffedd5;
   --color-brand-200: #fed7aa;
@@ -21,14 +35,20 @@
   --color-brand-900: #7c2d12;
   --color-brand-950: #431407;
 
-  /* Ink — warm neutral scale (darkened at 400/500 for WCAG AA contrast) */
+  /* Ink — warm neutral scale.
+     400 and 500 were darkened for WCAG AA contrast on the light background,
+     which pushed 500 PAST 600: ink-500 measured 6.84:1 while ink-600 measured
+     6.33:1, so the "darker" token was the lighter one. Anything picking 600
+     over 500 to add emphasis was quietly reducing it, and a 500→600 hover got
+     lighter. 600 now sits between its neighbours again.
+     The ramp is asserted monotonic in tests/design-tokens.test.ts. */
   --color-ink-50: #f7f6f4;
   --color-ink-100: #efede9;
   --color-ink-200: #dbd8d1;
   --color-ink-300: #bdb8ae;
   --color-ink-400: #6d6760;
   --color-ink-500: #5a554e;
-  --color-ink-600: #5f5a53;
+  --color-ink-600: #545049;
   --color-ink-700: #4b4742;
   --color-ink-800: #35322e;
   --color-ink-900: #211f1c;
@@ -37,6 +57,25 @@
   /* Success / info / warning accents */
   --color-mint-500: #10b981;
   --color-mint-600: #059669;
+  /* Readable success text on the tinted badge background, per theme. */
+  --color-success-ink: #166534;
+  --color-success-ink-dark: #d1fae5;
+
+  /* Layering.
+     Stacking used to be settled by escalation: 35 uses of z-50 plus z-[9999],
+     z-[9998], z-[201], z-[200], z-[100], z-[99] and z-[90], each added to win
+     against whatever it happened to collide with. Named steps give the answer
+     a reason — a toast belongs above a dialog because it reports on it, not
+     because it picked a bigger number. */
+  --z-index-sticky: 20; /* sticky table headers, filter bars */
+  --z-index-nav: 30; /* the mobile bottom tab bar */
+  --z-index-header: 40; /* the site header */
+  --z-index-overlay: 50; /* dropdowns, popovers, tooltips */
+  --z-index-dialog: 60; /* modal dialogs and their backdrop */
+  --z-index-prompt: 70; /* install / update / ad prompts */
+  --z-index-tour: 75; /* the onboarding tour — it points AT the UI above it */
+  --z-index-toast: 80; /* transient feedback, above what it reports on */
+  --z-index-skip-link: 90; /* must outrank all of it when focused */
 
   /* Elevation */
   --shadow-soft: 0 1px 2px 0 rgb(20 18 15 / 0.04), 0 8px 24px -8px rgb(20 18 15 / 0.08);
@@ -85,8 +124,16 @@
 /* ---------- Base ---------- */
 
 html {
-  scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+}
+
+/* Smooth scrolling is motion, and the reduced-motion block below only cancels
+   animations and transitions — scroll-behavior is neither, so it kept running
+   for readers who asked for less of it. Opt IN instead of opting out. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 body {
@@ -114,11 +161,6 @@ body {
 ::selection {
   background-color: var(--color-brand-500);
   color: white;
-}
-
-:focus-visible {
-  outline: 2px solid var(--color-brand-500);
-  outline-offset: 2px;
 }
 
 /* ---------- Utilities ---------- */
@@ -150,7 +192,7 @@ body {
 
 /* Brand gradient text */
 .text-gradient {
-  background: linear-gradient(115deg, var(--color-brand-500) 0%, var(--color-brand-600) 45%, #b45309 100%);
+  background: linear-gradient(115deg, var(--color-brand-500) 0%, var(--color-brand-600) 45%, var(--color-brand-800) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -272,44 +314,49 @@ body {
   scrollbar-width: none;
 }
 
-/* ─── Emerald Badge Utilities ─── */
-/* Stable CSS classes for emerald badges that avoid Tailwind v4 hydration
-   mismatches caused by bg-emerald-500/15 generating different class strings
-   on server vs client builds. */
-.emerald-badge-sm {
-  background-color: color-mix(in srgb, #10b981 15%, transparent);
-  color: #166534; /* emerald-800 */
+/* ─── Verified / success badge ─── */
+/* Stable classes rather than Tailwind opacity utilities: bg-emerald-500/15
+   generated different class strings on the server and client under Tailwind v4
+   and produced hydration mismatches.
+
+   The hexes below are Tailwind GREEN, not emerald — #166534 is green-800 and
+   #15803d is green-700 (emerald-800 is #065f46). The comments claimed emerald
+   for two years. They are tokens now, so the name and the value cannot drift
+   again, and the three sizes collapse into one: they only ever differed by a
+   shade that nothing could see (green-700 vs green-800 is 0.3:1 apart here). */
+.badge-success {
+  background-color: color-mix(in srgb, var(--color-mint-500) 15%, transparent);
+  color: var(--color-success-ink);
 }
-.dark .emerald-badge-sm {
-  color: #d1fae5; /* emerald-100 */
-}
-.emerald-badge-md {
-  background-color: color-mix(in srgb, #10b981 15%, transparent);
-  color: #15803d; /* emerald-700 */
-}
-.dark .emerald-badge-md {
-  color: #d1fae5; /* emerald-100 */
-}
-.emerald-badge-lg {
-  background-color: color-mix(in srgb, #10b981 15%, transparent);
-  color: #166534; /* emerald-800 */
-}
-.dark .emerald-badge-lg {
-  color: #d1fae5; /* emerald-100 */
+.dark .badge-success {
+  color: var(--color-success-ink-dark);
 }
 .emerald-icon {
-  color: #166534; /* emerald-800 */
+  color: var(--color-success-ink);
 }
 .dark .emerald-icon {
-  color: #d1fae5; /* emerald-100 */
+  color: var(--color-success-ink-dark);
 }
 .emerald-text {
-  color: #059669; /* emerald-600 */
+  color: var(--color-mint-600);
 }
 .dark .emerald-text {
-  color: #34d399; /* emerald-400 */
+  color: #34d399; /* emerald-400 — legible on the dark surface */
 }
 
+/* Kept as aliases: ~30 call sites still use the size-suffixed names, and the
+   three were always identical. Delete once those are migrated. */
+.emerald-badge-sm,
+.emerald-badge-md,
+.emerald-badge-lg {
+  background-color: color-mix(in srgb, var(--color-mint-500) 15%, transparent);
+  color: var(--color-success-ink);
+}
+.dark .emerald-badge-sm,
+.dark .emerald-badge-md,
+.dark .emerald-badge-lg {
+  color: var(--color-success-ink-dark);
+}
 
 /* ─── Dark Mode Polish ─── */
 /* Override ink-400/500 to lighter values in dark mode (WCAG AA: 4.5:1 on dark bg) */
@@ -327,15 +374,44 @@ body {
   box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.3), 0 16px 40px -12px rgb(0 0 0 / 0.5);
 }
 
-/* ─── Touch Targets (WCAG 2.5.5) ─── */
-/* Ensure all interactive elements meet 44×44px minimum */
-a, button, [role="button"], input[type="checkbox"], input[type="radio"], label, select {
-  min-height: 44px;
-}
+/* ─── Touch targets (WCAG 2.5.5) ─── */
+/*
+ * The previous version of this rule did not work, in three ways.
+ *
+ * 1. It applied `min-height` to every `a` and `label`. `min-height` has no
+ *    effect on a non-replaced INLINE element, so inline links in prose — the
+ *    ones it looked like it was covering — were never affected at all.
+ * 2. Its escape hatch was `.text-xs`, which is the class on `Button size="sm"`.
+ *    So the rule exempted precisely the small buttons it existed to enlarge,
+ *    while still forcing `size="default"` from its declared h-10 (40px) to
+ *    44px — the component's own size scale said one thing and the page did
+ *    another.
+ * 3. It applied on desktop too, inflating dense admin tables where a 44px
+ *    floor buys nothing: a mouse is not a fingertip.
+ *
+ * The floor now applies to real controls, only where the pointer is coarse.
+ * `pointer: coarse` is the actual condition the guideline is about, and it is
+ * what the device-matrix suite emulates.
+ */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="switch"],
+  summary,
+  select,
+  textarea,
+  input:not([type="hidden"]) {
+    min-block-size: 44px;
+  }
 
-/* Exception: tiny inline elements like badge counts */
-.badge-icon, .text-xs {
-  min-height: auto;
+  /* Block-level links are targets; inline ones are text, and forcing a height
+     on them would break the line box around them. */
+  a[href]:not(:where(p a, li a, td a, span a, .prose a)) {
+    min-block-size: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
 }
 
 /* ─── Focus Transitions ─── */

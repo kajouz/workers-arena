@@ -725,7 +725,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-dialog flex items-center justify-center bg-black/50 p-4"
             onClick={() => { setShowGenerateModal(false); setGenSuccess(false); }}
           >
             <motion.div
@@ -941,7 +941,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-dialog flex items-center justify-center bg-black/50 p-4"
             onClick={() => setShowDetailModal(null)}
           >
             <motion.div
@@ -1091,7 +1091,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-dialog flex items-center justify-center bg-black/50 p-4"
             onClick={() => { setShowRevokeModal(null); setRevokeSuccess(false); }}
           >
             <motion.div

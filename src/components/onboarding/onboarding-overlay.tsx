@@ -62,7 +62,7 @@ export function OnboardingOverlay() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-tour bg-black/60 backdrop-blur-sm"
             onClick={skipOnboarding}
           />
 
@@ -79,7 +79,7 @@ export function OnboardingOverlay() {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
             className={cn(
-              "fixed z-[9999] w-[min(90vw,400px)] rounded-2xl bg-white p-6 shadow-2xl dark:bg-ink-900",
+              "fixed z-tour w-[min(90vw,400px)] rounded-2xl bg-white p-6 shadow-2xl dark:bg-ink-900",
               step.target ? getTooltipPosition(step.position) : "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             )}
           >
@@ -193,7 +193,7 @@ function Spotlight({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed z-[9998] rounded-xl ring-4 ring-brand-500/50 ring-offset-2 ring-offset-transparent"
+      className="fixed z-tour rounded-xl ring-4 ring-brand-500/50 ring-offset-2 ring-offset-transparent"
       style={{ pointerEvents: "none" }}
     />
   );

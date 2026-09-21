@@ -104,7 +104,7 @@ export function MobileSidebar({ className }: MobileSidebarProps) {
       {/* Mobile menu button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-white rounded-xl shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-dialog p-2.5 bg-white rounded-xl shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
       >
         <Menu className="w-5 h-5 text-gray-700" />
       </button>
@@ -112,7 +112,7 @@ export function MobileSidebar({ className }: MobileSidebarProps) {
       {/* Backdrop */}
       {isOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          className="lg:hidden fixed inset-0 z-dialog bg-black/50 backdrop-blur-sm"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -120,7 +120,7 @@ export function MobileSidebar({ className }: MobileSidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-72 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out overflow-y-auto",
+          "fixed top-0 left-0 z-dialog h-full w-72 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out overflow-y-auto",
           isOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0 lg:static lg:z-auto",
           className

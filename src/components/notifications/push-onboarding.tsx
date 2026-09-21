@@ -76,7 +76,7 @@ export function PushOnboarding() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.97 }}
           transition={{ type: "spring", stiffness: 320, damping: 28 }}
-          className="fixed bottom-4 start-4 z-40 w-[calc(100%-2rem)] max-w-sm"
+          className="fixed bottom-4 start-4 z-dialog w-[calc(100%-2rem)] max-w-sm"
         >
           <div className="glass-strong relative overflow-hidden rounded-2xl border border-brand-500/25 p-5 shadow-lift">
             {/* soft glow */}

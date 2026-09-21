@@ -89,7 +89,7 @@ export function PushNotificationBanner() {
   }
 
   return (
-    <div className="fixed bottom-20 inset-x-4 z-40 lg:hidden">
+    <div className="fixed bottom-20 inset-x-4 z-dialog lg:hidden">
       <div className="bg-gradient-to-r from-brand-500 to-brand-600 rounded-2xl p-4 shadow-lg">
         <div className="flex items-start gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/20">

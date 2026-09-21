@@ -173,7 +173,7 @@ export function RetargetingAd({ className }: RetargetingAdProps) {
       className={cn(
         // safe-area: on notched phones the fixed offset must include the
         // home-indicator inset or the card can sit under gesture areas.
-        "fixed inset-x-0 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-40 lg:bottom-8 lg:right-6 lg:left-auto lg:w-96",
+        "fixed inset-x-0 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-prompt lg:bottom-8 lg:right-6 lg:left-auto lg:w-96",
         "transform transition-all duration-500 ease-out",
         visible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
         className

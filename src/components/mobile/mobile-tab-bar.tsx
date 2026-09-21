@@ -48,7 +48,7 @@ export function MobileTabBar() {
   }, []);
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-50 lg:hidden">
+    <nav className="fixed bottom-0 inset-x-0 z-dialog lg:hidden">
       {/* Safe area padding for iOS */}
       <div className="bg-white/95 dark:bg-ink-950/95 backdrop-blur-xl border-t border-ink-200 dark:border-ink-800 pb-safe">
         <div className="flex items-center justify-around px-2 py-1">

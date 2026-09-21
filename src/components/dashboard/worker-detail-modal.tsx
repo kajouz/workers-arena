@@ -82,7 +82,7 @@ export function WorkerDetailModal({ worker, isOpen, onClose, locale = "en" }: Wo
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-dialog bg-black/50 backdrop-blur-sm"
             onClick={onClose}
           />
 
@@ -91,7 +91,7 @@ export function WorkerDetailModal({ worker, isOpen, onClose, locale = "en" }: Wo
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-4 z-50 mx-auto my-auto max-h-[90vh] max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-ink-900"
+            className="fixed inset-4 z-dialog mx-auto my-auto max-h-[90vh] max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-ink-900"
           >
             {/* Header */}
             <div className="sticky top-0 z-10 border-b border-ink-100 bg-white/90 p-4 backdrop-blur-sm dark:border-ink-800 dark:bg-ink-900/90">

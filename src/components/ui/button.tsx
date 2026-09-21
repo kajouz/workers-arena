@@ -21,12 +21,20 @@ const buttonVariants = cva(
           "glass text-ink-900 hover:bg-white/90 dark:text-ink-50 dark:hover:bg-ink-800/80",
         success: "bg-emerald-600 text-white hover:bg-emerald-700",
       },
+      /*
+       * Two numbers per size: the dense value for a mouse, and a 44px floor on
+       * touch (`max-touch:` = the `pointer: coarse` variant declared in
+       * globals.css). The global stylesheet used to impose that floor on
+       * everything and exempt `.text-xs`, which is exactly what `sm` sets — so
+       * small buttons stayed 32px and `default` was silently inflated from its
+       * declared 40px. The sizes mean what they say now.
+       */
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-lg px-3 text-xs",
+        default: "h-10 coarse:h-11 px-4 py-2",
+        sm: "h-8 coarse:h-11 rounded-lg px-3 text-xs",
         lg: "h-12 rounded-xl px-6 text-base",
-        icon: "h-10 w-10",
-        "icon-sm": "h-8 w-8 rounded-lg",
+        icon: "h-10 w-10 coarse:h-11 coarse:w-11",
+        "icon-sm": "h-8 w-8 coarse:h-11 coarse:w-11 rounded-lg",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

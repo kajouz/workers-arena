@@ -79,7 +79,7 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-ink-100 bg-white/90 backdrop-blur-xl dark:border-ink-800 dark:bg-ink-950/90 lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-nav border-t border-ink-100 bg-white/90 backdrop-blur-xl dark:border-ink-800 dark:bg-ink-950/90 lg:hidden"
       role="navigation"
       aria-label="Main navigation"
     >

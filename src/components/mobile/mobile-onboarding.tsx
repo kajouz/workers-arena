@@ -82,7 +82,7 @@ export function MobileOnboarding({
   };
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
+    <div className="fixed inset-0 bg-background z-dialog flex flex-col">
       {/* Progress dots */}
       <div className="flex items-center justify-center gap-2 pt-12 pb-4">
         {SLIDES.map((s, i) => (

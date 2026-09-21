@@ -132,7 +132,7 @@ export function TooltipTour({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/50"
+            className="fixed inset-0 z-tour bg-black/50"
             onClick={complete}
           >
             {/* Cutout around target */}
@@ -157,7 +157,7 @@ export function TooltipTour({
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
             className={cn(
-              "fixed z-[201] w-72 rounded-2xl border border-ink-200 bg-white p-5 shadow-lift dark:border-ink-700 dark:bg-ink-900",
+              "fixed z-tour w-72 rounded-2xl border border-ink-200 bg-white p-5 shadow-lift dark:border-ink-700 dark:bg-ink-900",
               "sm:w-80"
             )}
             style={tooltipPosition as React.CSSProperties}

@@ -105,7 +105,7 @@ export function InstallBanner({ className }: InstallBannerProps) {
           className={cn(
             // pb includes the safe-area inset so the buttons clear the
             // home-indicator on notched phones.
-            "fixed inset-x-0 bottom-0 z-50 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-w-sm sm:pb-4",
+            "fixed inset-x-0 bottom-0 z-prompt p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-w-sm sm:pb-4",
             className
           )}
         >

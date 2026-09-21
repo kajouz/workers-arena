@@ -71,7 +71,7 @@ export function Header({
     role === "admin" ? ShieldCheck : role === "company" ? Megaphone : LayoutDashboard;
 
   return (
-    <header className="sticky top-0 z-40">
+    <header className="sticky top-0 z-header">
       <div className="glass-strong border-x-0 border-t-0">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <Logo textClassName="hidden sm:inline" />

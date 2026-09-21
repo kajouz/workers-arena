@@ -158,7 +158,7 @@ export function BookingsSkeleton() {
  */
 export function PageLoadingOverlay() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm dark:bg-ink-950/80">
+    <div className="fixed inset-0 z-dialog flex items-center justify-center bg-white/80 backdrop-blur-sm dark:bg-ink-950/80">
       <div className="flex flex-col items-center gap-4">
         <div className="size-10 animate-spin rounded-full border-4 border-ink-200 border-t-brand-500" />
         <p className="text-sm font-medium text-ink-500">Loading...</p>

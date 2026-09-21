@@ -205,7 +205,7 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
 
       {/* Search modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]">
+        <div className="fixed inset-0 z-dialog flex items-start justify-center pt-[10vh]">
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/50" onClick={() => setIsOpen(false)} />
 

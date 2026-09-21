@@ -88,7 +88,7 @@ export function WhatsAppContact({
     primary: "bg-green-500 hover:bg-green-600 text-white shadow-md",
     secondary: "bg-green-100 hover:bg-green-200 text-green-700 border border-green-200",
     icon: "bg-green-500 hover:bg-green-600 text-white p-2 rounded-full",
-    floating: "bg-green-500 hover:bg-green-600 text-white shadow-lg rounded-full fixed bottom-6 right-6 z-40",
+    floating: "bg-green-500 hover:bg-green-600 text-white shadow-lg rounded-full fixed bottom-6 right-6 z-dialog",
   };
 
   return (

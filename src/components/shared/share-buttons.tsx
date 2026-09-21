@@ -149,7 +149,7 @@ export function ShareDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-dialog flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-ink-900"
         onClick={(e) => e.stopPropagation()}

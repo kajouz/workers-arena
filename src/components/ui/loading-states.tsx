@@ -27,7 +27,7 @@ export function InlineLoading({ text }: { text?: string }) {
 /* ─── Search Loading Bar ─── */
 export function SearchLoadingBar() {
   return (
-    <div className="fixed inset-x-0 top-0 z-50 h-1 overflow-hidden bg-brand-100 dark:bg-brand-900/30">
+    <div className="fixed inset-x-0 top-0 z-toast h-1 overflow-hidden bg-brand-100 dark:bg-brand-900/30">
       <div className="h-full w-1/3 animate-[loading-bar_1.2s_ease-in-out_infinite] rounded-full bg-brand-500" />
       <style jsx>{`
         @keyframes loading-bar {

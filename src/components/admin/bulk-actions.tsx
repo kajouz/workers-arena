@@ -82,7 +82,7 @@ export function BulkActions<T extends { id: string }>({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
         className={cn(
-          "fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-2xl border border-ink-200 bg-white p-3 shadow-xl dark:border-ink-800 dark:bg-ink-900",
+          "fixed bottom-6 left-1/2 z-dialog -translate-x-1/2 rounded-2xl border border-ink-200 bg-white p-3 shadow-xl dark:border-ink-800 dark:bg-ink-900",
           className
         )}
       >
@@ -130,7 +130,7 @@ export function BulkActions<T extends { id: string }>({
       <AnimatePresence>
         {confirmAction && (
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
+            className="fixed inset-0 z-dialog flex items-center justify-center bg-black/50 p-4"
             onClick={() => setConfirmAction(null)}
           >
             <motion.div

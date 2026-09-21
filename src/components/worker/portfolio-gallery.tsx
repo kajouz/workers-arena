@@ -222,7 +222,7 @@ export function PortfolioGallery({
 
       {/* Lightbox Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
+        <div className="fixed inset-0 z-dialog bg-black/90 flex items-center justify-center">
           {/* Close button */}
           <button
             onClick={() => setSelectedImage(null)}

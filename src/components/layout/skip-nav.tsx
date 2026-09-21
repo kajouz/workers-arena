@@ -13,7 +13,7 @@ export function SkipNav({ className }: { className?: string }) {
     <a
       href="#main-content"
       className={cn(
-        "fixed start-0 top-0 z-[9999] px-6 py-3 text-sm font-bold text-white",
+        "fixed start-0 top-0 z-skip-link px-6 py-3 text-sm font-bold text-white",
         "bg-brand-600 shadow-lg transition-transform duration-200",
         "-translate-y-full focus:translate-y-0",
         "focus:outline-none focus:ring-4 focus:ring-brand-300",

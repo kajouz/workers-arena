@@ -75,7 +75,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
             onClick={handleBadgeClick}
             className={cn(
-              "fixed bottom-6 right-6 z-[100] flex size-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg transition-shadow hover:bg-brand-700 hover:shadow-xl dark:bg-brand-500 dark:hover:bg-brand-600",
+              "fixed bottom-6 right-6 z-prompt flex size-12 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg transition-shadow hover:bg-brand-700 hover:shadow-xl dark:bg-brand-500 dark:hover:bg-brand-600",
               className
             )}
             aria-label={t("swUpdate.badge")}
@@ -97,7 +97,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[99]"
+              className="fixed inset-0 z-prompt"
               onClick={handleDismiss}
             />
 
@@ -108,7 +108,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
               exit={{ y: 80, opacity: 0, scale: 0.95 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               className={cn(
-                "fixed bottom-6 right-6 z-[100] w-[calc(100%-3rem)] max-w-sm",
+                "fixed bottom-6 right-6 z-prompt w-[calc(100%-3rem)] max-w-sm",
                 className
               )}
             >
@@ -161,7 +161,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
             exit={{ y: 80, opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
             className={cn(
-              "fixed bottom-6 right-6 z-[100] w-[calc(100%-3rem)] max-w-xs",
+              "fixed bottom-6 right-6 z-prompt w-[calc(100%-3rem)] max-w-xs",
               className
             )}
           >

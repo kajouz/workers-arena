@@ -135,7 +135,7 @@ export function AnalyticsConsentBanner() {
   if (consent || !visible || provider === "none") return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[90] border-t border-ink-200 bg-white p-4 shadow-lift dark:border-ink-700 dark:bg-ink-900 sm:bottom-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:rounded-2xl sm:border sm:max-w-lg">
+    <div className="fixed inset-x-0 bottom-0 z-prompt border-t border-ink-200 bg-white p-4 shadow-lift dark:border-ink-700 dark:bg-ink-900 sm:bottom-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:rounded-2xl sm:border sm:max-w-lg">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-ink-900 dark:text-ink-50">
