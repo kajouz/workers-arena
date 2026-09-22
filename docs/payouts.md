@@ -2,7 +2,7 @@
 
 [← Back to docs index](README.md)
 
-> **Status: ✅ implemented.** `WorkerLedgerEntry` (+ migration), earnings credited **inside the completion transition tx** (both adapters), `getWorkerBalance` / `requestPayout` / `decidePayout` / `getWorkerPayouts` / `getPendingPayouts` seams (demo + prisma), the worker dashboard **Payouts** card (available/pending balance, withdraw dialog, history), the /admin pending-payouts queue (approve/reject), tests + `db:smoke`. This page documents the design; the implementation follows it as written.
+> **Status: ✅ implemented.** `WorkerLedgerEntry` (+ migration), earnings credited **inside the completion/settlement tx** (both adapters) **and only out of money the platform actually collected** ([booking-settlement.md](booking-settlement.md)), `getWorkerBalance` / `requestPayout` / `decidePayout` / `getWorkerPayouts` / `getPendingPayouts` seams (demo + prisma), the worker dashboard **Payouts** card (available/pending balance, withdraw dialog, history), the /admin pending-payouts queue (approve/reject), tests + `db:smoke`. This page documents the design; the implementation follows it as written.
 
 ---
 
@@ -10,8 +10,8 @@
 
 A worker's **net earnings** (`quote − platformFee`, the M5 take-rate snapshot) accrue when a job is done, and settle into a **withdrawable balance** the worker can pull out through a reviewed payout.
 
-- **When do earnings post?** When the booking reaches **COMPLETED** — the job was done, the customer was notified, and no refund path remains (completed is terminal). NOT at confirm: a confirmed job can still be cancelled/refunded, so crediting at confirm would overpay.
-- **What amount?** `quote − platformFee` (minor units), the exact "worker receives" figure the RespondDialog previews and the customer row shows — the fee snapshot is never recomputed.
+- **When do earnings post?** At whichever of the two gates comes **last**: the booking reaches **COMPLETED** (the job was done, the customer was notified, and no refund path remains — completed is terminal; NOT at confirm, because a confirmed job can still be cancelled/refunded) **and the platform has actually collected the job's money**. The credit is computed from what was received, never from the stamped quote — a quote-only job that the customer never paid credits nothing ([booking-settlement.md](booking-settlement.md)). Collecting the balance after completion posts the difference as an `ADJUSTMENT`.
+- **What amount?** `collected − fee-on-collected` (minor units) — at most `quote − platformFee`, the exact "worker receives" figure the RespondDialog previews and the customer row shows, and never more than the platform holds.
 - **What is a payout?** The worker requests a withdrawal of part of the available balance; an **admin reviews it** (approve → settled; reject → nothing moves). Pending requests **reserve** their amount so a worker can't double-spend while a request is in review.
 - **Balance is derived, never stored** — the ledger is the single source of truth: `available = Σ POSTED earnings/adjustments − Σ PROCESSED withdrawals`. The only stored number per entry is `balanceAfter` (audit trail of the running balance).
 
@@ -55,12 +55,12 @@ interface WorkerBalance { availableMinor; pendingMinor; currency }
 
 ## 3. Credit at completion (both adapters, one rule)
 
-`net = (quote ?? 0) − (platformFee ?? 0)`; if `net > 0` an EARNING entry is created **inside the same transaction/step as the COMPLETED flip**:
+The amount is decided by the settlement engine (`settlementFor` in `src/lib/data/booking-settlement.ts` — see [booking-settlement.md](booking-settlement.md)): it reads both payment legs, takes the fee **out of the money collected** (`feeCollected = min(fee, collected)`), and returns `workerNetTargetMinor = collected − feeCollected`. `ledgerDeltaFor(settlement, alreadyCredited)` then returns what to post: `0` for nothing, `earning` for the first credit, `adjustment` for a settlement top-up. The credit is created **inside the same transaction/step as the COMPLETED flip, or as the collection** — whichever happens last:
 
-- **prisma** — inside `prismaTransitionBooking`'s `$transaction`: read the booking (quote/platformFee), compute the running balance, `create` the ledger row with `balanceAfter`. The `@@unique([bookingId])` makes the credit **idempotent**: a concurrent or redelivered completion can never double-credit (the second insert fails and the tx rolls back).
-- **demo** — `demoTransitionBooking` performs the identical credit synchronously in the in-memory store.
+- **prisma** — inside `prismaTransitionBooking`'s `$transaction` and inside `prismaConfirmBookingSettlement`'s: read the booking + its two payment legs on the same client, compute the running balance, `create` the ledger row with `balanceAfter`. The `@@unique([bookingId])` makes the credit **idempotent**: a concurrent or redelivered completion (or a redelivered webhook / double admin confirm — the settlement flip is a CAS on `PENDING`) can never double-credit.
+- **demo** — `demoTransitionBooking` / `demoConfirmBookingSettlement` perform the identical credit synchronously in the in-memory store.
 
-Quote-less accepts (`quote = null`) → net 0 → no entry. Explicitly exempt rules (fee 0) → the full quote is credited; Business/Enterprise are reduced-rate by default.
+Quote-less accepts (`quote = null`) → net 0 → no entry. An unfunded job → `workerNetTargetMinor` 0 → no entry, and the platform's fee stays a claim. Explicitly exempt rules (fee 0) → the whole collected amount is credited; Business/Enterprise are reduced-rate by default.
 
 ## 4. Payout lifecycle
 

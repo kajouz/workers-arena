@@ -19,7 +19,10 @@ import {
   cancelRecurringContract,
   confirmBookingCompletion,
   confirmBookingPayment,
+  confirmBookingSettlement,
   createBookingCheckout,
+  createBookingSettlementCheckout,
+  markBookingSettledOutside,
   createBookingRequest,
   createQuoteRequest,
   createRecurringRequest,
@@ -630,6 +633,86 @@ export async function payBookingAction(
   const checkout = await createBookingCheckout(bookingId, toProviderMethod(parsed.data));
   if (!checkout) return { ok: false, error: "not-found" };
   return { ok: true, url: checkout.url };
+}
+
+/**
+ * §Settlement — the customer pays the FINISHED job's outstanding balance.
+ *
+ * Same permission gate as the deposit (`requireBookingCustomer`: the booking's
+ * customer, a guest proving their phone, or an admin) because the checkout it
+ * mints is a signed, amount-bearing payment instruction for that booking. What
+ * differs is the amount — the balance the platform has not collected yet — and
+ * the consequence: this is the payment that releases the worker's pay.
+ */
+export async function payBookingBalanceAction(
+  bookingId: string,
+  method: "omt" | "whish" = "omt",
+  formData: FormData = new FormData()
+): Promise<{ ok: boolean; url?: string; error?: "invalid" | "not-found" | "unauthorized" }> {
+  if (!bookingId) return { ok: false, error: "invalid" };
+  const party = await requireBookingCustomer(bookingId, guestProofFrom(formData));
+  if (!party.ok) return party;
+  const parsed = paymentMethodSchema.safeParse(method);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+
+  const checkout = await createBookingSettlementCheckout(bookingId, toProviderMethod(parsed.data));
+  if (!checkout) return { ok: false, error: "not-found" };
+  revalidatePath("/bookings");
+  revalidatePath("/dashboard");
+  return { ok: true, url: checkout.url };
+}
+
+/**
+ * §Settlement — the worker (or an admin) records that the job was settled
+ * directly between the parties (cash), so the platform stops asking the
+ * customer to pay through it. Deliberately honest: no earnings are credited and
+ * the platform's fee becomes a claim an admin can pursue, never an accrual.
+ *
+ * Party-gated like the other booking mutations — the booking's worker or an
+ * admin; a customer cannot declare their own job settled to dodge the balance.
+ */
+export async function markBookingSettledOutsideAction(
+  bookingId: string,
+  reason?: string
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+  if (!bookingId) return { ok: false, error: "invalid" };
+  // Party gate: the booking's WORKER or an admin (`requireBookingWorker`
+  // resolves the admin too and rejects a customer — a customer must not be able
+  // to declare their own job settled outside and dodge the balance).
+  const party = await requireBookingWorker(bookingId);
+  if (!party.ok) return party;
+
+  const updated = await markBookingSettledOutside(bookingId, {
+    by: party.actor === "admin" ? "admin" : "worker",
+    ...(reason ? { reason: sanitizeText(reason, 200) } : {}),
+  });
+  if (!updated) return { ok: false, error: "not-found" };
+  revalidatePath("/bookings");
+  revalidatePath("/dashboard");
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/**
+ * §Settlement — admin-only manual confirmation of a job BALANCE (the OMT/Whish
+ * receipt the customer paid offline). The "/admin pending payments" card routes
+ * here through `confirmManualPaymentAction`; this action is the same door for
+ * the dispute view. Admin-gated on purpose: the balance releases a payout, so
+ * only an operator who has seen the money may confirm it.
+ */
+export async function confirmBookingSettlementAction(
+  bookingId: string,
+  providerRef: string
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+  const auth = await requireRole("admin");
+  if (!auth.ok) return auth;
+  if (!bookingId || !providerRef) return { ok: false, error: "invalid" };
+  const booking = await confirmBookingSettlement(bookingId, providerRef);
+  if (!booking) return { ok: false, error: "not-found" };
+  revalidatePath("/bookings");
+  revalidatePath("/dashboard");
+  revalidatePath("/admin");
+  return { ok: true };
 }
 
 /**

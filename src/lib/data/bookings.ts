@@ -44,6 +44,7 @@ import {
   type BookingSlot,
   type BookingStatus,
   type BookingPayment,
+  type BookingSettlementPayment,
   type BookingTransitionTarget,
   type PendingManualPayment,
   type ReconciliationPayment,
@@ -55,6 +56,15 @@ import {
 } from "./types";
 import { RECURRING_OCCURRENCE_COUNT, generateRecurringOccurrences } from "./recurring";
 import { getPaymentProvider } from "@/lib/payments/registry";
+import {
+  ledgerDeltaFor,
+  settlementFor,
+  settlementJob,
+  settlementNeedsCollection,
+  type Settlement,
+  type SettlementFacts,
+  type SettlementJob,
+} from "./booking-settlement";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -88,6 +98,13 @@ type DemoStore = {
   slots: BookingSlot[];
   /** Demo payments keyed by booking id (M3 deposit checkouts). */
   payments: Map<string, BookingPayment>;
+  /**
+   * §Settlement — the SECOND payment leg per booking (the balance collected
+   * after the job). Kept in its own map so the deposit code paths
+   * (cancel/refund/checkout/receipt) stay untouched: a booking's deposit and
+   * its settlement are different money events with different amounts.
+   */
+  settlements: Map<string, BookingSettlementPayment>;
   /**
    * Demo invoice numbering (M3) — `WA-YYYY-NNNNN`, sequence restarting per
    * year (formatInvoiceNumber). Receipts live on their Booking.invoice; only
@@ -148,6 +165,7 @@ const STORE: DemoStore =
     quoteSeq: 1001,
     messages: new Map(),
     msgSeq: 0,
+    settlements: new Map(),
   } as DemoStore);
 
 function nextDemoInvoiceNumber(): string {
@@ -191,6 +209,7 @@ function seed(): void {
   STORE.bookings.length = 0;
   STORE.slots.length = 0;
   STORE.payments.clear();
+  STORE.settlements.clear();
   STORE.invoiceYear = 0;
   STORE.invoiceSeq = 0;
   STORE.ledger.length = 0;
@@ -432,13 +451,87 @@ function withSlaSignal(b: Booking): Booking {
   const payment = STORE.payments.get(b.id);
   const paymentStatus = payment?.status;
   const paymentMethod = payment?.method;
+  const settlement = STORE.settlements.get(b.id);
   const sla = b.slaNudgeSent === true || slaNudgedKeys.has(b.id);
   return {
     ...b,
     ...(sla ? { slaNudgeSent: true } : {}),
     ...(paymentStatus ? { paymentStatus } : {}),
     ...(paymentMethod ? { paymentMethod } : {}),
+    ...(settlement ? { settlement } : {}),
   };
+}
+
+/* ───────────────── §Settlement — the money behind a job (docs/booking-take-rate.md §6) ───────────────── */
+
+/**
+ * The facts the settlement engine decides on, read from the demo store's two
+ * payment legs. Exported so the prisma adapter and the tests can build the same
+ * input shape (the engine itself never touches storage).
+ */
+export function settlementFactsFor(booking: Booking): SettlementFacts {
+  const deposit = STORE.payments.get(booking.id);
+  const settlement = STORE.settlements.get(booking.id);
+  return {
+    quoteMinor: booking.quote ?? null,
+    feeMinor: booking.platformFee ?? null,
+    depositPaidMinor: deposit?.status === "paid" ? deposit.amount : 0,
+    depositRefundedMinor: deposit?.status === "refunded" ? deposit.amount : 0,
+    settlementPaidMinor: settlement?.status === "paid" ? settlement.amount : 0,
+    settlementRefundedMinor: settlement?.status === "refunded" ? settlement.amount : 0,
+    settlementPendingMinor: settlement?.status === "pending" ? settlement.amount : 0,
+    settledOutside: booking.settledOutside ?? false,
+    currency: booking.currency,
+  };
+}
+
+/** The settlement verdict for a booking (demo). */
+export function demoSettlementFor(bookingId: string): Settlement | null {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  return booking ? settlementFor(settlementFactsFor(booking)) : null;
+}
+
+/** The settlement payment record for a booking, if one was ever minted. */
+export function demoGetBookingSettlementPayment(bookingId: string): BookingSettlementPayment | null {
+  return STORE.settlements.get(bookingId) ?? null;
+}
+
+/**
+ * §Settlement — the admin reconciliation (demo). Every job that finished inside
+ * the window, with what the platform collected for it and what its earnings
+ * ledger already holds — the two numbers that used to drift silently.
+ */
+export function demoSettlementReconciliation(days = 30): SettlementJob[] {
+  const since = Date.now() - days * 24 * 60 * 60 * 1000;
+  // Same window rule as the prisma adapter: a job that finished inside the
+  // window, plus any job still sitting in a money state (so a blocked payout
+  // never ages out of the view before someone acts on it).
+  return STORE.bookings
+    .filter(
+      (b) =>
+        b.quote != null &&
+        (b.status === "completed" ||
+          b.status === "completionPending" ||
+          b.events.some((e) => e.status === "completed" && Date.parse(e.time) >= since))
+    )
+    .map((b) => {
+      const settlement = settlementFor(settlementFactsFor(b));
+      const credited = STORE.ledger
+        .filter((e) => e.bookingId === b.id && e.status === "posted" && e.amount > 0)
+        .reduce((sum, e) => sum + e.amount, 0);
+      const worker = workerById(b.workerId);
+      return settlementJob({
+        bookingId: b.id,
+        number: b.number,
+        workerId: b.workerId,
+        workerNameEn: worker?.nameEn ?? "—",
+        workerNameAr: worker?.nameAr ?? "—",
+        status: b.status,
+        reference: STORE.settlements.get(b.id)?.status === "pending" ? STORE.settlements.get(b.id)!.providerRef ?? null : null,
+        settlement,
+        creditedMinor: credited,
+      });
+    });
 }
 
 /** A worker's bookings, newest first, with optional status filter + limit. */
@@ -518,40 +611,56 @@ export function demoGetWorkerBalance(workerId: string): WorkerBalance {
  * payout screen to reconcile.
  */
 async function creditEarnings(booking: Booking): Promise<void> {
-  if (STORE.ledger.some((e) => e.bookingId === booking.id)) return;
-  const net = (booking.quote ?? 0) - (booking.platformFee ?? 0);
+  // §Settlement — the platform only credits money it actually collected
+  // (src/lib/data/booking-settlement.ts). An unfunded quote-only job posts
+  // NOTHING until its balance is confirmed; a job whose deposit covered the
+  // quote posts exactly what it always did.
+  const settlement = settlementFor(settlementFactsFor(booking));
+  const posted = STORE.ledger.filter((e) => e.bookingId === booking.id);
+  const already = posted.reduce((sum, e) => sum + e.amount, 0);
 
   // §11 — a job that came from a lead this worker BOUGHT gives part of the
   // platform fee back, so the effective take rate on the work it wins falls by
-  // what the lead cost. Attribution is the purchased offer (lead-market-store),
-  // and the amount is bounded by the fee itself.
-  const rebate = await resolveLeadRebate({
-    bookingId: booking.id,
-    workerId: booking.workerId,
-    leadId: booking.quoteRequestId,
-    feeMinor: booking.platformFee ?? 0,
-    currency: booking.currency,
-  });
-  if (rebate) {
-    demoRecordLeadRebate(rebate.rebate);
-    booking.leadRebateMinor = rebate.rebate.rebateMinor;
+  // what the lead cost. It rides the FIRST credit (one LeadRebate row per
+  // booking); a later settlement top-up re-prices the same rebate so the delta
+  // accounts for money already given back without recording it twice.
+  let rebateCredit = 0;
+  if (settlement.feeCollectedMinor > 0) {
+    const rebate = await resolveLeadRebate({
+      bookingId: booking.id,
+      workerId: booking.workerId,
+      leadId: booking.quoteRequestId,
+      feeMinor: settlement.feeCollectedMinor,
+      currency: booking.currency,
+    });
+    if (rebate) {
+      rebateCredit = rebate.creditMinor;
+      if (posted.length === 0) {
+        demoRecordLeadRebate(rebate.rebate);
+        booking.leadRebateMinor = rebate.rebate.rebateMinor;
+      }
+    }
   }
 
-  const amount = net + (rebate?.creditMinor ?? 0);
-  if (amount <= 0) return;
+  const target = settlement.workerNetTargetMinor + rebateCredit;
+  const delta = target - already;
+  if (delta <= 0) return; // nothing collected yet, or already fully credited
   const before = demoGetWorkerBalance(booking.workerId);
   STORE.ledgerSeq += 1;
   STORE.ledger.push({
     id: `led-${STORE.ledgerSeq}`,
     workerId: booking.workerId,
     bookingId: booking.id,
-    kind: "earning",
+    // One EARNING per booking; a later settlement balance tops it up as an
+    // ADJUSTMENT (mirrors @@unique([bookingId]) — never a second earning).
+    kind: posted.length === 0 ? "earning" : "adjustment",
     status: "posted",
-    amount,
-    balanceAfter: before.availableMinor + amount,
+    amount: delta,
+    balanceAfter: before.availableMinor + delta,
     currency: booking.currency,
-    // The reason names the rebate so a payout statement explains itself.
-    ...(rebate ? { reason: `Lead rebate −$${(rebate.rebate.rebateMinor / 100).toFixed(2)} (fee $${(rebate.rebate.feeMinor / 100).toFixed(2)} → $${(rebate.rebate.effectiveFeeMinor / 100).toFixed(2)})` } : {}),
+    reason:
+      settlement.reason +
+      (rebateCredit > 0 ? ` Lead rebate −$${(rebateCredit / 100).toFixed(2)} included.` : ""),
     time: new Date().toISOString(),
   });
 }
@@ -1108,6 +1217,12 @@ export async function demoCancelBooking(
   } else if (payment?.status === "pending") {
     payment.status = "cancelled";
   }
+  // §Settlement — a cancelled job's outstanding balance is not owed: void any
+  // pending settlement checkout. Money already collected through it stays as
+  // collected (the ledger already reflects it) and is refunded with the
+  // deposit policy above when the policy says so.
+  const settlementPayment = STORE.settlements.get(bookingId);
+  if (settlementPayment?.status === "pending") settlementPayment.status = "cancelled";
 
   if (input.by === "customer") {
     await notifyWorker(booking, "worker-cancelled");
@@ -1390,6 +1505,135 @@ export async function demoConfirmBookingPayment(
   return booking;
 }
 
+/* ────────────────────────── §Settlement: the balance, and the outside path ────────────────────────── */
+
+/**
+ * §Settlement — the platform is holding the job value in two legs, and this is
+ * the SECOND one: the balance the customer still owes when the deposit (if any)
+ * did not cover the quote. Minting is idempotent per method, exactly like the
+ * deposit checkout, and it reuses the same provider seam — so the OMT/Whish
+ * manual reference page and the admin's pending-payments card work unchanged.
+ *
+ * Only a finished job can be settled (the work is what earns the money), and a
+ * job already fully funded or declared settled-outside returns null.
+ */
+export async function demoCreateBookingSettlementCheckout(
+  bookingId: string,
+  method: "STRIPE" | "OMT" | "WHISH" = "OMT"
+): Promise<{ url: string } | null> {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  if (!booking) return null;
+  if (booking.status !== "completed" && booking.status !== "completionPending") return null;
+  const settlement = settlementFor(settlementFactsFor(booking));
+  if (!settlementNeedsCollection(settlement) || settlement.outstandingMinor <= 0) return null;
+
+  const existing = STORE.settlements.get(bookingId);
+  const requestedMethod = method === "OMT" ? "omt" : method === "WHISH" ? "whish" : "stripe";
+  if (existing?.status === "pending" && existing.providerRef && existing.checkoutUrl && existing.method === requestedMethod) {
+    return { url: existing.checkoutUrl };
+  }
+
+  const record: BookingSettlementPayment = existing ?? {
+    id: `set-${booking.id}`,
+    bookingId: booking.id,
+    amount: settlement.outstandingMinor,
+    currency: booking.currency,
+    status: "pending",
+    requestedAt: new Date().toISOString(),
+  };
+  // A re-mint re-prices against what is still outstanding and re-stamps the
+  // method (the customer may switch from OMT to Whish before paying).
+  record.amount = settlement.outstandingMinor;
+  record.status = "pending";
+  record.method = requestedMethod;
+  STORE.settlements.set(bookingId, record);
+
+  const base = typeof window === "undefined" ? "" : window.location.origin;
+  const result = await getPaymentProvider(method).createCheckout({
+    paymentId: record.id,
+    bookingId: booking.id,
+    amountMinor: record.amount,
+    currency: record.currency,
+    customerEmail: booking.customerEmail,
+    description: `${booking.number} — job balance`,
+    successUrl: `${base}/bookings?settled=1`,
+    cancelUrl: `${base}/bookings`,
+  });
+  record.providerRef = result.providerRef;
+  record.checkoutUrl = result.url;
+  return { url: result.url };
+}
+
+/**
+ * §Settlement — the balance landed (webhook or the admin confirming an OMT/
+ * Whish receipt). The booking's money is now real: the earnings credit runs
+ * again and pays the worker the difference between what is collected and what
+ * they have already been credited. Idempotent: a redelivered confirmation
+ * finds the payment already PAID and posts nothing.
+ */
+export async function demoConfirmBookingSettlement(
+  bookingId: string,
+  providerRef: string
+): Promise<Booking | null> {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  const record = STORE.settlements.get(bookingId);
+  if (!booking || !record) return null;
+  if (record.status === "paid") {
+    // Redelivery — make sure the ledger is square (a crash between the two
+    // steps must not leave the worker unpaid) and report success.
+    await creditEarnings(booking);
+    return withSlaSignal(booking);
+  }
+  if (record.status !== "pending") return null;
+
+  record.status = "paid";
+  record.providerRef = providerRef;
+  record.paidAt = new Date().toISOString();
+  booking.events.push({
+    status: "settled",
+    actorType: "system",
+    reason: `Job balance collected — $${(record.amount / 100).toFixed(2)}`,
+    time: new Date().toISOString(),
+  });
+  await creditEarnings(booking);
+  return withSlaSignal(booking);
+}
+
+/**
+ * §Settlement — the parties settled directly (cash on the doorstep). This is
+ * the explicit alternative to collecting through the platform, and it is
+ * deliberately honest about its economics: the platform collected nothing, so
+ * it credits the worker NOTHING, and its take rate becomes a CLAIM
+ * (`feeClaimMinor`) that an admin can pursue — never an accrual that quietly
+ * becomes a payout.
+ *
+ * Returns null when the job has no quote, is already settled outside, or was
+ * funded through the platform (there is nothing to declare).
+ */
+export function demoMarkBookingSettledOutside(
+  bookingId: string,
+  opts: { by?: "worker" | "admin"; reason?: string } = {}
+): Booking | null {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  if (!booking) return null;
+  const settlement = settlementFor(settlementFactsFor(booking));
+  if (settlement.state === "no-quote" || settlement.state === "funded" || settlement.state === "overpaid") return null;
+  if (booking.settledOutside) return null;
+
+  booking.settledOutside = true;
+  booking.settledOutsideAt = new Date().toISOString();
+  booking.events.push({
+    status: "settled",
+    actorType: opts.by ?? "worker",
+    reason: opts.reason ?? `Settled outside the platform — platform fee $${(settlement.feeMinor / 100).toFixed(2)} claimed`,
+    time: new Date().toISOString(),
+  });
+  // Any pending checkout is void — the balance is not coming through.
+  const record = STORE.settlements.get(bookingId);
+  if (record?.status === "pending") record.status = "cancelled";
+  return withSlaSignal(booking);
+}
+
 /**
  * §Lebanon — every PENDING deposit whose checkout was minted with a MANUAL
  * method (OMT/Whish): the customer paid offline with the reference, and the
@@ -1399,6 +1643,28 @@ export async function demoConfirmBookingPayment(
  */
 export function demoReconciliationBookingPayments(): ReconciliationPayment[] {
   const out: ReconciliationPayment[] = [];
+  // §Settlement — the balance leg belongs in the reconciliation export too
+  // (paid and pending rows both), or the ledger would not balance against what
+  // the platform says it collected.
+  for (const booking of STORE.bookings) {
+    const record = STORE.settlements.get(booking.id);
+    if (!record || !record.providerRef || (record.method !== "omt" && record.method !== "whish")) continue;
+    out.push({
+      id: record.id,
+      scope: "booking",
+      entityId: booking.id,
+      labelEn: `${booking.number} — job balance`,
+      labelAr: `${booking.number} — رصيد العمل`,
+      amount: record.amount,
+      currency: record.currency,
+      method: record.method,
+      reference: record.providerRef,
+      status: record.status,
+      createdAt: record.requestedAt,
+      ...(record.paidAt ? { paidAt: record.paidAt } : {}),
+      ...(record.refundedAt ? { refundedAt: record.refundedAt } : {}),
+    });
+  }
   for (const booking of STORE.bookings) {
     const payment = STORE.payments.get(booking.id);
     if (!payment || !payment.providerRef || (payment.method !== "omt" && payment.method !== "whish")) continue;
@@ -1424,6 +1690,28 @@ export function demoReconciliationBookingPayments(): ReconciliationPayment[] {
 
 export function demoPendingManualBookingPayments(): PendingManualPayment[] {
   const out: PendingManualPayment[] = [];
+  // §Settlement — a pending BALANCE rides the same admin queue as a pending
+  // deposit (same provider, same reference-then-confirm flow); the label says
+  // which leg it is so the admin confirms the right amount.
+  for (const booking of STORE.bookings) {
+    const record = STORE.settlements.get(booking.id);
+    if (!record || record.status !== "pending") continue;
+    if (record.method !== "omt" && record.method !== "whish") continue;
+    if (!record.providerRef) continue;
+    out.push({
+      id: record.id,
+      scope: "booking",
+      leg: "settlement",
+      entityId: booking.id,
+      labelEn: `${booking.number} — job balance`,
+      labelAr: `${booking.number} — رصيد العمل`,
+      amount: record.amount,
+      currency: record.currency,
+      method: record.method,
+      reference: record.providerRef,
+      createdAt: record.requestedAt,
+    });
+  }
   for (const booking of STORE.bookings) {
     const payment = STORE.payments.get(booking.id);
     if (!payment || payment.status !== "pending") continue;
@@ -1432,6 +1720,7 @@ export function demoPendingManualBookingPayments(): PendingManualPayment[] {
     out.push({
       id: payment.id,
       scope: "booking",
+      leg: "deposit",
       entityId: booking.id,
       // The label localizes via the booking's bilingual catalog serviceItem
       // (nameAr in the Arabic card row — the free-text jobTitle is a

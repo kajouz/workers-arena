@@ -3,6 +3,7 @@ import {
   demoAddSlot,
   demoAutoConfirmCompletions,
   demoConfirmBookingCompletion,
+  demoConfirmBookingPayment,
   demoCreateBookingRequest,
   demoGetWorkerBalance,
   demoRespondToBooking,
@@ -43,7 +44,11 @@ async function stagedBooking(quote = 8000, hourOffset = 36): Promise<Booking> {
     jobTitle: "Fix a leaking pipe under the kitchen sink",
   });
   if ("error" in created) throw new Error(`create failed: ${created.error}`);
-  await demoRespondToBooking(created.id, { accept: true, quote });
+  // §Settlement — the deposit covers the quote, so the job is FUNDED: the
+  // completion credit is money the platform actually collected. (An unfunded
+  // job credits nothing — tests/bookings.test.ts pins that case.)
+  await demoRespondToBooking(created.id, { accept: true, quote, deposit: quote });
+  await demoConfirmBookingPayment(created.id, "sim-deposit");
   await demoTransitionBooking(created.id, "inProgress");
   const staged = await demoTransitionBooking(created.id, "completed");
   if (!staged) throw new Error("stage failed");

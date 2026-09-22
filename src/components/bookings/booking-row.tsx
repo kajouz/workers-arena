@@ -23,6 +23,8 @@ import { CallButton } from "@/components/calling/call-button";
 import { BookingEmailButton } from "./booking-email-button";
 import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
+import { settlementFor, settlementNeedsCollection } from "@/lib/data/booking-settlement";
+import { BookingSettlementNote } from "./booking-settlement-note";
 import { BookingSlaCountdown } from "./booking-sla-countdown";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 import type { CustomerBookingRow } from "@/app/[locale]/(app)/bookings/page";
@@ -47,6 +49,27 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
   // §11 — the part of the stamped fee given back because this job came from a
   // lead the worker bought (0 for every other job).
   const rebateMinor = booking.leadRebateMinor ?? 0;
+
+  // §Settlement — where this job's money stands. The verdict comes from the ONE
+  // engine both adapters credit from (src/lib/data/booking-settlement.ts), so
+  // the amount this card asks for is exactly the amount whose collection
+  // releases the worker's payout — the two can never disagree.
+  const settlement = settlementFor({
+    quoteMinor: booking.quote ?? null,
+    feeMinor: booking.platformFee ?? null,
+    depositPaidMinor: booking.paymentStatus === "paid" ? booking.deposit ?? 0 : 0,
+    depositRefundedMinor: booking.paymentStatus === "refunded" ? booking.deposit ?? 0 : 0,
+    settlementPaidMinor: booking.settlement?.status === "paid" ? booking.settlement.amount : 0,
+    settlementRefundedMinor: booking.settlement?.status === "refunded" ? booking.settlement.amount : 0,
+    settlementPendingMinor: booking.settlement?.status === "pending" ? booking.settlement.amount : 0,
+    settledOutside: booking.settledOutside ?? false,
+    currency: booking.currency,
+  });
+  // Only a FINISHED job asks for its balance: before the work is done the
+  // customer has not been given anything to pay for.
+  const owesBalance =
+    settlementNeedsCollection(settlement) &&
+    (booking.status === "completed" || booking.status === "completionPending");
 
   const startCheckout = () => {
     if (paying) return;
@@ -186,6 +209,18 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
               <div className="mt-3">
                 <RescheduleDialog booking={booking} />
               </div>
+            )}
+
+            {/* §Settlement — the job is done but the platform has not collected
+                the job value: paying this balance is what releases the payout. */}
+            {owesBalance && (
+              <BookingSettlementNote
+                bookingId={booking.id}
+                role="customer"
+                outstandingMinor={settlement.outstandingMinor}
+                currency={booking.currency}
+                workerNetMinor={settlement.workerNetTargetMinor + rebateMinor}
+              />
             )}
 
             {/* §2.3 customer-confirms-completion — the worker staged the job

@@ -7,8 +7,9 @@
  * trail the admin page renders — so the customer and admin tell one story.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup, within } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, within, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import { useToastStore } from "@/components/ui/toast";
 import { BookingRow } from "@/components/bookings/booking-row";
 import { BookingRow as WorkerBookingRow } from "@/components/dashboard/bookings/booking-row";
 import { LocaleProvider } from "@/components/providers/locale-provider";
@@ -16,7 +17,7 @@ import type { CustomerBookingRow } from "@/app/[locale]/(app)/bookings/page";
 import type { WorkerEmailPreview } from "@/app/[locale]/(app)/dashboard/page";
 import type { Booking, Worker } from "@/lib/data/types";
 
-const { payBookingActionMock, confirmCompletionActionMock, availableSlotsActionMock, rescheduleBookingActionMock, respondBookingActionMock, submitQuoteActionMock, cancelBookingActionMock, transitionBookingActionMock, emailBookingAuditActionMock, sendBookingMessageActionMock, markChatReadActionMock, setChatTypingActionMock, getChatPresenceActionMock, refreshMock } = vi.hoisted(() => ({
+const { payBookingActionMock, confirmCompletionActionMock, availableSlotsActionMock, rescheduleBookingActionMock, respondBookingActionMock, submitQuoteActionMock, cancelBookingActionMock, transitionBookingActionMock, emailBookingAuditActionMock, markBookingSettledOutsideActionMock, sendBookingMessageActionMock, markChatReadActionMock, setChatTypingActionMock, getChatPresenceActionMock, refreshMock } = vi.hoisted(() => ({
   payBookingActionMock: vi.fn(),
   confirmCompletionActionMock: vi.fn(),
   availableSlotsActionMock: vi.fn(),
@@ -26,6 +27,7 @@ const { payBookingActionMock, confirmCompletionActionMock, availableSlotsActionM
   cancelBookingActionMock: vi.fn(),
   transitionBookingActionMock: vi.fn(),
   emailBookingAuditActionMock: vi.fn(),
+  markBookingSettledOutsideActionMock: vi.fn(),
   sendBookingMessageActionMock: vi.fn(),
   markChatReadActionMock: vi.fn(async () => ({ ok: true, count: 0 })),
   setChatTypingActionMock: vi.fn(async () => ({ ok: true })),
@@ -46,6 +48,7 @@ vi.mock("@/app/actions/bookings", () => ({
   cancelBookingAction: cancelBookingActionMock,
   transitionBookingAction: transitionBookingActionMock,
   emailBookingAuditAction: emailBookingAuditActionMock,
+  markBookingSettledOutsideAction: markBookingSettledOutsideActionMock,
   sendBookingMessageAction: sendBookingMessageActionMock,
   markChatReadAction: markChatReadActionMock,
   setChatTypingAction: setChatTypingActionMock,
@@ -481,5 +484,74 @@ describe("BookingRow — the deposit amount follows the numeral convention", () 
     const line = screen.getByText(/12,345 USD/);
     expect(line).toBeInTheDocument();
     expect(line.textContent ?? "").not.toMatch(/[\u0660-\u0669]/);
+  });
+});
+
+describe("WorkerBookingRow — §Settlement: the payout waits on the customer", () => {
+  const worker = {
+    id: "w1",
+    slug: "khaled-al-harbi-plumbing",
+    priceMin: 80,
+    nameEn: "Khaled Al-Harbi",
+    nameAr: "خالد الحربي",
+    email: "khaled@plumbfix.sa",
+  } as unknown as Worker;
+
+  function renderWorker(booking: Booking) {
+    return render(
+      <LocaleProvider locale="en" dir="ltr">
+        <WorkerBookingRow booking={booking} messages={[]} emailPreview={null} worker={worker} nowSeed={Date.now()} />
+      </LocaleProvider>
+    );
+  }
+
+  it("names the outstanding balance and why the payout is waiting", () => {
+    renderWorker(makeBooking()); // completed, $150 quote, nothing collected
+
+    expect(screen.getByText("Waiting for the customer — $150 outstanding")).toBeInTheDocument();
+    expect(screen.getByText(/never out of your pocket/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh status" })).toBeInTheDocument();
+    // The worker cannot pay the customer's balance — there is no pay control.
+    expect(screen.queryByRole("button", { name: /^Pay / })).not.toBeInTheDocument();
+  });
+
+  it("shows nothing to chase on a job the platform already collected for", () => {
+    renderWorker(makeBooking({ platformFee: 1_050, paymentStatus: "paid", deposit: 15_000 }));
+
+    expect(screen.queryByText(/Waiting for the customer/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "We settled this directly" })).not.toBeInTheDocument();
+  });
+
+  it("shows nothing to chase once the parties settled directly", () => {
+    renderWorker(makeBooking({ settledOutside: true }));
+
+    expect(screen.queryByText(/Waiting for the customer/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "We settled this directly" })).not.toBeInTheDocument();
+  });
+
+  it("records a job settled directly, with the consequence spelled out first", async () => {
+    markBookingSettledOutsideActionMock.mockResolvedValue({ ok: true });
+    renderWorker(makeBooking());
+
+    fireEvent.click(screen.getByRole("button", { name: "We settled this directly" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Settled directly with the customer?");
+    // The declaration is consequential, so the dialog says what it costs.
+    expect(dialog).toHaveTextContent(/credits no earnings/);
+    expect(markBookingSettledOutsideActionMock).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByPlaceholderText("How was it paid? (optional)"), {
+      target: { value: "cash on site" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Record it as settled directly" }));
+
+    await waitFor(() =>
+      expect(markBookingSettledOutsideActionMock).toHaveBeenCalledWith("bk-1", "cash on site")
+    );
+    await waitFor(() =>
+      expect(
+        useToastStore.getState().toasts.some((toast) => toast.title === "Recorded — this job is settled directly.")
+      ).toBe(true)
+    );
   });
 });

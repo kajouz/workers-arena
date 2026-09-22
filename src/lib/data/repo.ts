@@ -15,6 +15,7 @@ import {
   pushNotification,
 } from "./notifications";
 import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCode } from "./activity";
+import { payoutGuard, type Settlement, type SettlementJob } from "./booking-settlement";
 import { reviewBody, scanReviewText, visibleReviews } from "./review-moderation";
 import {
   getChatTyping as getChatTypingFlag,
@@ -47,6 +48,12 @@ import {
   demoGetWorkerBookings,
   demoGetWorkerSlots,
   demoGetWorkerBalance,
+  demoConfirmBookingSettlement,
+  demoCreateBookingSettlementCheckout,
+  demoGetBookingSettlementPayment,
+  demoMarkBookingSettledOutside,
+  demoSettlementFor,
+  demoSettlementReconciliation,
   demoRequestPayout,
   demoDecidePayout,
   demoGetWorkerPayouts,
@@ -150,6 +157,7 @@ import type {
   BookingMessageInput,
   BookingRequestInput,
   BookingFunnel,
+  BookingSettlementPayment,
   QuoteBidInput,
   QuoteRequest,
   QuoteRequestInput,
@@ -1026,10 +1034,91 @@ export async function getPlatformFeeStats(days = 30): Promise<PlatformFeeStats> 
   return demoGetPlatformFeeStats(clamped);
 }
 
+/* ───────────────────── §Settlement — the money behind a job ───────────────────── */
+
+/**
+ * Where a booking's money stands (src/lib/data/booking-settlement.ts). Every
+ * money surface reads this instead of the raw payment rows: the customer's
+ * pay-to-release card, the worker's "awaiting settlement" banner, the payout
+ * guard and the admin reconciliation.
+ */
+export async function getBookingSettlement(bookingId: string): Promise<Settlement | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaSettlementFor(bookingId);
+  return demoSettlementFor(bookingId);
+}
+
+/**
+ * Mint the checkout for a finished job's outstanding balance (the second
+ * payment leg). Same rails as the deposit: Stripe-shaped URL, or a signed
+ * OMT/Whish manual reference the admin confirms from the pending-payments card.
+ */
+export async function createBookingSettlementCheckout(
+  bookingId: string,
+  method: "STRIPE" | "OMT" | "WHISH" = "OMT"
+): Promise<{ url: string } | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaCreateBookingSettlementCheckout(bookingId, method);
+  return demoCreateBookingSettlementCheckout(bookingId, method);
+}
+
+/**
+ * The balance landed (webhook or admin confirming an OMT/Whish receipt). The
+ * booking's earnings are (re)computed against what is now collected — this is
+ * the call that can finally pay a worker for a quote-only job.
+ */
+export async function confirmBookingSettlement(
+  bookingId: string,
+  providerRef: string
+): Promise<Booking | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaConfirmBookingSettlement(bookingId, providerRef);
+  return demoConfirmBookingSettlement(bookingId, providerRef);
+}
+
+/**
+ * Declare that the parties settled directly (cash). The platform collected
+ * nothing, so it credits nothing and its fee becomes a claim.
+ */
+export async function markBookingSettledOutside(
+  bookingId: string,
+  opts: { by?: "worker" | "admin"; reason?: string } = {}
+): Promise<Booking | null> {
+  if (realDataEnabled) return (await prismaRepo()).prismaMarkBookingSettledOutside(bookingId, opts);
+  return demoMarkBookingSettledOutside(bookingId, opts);
+}
+
+/**
+ * The settlement payment record for a booking (null when none was minted) —
+ * the customer's card needs the reference/method to render its instructions.
+ */
+export async function getBookingSettlementPayment(bookingId: string): Promise<BookingSettlementPayment | null> {
+  if (realDataEnabled) {
+    const booking = await (await prismaRepo()).prismaGetBookingById(bookingId);
+    return booking?.settlement ?? null;
+  }
+  return demoGetBookingSettlementPayment(bookingId);
+}
+
+/**
+ * §Settlement — the admin reconciliation read (docs/booking-take-rate.md §6).
+ *
+ * Every job that finished in the window with its money spelled out: what the
+ * customer paid, what the platform actually holds, what the take rate *says* it
+ * earned, and what the earnings ledger already credits. The panel tallies it
+ * with `reconcileSettlements` / `reconciliationQueue` (the pure engine), so the
+ * numbers a reader sees and the numbers the ledger acts on are the same ones.
+ */
+export async function getSettlementReconciliation(days = 30): Promise<SettlementJob[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaSettlementReconciliation(days);
+  return demoSettlementReconciliation(days);
+}
+
 /**
  * Worker payouts (docs/payouts.md) — the worker's spendable balance from the
  * ledger: available = Σ posted earnings/adjustments − Σ processed withdrawals;
  * pending = Σ pending withdrawals (reserved while in review).
+ *
+ * The balance is FUNDED BY CONSTRUCTION: `creditEarnings` only ever posts money
+ * the platform collected (src/lib/data/booking-settlement.ts), so there is no
+ * path that accrues a payout against cash the platform never received.
  */
 export async function getWorkerBalance(workerId: string): Promise<WorkerBalance> {
   if (realDataEnabled) return (await prismaRepo()).prismaGetWorkerBalance(workerId);
@@ -1042,6 +1131,16 @@ export async function requestPayout(
   amountMinor: number,
   reason?: string
 ): Promise<LedgerEntry | { error: "invalid" | "insufficient" }> {
+  // §Settlement — the guard has ONE statement (payoutGuard), and it counts a
+  // pending reservation as unspendable, so the rule cannot drift between the
+  // adapters or from the UI's affordability hint.
+  const balance = await getWorkerBalance(workerId);
+  const allowed = payoutGuard({
+    availableMinor: balance.availableMinor,
+    pendingMinor: balance.pendingMinor,
+    requestedMinor: amountMinor,
+  });
+  if (!allowed.ok) return { error: allowed.error };
   if (realDataEnabled) return (await prismaRepo()).prismaRequestPayout(workerId, amountMinor, reason);
   return demoRequestPayout(workerId, amountMinor, reason);
 }

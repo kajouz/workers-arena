@@ -35,6 +35,8 @@ import type { SessionUser } from "@/lib/auth-demo";
 import type { AnalyticsOverview, Campaign, CampaignPayment, LedgerEntry, PendingManualPayment, PlatformFeeStats, Worker } from "@/lib/data/types";
 import type { SubscriptionAnalytics } from "@/lib/data/subscription-lifecycle";
 import { ManualPaymentsCard } from "@/components/admin/manual-payments-card";
+import { SettlementReconciliationCard } from "@/components/admin/settlement-reconciliation";
+import type { SettlementJob } from "@/lib/data/booking-settlement";
 import { StatCard } from "./stat-card";
 import { WorkerManagementTable } from "./worker-management-table";
 import { AreaChart, BarList, Donut } from "./charts";
@@ -159,6 +161,7 @@ const FUNNEL_STATUS_COLOR: Record<BookingStatus, string> = {
   rescheduled: "#38bdf8", // unused in the card (audit-only) — kept for the Record type
   message: "#0ea5e9", // unused in the card (audit-only) — kept for the Record type
   refunded: "#f59e0b", // unused in the card (audit-only) — kept for the Record type
+  settled: "#10b981", // unused in the card (audit-only) — kept for the Record type
 };
 
 /**
@@ -218,8 +221,11 @@ export function AdminDashboard({
   whatsappDeliveryStats,
   whatsappHealth,
   reviewModerationStats,
+  settlementJobs,
 }: {
   session: SessionUser;
+  /** §Settlement — the collected-vs-stamped audit over recently finished jobs. */
+  settlementJobs?: SettlementJob[];
   /** Review-moderation backlog — pending count and risk/age bands. */
   reviewModerationStats?: QueueStats;
   analytics: AnalyticsOverview;
@@ -1035,6 +1041,9 @@ export function AdminDashboard({
           {/* §Lebanon — PENDING OMT/Whish manual payments: the admin's confirm
               is the manual twin of a provider webhook (no webhook exists). */}
           <ManualPaymentsCard payments={pendingManualPayments} />
+
+          {/* §Settlement — fees stamped vs. actually collected (docs/booking-take-rate.md §6) */}
+          {settlementJobs && <SettlementReconciliationCard jobs={settlementJobs} />}
 
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardHeader>

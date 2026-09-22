@@ -7,6 +7,7 @@ import {
   changeWorkerPlan,
   cancelPendingPurchase,
   confirmBookingPayment,
+  confirmBookingSettlement,
   confirmCampaignPayment,
   confirmPurchase,
   createCampaign,
@@ -323,13 +324,21 @@ export async function confirmManualPaymentAction(
 
   let ok = false;
   if (payment.scope === "booking") {
-    ok = (await confirmBookingPayment(payment.entityId, payment.reference, { by, byId })) !== null;
+    // §Settlement — a booking can have TWO manual payments waiting at once
+    // (the deposit before the job, the balance after). Confirming the balance
+    // must run the settlement path, not the deposit path: they flip different
+    // Payment rows and only the settlement leg can release the worker's pay.
+    ok =
+      payment.leg === "settlement"
+        ? (await confirmBookingSettlement(payment.entityId, payment.reference)) !== null
+        : (await confirmBookingPayment(payment.entityId, payment.reference, { by, byId })) !== null;
   } else if (payment.scope === "campaign") {
     ok = (await confirmCampaignPayment(payment.entityId, payment.reference, { by, byId })) !== null;
   } else {
     ok = await confirmPurchase(payment.entityId, payment.reference, { by, byId });
   }
   revalidatePath("/admin");
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard");
   revalidatePath("/bookings");
   return { ok };

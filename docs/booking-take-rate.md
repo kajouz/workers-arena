@@ -174,15 +174,51 @@ Follow the existing exhaustive-key convention: add to `en.ts`, and `ar.ts` is en
 
 ---
 
-## 6. Settlement & money flow (v1)
+## 6. Settlement & money flow — the job's money in two legs
+
+> **Rewritten.** v1 said a quote-only job had "no upfront payment today" and still minted its fee at `completed`. The code that shipped from that line credited `quote − platformFee` to the worker's **withdrawable balance** without checking whether any money had been received — so a quote-only job accrued a payout the platform never collected, and an approved payout paid it out of platform funds. The take rate was only ever real when the platform held the money. This is now enforced by `src/lib/data/booking-settlement.ts`.
+
+### The rule
+
+```
+the ledger never credits more than the platform has collected,
+and the fee is only ever taken out of money actually received.
+```
+
+`settlementFor(facts)` is the single decision point (pure, unit-tested in `tests/booking-settlement.test.ts`); both adapters' `creditEarnings` call it, and so do the customer row, the worker banner, the payout guard and the admin reconciliation — no surface reads the raw payment rows to decide whether a worker can be paid.
+
+| State | Meaning | Ledger |
+|---|---|---|
+| `funded` | collected ≥ quote (a deposit that covered the job) | credits `collected − fee` — identical to the old behaviour |
+| `part-funded` | the deposit landed, the balance did not | credits the collected part now, tops up by ADJUSTMENT when the balance is confirmed |
+| `awaiting-customer` / `awaiting-confirmation` | nothing collected (a manual reference may be issued) | credits **nothing** |
+| `outside-platform` | the parties settled in cash; `Booking.settledOutside` | credits nothing; the fee becomes a **claim** (`feeClaimMinor`), never an accrual |
+| `overpaid` | collected > quote | credits `collected − fee`, flags a refund |
+| `no-quote` | quote-less accept | nothing to collect |
+
+### The two legs
+
+| Leg | Column | Rails |
+|---|---|---|
+| **Deposit** (before the job) | `Booking.paymentId` | the job's own quote at checkout: Stripe-shaped URL, or a signed OMT/Whish reference |
+| **Settlement** (after the job) | `Booking.settlementPaymentId` | the outstanding balance, `BookingStatus.SETTLED` on the trail |
+
+A booking's deposit and its settlement are **different payments**, so `Booking.paymentId` and `Booking.settlementPaymentId` are separate unique FKs and the admin's pending-payments queue carries a `leg` (`"deposit"` | `"settlement"`) so confirming the balance can never be mistaken for confirming the deposit.
+
+`creditEarnings` runs at whichever comes **last** — completion or collection — and is idempotent either way: one `EARNING` per booking (`@@unique([bookingId])`), settlement top-ups as `ADJUSTMENT` rows, and a redelivered webhook or a second admin confirmation is a no-op (the settlement flip is a CAS on `PENDING`).
 
 | Path | Who pays what | Fee collected |
 |---|---|---|
-| Deposit job (M3) | customer pays quote total at checkout | fee rides the existing `Payment`/`Invoice` — add a `platformFee` line to the booking invoice (`WA-*`) |
-| Quote-only job | no upfront payment today | fee invoice (scope `bookingFee`, `INV-*`-style or a new sequence) minted at `transitionBooking(completed)` |
-| Cancellation | deposit refunded per M4 policy | fee refunded with it (v1: informational — the fee is "earned" only at completion) |
+| Deposit job (M3) | customer pays at checkout; a deposit covering the quote funds the job outright | from the collected deposit |
+| Quote-only job | the customer settles the balance through the platform after completion (`payBookingBalanceAction` → manual rails → admin confirms) | from the collected balance — the payout is released by that collection |
+| Cash job | the parties settle directly; the worker/admin declares it (`settledOutside`) | as a **claim** (`feeClaimPlan` can settle it against the worker's credit balance) |
+| Cancellation | deposit refunded per M4 policy; a pending settlement checkout is voided | the fee follows the collected money — nothing collected, nothing kept |
 
-Out of scope for v1 (noted for a later wave): escrow/milestone payout splitting at `completed`, per-job payout records, and a platform `Revenue` ledger — the `Invoice` rows + funnel already give reporting.
+### Recovering the fee on an outside-platform job
+
+The platform handled no money, so it holds no fee — but it did provide the match. `feeClaimPlan(claimMinor, balanceCredits)` turns the claim into a credit spend where the worker has credits (credits are prepaid money, so spending them collects the fee for real) and leaves the remainder as a claim the admin can pursue or write off. Claims are reported by the reconciliation view rather than silently forgotten.
+
+Out of scope (unchanged): escrow/milestone payout splitting, per-job payout records, and a platform `Revenue` ledger — the `Invoice` rows, `Payment` legs and funnel still give reporting.
 
 ---
 

@@ -30,8 +30,12 @@ import {
   cancelBooking,
   confirmBookingCompletion,
   confirmBookingPayment,
+  confirmBookingSettlement,
   createBookingCheckout,
   createBookingRequest,
+  createBookingSettlementCheckout,
+  getBookingSettlement,
+  markBookingSettledOutside,
   createQuoteRequest,
   decidePayout,
   expireQuoteRequests,
@@ -1279,11 +1283,20 @@ describe("rescheduleBookingAction — server-action zod layer", () => {
 });
 
 describe("worker payouts — docs/payouts.md (demo adapter)", () => {
+  /**
+   * Complete a job whose money the platform actually holds.
+   *
+   * §Settlement — the deposit covers the quote, so the job is FUNDED: completing
+   * it credits the worker exactly as it always did. (An unfunded quote-only job
+   * credits nothing — its own test below pins that.) The deposit is what makes
+   * the payout real, so every payout assertion here goes through a paid one.
+   */
   async function completeBooking(quote = 8000) {
     const w = khaled();
     const available = (await getWorkerSlots(w.id)).find((s) => s.status === "available")!;
     const created = bookingOf(await createBookingRequest(request(available.id)));
-    await respondToBooking(created.id, { accept: true, quote });
+    await respondToBooking(created.id, { accept: true, quote, deposit: quote });
+    await confirmBookingPayment(created.id, "sim-deposit", { by: ACTING.worker.name, byId: ACTING.worker.id });
     await transitionBooking(created.id, "inProgress");
     await transitionBooking(created.id, "completed"); // §2.3 — staged
     await confirmBookingCompletion(created.id); // customer confirms → completed
@@ -1307,6 +1320,60 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     await transitionBooking(created.id, "completed"); // illegal (terminal) → null
     expect(await confirmBookingCompletion(created.id)).toBeNull(); // already completed
     expect((await getWorkerBalance(khaled().id)).availableMinor).toBe(7440);
+  });
+
+  it("an UNFUNDED quote-only job credits nothing — the platform holds no money to pay from", async () => {
+    const w = khaled();
+    const available = (await getWorkerSlots(w.id)).find((s) => s.status === "available")!;
+    const created = bookingOf(await createBookingRequest(request(available.id)));
+    await respondToBooking(created.id, { accept: true, quote: 8000 }); // no deposit → nothing collected
+    await transitionBooking(created.id, "inProgress");
+    await transitionBooking(created.id, "completed");
+    await confirmBookingCompletion(created.id);
+
+    // The job is done and the customer owes the balance — but the ledger stays
+    // empty until that balance is collected: the platform never pays out cash
+    // it has not received.
+    expect((await getWorkerBalance(w.id)).availableMinor).toBe(0);
+    const settlement = await getBookingSettlement(created.id);
+    expect(settlement?.state).toBe("awaiting-customer");
+    expect(settlement?.outstandingMinor).toBe(8000);
+    expect(settlement?.feeMinor).toBe(560);
+
+    // Collecting the balance through the platform is what releases the payout.
+    const checkout = await createBookingSettlementCheckout(created.id, "OMT");
+    expect(checkout?.url).toContain("omt");
+    const paid = await confirmBookingSettlement(created.id, "OMT-SET-1");
+    expect(paid).not.toBeNull();
+    expect((await getWorkerBalance(w.id)).availableMinor).toBe(7440);
+    expect((await getBookingSettlement(created.id))?.state).toBe("funded");
+
+    // Idempotent: a redelivered confirmation cannot pay twice.
+    await confirmBookingSettlement(created.id, "OMT-SET-1");
+    expect((await getWorkerBalance(w.id)).availableMinor).toBe(7440);
+  });
+
+  it("a job settled outside the platform credits nothing and claims the fee", async () => {
+    const w = khaled();
+    const available = (await getWorkerSlots(w.id)).find((s) => s.status === "available")!;
+    const created = bookingOf(await createBookingRequest(request(available.id)));
+    await respondToBooking(created.id, { accept: true, quote: 8000 });
+    await transitionBooking(created.id, "inProgress");
+    await transitionBooking(created.id, "completed");
+    await confirmBookingCompletion(created.id);
+
+    const marked = await markBookingSettledOutside(created.id, { by: "worker" });
+    expect(marked?.settledOutside).toBe(true);
+    // Cash changed hands off-platform: no payout is owed, and the fee the
+    // platform stamped is a CLAIM it can pursue, never an accrual it pays.
+    expect((await getWorkerBalance(w.id)).availableMinor).toBe(0);
+    const settlement = await getBookingSettlement(created.id);
+    expect(settlement?.state).toBe("outside-platform");
+    expect(settlement?.feeClaimMinor).toBe(560);
+    expect(settlement?.workerNetTargetMinor).toBe(0);
+    // Declaring it twice is a no-op, and funding it now is impossible.
+    expect(await markBookingSettledOutside(created.id)).toBeNull();
+    expect(await createBookingSettlementCheckout(created.id, "OMT")).toBeNull();
   });
 
   it("a quote-less completed job credits nothing (no entry)", async () => {
@@ -1382,7 +1449,10 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
           jobTitle: "Rewire a room",
         })) ?? { error: "not-found" }
       );
-      await respondToBooking(created.id, { accept: true, quote: 10000 });
+      // §Settlement — fund the job (deposit = quote) so the reduced-fee credit
+      // is real money the platform is holding.
+      await respondToBooking(created.id, { accept: true, quote: 10000, deposit: 10000 });
+      await confirmBookingPayment(created.id, "sim-deposit", { by: ACTING.worker.name, byId: ACTING.worker.id });
       await transitionBooking(created.id, "inProgress");
       await transitionBooking(created.id, "completed"); // staged
       await confirmBookingCompletion(created.id);
@@ -1644,6 +1714,6 @@ describe("multi-candidate quotes (demo adapter + seams)", () => {
     const funnel = await getBookingFunnel(30);
     expect(funnel.counts.quoting).toBe(0); // the quote booking is created now (in-window) — but it sits in quoting…
     expect(funnel.counts.quoted).toBeGreaterThanOrEqual(1);
-    expect(Object.keys(funnel.counts)).toHaveLength(14); // every BookingStatus key incl. quoting/quoted + the audit-only message/refunded keys
+    expect(Object.keys(funnel.counts)).toHaveLength(15); // every BookingStatus key incl. quoting/quoted + the audit-only message/refunded/settled keys
   });
 });

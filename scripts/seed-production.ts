@@ -155,12 +155,40 @@ async function main() {
     { slug: "nadia-haddad-painting", title: "Living room painting", customerName: "Rima Jaber", quote: 30000, fee: 2100 },
   ];
 
+  /**
+   * §Settlement — give a completed demo job the deposit that funded it. The
+   * platform may only credit what it collected (src/lib/data/booking-settlement.ts),
+   * so a completed job with an earnings row and no Payment is the exact
+   * unfunded accrual that engine exists to prevent — and the admin
+   * reconciliation reports it as unbacked credit, which meant a fresh install
+   * opened on a red banner. Idempotent: it only fires when the link is missing.
+   */
+  async function fundBooking(bookingId: string, num: string, quote: number, paidAt: Date): Promise<boolean> {
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking || booking.paymentId) return false;
+    const deposit = await prisma.payment.create({
+      data: {
+        amount: quote,
+        currency: "USD",
+        method: "OMT",
+        status: "PAID",
+        providerRef: `SEED-${num}`,
+        paidAt,
+        metadata: { bookingId, kind: "deposit", source: "production-seed" },
+      },
+    });
+    await prisma.booking.update({ where: { id: bookingId }, data: { paymentId: deposit.id } });
+    return true;
+  }
+
   for (let i = 0; i < BOOKINGS.length; i++) {
     const b = BOOKINGS[i];
     const num = `BK-${9000 + i}`;
     const existing = await prisma.booking.findFirst({ where: { number: num } });
     if (existing) {
-      console.log(`  ✓ Booking ${num} already exists`);
+      // Heal a booking seeded before this step (production already has them).
+      const funded = await fundBooking(existing.id, num, b.quote, existing.startAt ?? existing.createdAt);
+      console.log(funded ? `  ✓ Funded existing booking ${num}` : `  ✓ Booking ${num} already exists`);
       continue;
     }
 
@@ -193,6 +221,9 @@ async function main() {
         },
       },
     });
+
+    // §Settlement — fund the job before crediting the worker (see fundBooking).
+    await fundBooking(booking.id, num, b.quote, completedAt);
 
     // Create ledger earning entry
     const earnings = b.quote - b.fee;

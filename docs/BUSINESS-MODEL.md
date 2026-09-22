@@ -64,9 +64,11 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Business | **4% reduced rate** | $5 | $300 |
 
 - Applied at **accept-with-quote** (immutable snapshot)
-- Collected at **booking completion**
+- **Collected from money the platform actually holds** — a job's value arrives in two legs (the deposit before the work, the balance after it), and the ledger credits `collected − fee`, never more (`src/lib/data/booking-settlement.ts`)
 - Admin can set per-category, per-promotion overrides
 - Fee snapshot is auditable (`PlatformFeeSnapshot` model)
+
+**Collection integrity (the take rate is only real when the platform is the payer).** The fee is a deduction from money received, so a job whose value the platform never collected is not payable: `awaiting-customer`/`awaiting-confirmation` credit nothing, the customer is asked to settle through the platform (OMT/Whish, admin-confirmed — the `Booking.settlementPaymentId` leg), and a job settled in cash between the parties is recorded as `settledOutside`, where the platform credits nothing and carries its fee as a **claim** the admin can settle against the worker's credit balance (`feeClaimPlan`) or write off. The engine is pure, unit-tested (`tests/booking-settlement.test.ts`) and called by both adapters, so the customer's pay-to-release card, the worker's payout and the admin's reconciliation can never disagree about whether a job is funded.
 
 ### 2.3 Lead marketplace — qualified leads as a product
 

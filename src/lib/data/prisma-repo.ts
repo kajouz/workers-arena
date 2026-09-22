@@ -56,6 +56,13 @@ import { Prisma, type $Enums } from "@prisma/client";
 import { FEE_EXEMPT_PLANS } from "./booking-ui";
 import { loadActiveFeeRuleSet, priceQuoteForSnapshot } from "./fee-rules-store";
 import { resolveLeadRebate, type LeadRebateResolution } from "./lead-rebate";
+import {
+  settlementFor,
+  settlementJob,
+  settlementNeedsCollection,
+  type Settlement,
+  type SettlementJob,
+} from "./booking-settlement";
 import { reviewBody, scanReviewText } from "./review-moderation";
 import { applyPromotionCreditGrant } from "./credit-ledger";
 import { feeSnapshotCreateData } from "./fee-rules-prisma";
@@ -110,6 +117,7 @@ import {
   type BookingMessage,
   type BookingMessageInput,
   type BookingPayment,
+  type BookingSettlementPayment,
   type BookingFunnel,
   type LedgerEntry,
   type PlatformFeeStats,
@@ -805,6 +813,7 @@ const BOOKING_STATUS_DB_TO_APP: Record<string, BookingStatus> = {
   RESCHEDULED: "rescheduled",
   MESSAGE: "message", // audit-event only — a chat message was sent (§2.3)
   REFUNDED: "refunded", // audit-event only — admin refunded the paid deposit (§2.4)
+  SETTLED: "settled", // audit-event only — the job's balance was collected / settled outside (§Settlement)
 };
 
 const BOOKING_STATUS_APP_TO_DB: Record<BookingStatus, $Enums.BookingStatus> = {
@@ -822,6 +831,7 @@ const BOOKING_STATUS_APP_TO_DB: Record<BookingStatus, $Enums.BookingStatus> = {
   rescheduled: "RESCHEDULED",
   message: "MESSAGE", // audit-event only — a chat message was sent (§2.3)
   refunded: "REFUNDED", // audit-event only — admin refunded the paid deposit (§2.4)
+  settled: "SETTLED", // audit-event only — the job's balance was collected / settled outside (§Settlement)
 };
 
 const QUOTE_STATUS_DB_TO_APP: Record<string, QuoteStatus> = {
@@ -923,6 +933,20 @@ export interface PrismaBookingRow {
   quoteRequestId?: string | null;
   /** §2.2 request SLA — the nudge stamp (null/absent = never nudged). */
   lastSlaNudgeAt?: Date | null;
+  /** §Settlement — the balance leg + the outside-platform declaration. */
+  settlementPaymentId?: string | null;
+  settledOutside?: boolean | null;
+  settledOutsideAt?: Date | null;
+  settlementPayment?: {
+    id: string;
+    amount: number;
+    currency: string;
+    status: string;
+    method: string | null;
+    providerRef: string | null;
+    createdAt: Date;
+    paidAt?: Date | null;
+  } | null;
   serviceItem?: {
     nameEn: string;
     nameAr: string;
@@ -1076,6 +1100,27 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
     // §Lebanon — the deposit payment method (set once a checkout was minted);
     // the dispute view gates the manual OMT/Whish Confirm-payment action.
     paymentMethod: row.payment?.method ? toDomainPaymentMethod(row.payment.method) : undefined,
+    // §Settlement — the balance leg and the outside-platform declaration. Both
+    // are read by `settlementFor()` through the seam, never interpreted here.
+    ...(row.settledOutside ? { settledOutside: true } : {}),
+    ...(row.settledOutsideAt ? { settledOutsideAt: row.settledOutsideAt.toISOString() } : {}),
+    ...(row.settlementPayment
+      ? {
+          settlement: {
+            id: row.settlementPayment.id,
+            bookingId: row.id,
+            amount: row.settlementPayment.amount,
+            currency: row.settlementPayment.currency as CurrencyCode,
+            status: row.settlementPayment.status.toLowerCase() as BookingSettlementPayment["status"],
+            ...(row.settlementPayment.method
+              ? { method: toDomainPaymentMethod(row.settlementPayment.method) }
+              : {}),
+            ...(row.settlementPayment.providerRef ? { providerRef: row.settlementPayment.providerRef } : {}),
+            requestedAt: row.settlementPayment.createdAt.toISOString(),
+            ...(row.settlementPayment.paidAt ? { paidAt: row.settlementPayment.paidAt.toISOString() } : {}),
+          },
+        }
+      : {}),
     // Slot-less quote bids map to undefined — the UI hides the time row.
     startAt: row.startAt?.toISOString(),
     endAt: row.endAt?.toISOString(),
@@ -1680,13 +1725,45 @@ async function creditEarningsInTx(
     platformFee: number | null;
     currency: string;
     quoteRequestId?: string | null;
+    /** §Settlement — the two payment legs, and the outside-platform flag. */
+    paymentId?: string | null;
+    settlementPaymentId?: string | null;
+    settledOutside?: boolean;
   }
 ): Promise<void> {
-  const net = (row.quote ?? 0) - (row.platformFee ?? 0);
+  // §Settlement — the platform only credits money it actually COLLECTED
+  // (src/lib/data/booking-settlement.ts). Read both payment legs off the same
+  // client the credit will use, so funding and money move together.
+  const legs = await tx.payment.findMany({
+    where: { id: { in: [row.paymentId ?? "", row.settlementPaymentId ?? ""].filter(Boolean) } },
+    select: { id: true, amount: true, status: true },
+  });
+  const deposit = legs.find((p) => p.id === row.paymentId);
+  const settlementLeg = legs.find((p) => p.id === row.settlementPaymentId);
+  const settlement = settlementFor({
+    quoteMinor: row.quote,
+    feeMinor: row.platformFee,
+    depositPaidMinor: deposit?.status === "PAID" ? deposit.amount : 0,
+    depositRefundedMinor: deposit?.status === "REFUNDED" ? deposit.amount : 0,
+    settlementPaidMinor: settlementLeg?.status === "PAID" ? settlementLeg.amount : 0,
+    settlementRefundedMinor: settlementLeg?.status === "REFUNDED" ? settlementLeg.amount : 0,
+    settlementPendingMinor: settlementLeg?.status === "PENDING" ? settlementLeg.amount : 0,
+    settledOutside: row.settledOutside ?? false,
+    currency: row.currency,
+  });
+
+  // What this booking has already paid the worker (one EARNING, plus any
+  // settlement top-up ADJUSTMENT). A REJECTED row never counted.
+  const credited = await tx.workerLedgerEntry.aggregate({
+    where: { bookingId: row.id, status: { in: ["POSTED", "PROCESSED"] } },
+    _sum: { amount: true },
+  });
+  const already = credited._sum.amount ?? 0;
+  const firstCredit = already === 0;
 
   // §11 — read the purchased offer off the SAME client the credit will use.
   let rebate: LeadRebateResolution | null = null;
-  if (row.quoteRequestId && (row.platformFee ?? 0) > 0) {
+  if (row.quoteRequestId && settlement.feeCollectedMinor > 0) {
     const ruleSet = await loadActiveFeeRuleSet();
     const offer = await tx.leadOffer.findFirst({
       where: { workerId: row.workerId, leadId: row.quoteRequestId, status: "purchased" },
@@ -1696,15 +1773,18 @@ async function creditEarningsInTx(
       bookingId: row.id,
       workerId: row.workerId,
       leadId: row.quoteRequestId,
-      feeMinor: row.platformFee ?? 0,
+      feeMinor: settlement.feeCollectedMinor,
       currency: row.currency || "USD",
       ruleSet,
       purchasedOffer: offer ? { offerId: offer.id, leadId: offer.leadId, priceCredits: offer.priceCredits } : null,
     });
   }
 
-  const amount = net + (rebate?.creditMinor ?? 0);
-  if (amount <= 0) return; // quote-less accept or fee-waived 0 — nothing earned
+  // The target includes the rebate, so a settlement top-up computes the
+  // difference against money already given back rather than paying it twice.
+  const target = settlement.workerNetTargetMinor + (rebate?.creditMinor ?? 0);
+  const amount = target - already;
+  if (amount <= 0) return; // nothing collected yet, or already fully credited
   try {
     const sum = await tx.workerLedgerEntry.aggregate({
       where: { workerId: row.workerId, status: { in: ["POSTED", "PROCESSED"] } },
@@ -1715,14 +1795,16 @@ async function creditEarningsInTx(
       data: {
         workerId: row.workerId,
         bookingId: row.id,
-        kind: "EARNING",
+        // One EARNING per booking (@@unique([bookingId])); a later settlement
+        // balance tops it up as an ADJUSTMENT.
+        kind: firstCredit ? "EARNING" : "ADJUSTMENT",
         status: "POSTED",
         amount,
         balanceAfter: balance + amount,
         currency: row.currency || "USD",
-        reason: rebate
-          ? `Lead rebate −$${(rebate.rebate.rebateMinor / 100).toFixed(2)} (fee $${(rebate.rebate.feeMinor / 100).toFixed(2)} → $${(rebate.rebate.effectiveFeeMinor / 100).toFixed(2)})`
-          : null,
+        reason:
+          settlement.reason +
+          (rebate ? ` Lead rebate −$${(rebate.rebate.rebateMinor / 100).toFixed(2)} included.` : ""),
       },
     });
   } catch (err) {
@@ -1730,7 +1812,7 @@ async function creditEarningsInTx(
     return; // already credited → the rebate row already exists too
   }
 
-  if (rebate) {
+  if (rebate && firstCredit) {
     await tx.leadRebate.create({
       data: {
         bookingId: rebate.rebate.bookingId,
@@ -2673,6 +2755,318 @@ export async function prismaCreateBookingCheckout(
     return { url: result.url };
   } catch (err) {
     console.error("[prisma-repo] createBookingCheckout failed:", err);
+    return null;
+  }
+}
+
+/* ─────────────────────────── §Settlement (docs/booking-take-rate.md §6) ─────────────────────────── */
+
+/**
+ * The settlement verdict for a booking, read from both payment legs. Every
+ * money decision (the earnings credit, the customer's pay-to-release card, the
+ * admin reconciliation) goes through here — no surface reads the raw rows.
+ */
+/** The payment-leg columns the settlement engine decides on. */
+type SettlementPaymentLeg = { amount: number; status: string } | null;
+
+/**
+ * One row → the engine's input. Shared by the single-booking read and the bulk
+ * reconciliation so the two can never read the legs differently (the mapping
+ * is the half of "no surface reads the raw rows" that lives in this adapter).
+ */
+function settlementFromRow(row: {
+  quote: number | null;
+  platformFee: number | null;
+  currency: string;
+  settledOutside: boolean;
+  payment: SettlementPaymentLeg;
+  settlementPayment: SettlementPaymentLeg;
+}): Settlement {
+  return settlementFor({
+    quoteMinor: row.quote,
+    feeMinor: row.platformFee,
+    depositPaidMinor: row.payment?.status === "PAID" ? row.payment.amount : 0,
+    depositRefundedMinor: row.payment?.status === "REFUNDED" ? row.payment.amount : 0,
+    settlementPaidMinor: row.settlementPayment?.status === "PAID" ? row.settlementPayment.amount : 0,
+    settlementRefundedMinor: row.settlementPayment?.status === "REFUNDED" ? row.settlementPayment.amount : 0,
+    settlementPendingMinor: row.settlementPayment?.status === "PENDING" ? row.settlementPayment.amount : 0,
+    settledOutside: row.settledOutside,
+    currency: row.currency,
+  });
+}
+
+/** The columns both leg reads share (keeps the two selects in lockstep). */
+const SETTLEMENT_LEG_SELECT = { amount: true, status: true } as const;
+
+/** The columns the settlement mapper needs, minus the two legs. */
+const SETTLEMENT_FACT_SELECT = {
+  quote: true,
+  platformFee: true,
+  currency: true,
+  settledOutside: true,
+} as const;
+
+export async function prismaSettlementFor(bookingId: string): Promise<Settlement | null> {
+  const prisma = getPrisma();
+  const row = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      ...SETTLEMENT_FACT_SELECT,
+      payment: { select: SETTLEMENT_LEG_SELECT },
+      settlementPayment: { select: SETTLEMENT_LEG_SELECT },
+    },
+  });
+  if (!row) return null;
+  return settlementFromRow(row);
+}
+
+/**
+ * §Settlement — the admin reconciliation (docs/booking-take-rate.md §6): every
+ * job that finished in the window, with what the platform actually collected
+ * and what its earnings ledger already holds for it. This is the view that
+ * shows a cash gap as a cash gap instead of as a fee the platform thinks it
+ * earned.
+ *
+ * The window is anchored on the job's COMPLETED audit event (a booking has no
+ * completion timestamp of its own), falling back to "still open in a money
+ * state" so a job that is blocked on collection never ages out of the view.
+ */
+export async function prismaSettlementReconciliation(days = 30): Promise<SettlementJob[]> {
+  const prisma = getPrisma();
+  const since = new Date(Date.now() - Math.max(days, 1) * 24 * 60 * 60 * 1000);
+  const rows = await prisma.booking.findMany({
+    where: {
+      quote: { not: null },
+      OR: [
+        { events: { some: { status: "COMPLETED", createdAt: { gte: since } } } },
+        { status: { in: ["COMPLETED", "COMPLETION_PENDING"] } },
+      ],
+    },
+    select: {
+      id: true,
+      number: true,
+      workerId: true,
+      status: true,
+      ...SETTLEMENT_FACT_SELECT,
+      worker: { select: { nameEn: true, nameAr: true } },
+      payment: { select: SETTLEMENT_LEG_SELECT },
+      settlementPayment: { select: { ...SETTLEMENT_LEG_SELECT, providerRef: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 1000,
+  });
+  if (rows.length === 0) return [];
+
+  // One query for the ledger half: what each job already credited.
+  const credits = await prisma.workerLedgerEntry.groupBy({
+    by: ["bookingId"],
+    where: { bookingId: { in: rows.map((r) => r.id) }, amount: { gt: 0 }, status: "POSTED" },
+    _sum: { amount: true },
+  });
+  const creditedBy = new Map(credits.map((c) => [c.bookingId ?? "", c._sum.amount ?? 0]));
+
+  return rows.map((row) =>
+    settlementJob({
+      bookingId: row.id,
+      number: row.number,
+      workerId: row.workerId,
+      workerNameEn: row.worker?.nameEn ?? "—",
+      workerNameAr: row.worker?.nameAr ?? "—",
+      status: row.status,
+      reference: row.settlementPayment?.status === "PENDING" ? row.settlementPayment.providerRef ?? null : null,
+      settlement: settlementFromRow(row),
+      creditedMinor: creditedBy.get(row.id) ?? 0,
+    })
+  );
+}
+
+/**
+ * §Settlement — mint (or re-mint) the checkout for the balance a finished job
+ * still owes. Idempotent per method, exactly like the deposit checkout, and it
+ * reuses the same provider seam so the OMT/Whish manual reference page and the
+ * admin's pending-payments card work unchanged.
+ */
+export async function prismaCreateBookingSettlementCheckout(
+  bookingId: string,
+  method: "STRIPE" | "OMT" | "WHISH" = "OMT"
+): Promise<{ url: string } | null> {
+  const prisma = getPrisma();
+  try {
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) return null;
+    if (booking.status !== "COMPLETED" && booking.status !== "COMPLETION_PENDING") return null;
+    const settlement = await prismaSettlementFor(bookingId);
+    if (!settlement || !settlementNeedsCollection(settlement) || settlement.outstandingMinor <= 0) return null;
+
+    const dbMethod = method === "OMT" ? "OMT" : method === "WHISH" ? "WHISH" : "STRIPE";
+    const existing = booking.settlementPaymentId
+      ? await prisma.payment.findUnique({ where: { id: booking.settlementPaymentId } })
+      : null;
+    const meta = (existing?.metadata ?? {}) as Record<string, unknown>;
+    // Same method + still pending + already minted → hand back the same URL.
+    if (
+      existing &&
+      existing.status === "PENDING" &&
+      existing.method === dbMethod &&
+      typeof meta.checkoutUrl === "string"
+    ) {
+      return { url: meta.checkoutUrl };
+    }
+
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    const result = await getPaymentProvider(method).createCheckout({
+      paymentId: existing?.id ?? `set-${bookingId}`,
+      bookingId,
+      amountMinor: settlement.outstandingMinor,
+      currency: booking.currency,
+      customerEmail: booking.customerEmail ?? undefined,
+      description: `${booking.number} — job balance`,
+      successUrl: `${base}/bookings?settled=1`,
+      cancelUrl: `${base}/bookings`,
+    });
+
+    if (existing) {
+      await prisma.payment.update({
+        where: { id: existing.id },
+        data: {
+          amount: settlement.outstandingMinor,
+          method: dbMethod,
+          status: "PENDING",
+          providerRef: result.providerRef,
+          metadata: { ...meta, checkoutUrl: result.url, kind: "settlement", bookingId },
+        },
+      });
+    } else {
+      const created = await prisma.payment.create({
+        data: {
+          amount: settlement.outstandingMinor,
+          currency: booking.currency,
+          method: dbMethod,
+          status: "PENDING",
+          providerRef: result.providerRef,
+          metadata: { checkoutUrl: result.url, kind: "settlement", bookingId },
+        },
+      });
+      await prisma.booking.update({
+        where: { id: bookingId },
+        data: { settlementPaymentId: created.id },
+      });
+    }
+    return { url: result.url };
+  } catch (err) {
+    console.error("[prisma-repo] createBookingSettlementCheckout failed:", err);
+    return null;
+  }
+}
+
+/**
+ * §Settlement — the balance landed. The payment flips PENDING → PAID via a CAS
+ * update (a redelivered webhook, or an admin confirming twice, can never
+ * double-credit: only the call that won the flip proceeds to credit), then the
+ * booking's earnings are recomputed against what is now collected.
+ *
+ * For a guest booking (`customerId` null) no invoice row is minted, matching
+ * the deposit path.
+ */
+export async function prismaConfirmBookingSettlement(
+  bookingId: string,
+  providerRef: string
+): Promise<Booking | null> {
+  const prisma = getPrisma();
+  try {
+    const settled = await prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findUnique({ where: { id: bookingId } });
+      if (!booking?.settlementPaymentId) return null;
+      const flipped = await tx.payment.updateMany({
+        where: { id: booking.settlementPaymentId, status: "PENDING" },
+        data: { status: "PAID", providerRef, paidAt: new Date() },
+      });
+      if (flipped.count === 0) return null; // already paid (or void) — no double work
+      const amount = (
+        await tx.payment.findUnique({ where: { id: booking.settlementPaymentId }, select: { amount: true } })
+      )?.amount;
+      await tx.bookingEvent.create({
+        data: {
+          bookingId,
+          status: "SETTLED",
+          actorType: "system",
+          reason: `Job balance collected — $${(((amount ?? 0) as number) / 100).toFixed(2)}`,
+        },
+      });
+      // No invoice row for the balance: the job's receipt is the deposit's
+      // (WA-*), and minting a second one here would need its own numbering
+      // sequence (Invoice.number is the customer-facing identity). The Payment
+      // row IS the money record and carries the amount, method and reference.
+      await creditEarningsInTx(tx, booking);
+      return tx.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          events: { orderBy: { createdAt: "asc" as const } },
+          serviceItem: true,
+          payment: { include: { invoice: true } },
+          settlementPayment: true,
+        },
+      });
+    });
+    if (!settled) return null;
+    return toDomainBooking(settled);
+  } catch (err) {
+    console.error("[prisma-repo] confirmBookingSettlement failed:", err);
+    return null;
+  }
+}
+
+/**
+ * §Settlement — the parties settled directly. The flag is all that changes:
+ * no ledger credit (there is no money to pay from), no invoice (nothing was
+ * collected), and the platform's fee stays a claim the reconciliation reports.
+ * Idempotent: a second call returns null.
+ */
+export async function prismaMarkBookingSettledOutside(
+  bookingId: string,
+  opts: { by?: "worker" | "admin"; reason?: string } = {}
+): Promise<Booking | null> {
+  const prisma = getPrisma();
+  try {
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking || booking.settledOutside) return null;
+    const settlement = await prismaSettlementFor(bookingId);
+    if (!settlement) return null;
+    if (settlement.state === "no-quote" || settlement.state === "funded" || settlement.state === "overpaid") return null;
+
+    const claimed = await prisma.booking.updateMany({
+      where: { id: bookingId, settledOutside: false },
+      data: { settledOutside: true, settledOutsideAt: new Date() },
+    });
+    if (claimed.count === 0) return null;
+    await prisma.bookingEvent.create({
+      data: {
+        bookingId,
+        status: "SETTLED",
+        actorType: opts.by ?? "worker",
+        reason:
+          opts.reason ??
+          `Settled outside the platform — platform fee $${(settlement.feeMinor / 100).toFixed(2)} claimed`,
+      },
+    });
+    if (booking.settlementPaymentId) {
+      await prisma.payment.updateMany({
+        where: { id: booking.settlementPaymentId, status: "PENDING" },
+        data: { status: "CANCELLED" },
+      });
+    }
+    const row = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        events: { orderBy: { createdAt: "asc" as const } },
+        serviceItem: true,
+        payment: { include: { invoice: true } },
+        settlementPayment: true,
+      },
+    });
+    return row ? toDomainBooking(row) : null;
+  } catch (err) {
+    console.error("[prisma-repo] markBookingSettledOutside failed:", err);
     return null;
   }
 }
@@ -5178,6 +5572,9 @@ export async function prismaGetManualPaymentReconciliation(): Promise<Reconcilia
     where: { method: { in: ["OMT", "WHISH"] }, providerRef: { not: null } },
     include: {
       booking: { include: { serviceItem: true } },
+      // §Settlement — the balance leg is part of what the platform collected,
+      // so it belongs in the reconciliation export next to the deposit.
+      settlementBooking: { include: { serviceItem: true } },
       invoice: { select: { number: true } },
     },
     orderBy: { createdAt: "asc" },
@@ -5187,6 +5584,24 @@ export async function prismaGetManualPaymentReconciliation(): Promise<Reconcilia
     const method = row.method === "OMT" ? "omt" : "whish";
     const meta = (row.metadata ?? {}) as Record<string, unknown>;
     const status = row.status.toLowerCase() as ReconciliationPayment["status"];
+    if (row.settlementBooking) {
+      out.push({
+        id: row.id,
+        scope: "booking",
+        entityId: row.settlementBooking.id,
+        labelEn: `${row.settlementBooking.number} — job balance`,
+        labelAr: `${row.settlementBooking.number} — رصيد العمل`,
+        amount: row.amount,
+        currency: row.currency,
+        method,
+        reference: row.providerRef!,
+        status,
+        createdAt: row.createdAt.toISOString(),
+        ...(row.paidAt ? { paidAt: row.paidAt.toISOString() } : {}),
+        ...(row.refundedAt ? { refundedAt: row.refundedAt.toISOString() } : {}),
+      });
+      continue;
+    }
     if (row.booking) {
       out.push({
         id: row.id,
@@ -5260,7 +5675,12 @@ export async function prismaGetPendingManualPayments(): Promise<PendingManualPay
   const prisma = getPrisma();
   const rows = await prisma.payment.findMany({
     where: { method: { in: ["OMT", "WHISH"] }, status: "PENDING", providerRef: { not: null } },
-    include: { booking: { include: { serviceItem: true } } },
+    include: {
+      booking: { include: { serviceItem: true } },
+      // §Settlement — a pending job BALANCE rides the same queue as a pending
+      // deposit; `leg` tells the confirm which one it is.
+      settlementBooking: { include: { serviceItem: true } },
+    },
 
     orderBy: { createdAt: "asc" },
   });
@@ -5269,11 +5689,31 @@ export async function prismaGetPendingManualPayments(): Promise<PendingManualPay
     const method = row.method === "OMT" ? "omt" : "whish";
     const meta = (row.metadata ?? {}) as Record<string, unknown>;
 
+    // §Settlement — the balance leg first: it is the same booking entity but a
+    // different payment, and confirming it must not re-confirm the deposit.
+    if (row.settlementBooking) {
+      out.push({
+        id: row.id,
+        scope: "booking",
+        leg: "settlement",
+        entityId: row.settlementBooking.id,
+        labelEn: `${row.settlementBooking.number} — job balance`,
+        labelAr: `${row.settlementBooking.number} — رصيد العمل`,
+        amount: row.amount,
+        currency: row.currency,
+        method,
+        reference: row.providerRef!,
+        createdAt: row.createdAt.toISOString(),
+      });
+      continue;
+    }
+
     // Booking deposit (M3) — the booking's own row carries the label.
     if (row.booking) {
       out.push({
         id: row.id,
         scope: "booking",
+        leg: "deposit",
         entityId: row.booking.id,
         // The label localizes via the booking's bilingual catalog serviceItem
         // (nameAr in the Arabic card row — the free-text jobTitle is a

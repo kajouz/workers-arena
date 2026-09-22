@@ -8,6 +8,7 @@ import {
   getPendingManualPayments,
   getPlatformFeeStats,
   getPendingPayouts,
+  getSettlementReconciliation,
   getVerificationLogs,
   getVerificationQueue,
   getAllWorkers,
@@ -51,7 +52,7 @@ export default async function AdminPage({
     feeWaivedOnly: one("feeWaived") === "1" || one("feeWaived") === "true",
   };
 
-  const [{ locale }, analytics, campaigns, verificationQueue, verificationLogs, platformFeeStats, subscriptionAnalytics, whatsappDeliveries, whatsappDeliveryStats, whatsappHealth, reviewModerationStats] = await Promise.all([
+  const [{ locale }, analytics, campaigns, verificationQueue, verificationLogs, platformFeeStats, subscriptionAnalytics, whatsappDeliveries, whatsappDeliveryStats, whatsappHealth, reviewModerationStats, settlementJobs] = await Promise.all([
     getI18n(),
     getAnalyticsOverview(),
     getCampaigns(),
@@ -65,6 +66,9 @@ export default async function AdminPage({
     // Review moderation is a publication gate, so its backlog belongs on the
     // overview next to the verification queue rather than one click away.
     getReviewModerationStats(),
+    // §Settlement — the collected-vs-stamped audit sits with the money cards,
+    // because it is the one that says whether the other money figures are real.
+    getSettlementReconciliation(30),
   ]);
 
   // Campaign purchases — payment state per campaign for the payments card
@@ -174,6 +178,7 @@ export default async function AdminPage({
       whatsappDeliveryStats={whatsappDeliveryStats}
       whatsappHealth={whatsappHealth}
       reviewModerationStats={reviewModerationStats}
+      settlementJobs={settlementJobs}
     />
   );
 }

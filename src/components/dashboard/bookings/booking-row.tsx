@@ -23,6 +23,9 @@ import { RespondDialog } from "./respond-dialog";
 import type { FeeRuleSet } from "@/lib/data/fee-rules";
 import { CallButton } from "@/components/calling/call-button";
 import { BookingActions } from "./booking-actions";
+import { SettleOutsideButton } from "./settle-outside-button";
+import { BookingSettlementNote } from "@/components/bookings/booking-settlement-note";
+import { settlementFor, settlementNeedsCollection } from "@/lib/data/booking-settlement";
 import { submitQuoteAction } from "@/app/actions/bookings";
 import type { Booking, BookingMessage, Worker } from "@/lib/data/types";
 import type { WorkerEmailPreview } from "@/app/[locale]/(app)/dashboard/page";
@@ -60,6 +63,26 @@ export function BookingRow({
 }) {
   const { locale, t } = useLocale();
   const router = useRouter();
+  // §Settlement — where this job's money stands, from the ONE engine both
+  // adapters credit from (src/lib/data/booking-settlement.ts). The worker sees
+  // that a finished job's payout is waiting on the customer rather than
+  // wondering why the earnings never appeared, and can declare the job settled
+  // directly when that is the truth.
+  const settlement = settlementFor({
+    quoteMinor: booking.quote ?? null,
+    feeMinor: booking.platformFee ?? null,
+    depositPaidMinor: booking.paymentStatus === "paid" ? booking.deposit ?? 0 : 0,
+    depositRefundedMinor: booking.paymentStatus === "refunded" ? booking.deposit ?? 0 : 0,
+    settlementPaidMinor: booking.settlement?.status === "paid" ? booking.settlement.amount : 0,
+    settlementRefundedMinor: booking.settlement?.status === "refunded" ? booking.settlement.amount : 0,
+    settlementPendingMinor: booking.settlement?.status === "pending" ? booking.settlement.amount : 0,
+    settledOutside: booking.settledOutside ?? false,
+    currency: booking.currency,
+  });
+  // Only a FINISHED job: before the work is done there is no balance to chase.
+  const owesBalance =
+    settlementNeedsCollection(settlement) &&
+    (booking.status === "completed" || booking.status === "completionPending");
   // Multi-candidate quote bid (docs/multi-candidate-quotes.md §7) — inline
   // quote + deposit inputs on QUOTING invites; a submitted QUOTED bid shows
   // the amount + "awaiting the customer's pick".
@@ -179,6 +202,26 @@ export function BookingRow({
             )
           )}
         </div>
+
+        {/* §Settlement — the job is done but the platform has not collected the
+            job value: the payout waits on the customer. The worker can also
+            record that the parties settled directly (cash), which is the honest
+            alternative to a balance nobody will ever pay through the platform. */}
+        {owesBalance && (
+          <div className="mt-3">
+            <BookingSettlementNote
+              bookingId={booking.id}
+              role="worker"
+              outstandingMinor={settlement.outstandingMinor}
+              currency={booking.currency}
+              workerNetMinor={settlement.workerNetTargetMinor}
+              className="mt-0"
+            />
+            <div className="mt-2 flex justify-end">
+              <SettleOutsideButton bookingId={booking.id} />
+            </div>
+          </div>
+        )}
 
         {/* §2.4 printable audit trail — the PDF/print view + on-demand email
             (the same components the customer row + admin dispute page render,

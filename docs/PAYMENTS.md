@@ -19,7 +19,13 @@ WorkersArena supports **eight payment methods** through a modular gateway abstra
 | **OMT** (agent / OMT Intra / OMT Pay) | Manual | **Lebanon launch** — offline cash + local transfers | ✅ Live |
 | **Whish Money** (app + dual-currency Visa) | Manual | **Lebanon launch** — offline cash + wallet transfers | ✅ Live |
 
-**Lebanon is a first-class service country** (Beirut in the CITIES catalog, USD as the tenant currency) and the OMT / Whish methods are **manual** — no gateway keys, no webhook: the customer pays an OMT agent / Whish app with the generated reference, then an **admin confirms receipt** from the `/admin` pending-payments card (the manual twin of a provider webhook). Every revenue flow accepts them: booking deposits, campaign purchases, subscription renewals, credit purchases, and the paid upgrades.
+**Lebanon is a first-class service country** (Beirut in the CITIES catalog, USD as the tenant currency) and the OMT / Whish methods are **manual** — no gateway keys, no webhook: the customer pays an OMT agent / Whish app with the generated reference, then an **admin confirms receipt** from the `/admin` pending-payments card (the manual twin of a provider webhook). Every revenue flow accepts them: booking deposits, **job settlements (the balance collected after the work is done)**, campaign purchases, subscription renewals, credit purchases, and the paid upgrades.
+
+### Two legs per booking, and why
+
+A booking can be paid twice, and that is deliberate: the **deposit** before the job (optional, set by the worker's quote) and the **settlement** after it — the outstanding balance (`docs/booking-take-rate.md` §6). The platform only ever pays a worker out of money it actually holds, so a job whose deposit did not cover its quote is settled through the same manual rails: the customer gets a new reference, an admin confirms receipt, and **that confirmation is what releases the worker's payout** (`confirmBookingSettlement`).
+
+Both legs land in the same `/admin` pending-payments card, each labelled by `leg` (`deposit` | `settlement`) and by the booking (`BK-… — job balance` for the second one), so an operator can never confirm the wrong amount for the right booking. A job settled in cash between the parties is declared instead (`markBookingSettledOutsideAction`, worker or admin): no payout is credited, and the platform fee becomes a claim rather than an accrual.
 
 ## Design
 

@@ -26,6 +26,7 @@ const STATUS_STYLE: Record<BookingStatus, string> = {
   // audit-event only (never a booking's CURRENT status) — kept for the Record type.
   message: "border-transparent bg-sky-500/10 text-sky-700 dark:text-sky-400",
   refunded: "border-transparent bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  settled: "border-transparent bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
 };
 
 export function BookingStatusBadge({ status, className }: { status: BookingStatus; className?: string }) {

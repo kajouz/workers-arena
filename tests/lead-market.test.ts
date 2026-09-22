@@ -43,6 +43,7 @@ import { createQuoteRequest, getWorkerLeadBoard, getWorkers } from "../src/lib/d
 import {
   demoAddSlot,
   demoConfirmBookingCompletion,
+  demoConfirmBookingPayment,
   demoCreateBookingRequest,
   demoRespondToBooking,
   demoTransitionBooking,
@@ -127,8 +128,16 @@ async function completeLeadJob(input: {
   if ("error" in created) throw new Error(`create failed: ${created.error}`);
   created.quoteRequestId = input.leadId;
 
-  const accepted = await demoRespondToBooking(created.id, { accept: true, quote: input.quoteMinor });
+  // §Settlement — a rebate is given back OUT OF COLLECTED FEE, so the job must
+  // be funded for there to be a fee to rebate (the platform never pays a rebate
+  // against money it has not received). Deposit = quote → fully funded.
+  const accepted = await demoRespondToBooking(created.id, {
+    accept: true,
+    quote: input.quoteMinor,
+    deposit: input.quoteMinor,
+  });
   if (!accepted) throw new Error("accept failed");
+  await demoConfirmBookingPayment(created.id, "sim-deposit");
   await demoTransitionBooking(created.id, "inProgress");
   await demoTransitionBooking(created.id, "completed"); // STAGED
   const confirmed = await demoConfirmBookingCompletion(created.id);

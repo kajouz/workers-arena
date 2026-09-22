@@ -339,7 +339,8 @@ export type BookingStatus =
   | "noShow"
   | "rescheduled" // audit-event only — the booking moved to a new slot (M4)
   | "message" // audit-event only — a chat message was sent on the booking's thread (§2.3)
-  | "refunded"; // audit-event only — an admin refunded the paid deposit (the booking itself is unchanged)
+  | "refunded" // audit-event only — an admin refunded the paid deposit (the booking itself is unchanged)
+  | "settled"; // audit-event only — the job's balance was collected, or the parties settled outside (§Settlement)
 
 /** Concrete slot state (mirrors the prisma `SlotStatus` enum, lowercased). */
 export type SlotStatus = "available" | "reserved" | "booked" | "blocked";
@@ -459,6 +460,29 @@ export interface Booking {
   /** M3 deposit payment state — mirrors the Payment row (demo store + prisma).
    * Lets the admin dispute view gate the Refund-deposit action. */
   paymentStatus?: BookingPayment["status"];
+
+  // ── §Settlement (src/lib/data/booking-settlement.ts) ──────────────────────
+  /**
+   * The worker (or an admin) declared the job settled directly between the
+   * parties — cash on the doorstep. The platform collected nothing, so it
+   * credits nothing; its fee is a claim, not an accrual.
+   */
+  settledOutside?: boolean;
+  settledOutsideAt?: string;
+  /**
+   * How much of that outside-platform fee claim has been collected against the
+   * worker's credit balance (`feeClaimPlan`), in minor units, and when the most
+   * recent collection landed. Real money the platform already held — never an
+   * accrual.
+   */
+  feeClaimCollectedMinor?: number;
+  feeClaimCollectedAt?: string;
+  /**
+   * The outstanding balance collected through the platform after completion
+   * (the second payment leg). Use `settlementFor`/`settlementOf` to interpret
+   * it — never read the raw rows to decide whether a worker can be paid.
+   */
+  settlement?: BookingSettlementPayment | null;
   /** M3 deposit payment method — set once a checkout was minted. The dispute
    * view gates the manual OMT/Whish Confirm-payment action on this. */
   paymentMethod?: PaymentMethod;
@@ -596,6 +620,29 @@ export interface BookingPayment {
   refundedAt?: string;
 }
 
+/**
+ * The SECOND payment leg of a job (docs/booking-take-rate.md §6): the deposit
+ * covers part of the quote, and the settlement collects the balance so the
+ * platform is actually holding the job value before it pays the worker.
+ *
+ * It rides the same manual rails as the deposit (OMT/Whish reference → admin
+ * confirms receipt) but lives in its own record, because a booking's deposit
+ * and its settlement are different money events with different amounts.
+ */
+export interface BookingSettlementPayment {
+  id: string;
+  bookingId: string;
+  amount: number; // minor units — the outstanding balance when it was minted
+  currency: string;
+  status: "pending" | "paid" | "refunded" | "cancelled";
+  method?: PaymentMethod;
+  providerRef?: string;
+  checkoutUrl?: string;
+  requestedAt: string;
+  paidAt?: string;
+  refundedAt?: string;
+}
+
 /** Customer-side input for creating a booking request. */
 export interface BookingRequestInput {
   workerId: string;
@@ -715,6 +762,7 @@ export function emptyBookingFunnelCounts(): Record<BookingStatus, number> {
     rescheduled: 0,
     message: 0,
     refunded: 0,
+    settled: 0, // audit-event only — never a funnel bucket, kept for the Record type
   };
 }
 
@@ -1210,6 +1258,13 @@ export interface PendingManualPayment {
   /** The entity the confirm acts on — booking id, campaign id, or the payment
    * id itself for purchases. */
   entityId: string;
+  /**
+   * §Settlement — which leg of a booking this is. A booking can have two
+   * manual payments waiting at once (the deposit before the job, the balance
+   * after), and confirming the wrong one is the mistake this field prevents.
+   * Absent on non-booking scopes.
+   */
+  leg?: "deposit" | "settlement";
   labelEn: string;
   labelAr: string;
   amount: number; // minor units

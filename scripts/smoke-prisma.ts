@@ -42,8 +42,13 @@
  * requests), prismaRecordImpression / prismaRecordClick bump the served
  * creative's counters + the campaign's spent, and prismaGetInvoices renders
  * the purchase's WA- receipt on the /company list — flipping to "refunded"
- * once the credit note voids it. A cleanup restores the seeded rows so
- * the smoke is idempotent. Exits non-zero on any failure.
+ * once the credit note voids it. §Settlement runs the money path end to end on
+ * the live DB (docs/booking-take-rate.md §6): an unfunded finished job credits
+ * NOTHING, the balance is collected on the manual rails (pending-payments card →
+ * admin confirm) and then credits exactly the net once, a job the parties settled
+ * directly credits nothing and records the fee as a claim, and the admin
+ * reconciliation shows no ledger credit the platform never collected. A cleanup
+ * restores the seeded rows so the smoke is idempotent. Exits non-zero on any failure.
  */
 // This smoke IS the production data layer — force the prisma notification path
 // (DEMO_MODE=false) so the reminder engine persists to the DB instead of the
@@ -93,6 +98,11 @@ import {
   prismaGetWorkerSlots,
   prismaCancelRecurringContract,
   prismaConfirmBookingCompletion,
+  prismaConfirmBookingSettlement,
+  prismaCreateBookingSettlementCheckout,
+  prismaMarkBookingSettledOutside,
+  prismaSettlementFor,
+  prismaSettlementReconciliation,
   prismaCreateQuoteRequest,
   prismaCreateRecurringRequest,
   prismaExpireQuoteRequests,
@@ -1132,6 +1142,47 @@ async function main() {
     (await prismaTransitionBooking(ccCreated.id, "completed"))?.status === "completionPending",
     "completion booking staged"
   );
+
+  // §Settlement — the money behind the job (docs/booking-take-rate.md §6).
+  // This job was accepted with a quote but never had a deposit minted, so the
+  // platform has collected NOTHING: the earnings credit is blocked by
+  // construction, because the engine credits only what it actually collected.
+  // Prove that, then collect the balance on the manual rails and watch the
+  // credit land — the exact two steps a real OMT/Whish customer performs.
+  const ccBefore = await prismaSettlementFor(ccCreated.id);
+  assert(ccBefore?.state === "awaiting-customer", "a quote-only finished job reads awaiting-customer");
+  assert(
+    ccBefore!.collectedMinor === 0 && ccBefore!.workerNetTargetMinor === 0,
+    "nothing collected yet → nothing owed to the worker"
+  );
+  assert(
+    (await prisma.workerLedgerEntry.findFirst({ where: { bookingId: ccCreated.id } })) === null,
+    "an unfunded finished job credits NO earnings (the hole the engine closes)"
+  );
+
+  const ccCheckout = await prismaCreateBookingSettlementCheckout(ccCreated.id, "OMT");
+  assert(typeof ccCheckout?.url === "string", "settlement checkout minted on the manual rails");
+  const ccPending = (await prismaGetPendingManualPayments()).find(
+    (p) => p.leg === "settlement" && p.entityId === ccCreated.id
+  );
+  assert(ccPending !== undefined, "the balance appears in the admin pending-payments card");
+  assert(ccPending!.amount === 8000, "the balance asked for is the full outstanding quote");
+  const ccMid = await prismaSettlementFor(ccCreated.id);
+  assert(ccMid?.state === "awaiting-confirmation", "a minted reference reads awaiting-confirmation");
+  assert(ccMid!.collectedMinor === 0, "an issued reference is a promise, not money");
+
+  const ccPaid = await prismaConfirmBookingSettlement(ccCreated.id, ccPending!.reference!);
+  assert(ccPaid !== null, "admin confirms the balance receipt");
+  const ccFunded = await prismaSettlementFor(ccCreated.id);
+  assert(ccFunded?.state === "funded", "confirming the balance funds the job");
+  assert(
+    ccFunded!.collectedMinor === 8000 && ccFunded!.feeCollectedMinor === 560,
+    "collected 8000 with the 560 fee taken out of the money received"
+  );
+  assert(
+    (await prismaConfirmBookingSettlement(ccCreated.id, ccPending!.reference!)) === null,
+    "a second confirmation is a no-op (the CAS on PENDING) — no double credit"
+  );
   await prisma.booking.update({
     where: { id: ccCreated.id },
     data: { completionPendingAt: new Date(Date.now() - (BOOKING_COMPLETION_CONFIRM_GRACE_HOURS + 1) * 60 * 60 * 1000) },
@@ -1143,14 +1194,68 @@ async function main() {
   assert(ccAfter?.status === "COMPLETED" && ccAfter.completionPendingAt === null, "auto-confirm → COMPLETED, stamp cleared");
   const ccEvents = await prisma.bookingEvent.findMany({ where: { bookingId: ccCreated.id } });
   assert(ccEvents.some((e) => e.status === "COMPLETED" && e.actorType === "system"), "system-actor COMPLETED audit event");
-  const ccLedger = await prisma.workerLedgerEntry.findFirst({ where: { bookingId: ccCreated.id } });
-  assert(ccLedger?.kind === "EARNING" && ccLedger.amount === 7440, "auto-confirm credits net earnings (8000 − 560 fee)");
+  const ccLedger = await prisma.workerLedgerEntry.findMany({ where: { bookingId: ccCreated.id } });
+  assert(
+    ccLedger.length === 1 && ccLedger[0]!.kind === "EARNING" && ccLedger[0]!.amount === 7440,
+    "exactly one EARNING of the net (8000 − 560 fee) — the collection credited it, the auto-confirm did not double it"
+  );
   const ccReceipt = await prisma.notification.findMany({ where: { type: "BOOKING_COMPLETED" } });
   assert(ccReceipt.some((n) => n.bodyEn?.includes(ccCreated.number)), "customer completion receipt persisted");
   const ccAgain = await runCompletionAutoConfirmEngine();
   assert(ccAgain.autoConfirmed === 0, "auto-confirm re-run confirms nothing (already COMPLETED)");
   console.log(
     "M4 §2.3 completion: staged → backdated past grace → auto-confirm → COMPLETED + receipt + ledger, re-run no-op"
+  );
+
+  // ── §Settlement — settled outside the platform, and the reconciliation ────
+  // The other honest ending: the parties paid each other directly (cash on the
+  // doorstep). The platform holds nothing, so it credits nothing and its fee
+  // becomes a CLAIM — never an accrual. `opsCreated` is a COMPLETED $80 job
+  // that was never funded, which is exactly this case. The reconciliation read
+  // must then show it as an outside-platform claim with a zero ledger.
+  const outsideSettlement = await prismaMarkBookingSettledOutside(opsCreated.id, {
+    by: "worker",
+    reason: "Cash on site",
+  });
+  assert(outsideSettlement?.settledOutside === true, "worker declares the job settled directly");
+  const outsideAfter = await prismaSettlementFor(opsCreated.id);
+  assert(outsideAfter?.state === "outside-platform", "a directly-settled job reads outside-platform");
+  assert(outsideAfter!.collectedMinor === 0 && outsideAfter!.workerNetTargetMinor === 0, "the platform credits nothing it did not collect");
+  assert(
+    outsideAfter!.feeClaimMinor === 560 && outsideAfter!.feeClaimOutstandingMinor === 560,
+    "the uncollected fee is recorded as a claim, not as revenue"
+  );
+  assert(
+    (await prisma.workerLedgerEntry.findFirst({ where: { bookingId: opsCreated.id } })) === null,
+    "the outside-platform declaration credits no earnings"
+  );
+  assert(
+    (await prismaMarkBookingSettledOutside(opsCreated.id, { by: "worker" })) === null,
+    "declaring it settled twice is a no-op"
+  );
+  assert(
+    (await prismaCreateBookingSettlementCheckout(opsCreated.id, "OMT")) === null,
+    "a job settled outside stops asking the customer for the balance"
+  );
+
+  // The admin reconciliation (the view that replaced the silent accrual).
+  const reconRows = await prismaSettlementReconciliation(30);
+  const reconClaim = reconRows.find((r) => r.bookingId === opsCreated.id);
+  assert(reconClaim !== undefined, "the reconciliation window finds the job");
+  assert(reconClaim!.creditedMinor === 0 && reconClaim!.dueMinor === 0, "it reports a zero ledger against the job");
+  assert(reconClaim!.settlement.state === "outside-platform", "and its outside-platform state, verbatim");
+  const reconFunded = reconRows.find((r) => r.bookingId === ccCreated.id);
+  assert(reconFunded !== undefined, "the reconciliation window finds the funded job too");
+  assert(
+    reconFunded!.creditedMinor === 7440 && reconFunded!.settlement.collectedMinor === 8000,
+    "a funded job's ledger credit is backed by collected money"
+  );
+  assert(
+    reconRows.every((r) => r.creditedMinor <= r.settlement.collectedMinor),
+    "no job in the window holds a ledger credit the platform never collected"
+  );
+  console.log(
+    `§Settlement: outside-platform claim $${(outsideAfter!.feeClaimMinor / 100).toFixed(2)} (nothing credited), funded job $${(reconFunded!.settlement.collectedMinor / 100).toFixed(2)} collected against $${(reconFunded!.creditedMinor / 100).toFixed(2)} credited`
   );
 
   // ── W2 — customer-side booking lookup (prismaGetCustomerBookings) ─────────
@@ -1481,6 +1586,17 @@ async function main() {
   assert((await prismaTransitionBooking(poCreated.id, "inProgress")) !== null, "payout booking → inProgress");
   // §2.3 — the worker's flip stages; the customer's confirm credits the ledger.
   assert((await prismaTransitionBooking(poCreated.id, "completed"))?.status === "completionPending", "payout booking staged (COMPLETION_PENDING)");
+  // §Settlement — a payout is only real when the platform holds the money
+  // (src/lib/data/booking-settlement.ts). Fund the job on the manual rails, the
+  // same two steps a real OMT/Whish customer performs: without this the
+  // completion below credits NOTHING, which is the whole point of the engine.
+  const poCheckout = await prismaCreateBookingSettlementCheckout(poCreated.id, "OMT");
+  assert(typeof poCheckout?.url === "string", "payout booking balance checkout minted");
+  const poRef = (await prismaGetPendingManualPayments()).find(
+    (p) => p.leg === "settlement" && p.entityId === poCreated.id
+  )?.reference;
+  assert(poRef !== undefined, "payout booking balance is pending in the admin card");
+  assert((await prismaConfirmBookingSettlement(poCreated.id, poRef)) !== null, "payout booking balance collected");
   assert((await prismaConfirmBookingCompletion(poCreated.id))?.status === "completed", "customer confirm → COMPLETED");
 
   const poBalance = await prismaGetWorkerBalance(khaled!.id);
@@ -1508,6 +1624,7 @@ async function main() {
   // Cleanup — restore the seed: drop the smoke's ledger rows + booking + slot.
   await prisma.workerLedgerEntry.deleteMany({ where: { bookingId: poCreated.id } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: poCreated.id } });
+  await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: poCreated.id } } });
   await prisma.booking.delete({ where: { id: poCreated.id } }).catch(() => {});
   await prisma.bookingSlot.delete({ where: { id: poSlot.id } }).catch(() => {});
   console.log("Payouts: completion credits net earnings; withdrawal reserved → approved → debited");
@@ -2644,6 +2761,9 @@ async function main() {
   await prisma.booking.delete({ where: { id: opsCreated2.id } });
   await prisma.bookingSlot.delete({ where: { id: opsSlot2.id } });
   // M4 §2.3 — the auto-confirm booking's ledger row (no cascade) + booking + slot.
+  // §Settlement — its balance Payment row (booking delete would SetNull the
+  // link and orphan it), same sweep as the M3 deposit payments.
+  await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: ccCreated.id } } });
   await prisma.workerLedgerEntry.deleteMany({ where: { bookingId: ccCreated.id } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: ccCreated.id } });
   await prisma.booking.delete({ where: { id: ccCreated.id } });

@@ -139,6 +139,7 @@ describeLive("lead marketplace — prisma adapter (live DB)", () => {
     });
     const reason = "rebate prisma test";
     let bookingId: string | undefined;
+    let depositPaymentId: string | undefined;
 
     try {
       await grantCredits({ workerId: worker.id, amount: 20, reason });
@@ -158,6 +159,14 @@ describeLive("lead marketplace — prisma adapter (live DB)", () => {
       expect(purchase).toMatchObject({ ok: true });
       const leadCostMinor = offer.priceCredits * 100;
 
+      // §Settlement — a rebate is paid out of COLLECTED fee, so the job needs a
+      // paid deposit covering its quote: the platform holds the money, which is
+      // what makes both the earnings credit and its rebate real.
+      const deposit = await prisma.payment.create({
+        data: { amount: 30_000, currency: "USD", method: "OMT", status: "PAID", paidAt: new Date() },
+      });
+      depositPaymentId = deposit.id;
+
       // A job that came from that lead, with a fee already stamped on it.
       const booking = await prisma.booking.create({
         data: {
@@ -171,6 +180,7 @@ describeLive("lead marketplace — prisma adapter (live DB)", () => {
           platformFee: 2_100,
           quoteRequestId: request.id,
           currency: "USD",
+          paymentId: deposit.id,
         },
       });
       bookingId = booking.id;
@@ -214,6 +224,7 @@ describeLive("lead marketplace — prisma adapter (live DB)", () => {
       // The spend row (reason "Lead QR-… (bronze)") must go too, or every run
       // leaves −5 on the worker and the next run can't afford the lead.
       await prisma.workerCreditEntry.deleteMany({ where: { workerId: worker.id, reason: { startsWith: "Lead " } } });
+      if (depositPaymentId) await prisma.payment.delete({ where: { id: depositPaymentId } }).catch(() => {});
     }
   });
 });

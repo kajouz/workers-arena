@@ -599,6 +599,42 @@ export const en = {
     reviewAuditNote: "Decisions are audited",
     reviewAuditBody:
       "Every approval and rejection is recorded with the acting admin, the reason, and the triage signals seen at the time; publishing notifies the worker.",
+    // ── §Settlement reconciliation (docs/booking-take-rate.md §6) — the audit
+    // that proves the take rate is collected money, not an accrual.
+    settlementTitle: "Settlement reconciliation",
+    settlementSubtitle:
+      "What the take rate says the platform earned versus what it actually collected. Worker earnings are only ever credited from money received.",
+    settlementStamped: "Fee stamped",
+    settlementStampedHint: "{jobs} completed job(s) in the window",
+    settlementCollected: "Fee collected",
+    settlementCollectedHint: "Held by the platform today",
+    settlementUncollected: "Awaiting customers",
+    settlementUncollectedHint: "Legitimately uncollected — these customers have not paid yet",
+    settlementUnbacked: "Unbacked credit",
+    settlementUnbackedHint: "Ledger money with no collection behind it — must read $0.00",
+    settlementJobValue: "Job value",
+    settlementJobValueHint: "{collected} collected of the total",
+    settlementOwed: "Still owed to workers",
+    settlementOwedHint: "Across {jobs} job(s) blocked on collection",
+    settlementBlocked: "Blocked on collection",
+    settlementBlockedHint: "Worker earnings waiting for the customer to pay",
+    settlementOutsideClaim: "Outside-platform claims",
+    settlementOutsideClaimHint: "{jobs} job(s) settled directly between the parties",
+    settlementOutsideRecovered: "Claim recovered",
+    settlementOutsideRecoveredHint: "Collected against credit balances",
+    settlementOutsideOutstanding: "Claim outstanding",
+    settlementOutsideOutstandingHint: "Still to recover from those workers",
+    settlementQueueTitle: "Needs attention",
+    settlementQueueClear: "Nothing is blocked or unbacked — every credited job was collected.",
+    settlementState: {
+      "no-quote": "No quote",
+      funded: "Funded",
+      "part-funded": "Part-funded",
+      "awaiting-customer": "Awaiting customer",
+      "awaiting-confirmation": "Awaiting confirmation",
+      "outside-platform": "Settled outside",
+      overpaid: "Overpaid",
+    },
     verificationHistoryTitle: "Verification history",
     verificationHistorySubtitle: "Audit trail of every approve / reject decision, with the responsible admin and timestamp.",
     verificationEntries: "entries",
@@ -863,7 +899,30 @@ export const en = {
       rescheduled: "Rescheduled",
       message: "Message",
       refunded: "Deposit refunded",
+      settled: "Balance settled",
     },
+    // §Settlement — the second payment leg (docs/booking-take-rate.md §6).
+    // The customer owes the balance; the worker's payout waits on it.
+    settlementDueTitle: "Job balance due — {amount}",
+    settlementDueBody:
+      "The worker gets {net} once this balance is collected. Pay by OMT/Whish and an operator confirms receipt.",
+    settlementWaitingTitle: "Waiting for the customer — {amount} outstanding",
+    settlementWaitingBody:
+      "The platform pays you out as soon as the balance is collected; the platform fee comes out of the money received, never out of your pocket.",
+    settlementPay: "Pay {amount}",
+    settlementPaying: "Starting checkout…",
+    settlementFailed: "Could not start the payment. Please try again.",
+    settlementRefresh: "Refresh status",
+    // §Settlement — the worker's "we settled this directly" declaration. The
+    // copy names the consequence, because the declaration is a real one.
+    settlementOutsideAction: "We settled this directly",
+    settlementOutsideTitle: "Settled directly with the customer?",
+    settlementOutsideBody:
+      "Use this when you were paid outside WorkersArena — cash on the doorstep. The platform then stops asking the customer for the balance, and it credits no earnings for this job: the fee it never collected becomes a claim recoverable from your credit balance.",
+    settlementOutsideReason: "How was it paid? (optional)",
+    settlementOutsideConfirm: "Record it as settled directly",
+    settlementOutsideDone: "Recorded — this job is settled directly.",
+    settlementOutsideFailed: "Could not record the settlement.",
     myBookings: "My bookings",
     myBookingsSubtitle: "Track your requests and confirmed jobs.",
     upcoming: "Upcoming",
