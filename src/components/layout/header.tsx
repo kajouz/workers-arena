@@ -31,13 +31,7 @@ import { useInstallPrompt } from "@/hooks/use-install-prompt"
  * out" is what makes a logged-in reader watch their account menu get replaced
  * by a sign-in button a moment after the page paints.
  */
-export function Header({
-  session,
-  initialTheme = "light",
-}: {
-  session?: SessionRole | null;
-  initialTheme?: "light" | "dark";
-}) {
+export function Header({ session }: { session?: SessionRole | null }) {
   const { locale, t } = useLocale();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -122,7 +116,7 @@ export function Header({
             )}
 
             <LanguageSwitcher />
-            <ThemeToggle initialTheme={initialTheme} />
+            <ThemeToggle />
 
             {signedIn && (
               <Button

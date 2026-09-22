@@ -1,36 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Moon, Sun, Monitor } from "lucide-react";
 import { useUiStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+type ThemeMode = "light" | "dark" | "auto";
+
 /**
  * Theme toggle with system preference support.
  * Cycles through: light → dark → auto (system)
  *
- * `initialTheme` is the server-rendered theme (from the layout's
- * cookie check) so the first paint matches SSR exactly — no hydration flash.
+ * There is deliberately NO `initialTheme` prop. The server cannot know the
+ * reader's theme: `[locale]/layout.tsx` no longer reads the `wa_theme` cookie
+ * (that read made every page dynamic) and restores the scheme with a
+ * pre-hydration inline script against the prerendered HTML instead. A prop
+ * defaulting to "light" therefore wasn't a server answer — it was a guess that
+ * happened to be wrong for every dark-mode reader, who saw a "Switch to dark
+ * mode" button while already on dark until hydration landed.
+ *
+ * So the button renders theme-AGNOSTICALLY until hydration (a neutral label and
+ * icon, the same "neutral placeholder, never a claim" convention the header
+ * uses for the account area), and after hydration reports the real theme.
  */
-export function ThemeToggle({ initialTheme }: { initialTheme: "light" | "dark" }) {
+export function ThemeToggle() {
   const theme = useUiStore((s) => s.theme);
   const setTheme = useUiStore((s) => s.setTheme);
   const [hydrated, setHydrated] = useState(false);
-  // Seed the mode from the SSR theme (not "auto"): auto would immediately
-  // overwrite the cookie-restored theme with the OS preference on mount —
-  // the flash/hydration-mismatch class of bug the layout's inline script and
-  // the E2E dark-reload contract exist to prevent. It also made the first
-  // click cycle auto→light instead of light→dark.
-  const [mode, setMode] = useState<"light" | "dark" | "auto">(initialTheme);
+  // Cycle position, refined on mount. The initial value is never rendered (see
+  // `hydrated` below); the seed that matters reads the theme actually on screen.
+  const [mode, setMode] = useState<ThemeMode>("light");
+  const seeded = useRef(false);
 
   useEffect(() => {
     setHydrated(true);
-    // Check if user has a saved preference
-    const saved = localStorage.getItem("wa_theme_mode") as "light" | "dark" | "auto" | null;
+    if (seeded.current) return;
+    seeded.current = true;
+    // The saved CYCLE preference first (auto is only expressible here).
+    const saved = localStorage.getItem("wa_theme_mode") as ThemeMode | null;
     if (saved === "light" || saved === "dark" || saved === "auto") {
       setMode(saved);
+      return;
     }
+    // No saved cycle preference: seed from the scheme the layout's inline
+    // script already resolved (localStorage `wa_theme` → OS preference).
+    // Seeding from a hardcoded "light" made the first click a no-op for a
+    // reader already on dark — light→dark re-applied dark — so the button
+    // claimed a direction it wouldn't take. Read via getState() rather than the
+    // hook so this stays a mount-only effect.
+    setMode(useUiStore.getState().theme);
   }, []);
 
   // Apply system preference when in auto mode
@@ -47,7 +66,7 @@ export function ThemeToggle({ initialTheme }: { initialTheme: "light" | "dark" }
   }, [mode, setTheme]);
 
   const cycleTheme = () => {
-    const nextMode = mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
+    const nextMode: ThemeMode = mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
     setMode(nextMode);
     try {
       localStorage.setItem("wa_theme_mode", nextMode);
@@ -59,15 +78,16 @@ export function ThemeToggle({ initialTheme }: { initialTheme: "light" | "dark" }
     }
   };
 
-  const current = hydrated ? theme : initialTheme;
-
   // Accessible, mode-aware label. The dark/light states keep the exact
   // "Switch to X mode" wording the E2E smoke (tests/e2e-smoke.test.ts) and
   // keyboard/voice commands key on; auto carries the explicit cycle hint.
-  const ariaLabel =
-    mode === "auto"
-      ? `Theme: system. Click to cycle through light, dark, and system preference`
-      : current === "dark"
+  // Pre-hydration the label must not promise a direction, so it describes the
+  // control instead of a state.
+  const ariaLabel = !hydrated
+    ? "Theme: click to cycle through light, dark, and system preference"
+    : mode === "auto"
+      ? "Theme: system. Click to cycle through light, dark, and system preference"
+      : theme === "dark"
         ? "Switch to light mode"
         : "Switch to dark mode";
 
@@ -76,20 +96,19 @@ export function ThemeToggle({ initialTheme }: { initialTheme: "light" | "dark" }
       variant="ghost"
       onClick={cycleTheme}
       aria-label={ariaLabel}
-      title={mode === "auto" ? "System" : ariaLabel}
-      className={cn(
-        "relative h-11 w-11 sm:h-10 sm:w-10",
-        mode === "auto" && "text-brand-500"
-      )}
+      title={!hydrated ? "Theme" : mode === "auto" ? "System" : ariaLabel}
+      className={cn("relative h-11 w-11 sm:h-10 sm:w-10", hydrated && mode === "auto" && "text-brand-500")}
     >
-      {current === "dark" ? (
+      {!hydrated ? (
+        <Monitor className="size-5" />
+      ) : theme === "dark" ? (
         <Sun className="size-5" />
       ) : mode === "auto" ? (
         <Monitor className="size-5" />
       ) : (
         <Moon className="size-5" />
       )}
-      {mode === "auto" && (
+      {hydrated && mode === "auto" && (
         <span className="absolute -bottom-0.5 -end-0.5 size-2 rounded-full bg-brand-500" />
       )}
     </Button>

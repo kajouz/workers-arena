@@ -2872,9 +2872,10 @@ describeE2E("E2E hydration smoke", () => {
         "document.querySelector('button[aria-label=\"Switch to dark mode\"]') !== null",
         "theme toggle present (light)"
       );
-      // ThemeToggle SSRs its button (initialTheme before hydration), so the
-      // waitFor above can match pre-hydration; a click landing before React
-      // attaches onClick would silently no-op. Settle like runRenewal does.
+      // ThemeToggle renders a theme-AGNOSTIC button until hydration (the server
+      // can't know the reader's theme), so the waitFor above resolves only once
+      // hydration has landed and the real label is set. Settle anyway, like
+      // runRenewal does: the label being right doesn't prove onClick is bound.
       await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
       await page.evaluate(() => {
         const btn = document.querySelector('button[aria-label="Switch to dark mode"]');
