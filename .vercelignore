@@ -1,25 +1,37 @@
+# Files the Vercel CLI must not upload when deploying from a checkout.
+#
+# Patterns are ROOT-ANCHORED on purpose. An unanchored name matches a directory
+# of that name ANYWHERE in the tree: `backups` silently excluded the admin route
+# src/app/[locale]/(app)/admin/backups/ from every Vercel build, so
+# /en/admin/backups answered 404 in production while a local `next build`
+# (which never consults this file) served it fine. `.gitignore` had the same
+# unanchored rule and the same effect on the committed tree.
+#
+# Rule of thumb: root-anchor anything that names a project-root directory;
+# leave genuinely ubiquitous directories (node_modules, coverage) unanchored.
+
 # Dependencies & build artifacts
 node_modules
-.next
-out
-build
+/.next
+/out
+/build
 
 # Data & backups
-.data
-backups
-freebuff
+/.data
+/backups
+/freebuff
 
 # Dev/cache
-.freebuff
-.vercel
+/.freebuff
+/.vercel
 coverage
-test-results
-playwright-report
+/test-results
+/playwright-report
 
 # Scratch — isolated dist dirs and repro copies live here (gitignored, and
 # routinely ~1.5GB: a CLI `vercel --prod` was uploading the lot before it
 # aborted). CI deploys a clean checkout, but the local CLI path needs this.
-tmp
+/tmp
 
 # Environment & secrets
 .env
@@ -27,11 +39,11 @@ tmp
 .env.*.local
 
 # Git
-.git
-.github
+/.git
+/.github
 
 # Documentation (except README)
-docs
+/docs
 *.md
 !README.md
 
