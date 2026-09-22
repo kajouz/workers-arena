@@ -100,17 +100,43 @@ async function readFeed(): Promise<ActivityEntry[]> {
  * name is unique per writer so PARALLEL processes (e.g. vitest workers sharing
  * the default .data feed) can't clobber each other's temp file; a rename that
  * loses the race just means another writer already landed its own — the feed
- * is still the fresh serialized one (last-writer-wins, benign for this file). */
-async function writeFeed(feed: ActivityEntry[]): Promise<void> {
-  const fs = await nodeFs();
+ * is still the fresh serialized one (last-writer-wins, benign for this file).
+ *
+ * Returns whether the feed actually landed. A READ-ONLY filesystem is a normal
+ * deployment state, not an exceptional one: the production demo runs
+ * `DEMO_MODE=true` on Vercel, where `process.cwd()` is read-only, so every
+ * write here fails with EROFS. That used to propagate out of the request —
+ * `GET /api/cron/activity-prune` answered **500** on the live deployment while
+ * its nine sibling cron jobs passed — and would have failed any admin action
+ * that logs activity. The feed is a non-authoritative demo store (production is
+ * supposed to run the `prisma` adapter, per the header), so a write that cannot
+ * land is logged ONCE and reported, never thrown: the caller decides what to
+ * tell the user, and the scheduled job reports `persisted: false` instead of
+ * pretending it pruned. */
+let writeFailureLogged = false;
+async function writeFeed(feed: ActivityEntry[]): Promise<boolean> {
   const p = feedPath();
-  await fs.mkdir(path.dirname(p), { recursive: true });
-  const tmp = `${p}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
-  await fs.writeFile(tmp, JSON.stringify(feed, null, 2), "utf8");
   try {
-    await fs.rename(tmp, p);
-  } catch {
-    await fs.rm(tmp, { force: true }).catch(() => {});
+    const fs = await nodeFs();
+    await fs.mkdir(path.dirname(p), { recursive: true });
+    const tmp = `${p}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+    await fs.writeFile(tmp, JSON.stringify(feed, null, 2), "utf8");
+    try {
+      await fs.rename(tmp, p);
+    } catch {
+      await fs.rm(tmp, { force: true }).catch(() => {});
+    }
+    writeFailureLogged = false;
+    return true;
+  } catch (error) {
+    if (!writeFailureLogged) {
+      writeFailureLogged = true;
+      console.error(
+        `[activity] Cannot persist the admin-activity feed to ${p} (${(error as { code?: string }).code ?? "error"}). ` +
+          `Read-only filesystem? Set DEMO_MODE=false with DATABASE_URL to use the ActivityLog table; entries logged from here on are lost.`
+      );
+    }
+    return false;
   }
 }
 
@@ -154,7 +180,7 @@ async function fileReset(): Promise<void> {
 
 /* ────────────────────────────── File adapter ────────────────────────────── */
 
-async function filePrune(olderThanDays: number): Promise<{ removed: number; remaining: number }> {
+async function filePrune(olderThanDays: number): Promise<{ removed: number; remaining: number; persisted: boolean }> {
   const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
   // Uses the same serialized read→mutate→write chain as mutateFeed, but needs
   // the count back — mutateFeed only returns the entry, so inline the chain.
@@ -162,8 +188,8 @@ async function filePrune(olderThanDays: number): Promise<{ removed: number; rema
     const feed = await readFeed();
     const before = feed.length;
     const kept = feed.filter((e) => Date.parse(e.time) >= cutoff);
-    await writeFeed(kept);
-    return { removed: before - kept.length, remaining: kept.length };
+    const persisted = await writeFeed(kept);
+    return { removed: before - kept.length, remaining: kept.length, persisted };
   });
   chain = run.catch(() => {});
   return run;
@@ -549,12 +575,16 @@ export async function resetAdminActivityFeed(): Promise<void> {
  * unboundedly in the database — this is the cleanup job that bounds them.
  * Returns how many rows were removed and how many remain.
  */
-export async function pruneActivityLog(olderThanDays = 90): Promise<{ removed: number; remaining: number }> {
+export async function pruneActivityLog(
+  olderThanDays = 90
+): Promise<{ removed: number; remaining: number; persisted: boolean; store: "file" | "prisma" }> {
   // Defend against NaN (e.g. a garbage ACTIVITY_LOG_RETENTION_DAYS env): a NaN
   // cutoff would make every timestamp compare false and delete the whole log.
   const raw = Math.floor(olderThanDays);
   const days = Number.isFinite(raw) ? Math.max(1, raw) : 90;
-  return activityAdapterMode() === "prisma" ? prismaPrune(days) : filePrune(days);
+  const store = activityAdapterMode();
+  if (store === "prisma") return { ...(await prismaPrune(days)), persisted: true, store };
+  return { ...(await filePrune(days)), store };
 }
 
 /**

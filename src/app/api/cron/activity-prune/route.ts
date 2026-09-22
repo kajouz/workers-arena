@@ -18,12 +18,18 @@ export const dynamic = "force-dynamic";
  *
  * Idempotent: older rows are deleted, newer ones untouched — safe on any
  * interval.
+ *
+ * The response reports which store answered and whether the delete actually
+ * landed (`persisted`). Production runs `DEMO_MODE=true`, so the file adapter is
+ * in play on Vercel's read-only filesystem: the prune is then a no-op and this
+ * endpoint says so in the scheduler's log (`persisted: false`) instead of
+ * answering 500 — or, worse, claiming a retention policy that never ran.
  */
 export async function GET(req: Request) {
   const authError = verifyCronAuth(req);
   if (authError) return authError;
 
   const retentionDays = Number(process.env.ACTIVITY_LOG_RETENTION_DAYS ?? 90);
-  const { removed, remaining } = await pruneActivityLog(retentionDays);
-  return NextResponse.json({ ok: true, retentionDays, removed, remaining });
+  const { removed, remaining, persisted, store } = await pruneActivityLog(retentionDays);
+  return NextResponse.json({ ok: true, retentionDays, removed, remaining, store, persisted });
 }

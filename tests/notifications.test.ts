@@ -660,6 +660,27 @@ describe("activity retention prune", () => {
     expect(result.removed).toBe(0); // must NOT delete everything
     expect(result.remaining).toBe(1);
   });
+
+  it("reports persisted:false on a filesystem it cannot write to, instead of failing the request", async () => {
+    // The production demo runs DEMO_MODE=true on Vercel, where cwd is read-only,
+    // so this path is a deployment state, not a hypothetical: the live
+    // /api/cron/activity-prune answered 500 until the write reported failure
+    // instead of throwing. A path whose PARENT is a regular file makes mkdir
+    // fail deterministically (ENOTDIR) without needing a root-owned directory.
+    const { writeFile } = await import("node:fs/promises");
+    const blocker = path.join(tmpdir(), `activity-blocker-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    await writeFile(blocker, "not a directory", "utf8");
+    vi.stubEnv("ADMIN_ACTIVITY_FILE", path.join(blocker, "admin-activity.json"));
+    try {
+      const result = await pruneActivityLog(90);
+      expect(result.persisted).toBe(false);
+      expect(result.store).toBe("file");
+      // The unreachable store reads as empty, so nothing may claim to have been pruned.
+      expect(result.removed).toBe(0);
+    } finally {
+      await rm(blocker, { force: true }).catch(() => {});
+    }
+  });
 });
 
 describe("activity history listing", () => {
