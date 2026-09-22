@@ -58,8 +58,12 @@ meili_data/
 /android/
 /out/
 
-# Backup files
-backups/
+# Backup files written at the repo root (a stray dumps directory).
+# ANCHORED on purpose: an unanchored `backups/` also matches every backups/
+# directory anywhere in the tree — including the admin route
+# src/app/[locale]/(app)/admin/backups/, which silently kept that whole page
+# out of version control (the route 404s on any fresh checkout / deploy).
+/backups/
 
 # Playwright artifacts
 test-results/

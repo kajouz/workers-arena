@@ -84,6 +84,13 @@ function audit(page: Page) {
 }
 
 test.describe("the admin console in dark mode", () => {
+  // The service worker's network-first navigation fallback serves the
+  // precached homepage shell when the test server drops a response stream
+  // (seen in CI under load as "destination stream closed early"), which made
+  // these server-shell assertions read a homepage instead of the admin page.
+  // These tests need the real server render every time — block the SW.
+  test.use({ serviceWorkers: "block" });
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/en");
     await signInAsAdmin(page);
