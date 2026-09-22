@@ -108,6 +108,21 @@ describe("cron registration", () => {
     expect(paths).toEqual([...new Set(paths)]);
   });
 
+  it("does not combine curl's --fail with --fail-with-body", () => {
+    // Shipped once and failed on EVERY tick: `curl -fsS --fail-with-body` is
+    // rejected outright ("option --fail-with-body: is badly used here", exit 2)
+    // because -f/--fail and --fail-with-body are mutually exclusive. --fail-with-body
+    // is the flag we want (it surfaces the endpoint's JSON on a non-2xx), so -f
+    // must never come back on the same command.
+    const bad: string[] = [];
+    for (const [i, line] of WORKFLOW.split("\n").entries()) {
+      if (/curl\b/.test(line) && /--fail-with-body/.test(line) && /(^|\s)-\w*f/.test(line.replace(/--fail-with-body/g, ""))) {
+        bad.push(`line ${i + 1}: ${line.trim()}`);
+      }
+    }
+    expect(bad, `--fail and --fail-with-body cannot be combined — curl exits 2 before making the request:\n  ${bad.join("\n  ")}`).toEqual([]);
+  });
+
   it("keeps crons out of vercel.json (Hobby rejects sub-daily entries and blocks the deploy)", () => {
     const config = JSON.parse(readFileSync(VERCEL_JSON, "utf8"));
     expect(

@@ -71,69 +71,69 @@ jobs:
       - name: WhatsApp retry sweep
         if: env.SCHEDULE == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/whatsapp-retries"
 
       - name: Booking-request SLA nudge
         if: env.SCHEDULE == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/requests"
 
       - name: Staged-completion auto-confirm
         if: env.SCHEDULE == '0 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/completions"
 
       - name: Masked-number expiry
         if: env.SCHEDULE == '5 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/masked-numbers-expire"
 
       - name: Recurring-job materialization
         if: env.SCHEDULE == '0 2 * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/recurring"
 
       - name: Daily digest
         if: env.SCHEDULE == '0 6 * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/digest"
 
       - name: Booking and subscription reminders
         if: env.SCHEDULE == '0 7 * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/reminders"
 
       - name: Weekly admin digest
         if: env.SCHEDULE == '0 8 * * 1' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/admin-digest"
 
       - name: Push-subscription prune
         if: env.SCHEDULE == '0 3 * * 0' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/push-prune"
 
       - name: Activity-log retention prune
         if: env.SCHEDULE == '30 3 * * 0' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -fsS --fail-with-body -X GET \
+          curl -sS --fail-with-body -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/activity-prune"
