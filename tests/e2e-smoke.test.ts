@@ -6,6 +6,8 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import { installSignalGuard } from "./helpers/signal-guard.mjs";
+import { localePath } from "../src/lib/i18n/routing";
+import type { Locale } from "../src/lib/i18n/config";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -1433,7 +1435,19 @@ describeE2E("E2E hydration smoke", () => {
   }
 
   /**
-   * Visit every spec × locale: set the SSR locale cookie (and the session
+   * Canonical URL for a route under locale routing: every page lives under
+   * `/{locale}/…`, so navigations target the prefixed path directly — the
+   * proxy's 301 for prefix-less URLs would flip AR assertions onto the EN
+   * document (the wa_locale cookie only picks a destination, never the
+   * language, once the URL decides).
+   */
+  function locUrl(base: string, locale: Locale, barePath: string): string {
+    const bare = barePath.startsWith("/") ? barePath : `/${barePath}`;
+    return `${base}${localePath(locale, bare)}`;
+  }
+
+  /**
+   * Visit every spec × locale: set the session cookie (and the session
    * cookie only when the route needs one — public routes must render as true
    * visitors, so any stale session from a previous route is dropped), then
    * assert SSR language/direction, non-trivial content, no error overlay, and
@@ -1482,7 +1496,7 @@ describeE2E("E2E hydration smoke", () => {
           await seedCustomerBooking(opts.baseUrl ?? baseUrl);
         }
 
-        const url = `${opts.baseUrl ?? baseUrl}/${spec.path}`;
+        const url = locUrl(opts.baseUrl ?? baseUrl, locale, spec.path);
         await page.goto(url, { waitUntil: "load", timeout: 120_000 });
         // Give React time to hydrate and (if broken) emit warnings.
         await new Promise((r) => setTimeout(r, 2000));
@@ -1512,9 +1526,9 @@ describeE2E("E2E hydration smoke", () => {
           expectedTitle
         );
 
-        // The route rendered under the right SSR language (no redirect away,
-        // no auth failure), so the console result is meaningful.
-        expect(state.pathname).toBe(`/${spec.path}`);
+        // The route rendered at its canonical locale-prefixed URL (no redirect
+        // away, no auth failure), so the console result is meaningful.
+        expect(state.pathname).toBe(localePath(locale, `/${spec.path}`));
         expect(state.lang).toBe(locale);
         expect(state.dir).toBe(locale === "ar" ? "rtl" : "ltr");
         expect(state.text.length).toBeGreaterThan(100);
@@ -2084,7 +2098,7 @@ describeE2E("E2E hydration smoke", () => {
   async function assertInstallable(page: Page, baseUrl: string, label: string, issues: string[]): Promise<void> {
     const fail = (msg: string) => issues.push(`[installability:${label}] ${msg}`);
 
-    await page.goto(`${baseUrl}/`, { waitUntil: "load", timeout: 120_000 });
+    await page.goto(locUrl(baseUrl, "en", "/"), { waitUntil: "load", timeout: 120_000 });
     // Chrome's installability engine requires an active service worker with a
     // fetch handler — the registrar installs /sw.js on first visit, but
     // registration is async, so wait for it (bounded) before asking for a
@@ -2238,7 +2252,7 @@ describeE2E("E2E hydration smoke", () => {
     const invoiceDesc = locale === "ar" ? `اشتراك ${label} — خالد الحربي` : `${label} subscription — Khaled Al-Harbi`;
     const notifText = locale === "ar" ? `تم تجديد الاشتراك — ${plan}` : `Subscription renewed — ${plan}`;
 
-    await page.goto(`${b}/dashboard`, { waitUntil: "load", timeout: 120_000 });
+    await page.goto(locUrl(b, locale, "dashboard"), { waitUntil: "load", timeout: 120_000 });
     // The trigger exists in SSR HTML before React hydrates; a pre-hydration
     // click would silently no-op. Settle briefly so the onClick is attached.
     await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
@@ -2281,7 +2295,7 @@ describeE2E("E2E hydration smoke", () => {
       refreshFallback
     );
     await waitFor(page, `document.body.innerText.includes('${invoiceDesc}')`, "invoice card shows the new invoice", 20_000, refreshFallback);
-    await page.goto(`${b}/notifications`, { waitUntil: "load", timeout: 120_000 });
+    await page.goto(locUrl(b, locale, "notifications"), { waitUntil: "load", timeout: 120_000 });
     await waitFor(page, `document.body.innerText.includes('${notifText}')`, "renewal notification in inbox");
   }
 
@@ -2547,7 +2561,7 @@ describeE2E("E2E hydration smoke", () => {
         path: "/",
       }
     );
-    await page.goto(`${b}/dashboard`, { waitUntil: "load", timeout: 120_000 });
+    await page.goto(locUrl(b, locale, "dashboard"), { waitUntil: "load", timeout: 120_000 });
     await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
     await waitFor(
       page,
@@ -2563,7 +2577,7 @@ describeE2E("E2E hydration smoke", () => {
 
     // ── 2. Guest books the first available slot ────────────────────────────
     await page.deleteCookie({ name: "wa_session", domain: HOST, path: "/" });
-    await page.goto(`${b}/workers/khaled-al-harbi-plumbing`, { waitUntil: "load", timeout: 120_000 });
+    await page.goto(locUrl(b, locale, "workers/khaled-al-harbi-plumbing"), { waitUntil: "load", timeout: 120_000 });
     await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
     const requestLabel = en ? "Request a booking" : "اطلب حجزاً";
     await waitFor(
@@ -2641,7 +2655,7 @@ describeE2E("E2E hydration smoke", () => {
       domain: HOST,
       path: "/",
     });
-    await page.goto(`${b}/dashboard`, { waitUntil: "load", timeout: 120_000 });
+    await page.goto(locUrl(b, locale, "dashboard"), { waitUntil: "load", timeout: 120_000 });
     await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
     const respondForRow = `[...document.querySelectorAll('button')].some(x => (x.textContent ?? '').trim() === '${respondLabel}' && (x.closest('.overflow-hidden')?.textContent ?? '').includes('${jobTitle}'))`;
     await waitFor(page, respondForRow, `respond button for ${jobTitle} (${locale})`);
@@ -2702,7 +2716,7 @@ describeE2E("E2E hydration smoke", () => {
 
     // ── 5. Customer sees the same status via phone lookup ───────────────────
     await page.deleteCookie({ name: "wa_session", domain: HOST, path: "/" });
-    await page.goto(`${b}/bookings?phone=${encodeURIComponent(phone)}`, { waitUntil: "load", timeout: 120_000 });
+    await page.goto(locUrl(b, locale, "bookings?phone=" + encodeURIComponent(phone)), { waitUntil: "load", timeout: 120_000 });
 
     if (deposit) {
       // The pay box renders for a PENDING_PAYMENT booking with a deposit.
@@ -2737,7 +2751,7 @@ describeE2E("E2E hydration smoke", () => {
         `checkout redirect to /bookings?paid=1 (${locale})`,
         30_000
       );
-      await page.goto(`${b}/bookings?phone=${encodeURIComponent(phone)}`, {
+      await page.goto(locUrl(b, locale, "bookings?phone=" + encodeURIComponent(phone)), {
         waitUntil: "load",
         timeout: 120_000,
       });
@@ -2773,7 +2787,7 @@ describeE2E("E2E hydration smoke", () => {
         domain: HOST,
         path: "/",
       });
-      await page.goto(`${b}/dashboard`, { waitUntil: "load", timeout: 120_000 });
+      await page.goto(locUrl(b, locale, "dashboard"), { waitUntil: "load", timeout: 120_000 });
       await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
       await waitForUpcomingBadge(page, {
         jobTitle,
@@ -2842,7 +2856,7 @@ describeE2E("E2E hydration smoke", () => {
       await runRenewal(page, { baseUrl: targetBase, plan: "enterprise", locale: "en", refreshFallback });
 
       // ── 2. Theme toggle: light → dark, persisted via the wa_theme cookie ──
-      await page.goto(`${targetBase}/`, { waitUntil: "load", timeout: 120_000 });
+      await page.goto(locUrl(targetBase, "en", "/"), { waitUntil: "load", timeout: 120_000 });
       await waitFor(
         page,
         "document.documentElement.lang === 'en' && document.documentElement.dir === 'ltr'",
@@ -2914,7 +2928,7 @@ describeE2E("E2E hydration smoke", () => {
       // doesn't carry the cookie across a cross-navigation in CI. Pin it
       // explicitly so the SSR locale is deterministic.
       await page.setCookie({ name: "wa_locale", value: "ar", domain: HOST, path: "/" });
-      await page.goto(`${targetBase}/dashboard`, { waitUntil: "load", timeout: 120_000 });
+      await page.goto(locUrl(targetBase, "ar", "dashboard"), { waitUntil: "load", timeout: 120_000 });
       // The resubmit button exists in SSR HTML before React hydrates; a
       // pre-hydration click would silently no-op. Settle like runRenewal does.
       await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
@@ -2953,7 +2967,7 @@ describeE2E("E2E hydration smoke", () => {
         domain: HOST,
         path: "/",
       });
-      await page.goto(`${targetBase}/admin`, { waitUntil: "load", timeout: 120_000 });
+      await page.goto(locUrl(targetBase, "ar", "admin"), { waitUntil: "load", timeout: 120_000 });
       // The queue row (approve button included) exists in SSR HTML before React
       // hydrates — the waitFor below passes on SSR content, so a click right
       // after would race the onClick attachment and silently no-op. The admin
@@ -3028,7 +3042,7 @@ describeE2E("E2E hydration smoke", () => {
         );
         const createLabel = "Create campaign";
         const campaignName = "E2E plumbing ads";
-        await page.goto(`${targetBase}/company`, { waitUntil: "load", timeout: 120_000 });
+        await page.goto(locUrl(targetBase, "en", "company"), { waitUntil: "load", timeout: 120_000 });
         await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
         await waitFor(
           page,
@@ -3076,7 +3090,7 @@ describeE2E("E2E hydration smoke", () => {
         //   3. Re-establish the session on a settled page, then assert ACTIVE.
         await waitFor(
           page,
-          `document.body.innerText.includes('${campaignName}') || location.search.includes('paid=1') || location.pathname === '/auth/login'`,
+          `document.body.innerText.includes('${campaignName}') || location.search.includes('paid=1') || location.pathname.includes('/auth/login')`,
           "campaign created (row or checkout)",
           30_000
         );
@@ -3088,7 +3102,7 @@ describeE2E("E2E hydration smoke", () => {
                 [...document.querySelectorAll("span")].some(
                   (s) => (s.textContent ?? "").trim() === "Active"
                 ) ||
-                location.pathname !== "/company" ||
+                location.pathname.includes("/company") === false ||
                 !document.body.innerText.includes(name),
               campaignName
             )
@@ -3111,14 +3125,14 @@ describeE2E("E2E hydration smoke", () => {
         }
         // Re-establish the session on a settled page (a mid-navigation context
         // can make setCookie fail), then assert the paid landing shows ACTIVE.
-        await page.goto(`${targetBase}/company`, { waitUntil: "load", timeout: 120_000 });
+        await page.goto(locUrl(targetBase, "en", "company"), { waitUntil: "load", timeout: 120_000 });
         await page.setCookie({
           name: "wa_session",
           value: encodeURIComponent(JSON.stringify(SESSIONS.company)),
           domain: HOST,
           path: "/",
         });
-        await page.goto(`${targetBase}/company?paid=1`, { waitUntil: "load", timeout: 120_000 });
+        await page.goto(locUrl(targetBase, "en", "company?paid=1"), { waitUntil: "load", timeout: 120_000 });
         try {
           await waitFor(
             page,
@@ -3148,14 +3162,14 @@ describeE2E("E2E hydration smoke", () => {
       // toggle label is deterministic regardless of where earlier steps left
       // the locale.
       await page.setCookie({ name: "wa_locale", value: "en", domain: HOST, path: "/" });
-      await page.goto(`${targetBase}/search`, { waitUntil: "load", timeout: 120_000 });
+      await page.goto(locUrl(targetBase, "en", "search"), { waitUntil: "load", timeout: 120_000 });
       await waitFor(
         page,
-        `[...document.querySelectorAll('a[href^="/workers/"]')].some((a) => a.querySelector('h3'))`,
+        `[...document.querySelectorAll('a[href*="/workers/"]')].some((a) => a.querySelector('h3'))`,
         "search results render"
       );
       const beforeFilter = await page.evaluate(
-        () => [...document.querySelectorAll('a[href^="/workers/"]')].filter((a) => a.querySelector("h3")).length
+        () => [...document.querySelectorAll('a[href*="/workers/"]')].filter((a) => a.querySelector("h3")).length
       );
       await waitFor(
         page,
@@ -3182,8 +3196,8 @@ describeE2E("E2E hydration smoke", () => {
         await waitFor(
           page,
           `location.search.includes('feeWaived=1') &&
-           [...document.querySelectorAll('a[href^="/workers/"]')].filter((a) => a.querySelector('h3')).length === 0 &&
-           [...document.querySelectorAll('a[href^="/workers/"]')].filter((a) => a.querySelector('h3'))
+           [...document.querySelectorAll('a[href*="/workers/"]')].filter((a) => a.querySelector('h3')).length === 0 &&
+           [...document.querySelectorAll('a[href*="/workers/"]')].filter((a) => a.querySelector('h3'))
              .every((a) => (a.textContent ?? '').includes('Fee waived'))`,
           "fee-waived filter reflects the current no-exemption default"
         );
@@ -3193,7 +3207,7 @@ describeE2E("E2E hydration smoke", () => {
         const state = await page
           .evaluate(() => ({
             search: location.search,
-            cards: [...document.querySelectorAll('a[href^="/workers/"]')]
+            cards: [...document.querySelectorAll('a[href*="/workers/"]')]
               .filter((a) => a.querySelector('h3'))
               .map((a) => ({
                 name: a.querySelector('h3')?.textContent,
@@ -3209,7 +3223,7 @@ describeE2E("E2E hydration smoke", () => {
         );
       }
       const afterFilter = await page.evaluate(
-        () => [...document.querySelectorAll('a[href^="/workers/"]')].filter((a) => a.querySelector("h3")).length
+        () => [...document.querySelectorAll('a[href*="/workers/"]')].filter((a) => a.querySelector("h3")).length
       );
       expect(afterFilter).toBe(0);
       expect(afterFilter).toBeLessThan(beforeFilter);
@@ -3240,7 +3254,7 @@ describeE2E("E2E hydration smoke", () => {
           path: "/",
         }
       );
-      await page.goto(`${targetBase}/admin`, { waitUntil: "load", timeout: 120_000 });
+      await page.goto(locUrl(targetBase, "en", "admin"), { waitUntil: "load", timeout: 120_000 });
       // The admin page is the heaviest route — settle before touching the
       // select (same hydration hazard the other flows document).
       await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
@@ -3301,19 +3315,21 @@ describeE2E("E2E hydration smoke", () => {
       // route server-side and returns the HTML the client would have hydrated.
       const searchSsr = async () =>
         await page.evaluate(async () => {
-          const res = await fetch("/search?feeWaived=1", { cache: "no-store" });
+          // Locale-prefixed fetch: /search now 301s to /{locale}/search, and
+          // the assertion is locale-independent (worker slug) — pin EN.
+          const res = await fetch("/en/search?feeWaived=1", { cache: "no-store" });
           return await res.text();
         });
       const ssrAfterDemote = await searchSsr();
       expect(ssrAfterDemote).not.toContain("bilal-mansour-cleaning");
       // And his profile (server component) drops the fee-waived badge.
-      await page.goto(`${targetBase}/workers/bilal-mansour-cleaning`, { waitUntil: "load", timeout: 120_000 });
+      await page.goto(locUrl(targetBase, "en", "workers/bilal-mansour-cleaning"), { waitUntil: "load", timeout: 120_000 });
       await waitFor(page, "document.body.innerText.includes('Bilal Mansour')", "bilal profile renders");
       expect(await page.evaluate(() => document.body.innerText)).not.toContain("Fee waived");
 
       // Revert: Premium → Enterprise, then confirm the current no-exemption
       // filter remains empty on both surfaces.
-      await page.goto(`${targetBase}/admin`, { waitUntil: "load", timeout: 120_000 });
+      await page.goto(locUrl(targetBase, "en", "admin"), { waitUntil: "load", timeout: 120_000 });
       await new Promise((r) => setTimeout(r, HYDRATION_SETTLE_MS));
       await waitFor(
         page,
@@ -3348,7 +3364,7 @@ describeE2E("E2E hydration smoke", () => {
       // the active rule set rather than the legacy plan label.
       const ssrAfterRevert = await searchSsr();
       expect(ssrAfterRevert).not.toContain("bilal-mansour-cleaning");
-      await page.goto(`${targetBase}/workers/bilal-mansour-cleaning`, { waitUntil: "load", timeout: 120_000 });
+      await page.goto(locUrl(targetBase, "en", "workers/bilal-mansour-cleaning"), { waitUntil: "load", timeout: 120_000 });
       await waitFor(page, "document.body.innerText.includes('Bilal Mansour')", "bilal profile re-renders");
       expect(await page.evaluate(() => document.body.innerText)).not.toContain("Fee waived");
       pushNote(
