@@ -41,15 +41,26 @@ const ADMIN_PAGES = [
   { path: "/en/admin/cms", name: "Content management" },
 ];
 
+/**
+ * Sign in AND choose the dark theme, BEFORE the first navigation.
+ *
+ * The order matters. This used to navigate to `/en` first and set the cookies
+ * afterwards, which raced the app: a page that loads without `wa_theme`
+ * resolves light on its own and PERSISTS that choice — applyTheme() writes
+ * both the cookie and localStorage — so the injected `dark` cookie was
+ * overwritten by the browser's own later write. The admin page then booted
+ * light (no `class="dark"`, `color-scheme: light`) and the assertion below
+ * failed, on a rotating set of pages and only under CI's timing. Cookies set
+ * up-front means no page ever loads with the wrong theme, so nothing rewrites
+ * it afterwards. Verified with a probe: cookies-first → `class="dark"`,
+ * navigate-first → `wa_theme=light`.
+ */
 async function signInAsAdmin(page: Page) {
+  const baseURL = test.info().project.use.baseURL ?? "http://localhost:3001";
   await page.context().addCookies([
-    {
-      name: "wa_session",
-      value: encodeURIComponent(JSON.stringify(ADMIN_SESSION)),
-      url: new URL(page.url()).origin,
-    },
+    { name: "wa_session", value: encodeURIComponent(JSON.stringify(ADMIN_SESSION)), url: baseURL },
     // The theme bootstrap reads this before first paint.
-    { name: "wa_theme", value: "dark", url: new URL(page.url()).origin },
+    { name: "wa_theme", value: "dark", url: baseURL },
   ]);
 }
 
@@ -84,16 +95,11 @@ function audit(page: Page) {
 }
 
 test.describe("the admin console in dark mode", () => {
-  // The service worker's network-first navigation fallback serves the
-  // precached homepage shell when the test server drops a response stream
-  // (seen in CI under load as "destination stream closed early"), which made
-  // these server-shell assertions read a homepage instead of the admin page.
-  // These tests need the real server render every time — block the SW.
-  test.use({ serviceWorkers: "block" });
-
   test.beforeEach(async ({ page }) => {
-    await page.goto("/en");
+    // Cookies first (see signInAsAdmin), then a real page load so the admin
+    // navigation below is a full document request carrying them.
     await signInAsAdmin(page);
+    await page.goto("/en");
   });
 
   for (const { path, name } of ADMIN_PAGES) {
