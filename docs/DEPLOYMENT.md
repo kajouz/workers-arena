@@ -62,7 +62,7 @@ Multi-stage Dockerfile: deps → build (`prisma generate`, `next build`) → sli
 | Variable | Required | Notes |
 |---|---|---|
 | `DATABASE_URL` | prod | PostgreSQL DSN |
-| `DEMO_MODE` | dev | `"true"` = embedded dataset, no DB |
+| `DEMO_MODE` | dev | `"true"` = embedded dataset, no DB. **The live deployment deliberately runs `true`** — it is a demo showcase serving the embedded dataset, not the seeded Postgres rows. See “Demo-mode deployments” below before changing it. |
 | `AUTH_SECRET` | prod | long random string |
 | `NEXT_PUBLIC_APP_URL` | both | canonical URL for SEO/manifest |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | prod push | Generate once with `npx web-push generate-vapid-keys`; store both keys and the subject in the deployment secret manager. Never commit the private key. |
@@ -73,6 +73,14 @@ Multi-stage Dockerfile: deps → build (`prisma generate`, `next build`) → sli
 | `STRIPE_SECRET_KEY` / `PAYPAL_CLIENT_ID` / `MYFATOORAH_API_TOKEN` / `TAP_SECRET_KEY` | prod | payments |
 | `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` + API keys | prod | media |
 | `REDIS_URL` | prod | caching + rate limiting |
+
+### Demo-mode deployments (the current production posture)
+
+Production runs `DEMO_MODE=true` on purpose: the deployment is a public showcase of the embedded dataset. Two consequences are easy to get wrong, so they are recorded here.
+
+**1. Sessions are still signed, and the demo cookie is not a bypass.** `wa_session` is an HMAC-signed payload; production refuses an unsigned or tampered cookie regardless of `DEMO_MODE` (`unsignedDemoCookieAllowed()` in `src/lib/security.ts`, opted into only by `ALLOW_UNSIGNED_DEMO_COOKIE=1`, which the E2E harnesses set). The one-click demo logins on `/auth/login` work because they go through `setSession()`, which signs. `DEMO_MODE` is a *dataset* switch; it stopped being a *trust* switch after a forged `wa_session={"role":"admin"}` cookie returned real figures from `/api/admin/retention` on the live site — that request now answers 401.
+
+**2. The file-backed stores cannot persist on Vercel.** With `DEMO_MODE=true` the activity feed, inbox and push store use their file adapters, and a serverless filesystem is read-only apart from `/tmp`. Writes report failure instead of throwing (`pruneActivityLog` returns `persisted: false`, logged once), so `/api/cron/activity-prune` answers 200 with an explicit `persisted: false` rather than 500 — but nothing is retained. Move to the Prisma adapters (`DEMO_MODE=false` + `DATABASE_URL` + a real `AUTH_SECRET`) when the deployment is meant to serve real data; the guard in `realAuthEnabled()` falls back to demo mode and logs loudly if the secret is still a placeholder, so verify the secret before flipping the flag or every existing session is refused.
 
 ## 4. Redis caching (production)
 
