@@ -40,10 +40,19 @@ export default defineConfig({
   retries: isCI ? 2 : 1,
   // Fail fast on the first broken test in CI; full visibility locally.
   maxFailures: isCI ? 10 : 0,
+  // The HTML report (playwright-report/) carries per-failure page snapshots
+  // and is what CI uploads on failure; the list reporter keeps the console
+  // readable. Without it, a CI-only failure is undebuggable — no artifacts.
+  reporter: isCI
+    ? [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]]
+    : [["list"]],
   use: {
     ...devices["Desktop Chrome"],
     headless: true,
     baseURL,
+    // Full interaction trace for every failed test — the discriminator
+    // between "app rendered wrong" and "the request never completed".
+    trace: "retain-on-failure",
     launchOptions: {
       args: ["--no-sandbox", "--disable-dev-shm-usage"],
     },
