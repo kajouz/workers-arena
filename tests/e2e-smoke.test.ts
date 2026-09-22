@@ -1228,6 +1228,11 @@ describeE2E("E2E hydration smoke", () => {
         ...process.env,
         NEXT_TELEMETRY_DISABLED: "1",
         DEMO_MODE: "true",
+        // The smoke signs in by seeding an UNSIGNED `wa_session` cookie, which
+        // a production runtime refuses by default (a client-authored payload
+        // must never grant a role). Test-only opt-in — see
+        // unsignedDemoCookieAllowed() in src/lib/security.ts.
+        ALLOW_UNSIGNED_DEMO_COOKIE: "1",
         VAPID_PUBLIC_KEY: "BElJkaYwE6P6mB8M1QYfLdW3tRhV0sXnZc2aKvUoNpQrStUwXyZ0AbCdEfGhIjKlMnO4PqRsTuVwXyZ1",
         VAPID_PRIVATE_KEY: "",
         VAPID_SUBJECT: "",

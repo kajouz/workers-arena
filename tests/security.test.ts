@@ -6,7 +6,10 @@ import {
   demoSessionAllowed,
   hashPassword,
   needsPasswordRehash,
+  signSessionPayload,
+  unsignedDemoCookieAllowed,
   verifyPassword,
+  verifySessionPayload,
 } from "../src/lib/security";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -121,5 +124,49 @@ describe("demoSessionAllowed (production guard)", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("DEMO_MODE", "true");
     expect(demoSessionAllowed()).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unsigned demo cookies: a data-mode switch must never become a trust switch.
+//
+// `wa_session` used to be an unsigned JSON blob and production accepted it
+// whenever DEMO_MODE=true — so the live site (which runs the demo dataset)
+// handed an admin session to anyone who typed `{"role":"admin"}` into a
+// cookie: `curl -H 'Cookie: wa_session=…' /api/admin/retention` returned 200.
+// DEMO_MODE now controls the DATASET only; unsigned cookies need the explicit
+// test-only flag the E2E harnesses set.
+// ─────────────────────────────────────────────────────────────────────────────
+describe("unsignedDemoCookieAllowed (production trust guard)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("accepts unsigned demo cookies outside production", () => {
+    expect(unsignedDemoCookieAllowed()).toBe(true);
+  });
+
+  it("refuses them in production even when DEMO_MODE=true", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "true");
+    expect(unsignedDemoCookieAllowed()).toBe(false);
+  });
+
+  it("refuses them in production with DEMO_MODE unset", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(unsignedDemoCookieAllowed()).toBe(false);
+  });
+
+  it("allows them in production only for the explicit E2E opt-in", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "true");
+    vi.stubEnv("ALLOW_UNSIGNED_DEMO_COOKIE", "1");
+    expect(unsignedDemoCookieAllowed()).toBe(true);
+  });
+
+  it("still verifies HMAC-signed cookies, so real logins keep working", () => {
+    vi.stubEnv("AUTH_SECRET", "test-secret-for-signing");
+    const payload = Buffer.from(JSON.stringify({ id: "u-admin", role: "admin" })).toString("base64url");
+    expect(verifySessionPayload(signSessionPayload(payload))).toBe(payload);
+    // The forgery the guard exists for: payload without a signature.
+    expect(verifySessionPayload(payload)).toBeNull();
   });
 });

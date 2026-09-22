@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { demoSessionAllowed, verifySessionPayload } from "@/lib/security";
+import { demoSessionAllowed, unsignedDemoCookieAllowed, verifySessionPayload } from "@/lib/security";
 
 // The cookie NAMES live in the dependency-free module so middleware/proxy can
 // share them (next/headers can't be imported there).
@@ -94,15 +94,21 @@ export async function getSession(): Promise<SessionUser | null> {
     const decoded = decodeURIComponent(raw);
     let payload: string | null = verifySessionPayload(decoded);
     if (!payload) {
-      // Legacy fallback: raw JSON without signature (pre-C3 cookies). Allowed
-      // in dev and in the explicit DEMO_MODE=true E2E prod, but not in real prod.
-      if (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true") {
+      // Legacy fallback: raw JSON without signature (pre-C3 cookies). Dev and
+      // the E2E harnesses only — in production the payload is client-authored,
+      // so trusting it hands out whatever role the cookie asks for. The switch
+      // is deliberately NOT DEMO_MODE: running the demo DATASET must not also
+      // mean trusting an unsigned session cookie (see unsignedDemoCookieAllowed).
+      if (unsignedDemoCookieAllowed()) {
         try {
           return JSON.parse(decoded) as SessionUser;
         } catch {
           return null;
         }
       }
+      console.error(
+        "[auth] Rejected an unsigned or tampered session cookie in production. Sign in through the app so the cookie carries a valid HMAC (set ALLOW_UNSIGNED_DEMO_COOKIE=1 only for the E2E harnesses)."
+      );
       return null;
     }
     // Payload is base64url-encoded JSON

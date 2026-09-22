@@ -29,6 +29,7 @@ vi.mock("next/headers", () => ({
 }));
 
 import { getSession, realAuthEnabled, DEMO_USERS, SESSION_COOKIE, type SessionUser } from "../src/lib/auth-demo";
+import { signSessionPayload } from "../src/lib/security";
 import { auth } from "@/auth";
 
 const REAL_SECRET = "sVf3qJ9mK2xL8pQ5rT7wY0zA4cE6hN1bGdU";
@@ -139,10 +140,9 @@ describe("getSession — demo mode (cookie path preserved)", () => {
   });
 
   it("REFUSES the demo cookie when NODE_ENV=production (production guard)", async () => {
-    // The demo cookie is an unsigned JSON blob granting any role (incl. admin).
-    // In production the app must never honor it unless DEMO_MODE was set
-    // deliberately ("true") — an unset/"false" value on a deploy means the
-    // app must fail loud instead of silently trusting the forgeable session.
+    // The demo cookie is an unsigned JSON blob granting any role (incl. admin),
+    // so production must never honor it: an unset/"false" DEMO_MODE on a deploy
+    // means the app fails loud instead of trusting the forgeable session.
     vi.stubEnv("NODE_ENV", "production");
     // Pin the misconfigured-deploy case: DEMO_MODE unset or "false". (stubEnv
     // can't unset, so "" stands in — both take the same refuse branch. The
@@ -157,16 +157,59 @@ describe("getSession — demo mode (cookie path preserved)", () => {
     expect(vi.mocked(auth)).not.toHaveBeenCalled(); // guard fires before NextAuth
   });
 
-  it("HONORS the demo cookie in production when DEMO_MODE=true (explicit opt-in)", async () => {
-    // The e2e prod matrix / CI Playwright job boot production servers with
-    // DEMO_MODE=true — deliberate, documented demo mode, not a misconfiguration.
+  it("REFUSES the demo cookie in production even when DEMO_MODE=true", async () => {
+    // Regression pin for the live hole: the production deployment runs the demo
+    // DATASET (DEMO_MODE=true), and gating the unsigned cookie on that same flag
+    // meant `curl -H 'Cookie: wa_session={"role":"admin"}' /api/admin/retention`
+    // returned 200 to anyone. Data mode and cookie trust are separate switches.
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("DEMO_MODE", "true");
     cookieStore.get.mockReturnValue({
       value: encodeURIComponent(JSON.stringify(DEMO_USERS.admin)),
     });
     const session = await getSession();
+    expect(session).toBeNull();
+    expect(vi.mocked(auth)).not.toHaveBeenCalled();
+  });
+
+  it("HONORS the demo cookie in production only for the E2E opt-in flag", async () => {
+    // The e2e prod matrix / CI Playwright job boot production servers and sign
+    // in by seeding the cookie directly, so they set ALLOW_UNSIGNED_DEMO_COOKIE
+    // (test-only, alongside RATE_LIMIT_DISABLED). Real deploys never set it.
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "true");
+    vi.stubEnv("ALLOW_UNSIGNED_DEMO_COOKIE", "1");
+    cookieStore.get.mockReturnValue({
+      value: encodeURIComponent(JSON.stringify(DEMO_USERS.admin)),
+    });
+    const session = await getSession();
     expect(session).toMatchObject({ role: "admin" });
     expect(vi.mocked(auth)).not.toHaveBeenCalled();
+  });
+
+  it("still honors a SIGNED session cookie in production without the test flag", async () => {
+    // The guard must not lock anyone out: setSession() writes base64url+HMAC, so
+    // the demo deployment's real logins (and the one-click demo buttons) keep
+    // working — only the unsigned forgery path is closed. Note NO
+    // ALLOW_UNSIGNED_DEMO_COOKIE here: signing alone is sufficient.
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "true"); // the live deployment's data mode
+    vi.stubEnv("AUTH_SECRET", "test-secret-for-signing");
+    const payload = Buffer.from(JSON.stringify(DEMO_USERS.worker)).toString("base64url");
+    cookieStore.get.mockReturnValue({ value: encodeURIComponent(signSessionPayload(payload)) });
+    const session = await getSession();
+    expect(session).toMatchObject({ id: DEMO_USERS.worker.id });
+  });
+
+  it("rejects a TAMPERED signed cookie in production (signature is not decorative)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "true");
+    vi.stubEnv("AUTH_SECRET", "test-secret-for-signing");
+    // Swap the payload but keep the original signature — the forgery shape.
+    const payload = Buffer.from(JSON.stringify(DEMO_USERS.worker)).toString("base64url");
+    const forged = Buffer.from(JSON.stringify(DEMO_USERS.admin)).toString("base64url");
+    const signed = signSessionPayload(payload).replace(payload, forged);
+    cookieStore.get.mockReturnValue({ value: encodeURIComponent(signed) });
+    expect(await getSession()).toBeNull();
   });
 });

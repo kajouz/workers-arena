@@ -86,6 +86,11 @@ export default defineConfig({
           // victim per run). The limiter stays unit-tested; e2e verifies the
           // app, not the throttling window.
           RATE_LIMIT_DISABLED: "1",
+          // The specs sign in by seeding `wa_session` directly — an UNSIGNED
+          // demo cookie, which production refuses by default (a client-authored
+          // payload must never grant a role). Test-only opt-in, mirroring
+          // RATE_LIMIT_DISABLED.
+          ALLOW_UNSIGNED_DEMO_COOKIE: "1",
         },
       }
     : {
@@ -96,6 +101,7 @@ export default defineConfig({
         env: {
           // Same rationale as the prod branch above.
           RATE_LIMIT_DISABLED: "1",
+          ALLOW_UNSIGNED_DEMO_COOKIE: "1",
         },
       },
 });

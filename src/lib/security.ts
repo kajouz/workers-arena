@@ -171,3 +171,25 @@ export function demoSessionAllowed(): boolean {
   if (process.env.NODE_ENV !== "production") return true;
   return process.env.DEMO_MODE === "true";
 }
+
+/**
+ * Legacy UNSIGNED demo cookies (the pre-C3 `wa_session` payload) are a
+ * development and E2E affordance — never a production trust decision.
+ *
+ * The payload is client-authored JSON, so `{"role":"admin"}` typed into a
+ * cookie jar IS  an admin session: `curl -H 'Cookie: wa_session={"role":"admin"}'`
+ * reached /api/admin/retention on the live deployment while this was gated on
+ * DEMO_MODE, because DEMO_MODE=true in production (the demo-data showcase)
+ * also switched the cookie path on. Data mode and cookie trust are separate
+ * decisions and are now separate switches.
+ *
+ * Production therefore accepts only the HMAC-signed form unless the runtime
+ * explicitly opts in with ALLOW_UNSIGNED_DEMO_COOKIE=1 — the same shape as
+ * RATE_LIMIT_DISABLED, and set only by the E2E harnesses (the Playwright prod
+ * matrix and the e2e-smoke prod leg), which sign in by seeding the cookie
+ * directly rather than walking the login flow.
+ */
+export function unsignedDemoCookieAllowed(): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+  return process.env.ALLOW_UNSIGNED_DEMO_COOKIE === "1";
+}
