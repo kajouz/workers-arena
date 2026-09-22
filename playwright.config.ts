@@ -72,6 +72,11 @@ export default defineConfig({
           // PW_PROD runs behave identically. Set DEMO_MODE=false explicitly
           // to test the guard's refuse path instead.
           DEMO_MODE: process.env.DEMO_MODE ?? "true",
+          // 4 parallel workers exceed the per-IP API rate-limit budget on
+          // their own — specs asserting /api bodies would 429 (rotating
+          // victim per run). The limiter stays unit-tested; e2e verifies the
+          // app, not the throttling window.
+          RATE_LIMIT_DISABLED: "1",
         },
       }
     : {
@@ -79,5 +84,9 @@ export default defineConfig({
         port: PORT,
         reuseExistingServer: !isCI,
         timeout: 120_000,
+        env: {
+          // Same rationale as the prod branch above.
+          RATE_LIMIT_DISABLED: "1",
+        },
       },
 });

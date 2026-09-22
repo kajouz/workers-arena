@@ -103,8 +103,14 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Rate limiting for API routes (distributed via Upstash Redis REST when configured)
-  if (pathname.startsWith("/api/")) {
+  // Rate limiting for API routes (distributed via Upstash Redis REST when configured).
+  // RATE_LIMIT_DISABLED=1 is a test-only escape hatch: the Playwright e2e
+  // suite drives 4 parallel workers against one server, which exceeds the
+  // per-IP budget on its own — tests then 429 on /api bodies they assert
+  // (rotating victim per run). The limiter's own behavior is pinned by unit
+  // tests; e2e verifies the app, not the limiter.
+  const rateLimitDisabled = process.env.RATE_LIMIT_DISABLED === "1";
+  if (pathname.startsWith("/api/") && !rateLimitDisabled) {
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous";
     const key = `api:${ip}:${pathname}`;
@@ -146,7 +152,7 @@ export async function proxy(request: NextRequest) {
   //
   // Actions therefore get their own, far looser bucket; a genuine form POST
   // (no `next-action` header — a contact form, a signup) keeps the strict one.
-  if (request.method === "POST" && !pathname.startsWith("/api/")) {
+  if (request.method === "POST" && !pathname.startsWith("/api/") && !rateLimitDisabled) {
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous";
     const isAction = request.headers.has("next-action");
