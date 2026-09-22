@@ -44,47 +44,5 @@
       "source": "/manifest.json",
       "destination": "/manifest.json"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/requests",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/whatsapp-retries",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/completions",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron/masked-numbers-expire",
-      "schedule": "5 * * * *"
-    },
-    {
-      "path": "/api/cron/recurring",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/reminders",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/digest",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/admin-digest",
-      "schedule": "0 8 * * 1"
-    },
-    {
-      "path": "/api/cron/push-prune",
-      "schedule": "0 3 * * 0"
-    },
-    {
-      "path": "/api/cron/activity-prune",
-      "schedule": "30 3 * * 0"
-    }
   ]
 }

@@ -1,0 +1,139 @@
+name: Scheduled Jobs
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EXTERNAL CRON SCHEDULER
+#
+# These jobs used to live in `vercel.json` as Vercel Cron entries. Vercel only
+# allows DAILY cron expressions on the Hobby plan, so every sub-daily entry
+# (`*/5`, `*/15`, hourly) made the production deploy fail outright with
+# "Hobby accounts are limited to daily cron jobs". The entries are gone from
+# `vercel.json` and the schedules live here instead, which keeps the original
+# cadences without pinning the project to a paid Vercel plan.
+#
+# Every `/api/cron/*` route is fail-closed behind `CRON_SECRET`
+# (src/lib/cron-auth.ts): it accepts `x-cron-secret: $CRON_SECRET` or
+# `Authorization: Bearer $CRON_SECRET` and returns 401 when the variable is
+# unset. Set the repo secret before relying on this workflow:
+#
+#   GitHub → Settings → Secrets and variables → Actions → New secret
+#   CRON_SECRET = <the same value configured in Vercel's production env>
+#
+# Optional: APP_URL (repository *variable*) to point at a different host.
+#
+# GitHub's scheduler is best-effort (`*/5` usually runs 5–15 minutes apart and
+# is skipped entirely on a repo with no activity for 60 days), so it is the
+# safety net, not a precision timer: the retry sweep and the SLA nudge are both
+# idempotent, and any external scheduler can hit the same endpoints with the
+# same header. See docs/DEPLOYMENT.md §Cron.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # WhatsApp delivery retry sweep
+    - cron: "*/15 * * * *" # stale booking-request SLA nudges
+    - cron: "0 * * * *" # staged-completion auto-confirm
+    - cron: "5 * * * *" # masked-number expiry
+    - cron: "0 2 * * *" # recurring-job materialization
+    - cron: "0 6 * * *" # daily digest
+    - cron: "0 7 * * *" # booking + subscription reminders
+    - cron: "0 8 * * 1" # weekly admin digest (Mondays)
+    - cron: "0 3 * * 0" # push-subscription prune (Sundays)
+    - cron: "30 3 * * 0" # activity-log retention prune (Sundays)
+  workflow_dispatch: # manual run: hits every endpoint below
+
+concurrency:
+  group: scheduled-jobs
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  hit:
+    name: Call cron endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: ${{ vars.APP_URL || 'https://workers-arena.vercel.app' }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      SCHEDULE: ${{ github.event.schedule }}
+    steps:
+      - name: Check the cron secret is configured
+        if: env.CRON_SECRET == ''
+        run: |
+          echo "::error::CRON_SECRET is not set — every /api/cron/* route fails closed (401)."
+          echo "Add it under Settings → Secrets and variables → Actions."
+          exit 1
+
+      # One step per endpoint, each pinned to its own schedule string, so a
+      # `*/5` tick only runs the retry sweep and a manual dispatch runs all of
+      # them. `--fail-with-body` surfaces the endpoint's JSON on a non-2xx.
+      - name: WhatsApp retry sweep
+        if: env.SCHEDULE == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/whatsapp-retries"
+
+      - name: Booking-request SLA nudge
+        if: env.SCHEDULE == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/requests"
+
+      - name: Staged-completion auto-confirm
+        if: env.SCHEDULE == '0 * * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/completions"
+
+      - name: Masked-number expiry
+        if: env.SCHEDULE == '5 * * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/masked-numbers-expire"
+
+      - name: Recurring-job materialization
+        if: env.SCHEDULE == '0 2 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/recurring"
+
+      - name: Daily digest
+        if: env.SCHEDULE == '0 6 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/digest"
+
+      - name: Booking and subscription reminders
+        if: env.SCHEDULE == '0 7 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/reminders"
+
+      - name: Weekly admin digest
+        if: env.SCHEDULE == '0 8 * * 1' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/admin-digest"
+
+      - name: Push-subscription prune
+        if: env.SCHEDULE == '0 3 * * 0' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/push-prune"
+
+      - name: Activity-log retention prune
+        if: env.SCHEDULE == '30 3 * * 0' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS --fail-with-body -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/activity-prune"

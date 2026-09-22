@@ -28,7 +28,24 @@ npx prisma migrate status
 The final status must say **Database schema is up to date**. Never use `prisma db push` in production. For the current subscription-lifecycle release, verify that migration `20260919130000_subscription_lifecycle_events` appears in the applied list; it creates the durable `SubscriptionEvent` table used by retention reporting, expiry processing, and WhatsApp renewal outreach. If the status command reports a failed or pending migration, stop the deployment, resolve the database state, and rerun the status check before serving traffic. Record the migration status output and deployment timestamp in the release notes.
 - **ISR:** public pages use `revalidate`/`dynamic` as needed; `/api/workers` sets `s-maxage` for CDN caching.
 - **Cache policy (proxy middleware):** any request carrying a session cookie (`wa_session`, or the NextAuth `authjs`/`next-auth` session-token variants) gets `Cache-Control: private, no-store` — every page renders session-aware markup (Sign in ⇄ avatar) and dashboards embed per-user data, so shared caches must never hold authenticated HTML. Anonymous requests keep `public, max-age=0, s-maxage=60, stale-while-revalidate=300` (edge-cacheable, bfcache-friendly). API routes set their own headers. Never put the CSRF cookie in the session-cookie list — every visitor gets one, and keying on it would make the whole site uncacheable.
-- **Cron:** add `vercel.json` cron entries for the subscription/booking-reminder job (`/api/cron/reminders`, daily), the recurring-generation job (`/api/cron/recurring`, daily — materializes maintenance-contract occurrences, idempotent), the request-SLA job (`/api/cron/requests`, hourly or daily — nudges workers on stale requests at 24h and auto-cancels at 48h, freeing the slot; idempotent via `Booking.lastSlaNudgeAt`), the completion auto-confirm job (`/api/cron/completions`, hourly or daily — auto-confirms staged completions past the 72h grace window, crediting the worker's ledger; idempotent via the COMPLETION_PENDING CAS), push-cleanup (`/api/cron/push-prune`), activity-retention (`/api/cron/activity-prune`) and the WhatsApp-retry sweep (`/api/cron/whatsapp-retries`, every 5–15 min) jobs, each with the `x-cron-secret: $CRON_SECRET` header. The daily jobs (reminders + recurring + request-SLA + completions) can share one entry cadence. The weekly admin digest (`/api/cron/admin-digest`, Mondays 08:00 UTC in `vercel.json`) needs `ADMIN_WHATSAPP_NUMBERS` plus the WhatsApp credentials. Set `ACTIVITY_LOG_RETENTION_DAYS` to bound the audit table (default 90).
+- **Cron (external scheduler, NOT `vercel.json`):** Vercel's own cron only allows **daily** expressions on the Hobby plan, and a sub-daily entry blocks the whole production deploy — "Hobby accounts are limited to daily cron jobs. This cron expression (*/15 * * * *) would run more than once per day." The `crons` block was therefore removed from `vercel.json`; the schedules live in `.github/workflows/cron.yml` and call the same endpoints over HTTPS with `x-cron-secret: $CRON_SECRET`:
+
+  | Endpoint | Schedule (UTC) | Job |
+  |---|---|---|
+  | `/api/cron/whatsapp-retries` | `*/5 * * * *` | bounded retry sweep for failed WhatsApp sends |
+  | `/api/cron/requests` | `*/15 * * * *` | nudges workers on stale requests at 24h, auto-cancels at 48h (idempotent via `Booking.lastSlaNudgeAt`) |
+  | `/api/cron/completions` | `0 * * * *` | auto-confirms staged completions past the 72h grace window (idempotent via the COMPLETION_PENDING CAS) |
+  | `/api/cron/masked-numbers-expire` | `5 * * * *` | expires call-masking windows |
+  | `/api/cron/recurring` | `0 2 * * *` | materializes maintenance-contract occurrences (idempotent) |
+  | `/api/cron/digest` | `0 6 * * *` | daily digest |
+  | `/api/cron/reminders` | `0 7 * * *` | booking + subscription reminders |
+  | `/api/cron/admin-digest` | `0 8 * * 1` | weekly admin digest (Mondays) — needs `ADMIN_WHATSAPP_NUMBERS` plus WhatsApp credentials |
+  | `/api/cron/push-prune` | `0 3 * * 0` | push-subscription cleanup (Sundays) |
+  | `/api/cron/activity-prune` | `30 3 * * 0` | audit-table retention, bounded by `ACTIVITY_LOG_RETENTION_DAYS` (default 90) |
+
+  **Required secret:** `CRON_SECRET` (GitHub → Settings → Secrets and variables → Actions), matching the value in Vercel's production env. Every `/api/cron/*` route is fail-closed — with the variable unset it returns 401 by design. Optionally set the repository *variable* `APP_URL` to target a non-production host.
+
+  GitHub's scheduler is best-effort: `*/5` ticks typically land 5–15 minutes apart and scheduled workflows are paused after 60 days without repo activity. Any external pinger (cron-job.org, a VPS crontab, Cloud Scheduler) can drive the same endpoints with `curl -H "x-cron-secret: $CRON_SECRET" https://<host>/api/cron/<job>`; all of the jobs are idempotent, so an extra run is harmless and a missed one self-heals on the next tick. `workflow_dispatch` on the workflow hits every endpoint at once, which is also the smoke test after a deploy.
 
 ## 2. Docker
 
