@@ -812,6 +812,7 @@ export const ar: Dictionary = {
     invoice: "الفاتورة",
     invoiceVoided: "ملغاة",
     conflict: "هذا الموعد غير متاح حالياً",
+    loadingSlots: "جارٍ التحقق من أحدث المواعيد المتاحة…",
     status: {
       requested: "بانتظار الرد",
       quoting: "مدعو لتقديم عرض",

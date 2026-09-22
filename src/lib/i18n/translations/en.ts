@@ -812,6 +812,7 @@ export const en = {
     invoice: "Invoice",
     invoiceVoided: "Voided",
     conflict: "This time is no longer available",
+    loadingSlots: "Checking the latest availability…",
     status: {
       requested: "Waiting for response",
       quoting: "Invited to quote",

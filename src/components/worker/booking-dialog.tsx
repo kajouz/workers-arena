@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "@/components/i18n/link";
-import { useRouter } from "next/navigation";
 import { CheckCircle2, ChevronLeft, ChevronRight, Hourglass, Loader2, Send, ShieldCheck, TriangleAlert } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -48,11 +47,16 @@ function dialogSlaExpiryMs(slotStartMs: number, nowMs: number): number {
 /**
  * Customer booking dialog (docs/booking-customer-ui.md §5.1). Three steps —
  * service → slot → details — then requestBookingAction. On a "slot-taken"
- * conflict it shows a banner and router.refresh() re-fetches slots server-side.
+ * conflict it re-fetches live availability from /api/workers/[slug]/slots.
  */
-export function BookingDialog({ worker, slots, children }: { worker: Worker; slots: BookingSlot[]; children: React.ReactNode }) {
+export function BookingDialog({ worker, slots: initialSlots, children }: { worker: Worker; slots: BookingSlot[]; children: React.ReactNode }) {
   const { locale, t } = useLocale();
-  const router = useRouter();
+
+  // LIVE availability (see /api/workers/[slug]/slots): the profile page is
+  // prerendered, so `initialSlots` is a build-time snapshot. The dialog
+  // re-fetches the real window each time it OPENS and after a slot-taken
+  // conflict; the prop remains the SSR-rendered fallback for first paint and
+  // for tests/embeds that pass fresh data.
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("service");
@@ -68,6 +72,13 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
   const [submitting, setSubmitting] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState(false);
+  const [liveSlots, setLiveSlots] = useState<BookingSlot[] | null>(null);
+  // True once an open-time refresh has settled (succeeded or failed). The
+  // slot picker renders only after this flips, so a customer can never grab a
+  // chip from the build-time snapshot — that chip may already be RESERVED,
+  // which would only surface as a post-submit conflict.
+  const [slotsFresh, setSlotsFresh] = useState(false);
+  const slots = liveSlots ?? initialSlots;
   // §2.2 — the countdown's expiry is captured ONCE, when the details step is
   // entered: recomputing it from a moving `now` would pin `min(slot, now+48h) −
   // now` at exactly 48h for any slot past the window, a static clock.
@@ -113,6 +124,23 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
     setDone(false);
     setSlaExpiryAt(null);
     setSlaCapturedAt(null);
+    // Availability changes while the page sits open (other customers book,
+    // slots fill) — re-fetch the live window so the picker never offers a
+    // build-time/stale slot. Failures keep the SSR prop (the action's CAS
+    // re-check is the backstop). The picker stays hidden until the fetch
+    // settles; the page renders instantly, but chips carry real availability.
+    setSlotsFresh(false);
+    const refreshSlots = () =>
+      fetch(`/api/workers/${worker.slug}/slots`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { slots?: BookingSlot[] } | null) => {
+          if (data?.slots) setLiveSlots(data.slots);
+        })
+        .catch(() => {
+          /* offline/no-store failure — SSR prop remains in effect */
+        })
+        .finally(() => setSlotsFresh(true));
+    void refreshSlots();
     setOpen(true);
   };
 
@@ -163,13 +191,21 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
       return;
     }
     if (res.error === "slot-taken") {
-      // Another customer grabbed the slot — refresh server-side slots and
-      // land the user back on the picker to re-choose. Never toast success
+      // Another customer grabbed the slot — refresh availability (the live
+      // fetch, since router.refresh() can't update a prerendered page's prop)
+      // and land the user back on the picker to re-choose. Never toast success
       // for a failed request.
       setConflict(true);
       setSlotId(null);
       setStep("slot");
-      router.refresh();
+      fetch(`/api/workers/${worker.slug}/slots`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { slots?: BookingSlot[] } | null) => {
+          if (data?.slots) setLiveSlots(data.slots);
+        })
+        .catch(() => {
+          /* offline — the existing slots stay; the action re-checks on submit */
+        });
       return;
     }
     toast("error", t("booking.conflict"));
@@ -265,11 +301,17 @@ export function BookingDialog({ worker, slots, children }: { worker: Worker; slo
               </div>
             )}
 
-            {step === "slot" && (
-              <div className="max-h-72 overflow-y-auto pe-1">
-                <SlotPicker slots={slots} value={slotId} onChange={setSlotId} workerName={workerName} />
-              </div>
-            )}
+            {step === "slot" &&
+              (slotsFresh ? (
+                <div className="max-h-72 overflow-y-auto pe-1">
+                  <SlotPicker slots={slots} value={slotId} onChange={setSlotId} workerName={workerName} />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2 py-8 text-sm text-ink-500 dark:text-ink-400">
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>{t("booking.loadingSlots")}</span>
+                </div>
+              ))}
 
             {step === "details" && (
               <div className="space-y-3">

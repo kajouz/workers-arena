@@ -17,6 +17,11 @@ NEXT_DIST_DIR=.data/.next-dev-preview npx next dev -p 3001
 Port 3001 is the one the Preview tab and `playwright.config.ts` expect. HMR is
 live, so UI edits appear without a rebuild.
 
+On the `feat/locale-routing` branch, bare URLs redirect: `/` → 301 → `/en`
+(or `/ar` when the `wa_locale` cookie says so), and every page lives under
+`/{locale}/...`. A 301 from `/` is the locale proxy doing its job, not a
+fault.
+
 **Why `NEXT_DIST_DIR` and not plain `npx next dev`:** the default `.next` cache is
 shared with whatever else is running in this checkout, and `next dev` would
 replace a production build living there. The isolated dir keeps dev and preview

@@ -86,14 +86,25 @@ function renderDialog(workerForDialog: Worker = worker) {
   );
 }
 
-function openDialog() {
+/**
+ * Opens the dialog and lets the open-time availability refresh settle. The
+ * dialog now fetches /api/workers/[slug]/slots when it opens (the profile page
+ * is prerendered, so its slots prop is a build-time snapshot) and hides the
+ * slot picker until that settles — in jsdom the relative fetch rejects
+ * immediately, which is exactly the failure path the SSR prop covers.
+ */
+async function openDialog() {
   fireEvent.click(screen.getByRole("button", { name: "Request booking" }));
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 }
 
 describe("BookingDialog step flow", () => {
-  it("walks service → slot → details and shows the cancellation policy on the final step", () => {
+  it("walks service → slot → details and shows the cancellation policy on the final step", async () => {
     renderDialog();
-    openDialog();
+    await openDialog();
 
     // Step 1 — service: the custom-job card and the job-title input render.
     expect(screen.getByText("Describe the job yourself")).toBeInTheDocument();
@@ -144,9 +155,9 @@ describe("BookingDialog step flow", () => {
     expect(bar.firstElementChild).toHaveClass("bg-emerald-500");
   });
 
-  it("the SLA countdown ticks down against its captured expiry", () => {
+  it("the SLA countdown ticks down against its captured expiry", async () => {
     renderDialog();
-    openDialog();
+    await openDialog();
 
     // Walk to the details step and read the countdown — the expiry is captured
     // once on entry (fixed system time: 48h 0m for a slot past the window).
@@ -180,9 +191,9 @@ describe("BookingDialog step flow", () => {
     expect(afterTotal).toBeGreaterThanOrEqual(0);
   });
 
-  it("pulses the urgency bar red once the deadline is past 20%", () => {
+  it("pulses the urgency bar red once the deadline is past 20%", async () => {
     renderDialog();
-    openDialog();
+    await openDialog();
 
     fireEvent.click(screen.getByRole("button", { name: /AC Repair/ }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -207,9 +218,9 @@ describe("BookingDialog step flow", () => {
     expect(fill()).toHaveClass("animate-pulse-soft");
   });
 
-  it("does not show the cancellation policy before the details step", () => {
+  it("does not show the cancellation policy before the details step", async () => {
     renderDialog();
-    openDialog();
+    await openDialog();
 
     // On the service step the disclosures must be absent — they only appear on
     // the final step, right before the request is sent.
@@ -220,9 +231,9 @@ describe("BookingDialog step flow", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
-  it("does not show a fee-waiver note for a Business worker on the reduced-rate plan", () => {
+  it("does not show a fee-waiver note for a Business worker on the reduced-rate plan", async () => {
     renderDialog(enterpriseWorker);
-    openDialog();
+    await openDialog();
 
     // Not on the earlier steps — the perk is confirmed at the point of commit.
     expect(screen.queryByText("Fee waived by the worker's plan")).not.toBeInTheDocument();
