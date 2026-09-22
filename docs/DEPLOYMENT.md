@@ -13,6 +13,7 @@ vercel env add NEXT_PUBLIC_APP_URL
 vercel --prod
 ```
 
+- **Ignore files are a deploy input, and are guarded.** `.vercelignore` decides what the CLI uploads; `.gitignore` decides what CI's fresh checkout contains. Both once carried an **unanchored** `backups` pattern, which matches a directory of that name at ANY depth — it silently excluded `src/app/[locale]/(app)/admin/backups/`, so the route 404'd in production while every local build (which consults neither file) stayed green. Root-anchor anything naming a project-root directory. `tests/ignore-patterns.test.ts` now evaluates both files against every path under `src/`, `public/`, `prisma/`, `scripts/` plus the root configs a build reads, and fails naming the pattern, its line, and the path it would hide.
 - **PostgreSQL:** Neon / Supabase / RDS. Run `npx prisma migrate deploy` then `npm run db:seed` (one-time). The seed is country-parameterized — `SEED_COUNTRY=<slug|ISO code>` (or `all`) picks which configured countries' cities + generated demo workers to load; it defaults to the served tenant. `npm run db:seed-surge` (optional, idempotent) backfills a deterministic 30-day emergency/gold lead cohort so the Phase-2 surge-evaluation card on Revenue Settings can be reviewed populated before real data accumulates.
 
 ### Database migration release gate
