@@ -1,5 +1,6 @@
 import type { CurrencyCode } from "@/lib/utils";
 import type { PlatformFeeSnapshot } from "./fee-rules";
+import type { ReviewFlagCode, ReviewModerationStatus } from "./review-moderation";
 
 /**
  * Payment method domain values (mirror of the provider seam's
@@ -278,6 +279,19 @@ export interface Review {
   textEn: string;
   textAr: string;
   verifiedPurchase?: boolean;
+  /**
+   * Moderation state (src/lib/data/review-moderation.ts). ABSENT means legacy
+   * pre-moderation data — treated as approved so existing profiles keep their
+   * rating — while an explicit "pending" is what the admin queue works.
+   */
+  status?: ReviewModerationStatus;
+  /** Triage signals captured when the review was submitted. */
+  flags?: ReviewFlagCode[];
+  helpfulCount?: number;
+  moderatedAt?: string;
+  moderatedBy?: string;
+  /** ReviewRejectionReason — why an admin turned it down. */
+  rejectionReason?: string;
 }
 
 export interface PortfolioItem {

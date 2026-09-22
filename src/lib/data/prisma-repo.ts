@@ -56,6 +56,7 @@ import { Prisma, type $Enums } from "@prisma/client";
 import { FEE_EXEMPT_PLANS } from "./booking-ui";
 import { loadActiveFeeRuleSet, priceQuoteForSnapshot } from "./fee-rules-store";
 import { resolveLeadRebate, type LeadRebateResolution } from "./lead-rebate";
+import { reviewBody, scanReviewText } from "./review-moderation";
 import { applyPromotionCreditGrant } from "./credit-ledger";
 import { feeSnapshotCreateData } from "./fee-rules-prisma";
 import { categoryBySlug as demoCategoryBySlug } from "./categories";
@@ -1193,6 +1194,60 @@ export function toDomainRecurring(row: PrismaRecurringRow): RecurringBooking {
  * read back a full generated day, pass end-of-day (e.g. today+7d−1ms) — the
  * dashboard's availability window and db:smoke both do this.
  */
+/**
+ * Persist a submitted review as PENDING.
+ *
+ * The queue is what publishes it: `addReview` is the only writer of new rows,
+ * and every read path (PROFILE_INCLUDE / LIST_INCLUDE above) filters on
+ * APPROVED. So a review is invisible until an admin decides it, and the worker's
+ * `rating` / `reviewCount` are recomputed from approved rows only
+ * (recomputePrismaWorkerRating) — an unmoderated or rejected review never moves
+ * a profile's score.
+ *
+ * Returns null when the worker is unknown or the customer already reviewed that
+ * worker (@@unique([workerId, authorId])) — the caller reports !ok rather than
+ * claiming a review was stored.
+ */
+export async function prismaCreatePendingReview(
+  workerId: string,
+  review: Omit<Review, "id" | "date">,
+  authorId: string
+): Promise<Review | null> {
+  const db = getPrisma();
+  const worker = await db.worker.findUnique({ where: { id: workerId }, select: { id: true } });
+  if (!worker) return null;
+  const flags = scanReviewText(reviewBody(review));
+  try {
+    const row = await db.review.create({
+      data: {
+        workerId,
+        authorId,
+        rating: Math.min(5, Math.max(1, Math.round(review.rating))),
+        textEn: review.textEn,
+        textAr: review.textAr,
+        verifiedPurchase: Boolean(review.verifiedPurchase),
+        status: "PENDING",
+        aiFlags: flags,
+      },
+    });
+    return {
+      id: row.id,
+      author: review.author,
+      rating: row.rating,
+      date: row.createdAt.toISOString(),
+      textEn: row.textEn ?? "",
+      textAr: row.textAr ?? "",
+      verifiedPurchase: row.verifiedPurchase,
+      status: "pending",
+      flags,
+    };
+  } catch (error) {
+    // @@unique([workerId, authorId]) — one review per customer per worker.
+    if ((error as { code?: string }).code === "P2002") return null;
+    throw error;
+  }
+}
+
 export async function prismaGetWorkerSlots(
   workerId: string,
   range: { from?: string; to?: string } = {}

@@ -15,6 +15,7 @@ import {
   pushNotification,
 } from "./notifications";
 import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCode } from "./activity";
+import { reviewBody, scanReviewText, visibleReviews } from "./review-moderation";
 import {
   getChatTyping as getChatTypingFlag,
   setChatTyping as setChatTypingFlag,
@@ -262,6 +263,11 @@ function prismaRepo() {
 function withDemoSignals(workers: Worker[]): Worker[] {
   return workers.map((w) => ({
     ...w,
+    // Moderation gate on the read side, the twin of the real adapter's
+    // `where: { status: "APPROVED" }` include: a pending or rejected review is
+    // never handed to a page. Reviews seeded before moderation existed carry no
+    // status and stay visible (effectiveStatus → approved).
+    reviews: visibleReviews(w.reviews),
     responseRate: computeResponseRate(demoGetWorkerBookings(w.id)),
     availableThisWeek: hasFreeSlotsThisWeek(demoGetWorkerSlots(w.id)),
   }));
@@ -371,31 +377,40 @@ function realModeMutationUnsupported(name: string) {
   console.warn(`[repo] ${name} is not wired to the database yet (W2) — no-op in real mode. See docs/ARCHITECTURE.md §10.`);
 }
 
-export async function addReview(workerId: string, review: Omit<Review, "id" | "date">): Promise<Worker | null> {
+/**
+ * Submit a review. It lands PENDING: moderation is the gate that publishes it
+ * (review-moderation-store.ts), so a claimed review neither appears on the
+ * profile nor moves the worker's rating until an admin approves it — and the
+ * worker is only told about it when it goes live, not when it is claimed.
+ *
+ * Returns the stored review, or null when nothing persisted: an unknown worker,
+ * or real mode without a signed-in author (the `authorId` FK needs a real User,
+ * so an anonymous review cannot be stored). The caller reports !ok rather than
+ * claiming success for a review that was never written.
+ */
+export async function addReview(
+  workerId: string,
+  review: Omit<Review, "id" | "date">,
+  options?: { authorId?: string }
+): Promise<Review | null> {
   if (realDataEnabled) {
-    realModeMutationUnsupported("addReview");
-    return null;
+    if (!options?.authorId) {
+      realModeMutationUnsupported("addReview (anonymous — no authorId)");
+      return null;
+    }
+    return (await prismaRepo()).prismaCreatePendingReview(workerId, review, options.authorId);
   }
   const w = workerById(workerId);
   if (!w) return null;
-  const id = `u-${Date.now()}`;
-  w.reviews.unshift({ ...review, id, date: new Date().toISOString() });
-  const count = w.reviewCount + 1;
-  w.reviewCount = count;
-  w.rating = Math.round(((w.rating * (count - 1) + review.rating) / count) * 10) / 10;
-  // Notify the worker: new review lands in the inbox and dispatches via email/push.
-  await pushNotification(
-    {
-      type: "review",
-      titleEn: `New ${review.rating}-star review`,
-      titleAr: `تقييم جديد ${review.rating} نجوم`,
-      bodyEn: `${review.author} rated you ${review.rating}/5 — see what they wrote on your profile.`,
-      bodyAr: `${review.author} منحك ${review.rating}/5 — اطّلع على ما كتبوه في ملفك.`,
-      href: `/workers/${w.slug}`,
-    },
-    { name: w.nameEn, email: w.email, phone: w.phone, locale: primaryLocale(w) }
-  );
-  return w;
+  const stored: Review = {
+    ...review,
+    id: `u-${Date.now()}`,
+    date: new Date().toISOString(),
+    status: review.status ?? "pending",
+    flags: review.flags ?? scanReviewText(reviewBody(review)),
+  };
+  w.reviews.unshift(stored);
+  return stored;
 }
 
 export async function addLead(workerId: string): Promise<Worker | null> {

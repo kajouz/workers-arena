@@ -16,6 +16,7 @@ import {
 } from "@/lib/data/repo";
 import { getAdminActivityFeed } from "@/lib/data/activity";
 import { getWhatsAppDeliveries, getWhatsAppDeliveryStats, getWhatsAppDeliveryHealth } from "@/lib/data/whatsapp-delivery-store";
+import { getReviewModerationStats } from "@/lib/data/review-moderation-store";
 import { campaignRefundNotification } from "@/lib/data/campaign-notifications";
 import { renderCampaignRefundEmail } from "@/lib/notifications/templates";
 import type { ChannelPayload } from "@/lib/notifications/types";
@@ -50,7 +51,7 @@ export default async function AdminPage({
     feeWaivedOnly: one("feeWaived") === "1" || one("feeWaived") === "true",
   };
 
-  const [{ locale }, analytics, campaigns, verificationQueue, verificationLogs, platformFeeStats, subscriptionAnalytics, whatsappDeliveries, whatsappDeliveryStats, whatsappHealth] = await Promise.all([
+  const [{ locale }, analytics, campaigns, verificationQueue, verificationLogs, platformFeeStats, subscriptionAnalytics, whatsappDeliveries, whatsappDeliveryStats, whatsappHealth, reviewModerationStats] = await Promise.all([
     getI18n(),
     getAnalyticsOverview(),
     getCampaigns(),
@@ -61,6 +62,9 @@ export default async function AdminPage({
     getWhatsAppDeliveries({ limit: 100 }),
     getWhatsAppDeliveryStats(),
     getWhatsAppDeliveryHealth(),
+    // Review moderation is a publication gate, so its backlog belongs on the
+    // overview next to the verification queue rather than one click away.
+    getReviewModerationStats(),
   ]);
 
   // Campaign purchases — payment state per campaign for the payments card
@@ -169,6 +173,7 @@ export default async function AdminPage({
       whatsappDeliveries={whatsappDeliveries}
       whatsappDeliveryStats={whatsappDeliveryStats}
       whatsappHealth={whatsappHealth}
+      reviewModerationStats={reviewModerationStats}
     />
   );
 }

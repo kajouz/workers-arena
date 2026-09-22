@@ -290,6 +290,17 @@ test.describe("Admin Role", () => {
     await expect(page.locator("body")).toContainText(/[Ss]etting/);
   });
 
+  // --- Review moderation queue ---
+  test("review moderation queue loads", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/admin/reviews");
+    await page.waitForLoadState("domcontentloaded");
+    // The queue is the publication gate — assert the gate rendered, not just
+    // that the route answered (the .vercelignore/.gitignore bug shipped a 404
+    // that a status-only check would have called green).
+    await expect(page.locator("body")).toContainText(/[Mm]oderation/);
+  });
+
   // --- Revenue ---
   test("revenue page loads", async ({ page }) => {
     await page.goto("/admin/revenue");

@@ -45,6 +45,7 @@ import { BehaviorAnalytics } from "./behavior-analytics";
 import { RetentionCohorts } from "./retention-cohorts";
 import { WhatsAppDeliveryAudit } from "@/components/admin/whatsapp-delivery-audit";
 import type { WhatsAppDelivery, WhatsAppDeliveryHealth } from "@/lib/data/whatsapp-deliveries";
+import { REVIEW_MODERATION_SLA_HOURS, type QueueStats } from "@/lib/data/review-moderation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -56,7 +57,7 @@ import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { RefundDialog } from "./refund-dialog";
 import { BookingTrailsExportButton } from "./booking-trails-export-button";
 import type { BookingStatus } from "@/lib/data/types";
-import { formatCompact, formatDate, formatNumber, formatPrice } from "@/lib/utils";
+import { fillDuration, formatCompact, formatDate, formatNumber, formatPrice } from "@/lib/utils";
 import { decideVerificationAction } from "@/app/actions/business";
 import { decidePayoutAction } from "@/app/actions/payouts";
 import { GlobalSearch } from "@/components/admin/search/global-search";
@@ -216,8 +217,11 @@ export function AdminDashboard({
   whatsappDeliveries,
   whatsappDeliveryStats,
   whatsappHealth,
+  reviewModerationStats,
 }: {
   session: SessionUser;
+  /** Review-moderation backlog — pending count and risk/age bands. */
+  reviewModerationStats?: QueueStats;
   analytics: AnalyticsOverview;
   /** Every worker with plans — the worker-management audit (fee-waived filter). */
   workers: Worker[];
@@ -1050,6 +1054,38 @@ export function AdminDashboard({
               ))}
             </CardContent>
           </Card>
+
+          {/* review-moderation queue — the publication gate (docs/REVIEW-MODERATION.md) */}
+          {reviewModerationStats && (
+            <Card className={reviewModerationStats.slaBreached > 0 ? "border-amber-500/40" : undefined}>
+              <CardHeader className="flex-row items-center gap-2">
+                <ShieldCheck className="size-4 shrink-0 text-brand-500" />
+                <CardTitle className="min-w-0 text-base">{t("admin.reviewModerationTitle")}</CardTitle>
+                {reviewModerationStats.pending > 0 && <Badge variant="danger">{reviewModerationStats.pending}</Badge>}
+                <Link
+                  href="/admin/reviews"
+                  className="ms-auto shrink-0 text-xs font-bold text-brand-600 hover:underline dark:text-brand-400"
+                >
+                  {t("admin.reviewQueueOpen")} →
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-ink-500 dark:text-ink-400">
+                  {reviewModerationStats.pending === 0
+                    ? t("admin.reviewQueueClear")
+                    : fillDuration(t("admin.reviewQueueOldest"), {
+                        hours: Math.round(reviewModerationStats.oldestPendingHours),
+                        minutes: 0,
+                      })}
+                </p>
+                {reviewModerationStats.slaBreached > 0 && (
+                  <p className="mt-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+                    {fillDuration(t("admin.reviewQueueSlaBody"), { hours: REVIEW_MODERATION_SLA_HOURS, minutes: 0 })} — {reviewModerationStats.slaBreached}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* verification queue */}
           <Card>

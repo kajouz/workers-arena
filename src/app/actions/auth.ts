@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { DEMO_USERS, SESSION_COOKIE, realAuthEnabled, type SessionRole } from "@/lib/auth-demo";
+import { DEMO_USERS, SESSION_COOKIE, getSession, realAuthEnabled, type SessionRole } from "@/lib/auth-demo";
 import { addLead, addReview, registerView } from "@/lib/data/repo";
 import { getLocale } from "@/lib/i18n/server";
 import { DEMO_PASSWORD, hashPassword, sanitizeText, signSessionPayload } from "@/lib/security";
@@ -192,24 +192,33 @@ export async function trackViewAction(workerId: string): Promise<void> {
 }
 
 /** Submit a review for a worker (demo: in-memory). */
-export async function submitReviewAction(workerId: string, formData: FormData): Promise<{ ok: boolean }> {
+export async function submitReviewAction(workerId: string, formData: FormData): Promise<{ ok: boolean; pending?: boolean }> {
   const rating = Number(formData.get("rating"));
   const rawName = String(formData.get("name") ?? "Anonymous");
   const rawText = String(formData.get("text") ?? "");
   const name = sanitizeText(rawName, 100) || "Anonymous";
   const text = sanitizeText(rawText, 4000);
   if (!rating || rating < 1 || rating > 5 || !text.trim()) return { ok: false };
-  // ok reflects whether the review actually persisted — in real mode the repo
-  // no-ops until W2 (docs/ARCHITECTURE.md §10), so the client must NOT claim
-  // success for a review that was never written.
-  const w = await addReview(workerId, {
-    author: name,
-    rating,
-    textEn: text,
-    textAr: text,
-    verifiedPurchase: false,
-  });
-  return { ok: !!w };
+  // Real mode needs a real author: Review.authorId is a User FK, so the session
+  // id is threaded through — without it the repo refuses rather than dropping a
+  // review into the wrong store.
+  const session = await getSession();
+  // ok reflects whether the review actually persisted, so the client must NOT
+  // claim success for a review that was never written.
+  const review = await addReview(
+    workerId,
+    {
+      author: name,
+      rating,
+      textEn: text,
+      textAr: text,
+      verifiedPurchase: false,
+    },
+    session?.id ? { authorId: session.id } : undefined
+  );
+  // `pending` tells the form the honest thing to say: moderation publishes it,
+  // so it is not on the profile yet.
+  return { ok: !!review, pending: review?.status === "pending" };
 }
 
 /** Log a contact lead. */

@@ -525,14 +525,36 @@ model Review {
   status           ReviewStatus @default(PENDING)
   verifiedPurchase Boolean      @default(false)
   helpfulCount     Int          @default(0)
-  aiFlags          Json? // spam/fake-detection signals from the AI moderation pipeline
+  aiFlags          Json? // triage signals from the moderation engine (review-moderation.ts)
   moderatedById    String?
   moderatedAt      DateTime?
   createdAt        DateTime     @default(now())
+  moderations      ReviewModeration[]
 
   @@unique([workerId, authorId])
   @@index([workerId, status])
   @@index([authorId])
+}
+
+/// Append-only audit of review moderation decisions (who approved/rejected
+/// which review, why, and what the triage signals were at that moment). The
+/// Review row keeps the current state; this table is the trail an admin digest
+/// and a dispute both read.
+model ReviewModeration {
+  id        String   @id @default(cuid())
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  workerId  String
+  action    String // "APPROVED" | "REJECTED"
+  reason    String? // ReviewRejectionReason on a rejection
+  note      String?  @db.Text
+  flags     Json? // the triage flag codes seen at decision time
+  actorId   String
+  createdAt DateTime @default(now())
+
+  @@index([reviewId])
+  @@index([workerId])
+  @@index([createdAt])
 }
 
 // ─────────────────────────────── Favorites / Leads ───────────────────────────────

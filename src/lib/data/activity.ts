@@ -278,6 +278,12 @@ export const ACTION_CODES = {
   // view) — the delivery row itself keeps the full attempt trail; this logs
   // WHO intervened and on which message.
   WHATSAPP_DELIVERY_RESENT: "WHATSAPP_DELIVERY_RESENT",
+  // Review moderation — a published opinion about a worker is a reputation
+  // mutation, so it leaves a trail like a refund or a plan correction: who
+  // decided, on which worker, at what rating, and (for a rejection) why. The
+  // immutable record is the ReviewModeration audit row.
+  REVIEW_APPROVED: "REVIEW_APPROVED",
+  REVIEW_REJECTED: "REVIEW_REJECTED",
   // Generic fallbacks for callers that don't pass an explicit code (kept for
   // backward compatibility with legacy rows / untyped call sites).
   SYSTEM: "SYSTEM",

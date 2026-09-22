@@ -67,7 +67,10 @@ export function ReviewsSection({ worker, onReview }: { worker: Worker; onReview?
     const res = await submitReviewAction(worker.id, formData);
     setSubmitting(false);
     if (res.ok) {
-      toast("success", t("worker.thankYou"));
+      // The review is published by moderation, not by this submit — saying
+      // "thank you, it's live" here would send the customer to a profile that
+      // doesn't show it yet.
+      toast("success", res.pending ? t("worker.reviewPending") : t("worker.thankYou"));
       reset();
       setRating(5);
       onReview?.();

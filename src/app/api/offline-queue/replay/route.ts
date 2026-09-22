@@ -76,14 +76,21 @@ export async function POST(request: Request): Promise<NextResponse> {
         if (!cleanText) {
           return NextResponse.json({ ok: false, error: "invalid" }, { status: 400 });
         }
-        const w = await addReview(workerId, {
-          author: cleanAuthor,
-          rating,
-          textEn: cleanText,
-          textAr: cleanText,
-          verifiedPurchase: false,
-        });
-        return NextResponse.json({ ok: !!w });
+        const review = await addReview(
+          workerId,
+          {
+            author: cleanAuthor,
+            rating,
+            textEn: cleanText,
+            textAr: cleanText,
+            verifiedPurchase: false,
+          },
+          // Replayed from the offline queue: the author FK needs the signed-in
+          // User, and `pending` tells the client the review is queued for
+          // moderation rather than live on the profile.
+          { authorId: session.id }
+        );
+        return NextResponse.json({ ok: !!review, pending: review?.status === "pending" });
       }
 
       default:

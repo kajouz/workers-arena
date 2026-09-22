@@ -913,6 +913,8 @@ describe("ACTION_CODES structured codes", () => {
       LEAD_REFUND_APPROVED: "LEAD_REFUND_APPROVED",
       LEAD_REFUND_REJECTED: "LEAD_REFUND_REJECTED",
       WHATSAPP_DELIVERY_RESENT: "WHATSAPP_DELIVERY_RESENT",
+      REVIEW_APPROVED: "REVIEW_APPROVED",
+      REVIEW_REJECTED: "REVIEW_REJECTED",
       SYSTEM: "SYSTEM",
       VERIFICATION: "VERIFICATION",
     });
@@ -1269,7 +1271,10 @@ describe("inbox persistence + dispatch wiring", () => {
 });
 
 describe("review & lead notifications (closing the loop)", () => {
-  it("addReview pushes a review notification to the worker", async () => {
+  it("addReview stores the review PENDING without notifying anyone", async () => {
+    // Moderation is the publication gate: a submitted review is not a
+    // reputation event yet, and telling the worker "see what they wrote on your
+    // profile" would point at a page that does not show it.
     const w = WORKERS[0]!;
     const original = { rating: w.rating, reviewCount: w.reviewCount, reviewsLength: w.reviews.length };
     try {
@@ -1282,6 +1287,36 @@ describe("review & lead notifications (closing the loop)", () => {
         verifiedPurchase: true,
       });
       expect(result).not.toBeNull();
+      expect(result!.status).toBe("pending");
+      // Nothing announced, nothing counted.
+      expect((await getNotifications()).length).toBe(before);
+      expect(w.rating).toBe(original.rating);
+      expect(w.reviewCount).toBe(original.reviewCount);
+    } finally {
+      w.rating = original.rating;
+      w.reviewCount = original.reviewCount;
+      // Drop the review this test added (only if one was actually added).
+      if (w.reviews.length > original.reviewsLength) w.reviews.shift();
+    }
+  });
+
+  it("approving a review notifies the worker and counts it", async () => {
+    const { decideReview, resetReviewModerationStore } = await import("../src/lib/data/review-moderation-store");
+    const w = WORKERS[0]!;
+    const original = { rating: w.rating, reviewCount: w.reviewCount, reviewsLength: w.reviews.length };
+    try {
+      const submitted = await addReview(w.id, {
+        author: "Noor",
+        rating: 5,
+        textEn: "Excellent work",
+        textAr: "عمل ممتاز",
+        verifiedPurchase: true,
+      });
+      const before = (await getNotifications()).length;
+
+      const decided = await decideReview({ reviewId: submitted!.id, approve: true, actorId: "u-admin" });
+      expect(decided?.status).toBe("approved");
+
       const top = (await getNotifications())[0]!;
       expect(top.type).toBe("review");
       expect(top.titleEn).toContain("5-star");
@@ -1289,11 +1324,12 @@ describe("review & lead notifications (closing the loop)", () => {
       expect(top.bodyEn).toContain("Noor");
       expect(top.href).toBe(`/workers/${w.slug}`);
       expect((await getNotifications()).length).toBe(before + 1);
+      expect(w.reviewCount).toBe(original.reviewCount + 1);
     } finally {
       w.rating = original.rating;
       w.reviewCount = original.reviewCount;
-      // Drop the review this test added (only if one was actually added).
       if (w.reviews.length > original.reviewsLength) w.reviews.shift();
+      resetReviewModerationStore();
     }
   });
 
