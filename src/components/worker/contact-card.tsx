@@ -18,7 +18,6 @@ import {
   bookingEntryShareText,
   buildBookingEntryUrl,
   whatsappShareHref,
-  type BookingEntryIntent,
 } from "@/lib/data/booking-entry";
 import { BookingDialog } from "./booking-dialog";
 import { QuoteRequestDialog } from "./quote-request-dialog";
@@ -27,14 +26,11 @@ export function ContactCard({
   worker,
   slots,
   candidates,
-  entry,
 }: {
   worker: Worker;
   slots: BookingSlot[];
   /** The pickable worker pool for multi-candidate quotes (profile + related). */
   candidates?: Worker[];
-  /** §WhatsApp booking entry — a resolved shared link (docs/booking-entry.md). */
-  entry?: BookingEntryIntent;
 }) {
   const { locale, t } = useLocale();
   const [message, setMessage] = useState("");
@@ -126,7 +122,7 @@ export function ContactCard({
           <Price amount={worker.priceMax} currency={worker.currency} locale={locale} className="text-sm font-black text-brand-600 dark:text-brand-400" />
         </div>
 
-        <BookingDialog worker={worker} slots={slots} entry={entry}>
+        <BookingDialog worker={worker} slots={slots}>
           <Button className="w-full" disabled={!worker.available}>
             <CalendarClock className="size-4" />
             {t("booking.dialogTitle")}

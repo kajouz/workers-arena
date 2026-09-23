@@ -15,7 +15,12 @@ import { SlotPicker } from "./slot-picker";
 import { Price } from "@/components/shared/price";
 import { instantBookAction, requestBookingAction, requestRecurringBookingAction } from "@/app/actions/bookings";
 import { instantBookDecision, instantServices } from "@/lib/data/instant-book";
-import type { BookingEntryIntent } from "@/lib/data/booking-entry";
+import {
+  ENTRY_SERVICE_PARAM,
+  ENTRY_SLOT_PARAM,
+  ENTRY_SOURCE_PARAM,
+  resolveBookingEntry,
+} from "@/lib/data/booking-entry";
 import { cn, durationParts, fillDuration } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { dialPrefix } from "@/lib/tenant/countries";
@@ -56,20 +61,10 @@ function dialogSlaExpiryMs(slotStartMs: number, nowMs: number): number {
 export function BookingDialog({
   worker,
   slots: initialSlots,
-  entry,
   children,
 }: {
   worker: Worker;
   slots: BookingSlot[];
-  /**
-   * §WhatsApp booking entry (docs/booking-entry.md) — a resolved shared link.
-   * When it carries a service or a slot the dialog OPENS ITSELF, pre-filled, on
-   * first mount: the customer tapped a link that already said what they want,
-   * and making them find the button again would waste the whole point of the
-   * link. Server-resolved (never raw query strings), so only what the worker's
-   * live catalog and availability can honour is applied.
-   */
-  entry?: BookingEntryIntent;
   children: React.ReactNode;
 }) {
   const { locale, t } = useLocale();
@@ -187,33 +182,72 @@ export function BookingDialog({
   };
 
   /**
-   * Open pre-filled from a shared link. Runs once, on mount, and only when the
-   * server found something usable in the URL — a link whose service or slot had
-   * gone stale (`entry.dropped`) still opens, just without the stale part, so a
-   * month-old WhatsApp thread degrades to a normal booking instead of an error.
+   * §WhatsApp booking entry — open pre-filled from a shared link
+   * (docs/booking-entry.md). Runs once, on mount: the customer tapped a link
+   * that already said what they want, and making them find the button again
+   * would waste the whole point of the link.
+   *
+   * The intent is resolved HERE, in the browser, and only against what the
+   * worker's own catalog and availability can honour. It used to be resolved on
+   * the server by reading `searchParams` in the profile page — which is exactly
+   * what opted `/[locale]/workers/[slug]` into dynamic rendering, so Next built
+   * ZERO of the catalogue pages while this feature kept working and
+   * `generateStaticParams` kept succeeding. Reading the URL client-side costs
+   * nothing observable: this effect always ran on mount, so the dialog has never
+   * opened during SSR — only the data source of the decision moved.
    *
    * Declared below `openDialog` because it reuses it (the state reset plus the
    * live-slot refresh a normal open performs); calling it from an effect is
    * safe, but a call above the declaration reads as a TDZ hazard.
+   * Mount-only on purpose: re-running on every render would fight the user's
+   * own edits (and reset the step they navigated to).
    */
   useEffect(() => {
-    if (!entry || entry.empty) return;
-    openDialog();
-    if (entry.serviceNameEn) {
-      const svc = worker.services.find((s) => s.nameEn === entry.serviceNameEn);
-      if (svc) {
-        setServiceName(svc.nameEn);
-        setJobTitle(locale === "ar" ? svc.nameAr : svc.nameEn);
+    const raw = new URLSearchParams(window.location.search);
+    const service = raw.get(ENTRY_SERVICE_PARAM);
+    const slotId = raw.get(ENTRY_SLOT_PARAM);
+    const source = raw.get(ENTRY_SOURCE_PARAM);
+    // No shared link (the ordinary visit): nothing to resolve, nothing fetched.
+    if (!service && !slotId && !source) return;
+
+    const apply = (resolutionSlots: BookingSlot[]) => {
+      const entry = resolveBookingEntry({
+        service,
+        slotId,
+        source,
+        services: worker.services,
+        slots: resolutionSlots,
+      });
+      if (entry.empty) return;
+      openDialog();
+      if (entry.serviceNameEn) {
+        const svc = worker.services.find((s) => s.nameEn === entry.serviceNameEn);
+        if (svc) {
+          setServiceName(svc.nameEn);
+          setJobTitle(locale === "ar" ? svc.nameAr : svc.nameEn);
+        }
       }
+      if (entry.slotId) {
+        setSlotId(entry.slotId);
+        setStep("details");
+      } else if (entry.serviceNameEn) {
+        setStep("slot");
+      }
+    };
+
+    // A link naming a SLOT needs live availability to be resolved honestly:
+    // `initialSlots` is a build-time snapshot (the profile is prerendered), so a
+    // link from yesterday's thread may name a slot created after the last
+    // deploy — resolving against the snapshot would drop a perfectly good slot.
+    // Service/source resolve against the catalog, which ships with the page.
+    if (!slotId) {
+      apply(initialSlots);
+      return;
     }
-    if (entry.slotId) {
-      setSlotId(entry.slotId);
-      setStep("details");
-    } else if (entry.serviceNameEn) {
-      setStep("slot");
-    }
-    // Mount-only on purpose: re-running on every render would fight the user's
-    // own edits (and reset the step they navigated to).
+    fetch(`/api/workers/${worker.slug}/slots`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { slots?: BookingSlot[] } | null) => apply(data?.slots ?? initialSlots))
+      .catch(() => apply(initialSlots));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

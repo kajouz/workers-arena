@@ -380,3 +380,73 @@ describe("BookingDialog instant booking", () => {
     expect(screen.getByRole("button", { name: "Send booking request" })).toBeInTheDocument();
   });
 });
+
+/**
+ * §WhatsApp booking entry (docs/booking-entry.md) — resolved IN THE BROWSER.
+ *
+ * It used to be resolved on the server by reading `searchParams` in the profile
+ * page, which is what opted `/[locale]/workers/[slug]` into dynamic rendering:
+ * Next prerendered ZERO of the 36 catalogue pages while `generateStaticParams`
+ * kept succeeding and the build printed no error. These tests pin the
+ * replacement — the dialog opens itself, pre-filled, from the URL alone — so a
+ * server read never comes back to buy that silence again.
+ */
+describe("booking entry from a shared link", () => {
+  const PLAIN = "/en/workers/khaled-al-harbi-plumbing";
+
+  afterEach(() => {
+    window.history.replaceState({}, "", PLAIN);
+  });
+
+  /** Let the mount effect and the open-time availability fetch settle. */
+  async function flushMount() {
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
+
+  it("opens the dialog pre-filled from ?book= without anyone pressing the button", async () => {
+    window.history.replaceState({}, "", `${PLAIN}?book=AC%20Repair&src=share`);
+    renderDialog();
+    await flushMount();
+
+    // No click happened: the requested service was applied, so the dialog went
+    // straight to slot picking instead of waiting to be opened.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Available times")).toBeInTheDocument();
+  });
+
+  it("a plain visit with no entry params never opens the dialog", async () => {
+    window.history.replaceState({}, "", PLAIN);
+    renderDialog();
+    await flushMount();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("a slot entry opens on details, resolving the slot against live availability", async () => {
+    // The slot half is the one that CANNOT trust the build-time snapshot: the
+    // profile is prerendered, so `slots` may predate the slot in the link. The
+    // dialog asks /api/workers/[slug]/slots first and falls back to the prop
+    // when that fetch is unavailable — in jsdom it rejects immediately, which
+    // is exactly the fallback path.
+    window.history.replaceState({}, "", `${PLAIN}?book=Plumbing&slot=s1&src=share`);
+    renderDialog();
+    await flushMount();
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // Prefilled slot → the step the customer would have been asked to pick is
+    // already made, so it lands on details.
+    expect(screen.getByText("Your name")).toBeInTheDocument();
+  });
+
+  it("a stale service still opens — degraded, not refused", async () => {
+    window.history.replaceState({}, "", `${PLAIN}?book=Not%20a%20service%20we%20sell&src=share`);
+    renderDialog();
+    await flushMount();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // Nothing resolvable survived, so it stays on the service step rather than
+    // pretending the customer asked for something we sell.
+    expect(screen.getByText("Describe the job yourself")).toBeInTheDocument();
+  });
+});

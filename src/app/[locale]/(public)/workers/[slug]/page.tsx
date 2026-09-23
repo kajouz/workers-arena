@@ -12,12 +12,6 @@ import { WorkerPortfolio } from "@/components/worker/worker-portfolio";
 import { WorkerSponsor } from "@/components/worker/worker-sponsor";
 import { PriceBenchmarkNote } from "@/components/worker/price-benchmark-note";
 import { getAllWorkers, getPriceBenchmark, getRelated, getWorkerBySlug, getWorkerSlots } from "@/lib/data/repo";
-import {
-  ENTRY_SERVICE_PARAM,
-  ENTRY_SLOT_PARAM,
-  ENTRY_SOURCE_PARAM,
-  resolveBookingEntry,
-} from "@/lib/data/booking-entry";
 import { defaultLocale, isLocale } from "@/lib/i18n/config";
 import { localeAlternates } from "@/lib/i18n/routing";
 import { categoryBySlug } from "@/lib/data/categories";
@@ -28,16 +22,35 @@ import { cityBySlug } from "@/lib/data/cities";
  * on — so they are built ahead of time rather than rendered per request.
  * `dynamicParams` stays on (the default): a worker added after the build is
  * rendered on demand and cached, instead of 404ing until the next deploy.
+ *
+ * **This page must not read `searchParams`.** Reading it opts the route into
+ * dynamic rendering: Next then reports `ƒ /[locale]/workers/[slug]`, builds ZERO
+ * of the 36 catalogue pages, and every profile silently loses its prerendered
+ * HTML (with `generateStaticParams` still succeeding, so nothing looks wrong).
+ * That is exactly what the WhatsApp booking entry did while resolving
+ * `?book=` server-side. Entry links are now resolved in the browser by the
+ * dialog on mount — see docs/booking-entry.md.
  */
 export async function generateStaticParams() {
   try {
     // getWorkers() is the PAGINATED search seam — it returned only the first
     // page, so most profiles silently fell back to on-demand rendering.
     const workers = await getAllWorkers();
+    if (workers.length === 0) {
+      // Empty is a failure mode too: the build then reports this route as ƒ
+      // (dynamic) with no error anywhere, which is how the profiles stayed
+      // un-prerendered without anyone noticing.
+      console.warn(
+        "[workers/[slug]] generateStaticParams returned no workers — profiles will render on demand (search index loses the prerendered catalogue)"
+      );
+    }
     return workers.map((worker) => ({ slug: worker.slug }));
-  } catch {
+  } catch (error) {
     // A build without a reachable data source still succeeds; every profile
-    // just falls back to on-demand rendering.
+    // just falls back to on-demand rendering. The reason must be visible — this
+    // catch is what hid the profiles not being built, so it reports rather than
+    // swallowing.
+    console.error("[workers/[slug]] generateStaticParams failed — profiles will render on demand:", error);
     return [];
   }
 }
@@ -72,14 +85,8 @@ export async function generateMetadata({
 
 export default async function WorkerPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  // §WhatsApp booking entry (docs/booking-entry.md) — a shared link carries the
-  // intent (`?book=<service>&slot=<id>&src=whatsapp`). Read on the server so the
-  // dialog opens pre-filled in the FIRST render — no client round-trip, no
-  // flash of an empty dialog.
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
   const worker = await getWorkerBySlug(slug);
@@ -97,19 +104,6 @@ export default async function WorkerPage({
   ]);
   const cat = categoryBySlug(worker.categorySlug);
   const city = cityBySlug(worker.citySlug);
-
-  // Resolve the shared link against the live catalog and availability: an
-  // unknown service or a slot that has been taken is dropped rather than
-  // pre-filled into a booking the server action would then refuse.
-  const rawEntry = await searchParams;
-  const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
-  const entry = resolveBookingEntry({
-    service: first(rawEntry[ENTRY_SERVICE_PARAM]) ?? null,
-    slotId: first(rawEntry[ENTRY_SLOT_PARAM]) ?? null,
-    source: first(rawEntry[ENTRY_SOURCE_PARAM]) ?? null,
-    services: worker.services,
-    slots,
-  });
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -179,7 +173,6 @@ export default async function WorkerPage({
             worker={worker}
             slots={slots}
             candidates={[worker, ...related.filter((r) => r.id !== worker.id)]}
-            entry={entry}
           />
           
           {/* Sponsored Ad */}
