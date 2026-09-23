@@ -392,6 +392,8 @@ model Worker {
   verified   Boolean @default(false)
   premium    Boolean @default(false)
   emergency  Boolean @default(false)
+  /// §Instant booking — opt-in to selling published fixed prices instantly.
+  instantBook Boolean @default(false)
   available  Boolean @default(true)
   hue        Int     @default(0)
   completion Int     @default(0) // profile completion %
@@ -443,8 +445,14 @@ model ServiceItem {
   nameAr        String
   descriptionEn String?
   descriptionAr String?
-  price         Int // minor units
+  /// MAJOR units (a $150 package is 150), matching the demo catalog and the
+  /// seed — NOT minor units. Instant booking is the one place this meets a
+  /// booking quote (which IS minor), via MINOR_UNITS_PER_MAJOR in
+  /// src/lib/data/instant-book.ts. Read that constant before touching this.
+  price         Int
   unit          String  @default("job") // "hour" | "job"
+  /// §Instant booking — sold at this price without a quote round-trip.
+  fixedPrice    Boolean @default(false)
   durationMin   Int?
   sortOrder     Int     @default(0)
 

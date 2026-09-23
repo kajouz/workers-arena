@@ -458,6 +458,8 @@ async function main() {
         verified: w.verified,
         premium: w.premium,
         emergency: w.emergency,
+        // §Instant booking — the worker's opt-in (src/lib/data/instant-book.ts).
+        instantBook: w.instantBook ?? false,
         available: w.available,
         // Schema convention: all money in minor units (×100) — the production
         // mapper divides back to major units for the UI (prisma-repo.ts).
@@ -499,6 +501,7 @@ async function main() {
         verified: w.verified,
         premium: w.premium,
         emergency: w.emergency,
+        instantBook: w.instantBook ?? false,
         available: w.available,
         hue: w.hue,
         completion: w.completion,
@@ -518,6 +521,8 @@ async function main() {
           nameAr: s.nameAr,
           price: s.price,
           unit: s.unit,
+          // §Instant booking — a published fixed-price package.
+          fixedPrice: s.fixedPrice ?? false,
         },
       });
     }

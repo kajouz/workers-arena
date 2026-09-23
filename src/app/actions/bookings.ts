@@ -21,6 +21,7 @@ import {
   confirmBookingPayment,
   confirmBookingSettlement,
   createBookingCheckout,
+  getBookingSlot,
   createBookingSettlementCheckout,
   markBookingSettledOutside,
   createBookingRequest,
@@ -55,6 +56,7 @@ import { PdfRenderError, renderAuditPdf } from "@/lib/data/booking-pdf";
 import { dictionaries, translate } from "@/lib/i18n/dictionaries";
 import { dispatch } from "@/lib/notifications/dispatcher";
 import { sanitizeText } from "@/lib/security";
+import { instantBookDecision } from "@/lib/data/instant-book";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -147,6 +149,94 @@ export async function requestBookingAction(
   revalidatePath("/dashboard");
   revalidatePath("/bookings");
   return { ok: true };
+}
+
+/**
+ * §Instant booking (docs/ENHANCEMENT-PLAN.md Phase 2) — buy a slot now, at the
+ * price the worker published.
+ *
+ * Same shape as `requestBookingAction`, then it IMMEDIATELY accepts the booking
+ * on the worker's behalf — which is honest, because the worker's opt-in
+ * (`Worker.instantBook`) plus a published fixed price (`ServiceItem.fixedPrice`)
+ * is exactly the standing consent a request would be asking for. Reusing
+ * `respondToBooking` means the instant path gets the same fee stamp, the same
+ * slot claim, the same notifications and the same deposit row as a manual
+ * accept; there is no second, quieter way for a booking to become confirmed.
+ *
+ * The decision is re-made HERE from live rows, never from the button the
+ * customer clicked: a tab left open on an availability list can neither buy a
+ * slot the worker has since blocked nor honour a price since changed. The
+ * deposit equals the fixed price, so the job is funded before it starts — which
+ * is what lets the settlement engine credit the worker (booking-settlement.ts).
+ */
+export async function instantBookAction(
+  workerSlug: string,
+  formData: FormData
+): Promise<BookingActionResult & { url?: string }> {
+  const parsed = requestSchema.safeParse({
+    slotId: formData.get("slotId"),
+    customerName: formData.get("customerName"),
+    customerPhone: formData.get("customerPhone"),
+    customerEmail: formData.get("customerEmail"),
+    jobTitle: formData.get("jobTitle"),
+    note: formData.get("note"),
+    serviceItemName: formData.get("serviceItemName"),
+  });
+  if (!parsed.success) return { ok: false, error: "invalid" };
+
+  const worker = await getWorkerBySlug(workerSlug);
+  if (!worker) return { ok: false, error: "invalid" };
+
+  const serviceItem = worker.services.find((s) => s.nameEn === parsed.data.serviceItemName);
+  const slot = await getBookingSlot(parsed.data.slotId);
+
+  // The engine owns the policy; the action only enforces it.
+  const decision = instantBookDecision({
+    instantBook: worker.instantBook,
+    service: serviceItem ?? null,
+    slot: slot ? { startAt: slot.startAt, status: slot.status } : null,
+  });
+  if (!decision.ok) return { ok: false, error: "invalid" };
+  // The slot must belong to the worker being booked — otherwise a crafted
+  // request could sell one worker's slot through another worker's profile.
+  if (slot!.workerId !== worker.id) return { ok: false, error: "invalid" };
+
+  const session = await getSession();
+  const cleanCustomerName = sanitizeText(parsed.data.customerName, 100);
+  const cleanJobTitle = sanitizeText(parsed.data.jobTitle, 200);
+  const cleanNote = parsed.data.note ? sanitizeText(parsed.data.note, 2000) : undefined;
+  if (!cleanCustomerName || !cleanJobTitle) return { ok: false, error: "invalid" };
+
+  const created = await createBookingRequest({
+    workerId: worker.id,
+    slotId: parsed.data.slotId,
+    customerId: session?.id,
+    customerName: cleanCustomerName,
+    customerPhone: parsed.data.customerPhone,
+    customerEmail: parsed.data.customerEmail || undefined,
+    jobTitle: cleanJobTitle,
+    note: cleanNote,
+    serviceItem,
+  });
+  if ("error" in created) return { ok: false, error: created.error };
+
+  // The worker's standing consent — accepted at the published price, with the
+  // whole price collected up front.
+  const accepted = await respondToBooking(created.id, {
+    accept: true,
+    quote: decision.priceMinor,
+    deposit: decision.depositMinor,
+  });
+  if (!accepted) return { ok: false, error: "not-found" };
+
+  // Hand the customer the checkout now rather than making them find the booking
+  // in a list — an instant booking that stalls on "pay later" is not instant.
+  const checkout = await createBookingCheckout(created.id);
+
+  revalidatePath(`/workers/${workerSlug}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/bookings");
+  return { ok: true, ...(checkout ? { url: checkout.url } : {}) };
 }
 
 const recurringFrequencySchema = z.enum(["weekly", "biweekly", "monthly"]);

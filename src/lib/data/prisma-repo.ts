@@ -64,6 +64,7 @@ import {
   type SettlementJob,
 } from "./booking-settlement";
 import { reviewBody, scanReviewText } from "./review-moderation";
+import { BENCHMARK_WINDOW_DAYS, type BenchmarkJob } from "./price-benchmarks";
 import { applyPromotionCreditGrant } from "./credit-ledger";
 import { feeSnapshotCreateData } from "./fee-rules-prisma";
 import { categoryBySlug as demoCategoryBySlug } from "./categories";
@@ -241,6 +242,8 @@ export function toDomainWorker(row: WorkerRow): Worker {
     premium: row.premium,
     featured: row.isFeatured,
     emergency: row.emergency,
+    // §Instant booking — the worker's opt-in to selling fixed prices outright.
+    instantBook: row.instantBook,
     available: row.available,
     subscription: row.subscription
       ? toDomainSubscription(row.subscription)
@@ -266,6 +269,8 @@ export function toDomainWorker(row: WorkerRow): Worker {
         price: s.price,
         // Schema stores unit as a free string; the domain narrows to hour|job.
         unit: s.unit === "hour" ? "hour" : "job",
+        // §Instant booking — a fixed-price package the customer can buy now.
+        fixedPrice: s.fixedPrice,
       })
     ),
     certifications: row.certifications.map(
@@ -2878,6 +2883,87 @@ export async function prismaSettlementReconciliation(days = 30): Promise<Settlem
       creditedMinor: creditedBy.get(row.id) ?? 0,
     })
   );
+}
+
+/**
+ * §Instant booking — the worker's opt-in. It is the whole precondition for an
+ * instant sale (src/lib/data/instant-book.ts), so it is a deliberate write with
+ * its own seam rather than a side effect of anything else.
+ */
+export async function prismaSetWorkerInstantBook(workerId: string, enabled: boolean): Promise<Worker | null> {
+  if (!workerId) return null;
+  const prisma = getPrisma();
+  try {
+    await prisma.worker.update({ where: { id: workerId }, data: { instantBook: Boolean(enabled) } });
+  } catch {
+    return null;
+  }
+  return prismaGetWorkerById(workerId);
+}
+
+/**
+ * §Instant booking — publish (or withdraw) a fixed-price package.
+ *
+ * Scoped to the worker in the WHERE clause, so a crafted name cannot publish a
+ * price on someone else's service. Withdrawing leaves the price alone: the
+ * service stays a normal quoted item at the price it was listed at.
+ */
+export async function prismaSetWorkerServicePackage(
+  workerId: string,
+  nameEn: string,
+  price: number,
+  fixedPrice: boolean
+): Promise<Worker | null> {
+  if (!workerId || !nameEn) return null;
+  const prisma = getPrisma();
+  try {
+    const result = await prisma.serviceItem.updateMany({
+      where: { workerId, nameEn },
+      data: fixedPrice ? { price, fixedPrice: true } : { fixedPrice: false },
+    });
+    if (result.count === 0) return null;
+  } catch {
+    return null;
+  }
+  return prismaGetWorkerById(workerId);
+}
+
+/**
+ * §Instant booking — one slot by id (see the demo twin for why the action
+ * re-checks live state instead of trusting the button the customer clicked).
+ */
+export async function prismaGetBookingSlot(slotId: string): Promise<BookingSlot | null> {
+  if (!slotId) return null;
+  const row = await getPrisma().bookingSlot.findUnique({ where: { id: slotId } });
+  return row ? rowToSlot(row) : null;
+}
+
+/**
+ * §Price benchmarks (docs/ENHANCEMENT-PLAN.md Phase 2) — the prisma half of the
+ * read seam: COMPLETED jobs with a real quote inside the window, as the trade of
+ * the worker who did them. The arithmetic lives in `computePriceBenchmarks`
+ * (src/lib/data/price-benchmarks.ts); this only gathers the rows. The window is
+ * anchored on the COMPLETED audit event, so it measures when the price was
+ * agreed rather than when the row was written.
+ */
+export async function prismaPriceBenchmarkJobs(days = BENCHMARK_WINDOW_DAYS): Promise<BenchmarkJob[]> {
+  const prisma = getPrisma();
+  const since = new Date(Date.now() - Math.max(days, 1) * 24 * 60 * 60 * 1000);
+  const rows = await prisma.booking.findMany({
+    where: {
+      status: "COMPLETED",
+      quote: { gt: 0 },
+      events: { some: { status: "COMPLETED", createdAt: { gte: since } } },
+    },
+    select: { quote: true, worker: { select: { category: { select: { slug: true } } } } },
+  });
+  const out: BenchmarkJob[] = [];
+  for (const row of rows) {
+    const categorySlug = row.worker?.category?.slug;
+    if (!categorySlug || !row.quote) continue;
+    out.push({ categorySlug, quoteMinor: row.quote });
+  }
+  return out;
 }
 
 /**

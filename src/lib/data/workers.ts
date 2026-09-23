@@ -101,11 +101,18 @@ function buildWorker(recipe: WorkerRecipe, name: { en: string; ar: string }, spo
   const domain = `${recipe.brand}.${recipe.tld ?? country.demoWorkforce.emailTld}`;
   const emailLocal = recipe.emailLocal ?? name.en.split(" ")[0]!.toLowerCase();
 
-  const services = template.services.map(([nEn, nAr, price, unit]) => ({
+  // §Instant booking — a worker who opted in publishes their first per-job
+  // service as a FIXED-PRICE package, which is what makes "book it now"
+  // possible at all (src/lib/data/instant-book.ts). Derived from the flag and
+  // the template, so it consumes no extra PRNG draws and cannot shift the
+  // generated values the rest of this builder derives.
+  const instantBook = recipe.instantBook ?? false;
+  const services = template.services.map(([nEn, nAr, price, unit], index) => ({
     nameEn: nEn,
     nameAr: nAr,
     price: Math.round(price * (0.85 + rnd() * 0.5)),
     unit,
+    fixedPrice: instantBook && index === 0 && unit === "job",
   }));
 
   const certifications = [
@@ -174,6 +181,7 @@ function buildWorker(recipe: WorkerRecipe, name: { en: string; ar: string }, spo
     premium: recipe.premium ?? false,
     featured: recipe.featured ?? false,
     emergency: recipe.emergency ?? false,
+    instantBook,
     available: recipe.available ?? true,
     subscription: {
       plan,
@@ -267,6 +275,39 @@ export const workerBySlug = (slug: string): Worker | undefined =>
   WORKERS.find((w) => w.slug === slug);
 
 export const workerById = (id: string): Worker | undefined => WORKERS.find((w) => w.id === id);
+
+/**
+ * §Instant booking — the demo worker's opt-in to selling fixed prices outright.
+ * The demo workforce is the live catalog and other demo mutations assign onto
+ * those objects in place, so the flag round-trips exactly like the prisma
+ * column does.
+ */
+export function demoSetWorkerInstantBook(workerId: string, enabled: boolean): Worker | null {
+  const worker = workerById(workerId);
+  if (!worker) return null;
+  worker.instantBook = Boolean(enabled);
+  return worker;
+}
+
+/**
+ * §Instant booking — publish (or withdraw) a fixed-price package on one of the
+ * demo worker's existing services. Mutated in place for the same reason as the
+ * opt-in above: the demo catalog IS the live data.
+ */
+export function demoSetWorkerServicePackage(
+  workerId: string,
+  nameEn: string,
+  price: number,
+  fixedPrice: boolean
+): Worker | null {
+  const worker = workerById(workerId);
+  if (!worker) return null;
+  const service = worker.services.find((s) => s.nameEn === nameEn);
+  if (!service) return null;
+  if (fixedPrice) service.price = price;
+  service.fixedPrice = Boolean(fixedPrice);
+  return worker;
+}
 
 /** Workers with their category count computed. */
 export function categoriesWithCounts(): typeof CATEGORIES {

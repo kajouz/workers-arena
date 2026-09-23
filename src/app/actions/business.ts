@@ -19,8 +19,11 @@ import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
   renewWorkerSubscriptionBySlug,
+  setWorkerInstantBook,
+  setWorkerServicePackage,
   submitVerificationRequest,
 } from "@/lib/data/repo";
+import { publishablePackage } from "@/lib/data/instant-book";
 import { sanitizeText } from "@/lib/security";
 import type { Campaign } from "@/lib/data/types";
 import { dispatchWhatsApp } from "@/lib/notifications/dispatcher";
@@ -265,6 +268,64 @@ export async function submitVerificationAction(): Promise<{ ok?: boolean; error?
   const session = await getSession();
   if (!session || session.role !== "worker") return { error: "unauthorized" };
   await submitVerificationRequest("khaled-al-harbi-plumbing");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/**
+ * §Instant booking (docs/ENHANCEMENT-PLAN.md Phase 2) — the worker's opt-in to
+ * selling their fixed-price packages without a request/response round-trip.
+ *
+ * Worker-gated, and resolved from the session rather than the client, because
+ * this flag IS the standing consent an instant sale relies on: if anyone could
+ * set it, a booking could become confirmed without the worker ever agreeing.
+ */
+export async function setInstantBookAction(enabled: boolean): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "worker") return { ok: false, error: "unauthorized" };
+  const worker = await getWorkerByUserId(session.id);
+  if (!worker) return { ok: false, error: "unauthorized" };
+  const updated = await setWorkerInstantBook(worker.id, Boolean(enabled));
+  if (!updated) return { ok: false, error: "not-found" };
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/**
+ * §Instant booking (docs/ENHANCEMENT-PLAN.md Phase 2) — publish or withdraw one
+ * fixed-price package. This is the supply half of the feature: without it the
+ * opt-in above switches on a shop with nothing on the shelf.
+ *
+ * Worker-gated and worker-scoped: the service is resolved from the session
+ * worker's own catalog, so a crafted name cannot price someone else's service.
+ * The decision itself is pure (`publishablePackage`) — an hourly row or a
+ * nonsensical number is refused here rather than sold to a customer later.
+ */
+export async function publishFixedPricePackageAction(
+  formData: FormData
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "worker") return { ok: false, error: "unauthorized" };
+  const worker = await getWorkerByUserId(session.id);
+  if (!worker) return { ok: false, error: "unauthorized" };
+
+  const nameEn = String(formData.get("serviceNameEn") ?? "");
+  const sellInstantly = formData.get("sellInstantly") === "true";
+  const service = worker.services.find((s) => s.nameEn === nameEn) ?? null;
+
+  if (!sellInstantly) {
+    // Withdrawing is always allowed — the flag is this worker's to take back.
+    const updated = await setWorkerServicePackage(worker.id, nameEn, service?.price ?? 0, false);
+    if (!updated) return { ok: false, error: "not-found" };
+    revalidatePath("/dashboard");
+    return { ok: true };
+  }
+
+  const draft = publishablePackage(service, Number(formData.get("price")));
+  if (!draft.ok) return { ok: false, error: draft.reason };
+
+  const updated = await setWorkerServicePackage(worker.id, draft.nameEn, draft.price, draft.fixedPrice);
+  if (!updated) return { ok: false, error: "not-found" };
   revalidatePath("/dashboard");
   return { ok: true };
 }

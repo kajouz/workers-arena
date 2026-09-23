@@ -122,7 +122,12 @@ import {
   prismaSetSlotBlocked,
   prismaSubmitQuote,
   prismaTransitionBooking,
+  prismaGetBookingSlot,
+  prismaPriceBenchmarkJobs,
+  prismaSetWorkerInstantBook,
+  prismaSetWorkerServicePackage,
 } from "../src/lib/data/prisma-repo";
+import { computePriceBenchmarks } from "../src/lib/data/price-benchmarks";
 import { BOOKING_COMPLETION_CONFIRM_GRACE_HOURS, BOOKING_SLA_EXPIRE_HOURS, BOOKING_SLA_NUDGE_HOURS } from "../src/lib/data/types";
 import { runRequestSlaEngine } from "../src/lib/data/request-sla";
 import { runCompletionAutoConfirmEngine } from "../src/lib/data/completion-auto-confirm";
@@ -425,6 +430,115 @@ async function main() {
     `response rate matches the answered/total rule (${answered}/${khaledRows.length} → ${expectedRate})`
   );
   console.log("W1 trust signals: responseRate", signalWorker?.responseRate, "| availableThisWeek", signalWorker?.availableThisWeek);
+
+  // ── §Phase 2 — instant booking + price benchmarks on the live DB ──────────
+  // Both features read or write columns that only exist in production paths:
+  // `Worker.instantBook` / `ServiceItem.fixedPrice` (the opt-in and the shelf
+  // it switches on) and the completed-job gather that feeds the benchmark band.
+  // A mocked prisma can prove the mapper compiles; only this can prove the rows
+  // come back. The worker's own rows are captured first and restored at the end,
+  // so the smoke stays idempotent.
+  const instantWorkers = await Promise.all(
+    (await prisma.worker.findMany({ where: { instantBook: true }, select: { slug: true } }))
+      .map((row) => prismaGetWorkerBySlug(row.slug))
+  );
+  const optedIn = instantWorkers.filter((w): w is NonNullable<typeof w> => w !== null);
+  assert(optedIn.length > 0, "seeded workers carry the instant-book opt-in through the mapper");
+  const sellablePackages = optedIn.flatMap((w) =>
+    (w.services ?? []).filter((s) => s.fixedPrice === true && s.unit === "job")
+  );
+  assert(
+    sellablePackages.length > 0,
+    "an opted-in worker publishes at least one per-job fixed-price package (the shelf the opt-in needs)"
+  );
+  // The opt-in is consent to sell a PUBLISHED price — the two must agree, or a
+  // worker could be opted in with nothing any customer could buy.
+  assert(
+    optedIn.every((w) => (w.services ?? []).some((s) => s.fixedPrice === true && s.unit === "job")),
+    "every opted-in worker has a sellable package (no opt-in over an empty shelf)"
+  );
+  // Nothing hourly may be marked fixed-price: a rate is not a total, and the
+  // instant engine refuses it — the data must not disagree with the engine.
+  assert(
+    optedIn.every((w) => (w.services ?? []).every((s) => s.unit !== "hour" || s.fixedPrice !== true)),
+    "no hourly service is published as a fixed price"
+  );
+
+  // The slot read the action re-checks eligibility against — a stale tab must
+  // not be able to sell a slot that has since been blocked.
+  const liveSlot = slots.find((s) => s.status === "available");
+  if (liveSlot) {
+    const reread = await prismaGetBookingSlot(liveSlot.id);
+    assert(reread?.id === liveSlot.id && reread.status === "available", "instant eligibility re-check reads the slot by id");
+  }
+  assert((await prismaGetBookingSlot("no-such-slot")) === null, "an unknown slot id is null, never a phantom slot");
+
+  // The write half: publish a package on a real row, then withdraw it and put
+  // the row back exactly as the seed left it.
+  const packageHost = optedIn[0]!;
+  const hostService = (packageHost.services ?? []).find((s) => s.unit === "job")!;
+  const priceBefore = hostService.price;
+  const fixedBefore = hostService.fixedPrice === true;
+  const published = await prismaSetWorkerServicePackage(packageHost.id, hostService.nameEn, 777, true);
+  const afterPublish = published?.services.find((s) => s.nameEn === hostService.nameEn);
+  assert(
+    afterPublish?.fixedPrice === true && afterPublish.price === 777,
+    "publishing a package writes the typed price and the fixed-price flag"
+  );
+  const withdrawn = await prismaSetWorkerServicePackage(packageHost.id, hostService.nameEn, 0, false);
+  const afterWithdraw = withdrawn?.services.find((s) => s.nameEn === hostService.nameEn);
+  assert(afterWithdraw?.fixedPrice === false, "withdrawing clears the flag");
+  assert(afterWithdraw.price === 777, "withdrawing does NOT re-price — the listed price is left alone");
+  // A crafted name can never price someone else's service (workerId is in the WHERE).
+  const foreignName = optedIn
+    .filter((w) => w.id !== packageHost.id)
+    .flatMap((w) => w.services ?? [])
+    .find((s) => !(packageHost.services ?? []).some((own) => own.nameEn === s.nameEn))?.nameEn;
+  if (foreignName) {
+    assert(
+      (await prismaSetWorkerServicePackage(packageHost.id, foreignName, 1, true)) === null,
+      "a service that is not on this worker's catalog cannot be priced"
+    );
+  }
+  // Restore the row the smoke borrowed.
+  await prismaSetWorkerServicePackage(packageHost.id, hostService.nameEn, priceBefore, fixedBefore);
+  const restored = await prismaGetWorkerBySlug(packageHost.slug);
+  assert(
+    restored?.services.find((s) => s.nameEn === hostService.nameEn)?.price === priceBefore,
+    "borrowed package row restored to the seeded price"
+  );
+
+  // The opt-in round-trips too, and is put back.
+  const optInBefore = packageHost.instantBook === true;
+  const toggled = await prismaSetWorkerInstantBook(packageHost.id, !optInBefore);
+  assert(toggled?.instantBook === !optInBefore, "the instant-book opt-in round-trips through the column");
+  await prismaSetWorkerInstantBook(packageHost.id, optInBefore);
+
+  // Price benchmarks: the gather returns COMPLETED jobs with a real quote, each
+  // carrying the trade of the worker who did them. Asserted on the ROWS rather
+  // than on a band, because a category below BENCHMARK_MIN_SAMPLE is legitimately
+  // absent — "no benchmark" and "the query returned nothing" must not look alike.
+  const benchmarkJobs = await prismaPriceBenchmarkJobs(180);
+  assert(
+    benchmarkJobs.every((j) => j.categorySlug.length > 0 && j.quoteMinor > 0),
+    "every benchmark sample carries a trade and a positive quote"
+  );
+  const band = computePriceBenchmarks(benchmarkJobs);
+  assert(
+    band.every((b) => b.lowMinor <= b.medianMinor && b.medianMinor <= b.highMinor),
+    "every emitted band is ordered low ≤ median ≤ high"
+  );
+  console.log(
+    "§Phase 2: instant-book opt-in + packages round-trip on live rows (publish/withdraw/restore) |",
+    optedIn.length,
+    "opted-in worker(s) with",
+    sellablePackages.length,
+    "sellable package(s) |",
+    benchmarkJobs.length,
+    "benchmark sample(s) →",
+    band.length,
+    "band(s)"
+  );
 
   // ── M5 — fee-waived search filter (real mode, live DB) ────────────────────
   // The /search sidebar toggle remains available for future admin rule-set

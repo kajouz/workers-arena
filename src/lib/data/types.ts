@@ -254,6 +254,13 @@ export interface ServiceItem {
   nameAr: string;
   price: number;
   unit: "hour" | "job";
+  /**
+   * §Instant booking (src/lib/data/instant-book.ts) — this service is sold at
+   * its listed price without a negotiation, so a customer can buy it outright
+   * on an available slot. Only ever meaningful with `unit: "job"`: an hourly
+   * price is a rate, not a total the platform can charge up front.
+   */
+  fixedPrice?: boolean;
 }
 
 export interface Certification {
@@ -985,6 +992,12 @@ export interface Worker {
   premium: boolean;
   featured: boolean;
   emergency: boolean;
+  /**
+   * §Instant booking — the worker opted in to selling their fixed-price
+   * packages without a request/response round-trip. With `fixedPrice` on a
+   * service this is the whole precondition for a customer to buy a slot now.
+   */
+  instantBook?: boolean;
   available: boolean;
   subscription: Subscription;
   priceMin: number;

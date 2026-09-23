@@ -909,6 +909,35 @@ export const ar: Dictionary = {
     settlementPaying: "جارٍ بدء الدفع…",
     settlementFailed: "تعذر بدء الدفع. حاول مرة أخرى.",
     settlementRefresh: "تحديث الحالة",
+    // §Instant booking — تفعيل العامل لبيع سعر منشور دون انتظار الطلب/الرد.
+    instantBook: "الحجز الفوري",
+    instantBookBody:
+      "يستطيع العملاء شراء سعرك المنشور على أي موعد متاح — دون انتظار ردك. لديك {count} عرض بسعر ثابت جاهز للبيع.",
+    instantBookNoPackage:
+      "لا يوجد لديك عرض بسعر ثابت لتقديمه بعد، لذلك لا شيء متاح للبيع الفوري. العرض هو خدمة بسعر محدد لكل مهمة.",
+    instantTurnOn: "تفعيل",
+    instantTurnOff: "إيقاف",
+    instantOn: "الحجز الفوري مفعّل — يمكن للعملاء شراء عروضك مباشرة.",
+    instantOff: "الحجز الفوري متوقف — الحجوزات الجديدة عادت كطلبات.",
+    instantBadge: "فوري",
+    instantPackageTitle: "عروضك بسعر ثابت",
+    instantPackageHint:
+      "بِع إحدى خدماتك المسعّرة لكل مهمة بسعر ثابت — يدفعه العميل مقدمًا دون انتظار ردك. لا يمكن بيع الخدمات بالساعة بهذه الطريقة: السعر بالساعة ليس مبلغًا نهائيًا.",
+    instantPackagePrice: "السعر",
+    instantPublish: "بِع فورًا",
+    instantWithdraw: "أوقف البيع الفوري",
+    instantPublished: "{name} معروضة الآن للبيع الفوري بسعر {price}.",
+    instantWithdrawn: "عادت {name} إلى التسعير بعرض سعر.",
+    instantErrPrice: "أدخل سعرًا لا يقل عن 1.",
+    instantErrHourly: "لا يمكن بيع خدمة بالساعة فورًا — حوّلها إلى سعر لكل مهمة أولًا.",
+    instantErrUnknown: "هذه الخدمة لم تعد على ملفك.",
+    instantBuy: "احجز فورًا — {price}",
+    instantBuying: "جارٍ الحجز…",
+    instantBuyHint: "يُدفع فورًا بالسعر المنشور، دون انتظار تأكيد العامل.",
+    instantUnavailable: "الحجز الفوري غير متاح لهذا الموعد.",
+    instantSuccess: "تم الحجز والتأكيد!",
+    instantSuccessBody: "المهمة لك بالسعر المنشور — أكمل الدفع لتثبيت موعدك.",
+    instantFailed: "لم يكتمل الحجز الفوري. أرسل طلبًا بدلًا منه.",
     // §Settlement — إقرار العامل بأن التسوية تمت مباشرة بين الطرفين.
     settlementOutsideAction: "سوّيناها مباشرة",
     settlementOutsideTitle: "هل تمت التسوية مباشرة مع العميل؟",
@@ -1889,5 +1918,17 @@ export const ar: Dictionary = {
     creditsEarned: "أرصدة مكتسبة",
     thisMonth: "هذا الشهر",
     howItWorks: "شارك كودك مع عمال آخرين. عندما يسجّلون ويُكملون أول عمل، يحصل كلاكما على رصيد مجاني.",
+  },
+  // §Price benchmarks — نطاق الأسعار المعتاد لمهام مثل هذه، من الأعمال المكتملة.
+  benchmark: {
+    title: "السعر المعتاد — {category}",
+    range: "{low} – {high}",
+    median: "معظم المهام قرب {median}",
+    sample: "من {count} مهمة مكتملة",
+    standing: {
+      below: "سعر بدء هذا العامل {price} أقل من النطاق المعتاد.",
+      within: "سعر بدء هذا العامل {price} ضمن النطاق المعتاد.",
+      above: "سعر بدء هذا العامل {price} أعلى من النطاق المعتاد.",
+    },
   },
 };

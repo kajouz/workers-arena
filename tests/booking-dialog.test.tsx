@@ -19,11 +19,20 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
-// The server action is mocked — these tests assert what the customer SEES
+// The server actions are mocked — these tests assert what the customer SEES
 // through the three steps, not what the action persists.
 vi.mock("@/app/actions/bookings", () => ({
   requestBookingAction: vi.fn(async () => ({ ok: true })),
+  instantBookAction: vi.fn(async () => ({ ok: true })),
 }));
+
+import {
+  instantBookAction,
+  requestBookingAction,
+} from "@/app/actions/bookings";
+
+const instantBookActionMock = vi.mocked(instantBookAction);
+const requestBookingActionMock = vi.mocked(requestBookingAction);
 
 // vitest `globals` is off, so RTL cannot auto-register its cleanup — unmount
 // between tests or the Radix dialog portals leak into the next case.
@@ -58,6 +67,20 @@ const worker = {
 const enterpriseWorker = {
   ...worker,
   subscription: { plan: "enterprise", status: "active" },
+} as unknown as Worker;
+
+/**
+ * §Instant booking (Phase 2) — a worker selling a published fixed price. The
+ * first package is the fixed-price job; the hourly item is the trap: a rate is
+ * not a total, so it must never be sold outright.
+ */
+const instantWorker = {
+  ...worker,
+  instantBook: true,
+  services: [
+    { nameEn: "AC Repair", nameAr: "إصلاح مكيف", price: 150, unit: "job", fixedPrice: true },
+    { nameEn: "Plumbing", nameAr: "سباكة", price: 100, unit: "hour", fixedPrice: true },
+  ],
 } as unknown as Worker;
 
 /** An AVAILABLE 1h slot starting at the given local hour tomorrow. */
@@ -247,5 +270,113 @@ describe("BookingDialog step flow", () => {
     expect(screen.queryByText("Fee waived by the worker's plan")).not.toBeInTheDocument();
     expect(screen.getByText("Cancellation & refunds")).toBeInTheDocument();
     expect(screen.getByText("Request auto-expiry")).toBeInTheDocument();
+  });
+});
+
+describe("BookingDialog instant booking", () => {
+  beforeEach(() => {
+    instantBookActionMock.mockClear();
+    requestBookingActionMock.mockClear();
+  });
+
+  /** Walk the three steps picking `serviceName` on the 09:00 slot. */
+  async function walkToDetails(workerForDialog: Worker, serviceName: string) {
+    renderDialog(workerForDialog);
+    await openDialog();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(serviceName) }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "09:00 – 10:00" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  }
+
+  it("badges the instant-bookable package on the service step only", async () => {
+    renderDialog(instantWorker);
+    await openDialog();
+
+    // One package is sellable outright; the hourly item is not. The badge is
+    // the discovery half of the feature — a customer who never notices instant
+    // booking simply books the slow way.
+    expect(screen.getAllByText("Instant")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /AC Repair/ })).toHaveTextContent("Instant");
+    expect(screen.getByRole("button", { name: /Plumbing/ })).not.toHaveTextContent("Instant");
+  });
+
+  it("offers the published price as a one-tap buy, keeping the request path", async () => {
+    await walkToDetails(instantWorker, "AC Repair");
+
+    const buy = screen.getByRole("button", { name: /Book instantly — \$150/ });
+    // The customer can still negotiate instead — the instant path is primary,
+    // not exclusive.
+    expect(screen.getByRole("button", { name: "Send booking request" })).toBeInTheDocument();
+    expect(screen.getByText(/Payable now, at the published price/)).toBeInTheDocument();
+
+    // The details fields are labelled visually (no `htmlFor`), so address them
+    // as what they are: the first two text inputs on the step.
+    const boxes = screen.getAllByRole("textbox");
+    fireEvent.change(boxes[0]!, { target: { value: "Nadia Haddad" } });
+    fireEvent.change(boxes[1]!, { target: { value: "70123456" } });
+    fireEvent.click(buy);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(instantBookActionMock).toHaveBeenCalledTimes(1);
+    expect(requestBookingActionMock).not.toHaveBeenCalled();
+    const [slug, payload] = instantBookActionMock.mock.calls[0]!;
+    expect(slug).toBe(instantWorker.slug);
+    expect((payload as FormData).get("serviceItemName")).toBe("AC Repair");
+    // Accepted with no checkout offered (the manual rails) — confirmed, so the
+    // customer is told so rather than left waiting on a request.
+    // Fake timers are installed, so `findBy*` would never advance — the click's
+    // flush inside `act` is enough for the confirmation to be on screen.
+    expect(screen.getByText("Booked and confirmed!")).toBeInTheDocument();
+  });
+
+  it("never sells an hourly rate outright, even at a fixed price", async () => {
+    await walkToDetails(instantWorker, "Plumbing");
+
+    // `fixedPrice: true` on an hourly item is still a RATE. Charging it as a
+    // total would overcharge the customer, so the unit decides.
+    expect(screen.queryByRole("button", { name: /Book instantly/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send booking request" })).toBeInTheDocument();
+  });
+
+  it("stays off for a worker who has not opted in", async () => {
+    const optedOut = { ...instantWorker, instantBook: false } as unknown as Worker;
+    await walkToDetails(optedOut, "AC Repair");
+
+    expect(screen.queryByRole("button", { name: /Book instantly/ })).not.toBeInTheDocument();
+    expect(screen.queryAllByText("Instant")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Send booking request" })).toBeInTheDocument();
+  });
+
+  it("refuses a slot inside the minimum lead time, falling back to a request", async () => {
+    // 30 minutes out — inside INSTANT_BOOK_MIN_LEAD_MINUTES (120). The picker
+    // still offers the slot as a REQUEST: it is bookable, just not instantly.
+    const soon = new Date(Date.now() + 30 * 60_000);
+    const soonSlot: BookingSlot = {
+      id: "soon",
+      workerId: instantWorker.id,
+      startAt: soon.toISOString(),
+      endAt: new Date(soon.getTime() + 3_600_000).toISOString(),
+      status: "available",
+    };
+    render(
+      <LocaleProvider locale="en" dir="ltr">
+        <BookingDialog worker={instantWorker} slots={[soonSlot]}>
+          <button type="button">Request booking</button>
+        </BookingDialog>
+      </LocaleProvider>
+    );
+    await openDialog();
+    fireEvent.click(screen.getByRole("button", { name: /AC Repair/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    const chip = screen.getAllByRole("button").find((b) => b.getAttribute("aria-pressed") !== null && /:\d\d/.test(b.textContent ?? ""));
+    expect(chip).toBeDefined();
+    fireEvent.click(chip!);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(screen.queryByRole("button", { name: /Book instantly/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send booking request" })).toBeInTheDocument();
   });
 });

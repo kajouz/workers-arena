@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Wrench } from "lucide-react";
+import { Check, Wrench, Zap } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Price } from "@/components/shared/price";
 import { cn, type CurrencyCode } from "@/lib/utils";
@@ -15,11 +15,19 @@ export function ServicePicker({
   currency,
   value,
   onChange,
+  instantNames = [],
 }: {
   services: ServiceItem[];
   currency: CurrencyCode;
   value: string | null;
   onChange: (serviceNameEn: string | null) => void;
+  /**
+   * §Instant booking (Phase 2) — the services this worker sells instantly.
+   * The badge is the discovery half of the feature: a customer who never
+   * notices instant booking still books the slow way, so the capability has to
+   * be visible where the choice is made. Empty for a worker who opted out.
+   */
+  instantNames?: string[];
 }) {
   const { locale, t } = useLocale();
 
@@ -27,6 +35,7 @@ export function ServicePicker({
     <div className="space-y-2">
       {services.map((s) => {
         const selected = value === s.nameEn;
+        const instant = instantNames.includes(s.nameEn);
         return (
           <button
             key={s.nameEn}
@@ -53,8 +62,14 @@ export function ServicePicker({
                 <span className="block truncate text-sm font-semibold text-ink-900 dark:text-ink-50">
                   {locale === "ar" ? s.nameAr : s.nameEn}
                 </span>
-                <span className="block text-xs text-ink-400">
+                <span className="flex items-center gap-2 text-xs text-ink-400">
                   {s.unit === "hour" ? t("common.perHour") : t("common.perJob")}
+                  {instant && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-700 uppercase dark:text-emerald-400">
+                      <Zap className="size-3" aria-hidden />
+                      {t("booking.instantBadge")}
+                    </span>
+                  )}
                 </span>
               </span>
             </span>

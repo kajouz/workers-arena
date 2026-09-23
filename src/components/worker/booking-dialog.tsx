@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "@/components/i18n/link";
-import { CheckCircle2, ChevronLeft, ChevronRight, Hourglass, Loader2, Send, ShieldCheck, TriangleAlert } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Hourglass, Loader2, Send, ShieldCheck, TriangleAlert, Zap } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,11 @@ import { useCountdownTick } from "@/hooks/use-countdown-tick";
 import { toast } from "@/components/ui/toast";
 import { ServicePicker } from "./service-picker";
 import { SlotPicker } from "./slot-picker";
-import { requestBookingAction, requestRecurringBookingAction } from "@/app/actions/bookings";
+import { Price } from "@/components/shared/price";
+import { instantBookAction, requestBookingAction, requestRecurringBookingAction } from "@/app/actions/bookings";
+import { instantBookDecision, instantServices } from "@/lib/data/instant-book";
 import { cn, durationParts, fillDuration } from "@/lib/utils";
+import { formatPrice } from "@/lib/currency";
 import { dialPrefix } from "@/lib/tenant/countries";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS, BOOKING_SLA_EXPIRE_HOURS } from "@/lib/data/types";
@@ -72,6 +75,10 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
   const [submitting, setSubmitting] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState(false);
+  // §Instant booking — the confirmation is not a request. "Request sent!" on a
+  // job that is already confirmed and priced would understate what happened and
+  // send the customer looking for a response that is never coming.
+  const [instantDone, setInstantDone] = useState(false);
   const [liveSlots, setLiveSlots] = useState<BookingSlot[] | null>(null);
   // True once an open-time refresh has settled (succeeded or failed). The
   // slot picker renders only after this flips, so a customer can never grab a
@@ -90,6 +97,21 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
   const [slaCapturedAt, setSlaCapturedAt] = useState<number | null>(null);
 
   const selectedSlot = slots.find((s) => s.id === slotId);
+
+  // §Instant booking (Phase 2). Advertised on the service step (which packages
+  // are sellable) and offered once a slot is picked (whether THIS one is). A
+  // repeat cadence and an emergency claim both leave the instant path: the
+  // first needs a contract the worker accepts, and the second is a surcharge on
+  // a price that was never published — selling either at the fixed price would
+  // be dishonest, so both fall back to a normal request.
+  const instantNames = instantServices(worker.services, worker.instantBook).map((s) => s.nameEn);
+  const selectedService = worker.services.find((s) => s.nameEn === serviceName) ?? null;
+  const instant = instantBookDecision({
+    instantBook: worker.instantBook,
+    service: selectedService,
+    slot: selectedSlot ?? null,
+  });
+  const canBookInstantly = instant.ok && frequency === null && !isEmergency;
 
   // §2.2 — capture the expiry when the details step is entered (stable slotId
   // dep, NOT the selectedSlot object — a fresh reference per render would
@@ -122,6 +144,7 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
     setIsEmergency(false);
     setConflict(false);
     setDone(false);
+    setInstantDone(false);
     setSlaExpiryAt(null);
     setSlaCapturedAt(null);
     // Availability changes while the page sits open (other customers book,
@@ -162,13 +185,10 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
         ? slotId !== null
         : name.trim().length >= 2 && phone.trim().length >= 8;
 
-  const submit = async () => {
-    if (!slotId || submitting) return;
-    setSubmitting(true);
-    setConflict(false);
-
+  /** The details step's payload — shared by the request and instant paths. */
+  const buildFormData = () => {
     const fd = new FormData();
-    fd.set("slotId", slotId);
+    fd.set("slotId", slotId ?? "");
     fd.set("customerName", name.trim());
     fd.set("customerPhone", phone.trim());
     fd.set("customerEmail", email.trim());
@@ -177,6 +197,67 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
     fd.set("serviceItemName", serviceName ?? "");
     if (frequency) fd.set("frequency", frequency);
     if (isEmergency) fd.set("isEmergency", "true");
+    return fd;
+  };
+
+  /**
+   * §Instant booking — buy the published price outright. The action re-runs the
+   * same decision against live rows and accepts the booking on the worker's
+   * behalf, then hands back the checkout URL; the customer is not left hunting
+   * for the booking in a list while the slot sits unpaid.
+   */
+  const submitInstant = async () => {
+    if (!slotId || submitting) return;
+    setSubmitting(true);
+    setConflict(false);
+    const res = await instantBookAction(worker.slug, buildFormData());
+
+    if (res.ok && res.url) {
+      // Full navigation on purpose: the checkout lives on another origin.
+      window.location.href = res.url;
+      return;
+    }
+    setSubmitting(false);
+    if (res.ok) {
+      // Accepted, but no checkout was offered (manual rails) — the booking is
+      // confirmed and the customer pays from their bookings page.
+      setInstantDone(true);
+      setDone(true);
+      toast("success", t("booking.instantSuccess"), t("booking.instantSuccessBody"));
+      return;
+    }
+    if (res.error === "slot-taken") {
+      return refreshTakenSlot(t("booking.slotTaken"));
+    }
+    toast("error", t("booking.instantFailed"));
+  };
+
+  /**
+   * Another customer grabbed the slot: surface it, refresh availability, and
+   * land back on the picker. Shared by both submit paths so neither can toast
+   * success for a failed claim.
+   */
+  const refreshTakenSlot = (message: string) => {
+    setConflict(true);
+    setSlotId(null);
+    setStep("slot");
+    fetch(`/api/workers/${worker.slug}/slots`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { slots?: BookingSlot[] } | null) => {
+        if (data?.slots) setLiveSlots(data.slots);
+      })
+      .catch(() => {
+        /* offline — the existing slots stay; the action re-checks on submit */
+      });
+    toast("error", message);
+  };
+
+  const submit = async () => {
+    if (!slotId || submitting) return;
+    setSubmitting(true);
+    setConflict(false);
+
+    const fd = buildFormData();
 
     // A repeat cadence routes to the recurring action — same first-occurrence
     // claim, plus the contract the worker accepts once (§7 #1).
@@ -195,18 +276,7 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
       // fetch, since router.refresh() can't update a prerendered page's prop)
       // and land the user back on the picker to re-choose. Never toast success
       // for a failed request.
-      setConflict(true);
-      setSlotId(null);
-      setStep("slot");
-      fetch(`/api/workers/${worker.slug}/slots`, { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data: { slots?: BookingSlot[] } | null) => {
-          if (data?.slots) setLiveSlots(data.slots);
-        })
-        .catch(() => {
-          /* offline — the existing slots stay; the action re-checks on submit */
-        });
-      return;
+      return refreshTakenSlot(t("booking.slotTaken"));
     }
     toast("error", t("booking.conflict"));
   };
@@ -220,7 +290,9 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
             <span className="flex size-16 items-center justify-center rounded-full bg-emerald-500/10">
               <CheckCircle2 className="size-9 text-emerald-500" />
             </span>
-            <h3 className="mt-5 text-xl font-black text-ink-900 dark:text-ink-50">{t("booking.success")}</h3>
+            <h3 className="mt-5 text-xl font-black text-ink-900 dark:text-ink-50">
+              {t(instantDone ? "booking.instantSuccess" : "booking.success")}
+            </h3>
             {isEmergency && (
               <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2">
                 <p className="text-sm font-bold text-red-700 dark:text-red-300">
@@ -231,7 +303,9 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
                 </p>
               </div>
             )}
-            <p className="mt-2 max-w-sm text-sm text-ink-500 dark:text-ink-400">{t("booking.successBody")}</p>
+            <p className="mt-2 max-w-sm text-sm text-ink-500 dark:text-ink-400">
+              {t(instantDone ? "booking.instantSuccessBody" : "booking.successBody")}
+            </p>
             <Link href="/bookings" className="mt-6">
               <Button>
                 {t("booking.viewBookings")}
@@ -288,7 +362,13 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
 
             {step === "service" && (
               <div className="space-y-4">
-                <ServicePicker services={worker.services} currency={worker.currency} value={serviceName} onChange={pickService} />
+                <ServicePicker
+                  services={worker.services}
+                  currency={worker.currency}
+                  value={serviceName}
+                  onChange={pickService}
+                  instantNames={instantNames}
+                />
                 <div>
                   <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.jobTitle")}</label>
                   <Input
@@ -521,10 +601,46 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
               </Button>
 
               {step === "details" ? (
-                <Button onClick={submit} disabled={!canContinue || submitting}>
-                  {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-                  {submitting ? t("booking.sending") : t("booking.send")}
-                </Button>
+                <div className="flex flex-col items-end gap-1.5">
+                  <div className="flex items-center gap-2">
+                    {/* The instant path is the primary action when it is legal —
+                        it is the whole point of the feature. The request path
+                        stays available beside it, so a customer who wants to
+                        negotiate still can. */}
+                    {canBookInstantly && instant.ok && (
+                      <Button variant="outline" onClick={submit} disabled={submitting}>
+                        <Send className="size-4" />
+                        {t("booking.send")}
+                      </Button>
+                    )}
+                    <Button
+                      onClick={canBookInstantly ? submitInstant : submit}
+                      disabled={!canContinue || submitting}
+                      className={cn(canBookInstantly && "bg-emerald-600 hover:bg-emerald-700")}
+                    >
+                      {submitting ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : canBookInstantly ? (
+                        <Zap className="size-4" />
+                      ) : (
+                        <Send className="size-4" />
+                      )}
+                      {canBookInstantly
+                        ? t(submitting ? "booking.instantBuying" : "booking.instantBuy").replace(
+                            "{price}",
+                            formatPrice(instant.ok ? instant.price : 0, worker.currency, locale)
+                          )
+                        : submitting
+                          ? t("booking.sending")
+                          : t("booking.send")}
+                    </Button>
+                  </div>
+                  {canBookInstantly && (
+                    <span className="text-end text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                      {t("booking.instantBuyHint")}
+                    </span>
+                  )}
+                </div>
               ) : (
                 <Button onClick={next} disabled={!canContinue}>
                   {t("common.next")}

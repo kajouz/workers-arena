@@ -1,5 +1,12 @@
 import { formatDate } from "@/lib/utils";
-import { categoriesWithCounts, workerById, workerBySlug, WORKERS } from "./workers";
+import {
+  categoriesWithCounts,
+  demoSetWorkerInstantBook,
+  demoSetWorkerServicePackage,
+  workerById,
+  workerBySlug,
+  WORKERS,
+} from "./workers";
 import { computeResponseRate, hasFreeSlotsThisWeek } from "./booking-ui";
 import { CITIES } from "./cities";
 import { getAnalytics } from "./analytics";
@@ -16,6 +23,7 @@ import {
 } from "./notifications";
 import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCode } from "./activity";
 import { payoutGuard, type Settlement, type SettlementJob } from "./booking-settlement";
+import { benchmarkFor, computePriceBenchmarks, type PriceBenchmark } from "./price-benchmarks";
 import { reviewBody, scanReviewText, visibleReviews } from "./review-moderation";
 import {
   getChatTyping as getChatTypingFlag,
@@ -50,6 +58,8 @@ import {
   demoGetWorkerBalance,
   demoConfirmBookingSettlement,
   demoCreateBookingSettlementCheckout,
+  demoGetBookingSlot,
+  demoPriceBenchmarkJobs,
   demoGetBookingSettlementPayment,
   demoMarkBookingSettledOutside,
   demoSettlementFor,
@@ -1032,6 +1042,64 @@ export async function getPlatformFeeStats(days = 30): Promise<PlatformFeeStats> 
   const clamped = Number.isFinite(raw) ? Math.max(1, raw) : 30;
   if (realDataEnabled) return (await prismaRepo()).prismaGetPlatformFeeStats(clamped);
   return demoGetPlatformFeeStats(clamped);
+}
+
+/**
+ * §Instant booking — the worker's opt-in to selling published fixed prices
+ * without a request/response round-trip (docs/ENHANCEMENT-PLAN.md Phase 2).
+ */
+export async function setWorkerInstantBook(workerId: string, enabled: boolean): Promise<Worker | null> {
+  if (!workerId) return null;
+  if (realDataEnabled) return (await prismaRepo()).prismaSetWorkerInstantBook(workerId, enabled);
+  return demoSetWorkerInstantBook(workerId, enabled);
+}
+
+/**
+ * §Instant booking — publish or withdraw one fixed-price package. The worker's
+ * opt-in is consent; this is the price it consents to sell at.
+ */
+export async function setWorkerServicePackage(
+  workerId: string,
+  nameEn: string,
+  price: number,
+  fixedPrice: boolean
+): Promise<Worker | null> {
+  if (!workerId || !nameEn) return null;
+  if (realDataEnabled) return (await prismaRepo()).prismaSetWorkerServicePackage(workerId, nameEn, price, fixedPrice);
+  return demoSetWorkerServicePackage(workerId, nameEn, price, fixedPrice);
+}
+
+/** §Instant booking — one slot by id, for the eligibility re-check. */
+export async function getBookingSlot(slotId: string): Promise<BookingSlot | null> {
+  if (!slotId) return null;
+  if (realDataEnabled) return (await prismaRepo()).prismaGetBookingSlot(slotId);
+  return demoGetBookingSlot(slotId);
+}
+
+/* ────────────── §Price benchmarks — "what does this normally cost?" ────────────── */
+
+/**
+ * §Price benchmarks (docs/ENHANCEMENT-PLAN.md Phase 2) — the typical price band
+ * per trade, built from the completed jobs the platform has already priced.
+ *
+ * Read-only and derived: nothing is stored, so a benchmark can never go stale
+ * against the jobs it describes. Both adapters gather the same rows (COMPLETED
+ * jobs with a real quote, inside the window) and the SAME pure engine computes
+ * the band (src/lib/data/price-benchmarks.ts) — a category below the sample
+ * floor is simply absent, and the surfaces must render nothing rather than
+ * something the data cannot support.
+ */
+export async function getPriceBenchmarks(days = 180): Promise<PriceBenchmark[]> {
+  const jobs = realDataEnabled
+    ? await (await prismaRepo()).prismaPriceBenchmarkJobs(days)
+    : demoPriceBenchmarkJobs(days);
+  return computePriceBenchmarks(jobs);
+}
+
+/** The benchmark for one trade, or null when the data cannot state one. */
+export async function getPriceBenchmark(categorySlug: string | null | undefined): Promise<PriceBenchmark | null> {
+  if (!categorySlug) return null;
+  return benchmarkFor(await getPriceBenchmarks(), categorySlug);
 }
 
 /* ───────────────────── §Settlement — the money behind a job ───────────────────── */

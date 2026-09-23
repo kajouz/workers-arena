@@ -913,6 +913,36 @@ export const en = {
     settlementPaying: "Starting checkout…",
     settlementFailed: "Could not start the payment. Please try again.",
     settlementRefresh: "Refresh status",
+    // §Instant booking (docs/ENHANCEMENT-PLAN.md Phase 2) — the worker opts in
+    // to selling a published fixed price without a request/response round-trip.
+    instantBook: "Instant booking",
+    instantBookBody:
+      "Customers can buy your published price on an available slot — no waiting for you to answer. {count} fixed-price package(s) are ready to sell.",
+    instantBookNoPackage:
+      "You have no fixed-price package to sell yet, so there is nothing to sell instantly. A package is a per-job service priced up front.",
+    instantTurnOn: "Turn on",
+    instantTurnOff: "Turn off",
+    instantOn: "Instant booking is on — customers can buy your packages outright.",
+    instantOff: "Instant booking is off — new bookings are requests again.",
+    instantBadge: "Instant",
+    instantPackageTitle: "Your packages",
+    instantPackageHint:
+      "Sell one of your per-job services at a fixed price — the customer pays it up front without waiting for you. Hourly services cannot be sold this way: a rate is not a total.",
+    instantPackagePrice: "Price",
+    instantPublish: "Sell instantly",
+    instantWithdraw: "Stop selling instantly",
+    instantPublished: "{name} is now on sale instantly at {price}.",
+    instantWithdrawn: "{name} is back to quoted pricing.",
+    instantErrPrice: "Enter a price of at least 1.",
+    instantErrHourly: "An hourly service cannot be sold instantly — set it to a per-job price first.",
+    instantErrUnknown: "That service is no longer on your profile.",
+    instantBuy: "Book instantly — {price}",
+    instantBuying: "Booking…",
+    instantBuyHint: "Payable now, at the published price. No waiting for the worker to confirm.",
+    instantUnavailable: "Instant booking is not available for this slot.",
+    instantSuccess: "Booked and confirmed!",
+    instantSuccessBody: "The job is yours at the published price — complete the payment to confirm your slot.",
+    instantFailed: "Instant booking did not go through. Send a request instead.",
     // §Settlement — the worker's "we settled this directly" declaration. The
     // copy names the consequence, because the declaration is a real one.
     settlementOutsideAction: "We settled this directly",
@@ -1903,6 +1933,19 @@ export const en = {
     creditsEarned: "Credits Earned",
     thisMonth: "This Month",
     howItWorks: "Share your code with other workers. When they sign up and complete their first job, you both earn bonus credits.",
+  },
+  // §Price benchmarks (docs/ENHANCEMENT-PLAN.md Phase 2) — the band of what
+  // jobs like this actually cost, built from completed jobs.
+  benchmark: {
+    title: "Typical price — {category}",
+    range: "{low} – {high}",
+    median: "most jobs near {median}",
+    sample: "from {count} completed jobs",
+    standing: {
+      below: "This worker's {price} starting price is below the typical range.",
+      within: "This worker's {price} starting price is within the typical range.",
+      above: "This worker's {price} starting price is above the typical range.",
+    },
   },
 };
 

@@ -10,7 +10,8 @@ import { RelatedWorkers } from "@/components/worker/related-workers";
 import { FloatingWhatsApp } from "@/components/worker/whatsapp-contact";
 import { WorkerPortfolio } from "@/components/worker/worker-portfolio";
 import { WorkerSponsor } from "@/components/worker/worker-sponsor";
-import { getAllWorkers, getRelated, getWorkerBySlug, getWorkerSlots } from "@/lib/data/repo";
+import { PriceBenchmarkNote } from "@/components/worker/price-benchmark-note";
+import { getAllWorkers, getPriceBenchmark, getRelated, getWorkerBySlug, getWorkerSlots } from "@/lib/data/repo";
 import { defaultLocale, isLocale } from "@/lib/i18n/config";
 import { localeAlternates } from "@/lib/i18n/routing";
 import { categoryBySlug } from "@/lib/data/categories";
@@ -71,9 +72,12 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
   const from = new Date();
   from.setHours(0, 0, 0, 0);
   const to = new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
-  const [related, slots] = await Promise.all([
+  const [related, slots, benchmark] = await Promise.all([
     getRelated(worker, 4),
     getWorkerSlots(worker.id, { from: from.toISOString(), to: to.toISOString() }),
+    // §Price benchmarks (Phase 2) — null when the trade has too few completed
+    // jobs to state a range; the note then renders nothing.
+    getPriceBenchmark(worker.categorySlug),
   ]);
   const cat = categoryBySlug(worker.categorySlug);
   const city = cityBySlug(worker.citySlug);
@@ -120,6 +124,17 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
       </nav>
 
       <ProfileHero worker={worker} />
+
+      {/* §Price benchmarks (Phase 2) — the band of what this trade actually
+          costs, next to the price, so "is this fair?" has an answer. Renders
+          nothing when the data cannot support a range. */}
+      <PriceBenchmarkNote
+        className="mt-4"
+        benchmark={benchmark}
+        workerPriceMin={worker.priceMin}
+        categoryNameEn={cat?.nameEn ?? worker.categorySlug}
+        categoryNameAr={cat?.nameAr ?? worker.categorySlug}
+      />
 
       <div className="mt-8 grid gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">

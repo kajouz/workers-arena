@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { CalendarRange, Loader2, Lock, Plus, X } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { generateSlotsAction, setSlotBlockedAction } from "@/app/actions/bookings";
+import { publishFixedPricePackageAction, setInstantBookAction } from "@/app/actions/business";
+import { MAX_PACKAGE_PRICE, instantServices } from "@/lib/data/instant-book";
+import { formatPrice } from "@/lib/currency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +35,68 @@ export function AvailabilityPanel({ slots, worker }: { slots: BookingSlot[]; wor
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
   const [busySlot, setBusySlot] = useState<string | null>(null);
+  const [instantBusy, setInstantBusy] = useState(false);
+  // §Instant booking — the package editor. `drafts` holds what is typed per
+  // service (keyed by nameEn, the join key the action resolves against), so
+  // typing in one row never re-renders another row's value.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [packageBusy, setPackageBusy] = useState<string | null>(null);
   const busy = generating || busySlot !== null;
+
+  // §Instant booking — opting in is only half the story: the feature needs a
+  // published fixed-price package to sell, so the panel counts the worker's
+  // packages (computed as if opted in, which is what the flag would switch on)
+  // and refuses to enable the feature over an empty shelf.
+  const packages = instantServices(worker.services, true);
+  const instantOn = Boolean(worker.instantBook);
+
+  const toggleInstant = async () => {
+    setInstantBusy(true);
+    const res = await setInstantBookAction(!instantOn);
+    setInstantBusy(false);
+    if (res.ok) {
+      toast("success", t(instantOn ? "booking.instantOff" : "booking.instantOn"));
+      router.refresh();
+    } else {
+      toast("error", t("booking.availabilityError"));
+    }
+  };
+
+  /**
+   * Publish or withdraw one package. Withdrawing sends no price — the service
+   * keeps the price it was listed at and simply stops being buy-now, so a
+   * worker cannot accidentally re-list it at whatever is in the input box.
+   */
+  const savePackage = async (nameEn: string, currentPrice: number, sell: boolean) => {
+    setPackageBusy(nameEn);
+    const f = new FormData();
+    f.set("serviceNameEn", nameEn);
+    f.set("sellInstantly", String(sell));
+    f.set("price", drafts[nameEn] ?? String(currentPrice));
+    const res = await publishFixedPricePackageAction(f);
+    setPackageBusy(null);
+
+    if (res.ok) {
+      const price = Number(drafts[nameEn] ?? currentPrice);
+      toast(
+        "success",
+        t(sell ? "booking.instantPublished" : "booking.instantWithdrawn")
+          .replace("{name}", nameEn)
+          .replace("{price}", formatPrice(price, worker.currency, locale))
+      );
+      router.refresh();
+      return;
+    }
+    const reason = res.error ?? "";
+    toast(
+      "error",
+      reason === "hourly"
+        ? t("booking.instantErrHourly")
+        : reason === "unknown-service" || reason === "not-found"
+          ? t("booking.instantErrUnknown")
+          : t("booking.instantErrPrice")
+    );
+  };
 
   const days = nextDayKeys(7);
   const byDay = new Map(groupSlotsByDay(slots).map((g) => [g.dayKey, g.slots]));
@@ -87,6 +151,87 @@ export function AvailabilityPanel({ slots, worker }: { slots: BookingSlot[]; wor
       </CardHeader>
       <CardContent>
         <p className="mb-3 text-xs text-ink-400">{t("booking.availabilitySubtitle")}</p>
+
+        {/* §Instant booking — sell a published price without a round-trip. */}
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-brand-500/20 bg-brand-500/5 px-3 py-2.5">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-ink-900 dark:text-ink-50">{t("booking.instantBook")}</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-ink-500 dark:text-ink-400">
+              {packages.length > 0
+                ? t("booking.instantBookBody", { count: packages.length })
+                : t("booking.instantBookNoPackage")}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant={instantOn ? "outline" : "default"}
+            onClick={toggleInstant}
+            // An empty shelf blocks switching the feature ON (there would be
+            // nothing to sell), but it must never block switching it OFF: a
+            // worker who withdraws their last package would otherwise be stuck
+            // with an opt-in they cannot cancel.
+            disabled={instantBusy || (packages.length === 0 && !instantOn)}
+          >
+            {instantBusy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+            {instantOn ? t("booking.instantTurnOff") : t("booking.instantTurnOn")}
+          </Button>
+        </div>
+
+        {/* §Instant booking — the shelf the opt-in above switches on. Without
+            this the feature could never be turned on by a real worker: the
+            only rows ever marked fixed-price were the seeded ones. */}
+        <div className="mb-3 rounded-xl border border-ink-200 px-3 py-2.5 dark:border-ink-700">
+          <p className="text-sm font-bold text-ink-900 dark:text-ink-50">{t("booking.instantPackageTitle")}</p>
+          <p className="mt-0.5 mb-2 text-[11px] leading-snug text-ink-500 dark:text-ink-400">
+            {t("booking.instantPackageHint")}
+          </p>
+          <div className="space-y-1.5">
+            {worker.services.map((s) => {
+              const sellable = s.unit === "job";
+              const onSale = Boolean(s.fixedPrice) && sellable;
+              const rowBusy = packageBusy === s.nameEn;
+              return (
+                <div key={s.nameEn} className="flex flex-wrap items-center gap-2 rounded-lg bg-ink-50 px-2.5 py-2 dark:bg-ink-800">
+                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-ink-800 dark:text-ink-100">
+                    {locale === "ar" ? s.nameAr : s.nameEn}
+                  </span>
+                  {onSale && (
+                    <Badge variant="success" className="shrink-0">
+                      {t("booking.instantBadge")}
+                    </Badge>
+                  )}
+                  {sellable ? (
+                    <>
+                      <input
+                        type="number"
+                        min={1}
+                        max={MAX_PACKAGE_PRICE}
+                        step={1}
+                        inputMode="numeric"
+                        dir="ltr"
+                        aria-label={`${t("booking.instantPackagePrice")} — ${s.nameEn}`}
+                        value={drafts[s.nameEn] ?? String(s.price)}
+                        onChange={(e) => setDrafts((d) => ({ ...d, [s.nameEn]: e.target.value }))}
+                        className="w-20 shrink-0 rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs font-bold text-ink-900 dark:border-ink-700 dark:bg-ink-900 dark:text-ink-50"
+                      />
+                      <Button
+                        size="sm"
+                        variant={onSale ? "outline" : "default"}
+                        disabled={rowBusy}
+                        onClick={() => savePackage(s.nameEn, s.price, !onSale)}
+                      >
+                        {rowBusy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                        {onSale ? t("booking.instantWithdraw") : t("booking.instantPublish")}
+                      </Button>
+                    </>
+                  ) : (
+                    <span className="shrink-0 text-[10px] font-semibold text-ink-400">{t("common.perHour")}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="max-h-80 space-y-4 overflow-y-auto pe-1">
           {days.map((dayKey) => {

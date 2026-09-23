@@ -11,6 +11,8 @@ import { priceQuoteForSnapshot, recordDemoFeeSnapshot } from "./fee-rules-store"
 import { demoRecordLeadRebate, resolveLeadRebate } from "./lead-rebate";
 import { resetChatPresence } from "./chat-presence";
 import { ACTION_CODES, logAdminActivity } from "./activity";
+import { BENCHMARK_WINDOW_DAYS, type BenchmarkJob } from "./price-benchmarks";
+import { healStoreShape } from "./demo-store-shape";
 import {
   BOOKING_RESCHEDULABLE_FROM,
   BOOKING_TERMINAL_STATUSES,
@@ -147,9 +149,9 @@ const FIRST_INSTANCE = g[GLOBAL_KEY] === undefined;
  * dev-server process, so the store has exactly one home. Tests reset it via
  * resetBookingsStore().
  */
-const STORE: DemoStore =
-  (g[GLOBAL_KEY] as DemoStore | undefined) ??
-  (g[GLOBAL_KEY] = {
+/** A brand-new store — also the SHAPE every adopted store is healed against. */
+function emptyStore(): DemoStore {
+  return {
     counter: 1001,
     bookings: [],
     slots: [],
@@ -166,7 +168,21 @@ const STORE: DemoStore =
     messages: new Map(),
     msgSeq: 0,
     settlements: new Map(),
-  } as DemoStore);
+  };
+}
+
+/**
+ * Adopt the process-wide store, HEALED against this build's shape. `settlements`
+ * is why: a long-lived `next dev` process started before that field was added is
+ * still holding the old object on globalThis, and the plain
+ * `existing ?? fresh` adoption kept it — so `STORE.settlements` was `undefined`
+ * and the first read of it (`withSlaSignal` → every worker profile and /search
+ * render) threw. See demo-store-shape.ts for the class of bug and its limits.
+ */
+const STORE: DemoStore = healStoreShape(
+  (g[GLOBAL_KEY] as DemoStore | undefined) ?? ((g[GLOBAL_KEY] = emptyStore()) as DemoStore),
+  emptyStore()
+);
 
 function nextDemoInvoiceNumber(): string {
   const year = new Date().getFullYear();
@@ -532,6 +548,35 @@ export function demoSettlementReconciliation(days = 30): SettlementJob[] {
         creditedMinor: credited,
       });
     });
+}
+
+/**
+ * §Instant booking — one slot by id. The instant-book action re-checks the
+ * slot's live state before it sells it, so a browser tab left open on an
+ * availability list can never buy a slot the worker has since blocked.
+ */
+export function demoGetBookingSlot(slotId: string): BookingSlot | null {
+  return STORE.slots.find((s) => s.id === slotId) ?? null;
+}
+
+/**
+ * §Price benchmarks (docs/ENHANCEMENT-PLAN.md Phase 2) — the demo half of the
+ * read seam. Same rule as the prisma adapter: COMPLETED jobs with a quote, and
+ * the trade comes from the booking's worker (the demo store keys bookings by
+ * workerId, so no join table is needed here).
+ */
+export function demoPriceBenchmarkJobs(days = BENCHMARK_WINDOW_DAYS): BenchmarkJob[] {
+  const since = Date.now() - Math.max(days, 1) * 24 * 60 * 60 * 1000;
+  const rows: BenchmarkJob[] = [];
+  for (const booking of STORE.bookings) {
+    if (booking.status !== "completed" || booking.quote == null) continue;
+    const completed = booking.events.find((e) => e.status === "completed")?.time ?? booking.startAt;
+    if (!completed || Date.parse(completed) < since) continue;
+    const categorySlug = workerById(booking.workerId)?.categorySlug;
+    if (!categorySlug) continue;
+    rows.push({ categorySlug, quoteMinor: booking.quote });
+  }
+  return rows;
 }
 
 /** A worker's bookings, newest first, with optional status filter + limit. */
