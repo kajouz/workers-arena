@@ -30,7 +30,19 @@ const https = require("node:https");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const ece = require("http_ece"); // web-push's encryption engine
+const { createRequire } = require("node:module");
+
+/**
+ * `http_ece` is web-push's encryption engine — a DEPENDENCY OF web-push, not of
+ * this project. Requiring it by bare name only worked because npm hoisted it to
+ * the top of node_modules: any dependency change (a dedupe, a different
+ * installer, a web-push version that vendors it) would break this script with
+ * "Cannot find module", and nothing would have noticed. Resolving it from
+ * web-push's own location makes the relationship explicit and hoist-proof.
+ * (`check:scripts` treats an undeclared-but-installed import as a warning for
+ * exactly this reason.)
+ */
+const ece = createRequire(require.resolve("web-push/package.json"))("http_ece");
 
 const PORT = Number(process.env.MOCK_PUSH_PORT ?? 3457);
 const CERT_DIR = path.join(process.cwd(), ".data", "certs");

@@ -1,7 +1,10 @@
 #!/bin/sh
 #
-# Pre-commit hook: run type checking + unit tests
-# Only runs on staged .ts/.tsx files to keep it fast.
+# Pre-commit hook: run type checking + unit tests, plus the scripts gate.
+# The TypeScript checks only run when .ts/.tsx files are staged, to keep it fast.
+# The scripts gate runs whenever anything under scripts/ (or package.json) is
+# staged, because ESLint ignores scripts/** — nothing else would catch a script
+# that cannot parse or cannot be imported.
 #
 
 set -e
@@ -16,11 +19,35 @@ echo ""
 echo "${YELLOW}🔍 Pre-commit checks running...${NC}"
 echo ""
 
-# ── 1. Check if any TypeScript files are staged ──────────────────────
-STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|tsx)$' || true)
+# ── 1. What is staged? ───────────────────────────────────────────────
+STAGED=$(git diff --cached --name-only --diff-filter=ACM || true)
+STAGED_TS=$(echo "$STAGED" | grep -E '\.(ts|tsx)$' || true)
+STAGED_SCRIPTS=$(echo "$STAGED" | grep -E '^scripts/|^package\.json$' || true)
+
+if [ -z "$STAGED_TS" ] && [ -z "$STAGED_SCRIPTS" ]; then
+  echo "${GREEN}✅ Nothing to check (no TypeScript or scripts/ files staged) — skipping.${NC}"
+  exit 0
+fi
+
+# ── 2. Scripts gate (parse + import graph + declared deps) ───────────
+if [ -n "$STAGED_SCRIPTS" ]; then
+  echo "${YELLOW}Staged script files:${NC}"
+  echo "$STAGED_SCRIPTS" | head -10
+  echo ""
+  echo "${YELLOW}⏳ Checking scripts parse and import correctly...${NC}"
+  if node scripts/check-scripts.mjs; then
+    echo "${GREEN}✅ Scripts: all parse, all imports resolve${NC}"
+  else
+    echo "${RED}❌ A script cannot parse or imports something that is gone — commit blocked.${NC}"
+    echo "${YELLOW}Fix the errors above and try again.${NC}"
+    exit 1
+  fi
+fi
 
 if [ -z "$STAGED_TS" ]; then
-  echo "${GREEN}✅ No TypeScript files staged — skipping checks.${NC}"
+  echo ""
+  echo "${GREEN}🎉 Pre-commit checks passed!${NC}"
+  echo ""
   exit 0
 fi
 
@@ -28,7 +55,7 @@ echo "${YELLOW}Staged TypeScript files:${NC}"
 echo "$STAGED_TS" | head -10
 echo ""
 
-# ── 2. TypeScript type check ────────────────────────────────────────
+# ── 3. TypeScript type check ────────────────────────────────────────
 echo "${YELLOW}⏳ Running TypeScript type check...${NC}"
 if npx tsc --noEmit 2>&1; then
   echo "${GREEN}✅ TypeScript: no errors${NC}"
@@ -38,7 +65,7 @@ else
   exit 1
 fi
 
-# ── 3. Unit tests (exclude e2e and prisma tests) ────────────────────
+# ── 4. Unit tests (exclude e2e and prisma tests) ────────────────────
 echo ""
 echo "${YELLOW}⏳ Running unit tests...${NC}"
 if npx vitest run \

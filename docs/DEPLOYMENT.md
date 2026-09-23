@@ -16,6 +16,26 @@ vercel --prod
 - **Ignore files are a deploy input, and are guarded.** `.vercelignore` decides what the CLI uploads; `.gitignore` decides what CI's fresh checkout contains. Both once carried an **unanchored** `backups` pattern, which matches a directory of that name at ANY depth — it silently excluded `src/app/[locale]/(app)/admin/backups/`, so the route 404'd in production while every local build (which consults neither file) stayed green. Root-anchor anything naming a project-root directory. `tests/ignore-patterns.test.ts` now evaluates both files against every path under `src/`, `public/`, `prisma/`, `scripts/` plus the root configs a build reads, and fails naming the pattern, its line, and the path it would hide.
 - **PostgreSQL:** Neon / Supabase / RDS. Run `npx prisma migrate deploy` then `npm run db:seed` (one-time). The seed is country-parameterized — `SEED_COUNTRY=<slug|ISO code>` (or `all`) picks which configured countries' cities + generated demo workers to load; it defaults to the served tenant. `npm run db:seed-surge` (optional, idempotent) backfills a deterministic 30-day emergency/gold lead cohort so the Phase-2 surge-evaluation card on Revenue Settings can be reviewed populated before real data accumulates.
 
+### Script gate (runs in CI, worth running before a release)
+
+```bash
+npm run check:scripts
+```
+
+Every file under `scripts/` must parse and everything it imports must resolve. This
+exists because `eslint.config` ignores `scripts/**`, so nothing else in the pipeline
+looks at those files: `scripts/strip-tsconfig-dist-entries.mjs` carried a
+`SyntaxError` in its own header comment and was a no-op on **every** invocation for
+its whole life, while CI ran it as `node scripts/… || true`. The gate parses JS/TS
+(`node --check` / the TypeScript parser), shell (`sh -n`), resolves relative **and
+`@/`-aliased** specifiers, walks each script's local import graph transitively
+(so a module deleted deep in `src/` fails the script that imports it), and warns on
+an import that only works because npm hoisted it.
+
+The rule that keeps it honest: **never mask a check.** No `|| true`, no
+`continue-on-error` on a step that is supposed to verify something — a masked check
+is worse than no check, because the pipeline reports success and nobody looks.
+
 ### Database migration release gate
 
 Run this checklist against the exact production `DATABASE_URL` before starting the new application build:

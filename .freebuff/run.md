@@ -41,6 +41,29 @@ a while, which `… || true` in CI hid: the comment contained the literal `**/*.
 glob, whose `*/` closed the block comment early. Keep that sequence out of the
 comment.)
 
+## The scripts gate (`npm run check:scripts`)
+
+```bash
+npm run check:scripts   # ~1s: 30 files, ~150 modules reached
+```
+
+`eslint.config` ignores `scripts/**`, so this is the only thing that looks at those
+files. It parses JS/TS (`node --check` / the TypeScript parser) and shell (`sh -n`),
+resolves relative **and `@/`-aliased** specifiers, walks each script's local import
+graph transitively (deleting a module deep in `src/` fails the script that reaches
+it, naming both), warns when an import resolves only because npm hoisted it, and
+imports main-guarded scripts in a child process to catch a throw at load. It runs in
+CI (`Scripts (parse + import graph)`, no `continue-on-error`), in `npm run test:all`,
+and from the pre-commit hook when anything under `scripts/` or `package.json` is
+staged.
+
+Two rules it depends on: **never mask a check** (no `|| true`, no
+`continue-on-error` on a verification step — a masked check reports success and
+nobody looks), and **a script with side effects needs the main guard** to be
+import-probed at all (`if (import.meta.url === pathToFileURL(process.argv[1]).href)`),
+otherwise it is parsed but never loaded, which is the honest limit of a gate that
+must not seed a database.
+
 ### Stale dist cache after a source file moves
 
 Symptom, straight from `next dev` / `next build`:

@@ -50,13 +50,19 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
 
+      # Enforced, not advisory: `scripts/**` is outside ESLint's reach
+      # (eslint.config ignores it), so without this gate a script with a syntax
+      # error or a dead import ships unnoticed — which is exactly how
+      # strip-tsconfig-dist-entries.mjs sat broken for its whole life behind
+      # `node scripts/… || true`.
+      - name: Scripts (parse + import graph)
+        run: npm run check:scripts
+
       - name: Docs links
         run: npm run check:docs-links
-        continue-on-error: true
 
       - name: Diagrams (validate)
         run: npm run validate:diagrams
-        continue-on-error: true
 
       - name: Docs manual (generate)
         run: npm run docs:manual
@@ -273,7 +279,10 @@ jobs:
             kill -- -"$CRITICAL_SERVER_PID" 2>/dev/null || kill "$CRITICAL_SERVER_PID" 2>/dev/null || true
           fi
           rm -rf "${CRITICAL_DIST_DIR:-.data/.next-e2e-critical-${GITHUB_RUN_ID}}"
-          node scripts/strip-tsconfig-dist-entries.mjs || true
+          # No `|| true`: this script once swallowed a SyntaxError on every run
+          # because of exactly that mask. It is covered by `check:scripts` and
+          # tested, so a failure here is real news.
+          node scripts/strip-tsconfig-dist-entries.mjs
 
       - name: E2E hydration smoke (dev + prod matrix)
         # Runs its own Chrome-driven dev+prod matrix against isolated servers.
