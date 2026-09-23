@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { DEMO_USERS, SESSION_COOKIE, getSession, realAuthEnabled, type SessionRole } from "@/lib/auth-demo";
-import { addLead, addReview, registerView } from "@/lib/data/repo";
+import { addLead, addReview, getCustomerBookings, registerView } from "@/lib/data/repo";
 import { getLocale } from "@/lib/i18n/server";
 import { DEMO_PASSWORD, hashPassword, sanitizeText, signSessionPayload } from "@/lib/security";
 import { localeRedirect } from "@/lib/i18n/redirect";
@@ -244,6 +244,20 @@ export async function submitReviewAction(workerId: string, formData: FormData): 
   // id is threaded through — without it the repo refuses rather than dropping a
   // review into the wrong store.
   const session = await getSession();
+  /**
+   * §Review solicitation — "verified purchase" is COMPUTED, not claimed.
+   *
+   * It used to be hard-coded `false`, which quietly made a lie of every surface
+   * that says reviews come from customers who completed a booking here. A
+   * signed-in customer with a completed booking for this worker is exactly that,
+   * so the flag is derived from their own bookings; everybody else still gets an
+   * honest `false`.
+   */
+  const verifiedPurchase = session?.id
+    ? (await getCustomerBookings({ customerId: session.id })).some(
+        (b) => b.workerId === workerId && b.status === "completed"
+      )
+    : false;
   // ok reflects whether the review actually persisted, so the client must NOT
   // claim success for a review that was never written.
   const review = await addReview(
@@ -253,7 +267,7 @@ export async function submitReviewAction(workerId: string, formData: FormData): 
       rating,
       textEn: text,
       textAr: text,
-      verifiedPurchase: false,
+      verifiedPurchase,
     },
     session?.id ? { authorId: session.id } : undefined
   );

@@ -1,12 +1,28 @@
 import type { Metadata } from "next";
 import { getI18n } from "@/lib/i18n/server";
 import { getSession } from "@/lib/auth-demo";
-import { getCustomerBookings, getCustomerQuoteRequests, getCustomerRecurrings, getWorkerById, getBookingMessages } from "@/lib/data/repo";
+import {
+  getCustomerBookings,
+  getCustomerQuoteRequests,
+  getCustomerRecurrings,
+  getWorkerById,
+  getBookingMessages,
+  getReviewedWorkerIdsForCustomer,
+} from "@/lib/data/repo";
 import { bookingEmailPreviewFor } from "@/lib/data/booking-notifications";
 import { formatDate } from "@/lib/utils";
 import { BookingsClient } from "@/components/bookings/bookings-client";
+import { ReviewSolicitation } from "@/components/bookings/review-solicitation";
+import { pendingSolicitations } from "@/lib/data/review-solicitation";
 import type { QuoteWorker } from "@/components/bookings/quote-request-card";
 import type { Booking, BookingMessage, QuoteRequest, RecurringBooking, Notification } from "@/lib/data/types";
+
+/**
+ * How many review asks this page shows at once. A wall of prompts reads as
+ * nagging, and the prompt already reappears for the jobs that still lack a
+ * review — the oldest ones wait their turn rather than being dropped.
+ */
+const MAX_SOLICITATIONS = 3;
 
 export const metadata: Metadata = {
   title: "My bookings",
@@ -79,6 +95,14 @@ export default async function BookingsPage({
       )
     )
   );
+  /**
+   * §Review solicitation — the workers this customer has already reviewed, in
+   * ONE read for the whole page. Deliberately not the workers' public `reviews`
+   * lists: those hide a review that is still awaiting moderation, and a prompt
+   * that reappears because an admin has not approved the review yet is exactly
+   * the nag this feature exists to prevent (see the repo seam).
+   */
+  const reviewedWorkerIds = new Set(session?.id ? await getReviewedWorkerIdsForCustomer(session.id) : []);
   // §2.3 chat — each booking's negotiation thread, resolved server-side like
   // the worker display data (one lookup per booking; the rows render the SAME
   // messages the admin dispute view reads).
@@ -130,6 +154,34 @@ export default async function BookingsPage({
   // SSR markup and the first client render identical.
   const nowSeed = Date.now();
 
+  /**
+   * §Review solicitation (docs/review-solicitation.md) — the completed jobs the
+   * customer has not reviewed yet, from the state this page already reads. No
+   * extra query and no stored "asked" flag: the completion time comes from the
+   * booking's own audit trail (where it is recorded) and the review existence
+   * from the worker's reviews by AUTHOR ID, so the prompt disappears the moment
+   * the review exists rather than after a dismiss.
+   *
+   * Signed-in customers only: a review needs an author to attribute (the
+   * (worker, author) unique is what makes "already reviewed" a fact), and a
+   * guest lookup has no such identity.
+   */
+  const solicitations = session?.id
+    ? pendingSolicitations(
+        rows.map((row) => ({
+          bookingId: row.booking.id,
+          status: row.booking.status,
+          completedAt: row.booking.events.find((e) => e.status === "completed")?.time ?? null,
+          hasReview: reviewedWorkerIds.has(row.booking.workerId),
+          workerName:
+            locale === "ar" ? (row.worker?.nameAr ?? "") : (row.worker?.nameEn ?? ""),
+          workerSlug: row.worker?.slug ?? "",
+          jobTitle: row.booking.jobTitle,
+        })).filter((row) => row.workerSlug.length > 0),
+        nowSeed
+      ).slice(0, MAX_SOLICITATIONS)
+    : [];
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       <h1 className="text-3xl font-black tracking-tight text-ink-900 dark:text-ink-50 sm:text-4xl">
@@ -150,6 +202,18 @@ export default async function BookingsPage({
           </p>
         </div>
       )}
+
+      {/* §Review solicitation — the ask, at the top, while the job is fresh. */}
+      <ReviewSolicitation
+        items={solicitations.map(({ candidate, stage, daysSinceCompletion }) => ({
+          bookingId: candidate.bookingId,
+          workerName: candidate.workerName,
+          workerSlug: candidate.workerSlug,
+          jobTitle: candidate.jobTitle,
+          stage,
+          daysSinceCompletion,
+        }))}
+      />
 
       {/* guestPhone: only for a signed-out lookup. The booking mutations
           resolve the caller server-side, and a guest's only credential is the

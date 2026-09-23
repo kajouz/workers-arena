@@ -296,6 +296,10 @@ export function toDomainWorker(row: WorkerRow): Worker {
       (r): Review => ({
         id: r.id,
         author: r.author?.name ?? "Customer",
+        // §Review solicitation — the author is mapped through so callers can ask
+        // "did THIS customer review THIS worker?" (which is what stops a review
+        // prompt) without a second query.
+        authorId: r.authorId,
         rating: r.rating,
         date: r.createdAt.toISOString(),
         textEn: r.textEn ?? "",
@@ -2960,6 +2964,25 @@ export async function prismaGetBookingSlot(slotId: string): Promise<BookingSlot 
   if (!slotId) return null;
   const row = await getPrisma().bookingSlot.findUnique({ where: { id: slotId } });
   return row ? rowToSlot(row) : null;
+}
+
+/**
+ * §Review solicitation (docs/review-solicitation.md) — the workers this user has
+ * already reviewed, in ANY moderation state.
+ *
+ * `status` is deliberately not filtered: the question is whether the CUSTOMER has
+ * done their part, and a review that is still in the admin queue counts. The
+ * public profile keeps using the approved-only include, so this cannot leak a
+ * pending review into the page — it only stops a prompt from asking twice.
+ */
+export async function prismaReviewedWorkerIds(userId: string): Promise<string[]> {
+  if (!userId) return [];
+  const prisma = getPrisma();
+  const rows = await prisma.review.findMany({
+    where: { authorId: userId },
+    select: { workerId: true },
+  });
+  return [...new Set(rows.map((r) => r.workerId))];
 }
 
 /**

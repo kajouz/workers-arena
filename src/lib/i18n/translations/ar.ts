@@ -119,6 +119,10 @@ export const ar: Dictionary = {
     allCategories: "كل التصنيفات",
     workersIn: "عامل",
   },
+  // §طلب التقييم (src/lib/data/review-solicitation.ts) — التسمية فقط؛ نص الطلب يُبنى لكل حجز.
+  reviewSolicitation: {
+    sectionLabel: "طلبات التقييم",
+  },
   // §صفحات المهنة × المدينة (src/app/[locale]/(public)/trades/[trade]/[city])
   crossLanding: {
     comingSoon: "قيد الإطلاق — لا أحد مسجّل هنا بعد",

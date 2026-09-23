@@ -283,6 +283,17 @@ export interface WorkingDay {
 export interface Review {
   id: string;
   author: string;
+  /**
+   * §Review solicitation — the reviewing customer's user id, when there is one.
+   *
+   * The identity is what makes two questions answerable without guessing: "has
+   * this customer already reviewed this worker?" (so a solicitation stops the
+   * moment it is acted on) and "is this a verified purchase?" (a review from
+   * somebody who completed a booking here is the only kind the profiles and the
+   * landing pages claim). `Review` is unique per (worker, author) in the schema,
+   * so one customer = one review per worker in both adapters.
+   */
+  authorId?: string;
   rating: number;
   date: string; // ISO
   textEn: string;

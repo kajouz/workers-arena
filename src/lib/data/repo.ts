@@ -429,6 +429,10 @@ export async function addReview(
     date: new Date().toISOString(),
     status: review.status ?? "pending",
     flags: review.flags ?? scanReviewText(reviewBody(review)),
+    // §Review solicitation — the demo store keeps the author identity too, so
+    // "this customer already reviewed this worker" is answerable here exactly
+    // as it is in prisma (where the (workerId, authorId) unique does the same).
+    authorId: options?.authorId,
   };
   w.reviews.unshift(stored);
   return stored;
@@ -1137,6 +1141,26 @@ export async function getPriceBenchmarks(days = 180): Promise<PriceBenchmark[]> 
     ? await (await prismaRepo()).prismaPriceBenchmarkJobs(days)
     : demoPriceBenchmarkJobs(days);
   return computePriceBenchmarks(jobs);
+}
+
+/**
+ * §Review solicitation (docs/review-solicitation.md) — which workers this user
+ * has ALREADY reviewed.
+ *
+ * Deliberately not read from a worker's `reviews` list: that list is the
+ * public, moderation-gated view (a pending review is hidden), and the
+ * solicitation asks a different question — "has this customer done their part?"
+ * A review awaiting moderation counts as done: asking again because an admin has
+ * not approved it yet is exactly the nag the feature exists to prevent.
+ */
+export async function getReviewedWorkerIdsForCustomer(userId: string): Promise<string[]> {
+  if (!userId) return [];
+  if (realDataEnabled) return (await prismaRepo()).prismaReviewedWorkerIds(userId);
+  const ids: string[] = [];
+  for (const worker of WORKERS) {
+    if (worker.reviews.some((r) => r.authorId === userId)) ids.push(worker.id);
+  }
+  return ids;
 }
 
 /** The benchmark for one trade, or null when the data cannot state one. */
