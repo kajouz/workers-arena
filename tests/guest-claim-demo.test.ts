@@ -34,10 +34,20 @@ function khaled() {
   return w;
 }
 
-/** A guest request: name + phone, no customerId — the shape the claim targets. */
+/**
+ * A guest request: name + phone, no customerId — the shape the claim targets.
+ *
+ * The slot is placed 30 DAYS out, not 30 hours: the demo seed occupies real
+ * hours on the next few days (a RESERVED slot at 10:00 local, a BLOCKED one at
+ * 14:00), and `demoCreateBookingRequest` refuses a slot that OVERLAPS either.
+ * A "now + 30h" fixture therefore passed or failed with the time of day — it
+ * failed in CI at 07:55Z, where +30h lands at 13:55Z and overlaps the 14:00
+ * blocked hour. This is the same far-future convention the booking email chain
+ * suite uses, for the same reason (see tests/booking-email-chain.test.ts).
+ */
 async function guestBooking(hourOffset: number) {
   const w = khaled();
-  const start = new Date(Date.now() + hourOffset * HOUR);
+  const start = new Date(Date.now() + 30 * 24 * HOUR + hourOffset * HOUR);
   const slot = demoAddSlot(w.id, start.toISOString(), new Date(start.getTime() + HOUR).toISOString(), "available");
   const created = await demoCreateBookingRequest({
     workerId: w.id,
@@ -106,7 +116,9 @@ describe("demoClaimGuestHistory", () => {
 
   it("claims the recurring contract booked as a guest alongside the booking", async () => {
     const w = khaled();
-    const start = new Date(Date.now() + 30 * HOUR);
+    // Same far-future slot rule as `guestBooking` above — a near-term offset can
+    // overlap a seeded reserved/blocked hour and fail with slot-taken.
+    const start = new Date(Date.now() + 31 * 24 * HOUR);
     const slot = demoAddSlot(w.id, start.toISOString(), new Date(start.getTime() + HOUR).toISOString(), "available");
     const created = await demoCreateRecurringRequest({
       workerId: w.id,
