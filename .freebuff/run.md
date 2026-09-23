@@ -34,6 +34,46 @@ node scripts/strip-tsconfig-dist-entries.mjs   # idempotent, removes only genera
 git checkout -- tsconfig.json                  # or nuclear: restore committed version
 ```
 
+The script compares against the committed `tsconfig.json` (HEAD), so it removes
+only what a run appended — the repro globs under `tmp/` that the repo carries on
+purpose are left alone. (It also had a syntax error in its own header comment for
+a while, which `… || true` in CI hid: the comment contained the literal `**/*.ts`
+glob, whose `*/` closed the block comment early. Keep that sequence out of the
+comment.)
+
+### Stale dist cache after a source file moves
+
+Symptom, straight from `next dev` / `next build`:
+
+```
+Module not found: Can't resolve './error.tsx'
+./src/app/error.tsx
+```
+
+when a file that the error names **does not exist** (here `src/app/error.tsx` was
+moved to `src/app/[locale]/error.tsx` by the locale-routing change, and nothing
+imports `./error`). The cause is a **stale dist cache**: Turbopack's persistent
+cache still lists the old path, and a running `next dev` that predates the move
+keeps serving from it. Nothing is wrong with the source — an isolated-dir build
+proves it (`NEXT_DIST_DIR=.data/.next-verify npx next build` → compiles clean).
+
+Recovery (the dist dir is a build artifact; the source is untouched):
+
+```bash
+# 1. find the process holding the dist dir, then stop it
+lsof -nP -iTCP:3001 -sTCP:LISTEN          # the dev server that owns .next
+kill <pid>
+# 2. drop the stale cache and rebuild once, so the dir is regenerated cleanly
+rm -rf .next .data/.next-verify
+npx next build
+# 3. restart dev on an ISOLATED dist dir, so a build can never collide with it
+node .freebuff/daemonize.mjs /bin/sh -c 'cd <checkout> && NEXT_DIST_DIR=.data/.next-dev-3001 exec ./node_modules/.bin/next dev -p 3001 >> <log> 2>&1'
+```
+
+The rule that prevents the whole class: **one process per dist dir.** Never run
+`next build` (which defaults to `.next`) while a default-dir `next dev` is alive
+in the same checkout.
+
 ### History: the dev tab used to freeze (fixed)
 
 Between Sep 11–12 a dev preview could wedge permanently: server HTML rendered,
