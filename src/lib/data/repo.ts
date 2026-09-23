@@ -24,6 +24,7 @@ import {
 import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCode } from "./activity";
 import { payoutGuard, type Settlement, type SettlementJob } from "./booking-settlement";
 import { benchmarkFor, computePriceBenchmarks, type PriceBenchmark } from "./price-benchmarks";
+import { planGuestClaim, summarizeGuestClaim, type GuestClaimPlans, type GuestClaimResult } from "./guest-claim";
 import { reviewBody, scanReviewText, visibleReviews } from "./review-moderation";
 import {
   getChatTyping as getChatTypingFlag,
@@ -58,6 +59,8 @@ import {
   demoGetWorkerBalance,
   demoConfirmBookingSettlement,
   demoCreateBookingSettlementCheckout,
+  demoClaimGuestHistory,
+  demoClaimableGuestRecords,
   demoGetBookingSlot,
   demoPriceBenchmarkJobs,
   demoGetBookingSettlementPayment,
@@ -882,10 +885,50 @@ export async function getWorkerBookings(
 }
 
 export async function getCustomerBookings(
-  identifier: { email?: string; phone?: string } = {}
+  identifier: { email?: string; phone?: string; customerId?: string } = {}
 ): Promise<Booking[]> {
   if (realDataEnabled) return (await prismaRepo()).prismaGetCustomerBookings(identifier);
   return demoGetCustomerBookings(identifier);
+}
+
+/* ────────────── §Guest → account claim (docs/guest-claim.md) ────────────── */
+
+/**
+ * §Guest → account claim (docs/ENHANCEMENT-PLAN.md Phase 2) — link the records a
+ * customer made as a guest (name + phone, no account) to the account they just
+ * created or signed into.
+ *
+ * Called from the auth actions, so the second purchase has a history behind it
+ * instead of starting from zero. The rules live in the pure engine
+ * (`src/lib/data/guest-claim.ts`): the phone is the credential, an email alone
+ * never claims, and a record owned by somebody else is never taken. Idempotent —
+ * a re-run reports what it already owns rather than re-stamping it.
+ */
+export async function claimGuestHistory(
+  userId: string,
+  identity: { phone?: string | null; email?: string | null }
+): Promise<GuestClaimResult> {
+  if (!userId) return summarizeGuestClaim(emptyClaimPlans());
+  if (realDataEnabled) return (await prismaRepo()).prismaClaimGuestHistory(userId, identity);
+  return demoClaimGuestHistory(userId, identity);
+}
+
+/**
+ * §Guest → account claim — what WOULD be linked, without writing. Used by the
+ * surfaces that tell a returning guest what signing up keeps.
+ */
+export async function getClaimableGuestRecords(
+  userId: string,
+  identity: { phone?: string | null; email?: string | null }
+): Promise<GuestClaimResult> {
+  if (realDataEnabled) return (await prismaRepo()).prismaClaimableGuestRecords(userId, identity);
+  return demoClaimableGuestRecords({ userId, phone: identity.phone, email: identity.email });
+}
+
+/** The empty plan set — one place, so both adapters agree on "nothing to claim". */
+function emptyClaimPlans(): GuestClaimPlans {
+  const none = planGuestClaim([], { userId: "", phone: null });
+  return { bookings: none, quoteRequests: none, recurrings: none };
 }
 
 /**
@@ -1770,7 +1813,7 @@ export async function respondToRecurring(
 
 /** A customer's contracts — email for signed-in, normalized phone for guests. */
 export async function getCustomerRecurrings(
-  identifier: { email?: string; phone?: string } = {}
+  identifier: { email?: string; phone?: string; customerId?: string } = {}
 ): Promise<RecurringBooking[]> {
   return realDataEnabled
     ? (await prismaRepo()).prismaGetCustomerRecurrings(identifier)

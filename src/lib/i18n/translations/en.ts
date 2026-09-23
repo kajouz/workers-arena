@@ -955,6 +955,11 @@ export const en = {
     settlementOutsideFailed: "Could not record the settlement.",
     myBookings: "My bookings",
     myBookingsSubtitle: "Track your requests and confirmed jobs.",
+    // §Guest → account claim (docs/guest-claim.md) — a customer who booked
+    // before signing up is told their history was found, once, plainly.
+    claimedTitle:
+      "{count} booking(s) you made before you signed up are now linked to your account",
+    claimedBody: "Linked on {date}. They are found by the phone number on your account.",
     upcoming: "Upcoming",
     past: "Past",
     empty: "No bookings yet",

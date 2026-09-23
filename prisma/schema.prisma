@@ -1105,6 +1105,13 @@ model Booking {
   customerName  String
   customerPhone String
   customerEmail String?
+
+  /// §Guest → account claim (src/lib/data/guest-claim.ts) — when a signed-up
+  /// account presented the phone this guest record was created with, the record
+  /// was linked to it. Null = never claimed. Stamped once, so the surface can
+  /// say "linked on <date>" and a re-run is a no-op.
+  claimedAt     DateTime?
+
   jobTitle      String // free-text description (user-generated, not bilingual)
   note          String? @db.Text
 
@@ -1218,6 +1225,13 @@ model QuoteRequest {
   customerName  String
   customerPhone String
   customerEmail String?
+
+  /// §Guest → account claim (src/lib/data/guest-claim.ts) — when a signed-up
+  /// account presented the phone this guest record was created with, the record
+  /// was linked to it. Null = never claimed. Stamped once, so the surface can
+  /// say "linked on <date>" and a re-run is a no-op.
+  claimedAt     DateTime?
+
   jobTitle      String
   note          String?      @db.Text
   serviceItemId String?
@@ -1258,6 +1272,13 @@ model RecurringBooking {
   customerName  String
   customerPhone String
   customerEmail String?
+
+  /// §Guest → account claim (src/lib/data/guest-claim.ts) — when a signed-up
+  /// account presented the phone this guest record was created with, the record
+  /// was linked to it. Null = never claimed. Stamped once, so the surface can
+  /// say "linked on <date>" and a re-run is a no-op.
+  claimedAt     DateTime?
+
   jobTitle      String
   note          String?            @db.Text
   frequency     RecurringFrequency

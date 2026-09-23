@@ -42,6 +42,29 @@ async function setSession(user: (typeof DEMO_USERS)[SessionRole]) {
   });
 }
 
+/**
+ * §Guest → account claim (docs/guest-claim.md) — link whatever this customer
+ * booked before they had an account to the account they just created or signed
+ * into, so the second purchase has a history behind it.
+ *
+ * Best-effort by design: a failed claim must never fail a sign-in. The customer
+ * keeps their session, nothing is half-written (the engine only ever links
+ * records the account can prove), and the next sign-in claims again — the
+ * operation is idempotent, so retrying is always safe.
+ */
+async function claimGuestHistoryFor(
+  userId: string,
+  identity: { phone?: string | null; email?: string | null }
+): Promise<void> {
+  if (!userId) return;
+  try {
+    const { claimGuestHistory } = await import("@/lib/data/repo");
+    await claimGuestHistory(userId, identity);
+  } catch (e) {
+    console.error("[auth] guest history claim failed:", e);
+  }
+}
+
 /** Map a SessionRole to the Prisma Role enum value. */
 function prismaRole(role: SessionRole): "CUSTOMER" | "WORKER" | "COMPANY" | "ADMIN" {
   return role.toUpperCase() as "CUSTOMER" | "WORKER" | "COMPANY" | "ADMIN";
@@ -70,6 +93,19 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
   if (realAuthEnabled()) {
     const error = await realSignIn(parsed.data.email, parsed.data.password);
     if (error) return { error };
+    // §Guest → account claim — a returning guest's history finds them here. The
+    // phone on the account is the credential; the email is carried so the
+    // near-miss case can be reported later without being acted on.
+    try {
+      const { getPrisma } = await import("@/lib/server/prisma");
+      const me = await getPrisma().user.findUnique({
+        where: { email: parsed.data.email.toLowerCase() },
+        select: { id: true, phone: true },
+      });
+      if (me) await claimGuestHistoryFor(me.id, { phone: me.phone, email: parsed.data.email });
+    } catch {
+      // Non-fatal: the claim is a convenience, the sign-in is the product.
+    }
     return await localeRedirect("/dashboard");
   }
 
@@ -122,7 +158,7 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
       // — the recipient-locale threading downstream reads User.locale, and a
       // hardcoded "en" would silently make every real-mode email English.
       const locale = await getLocale();
-      await prisma.user.create({
+      const created = await prisma.user.create({
         data: {
           name: sanitizeText(String(parsed.data.name), 100),
           email: parsed.data.email.toLowerCase(),
@@ -133,6 +169,11 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
           hue: 210,
         },
       });
+      // §Guest → account claim — the phone typed at signup is the same one they
+      // booked with, so their guest bookings become theirs before they ever see
+      // the dashboard. (Diners: an email-only match claims nothing — see
+      // src/lib/data/guest-claim.ts.)
+      await claimGuestHistoryFor(created.id, { phone: created.phone, email: created.email });
       // Track referral if a code was provided
       const referralCode = formData.get("referralCode");
       if (referralCode && typeof referralCode === "string" && referralCode.trim()) {

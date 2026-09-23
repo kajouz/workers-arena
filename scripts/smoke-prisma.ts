@@ -126,6 +126,8 @@ import {
   prismaPriceBenchmarkJobs,
   prismaSetWorkerInstantBook,
   prismaSetWorkerServicePackage,
+  prismaClaimGuestHistory,
+  prismaClaimableGuestRecords,
 } from "../src/lib/data/prisma-repo";
 import { computePriceBenchmarks } from "../src/lib/data/price-benchmarks";
 import { BOOKING_COMPLETION_CONFIRM_GRACE_HOURS, BOOKING_SLA_EXPIRE_HOURS, BOOKING_SLA_NUDGE_HOURS } from "../src/lib/data/types";
@@ -528,6 +530,103 @@ async function main() {
     band.every((b) => b.lowMinor <= b.medianMinor && b.medianMinor <= b.highMinor),
     "every emitted band is ordered low ≤ median ≤ high"
   );
+  // §Guest → account claim (src/lib/data/guest-claim.ts) — the live-rules half.
+  // The phone is the credential and an owned record is never taken, both proved
+  // against real rows: a guest booking is created with a phone the account then
+  // presents in a different format, is claimed exactly once, becomes visible to
+  // the OWNER's /bookings lookup, and is left alone for a second account that
+  // presents the same number.
+  const claimWorker = khaled!;
+  const claimPhoneFormatted = "+961 71 900 111";
+  const claimPhoneBare = "+96171900111";
+  const claimSlotStart = await pickFreeSlotHour(claimWorker.id, 200, 260, "guest-claim");
+  const claimSlot = await prisma.bookingSlot.create({
+    data: {
+      workerId: claimWorker.id,
+      startAt: claimSlotStart,
+      endAt: new Date(claimSlotStart.getTime() + 60 * 60 * 1000),
+      status: "AVAILABLE",
+    },
+  });
+  const guestCreated = await prismaCreateBookingRequest({
+    workerId: claimWorker.id,
+    slotId: claimSlot.id,
+    customerName: "Claim Tester",
+    customerPhone: claimPhoneFormatted,
+    jobTitle: "Smoke guest claim",
+  });
+  assert(!("error" in guestCreated), "guest booking created for the claim section");
+  const guestBookingId = guestCreated.id;
+  // The account that will claim it — real User row, because customerId is an FK.
+  const claimUser = await prisma.user.create({
+    data: {
+      name: "Claim Tester",
+      email: `claim-smoke-${Date.now()}@workersarena.test`,
+      passwordHash: "smoke",
+      phone: claimPhoneBare,
+      role: "CUSTOMER",
+      locale: "en",
+      hue: 200,
+    },
+  });
+  const rivalUser = await prisma.user.create({
+    data: {
+      name: "Claim Rival",
+      email: `claim-rival-${Date.now()}@workersarena.test`,
+      passwordHash: "smoke",
+      phone: claimPhoneBare,
+      role: "CUSTOMER",
+      locale: "en",
+      hue: 200,
+    },
+  });
+
+  const claimPreview = await prismaClaimableGuestRecords(claimUser.id, { phone: claimPhoneBare });
+  assert(claimPreview.linked === 1, `claim preview sees exactly the guest row (saw ${claimPreview.linked})`);
+  assert(
+    (await prismaGetCustomerBookings({ customerId: claimUser.id })).length === 0,
+    "a preview writes nothing"
+  );
+
+  const claimed = await prismaClaimGuestHistory(claimUser.id, { phone: claimPhoneBare });
+  assert(claimed.linked === 1, "the claim links the guest booking");
+  const ownedRows = await prismaGetCustomerBookings({ customerId: claimUser.id });
+  assert(
+    ownedRows.some((b) => b.id === guestBookingId),
+    "the claimed booking is visible to the owner's /bookings lookup (matched by customerId, not email)"
+  );
+  const stamped = await prisma.booking.findUnique({ where: { id: guestBookingId }, select: { claimedAt: true } });
+  assert(stamped?.claimedAt !== null && stamped?.claimedAt !== undefined, "the claim stamps claimedAt");
+
+  // Idempotent: a second sign-in links nothing and does not re-stamp.
+  const reClaim = await prismaClaimGuestHistory(claimUser.id, { phone: claimPhoneBare });
+  assert(reClaim.linked === 0 && reClaim.alreadyLinked === 1, "a re-run links nothing and reports the existing link");
+  const reStamped = await prisma.booking.findUnique({ where: { id: guestBookingId }, select: { claimedAt: true } });
+  assert(
+    reStamped?.claimedAt?.getTime() === stamped?.claimedAt?.getTime(),
+    "a re-run never rewrites the linked-on date"
+  );
+
+  // The rival presents the SAME phone: the record is theirs by phone, but owned
+  // by the first account, so it is reported and left untouched.
+  const rival = await prismaClaimGuestHistory(rivalUser.id, { phone: claimPhoneBare });
+  assert(rival.linked === 0 && rival.ownedElsewhere === 1, "a second account cannot take an owned record");
+  const stillOwned = await prisma.booking.findUnique({ where: { id: guestBookingId }, select: { customerId: true } });
+  assert(stillOwned?.customerId === claimUser.id, "the original owner is unchanged after a rival attempt");
+  // And an email-only match claims nothing (the stranger's-address guard).
+  const emailOnly = await prismaClaimGuestHistory(rivalUser.id, { phone: null, email: claimUser.email });
+  assert(emailOnly.linked === 0, "an email alone never claims a record");
+
+  console.log(
+    "§Guest claim: preview → link exactly once → owner lookup by customerId → idempotent re-run (date unchanged) | rival with the same phone blocked | email-only claim refused"
+  );
+
+  // Cleanup — the smoke stays idempotent: the claimed booking, its slot and the
+  // two throwaway users go away (the claim's own assertions ran above).
+  await prisma.booking.deleteMany({ where: { id: guestBookingId } });
+  await prisma.bookingSlot.deleteMany({ where: { id: claimSlot.id } });
+  await prisma.user.deleteMany({ where: { id: { in: [claimUser.id, rivalUser.id] } } });
+
   console.log(
     "§Phase 2: instant-book opt-in + packages round-trip on live rows (publish/withdraw/restore) |",
     optedIn.length,
@@ -1495,7 +1594,27 @@ async function main() {
   // sits at now+1h: inside the window AND clear of the reminder slot (+3h)
   // — the two are computed from Date.now() milliseconds apart, so a +2h slot
   // (ending at ~now+3h) would half-open-overlap the reminder's start.
-  const m3bSlotStart = new Date(Date.now() + 60 * 60 * 1000); // inside the refund window
+  // Inside the 24h refund window, but WALKED rather than pinned to +1h. The
+  // seeded slots anchor to fixed wall-clock hours while a hardcoded offset
+  // drifts against them, so "now+1h" overlaps a seeded slot whenever the run
+  // starts in the hour before it (the same time-of-day flake the reminder walk
+  // above was hardened against — this section was missed). The walk skips the
+  // sibling sections' own windows and any hour the DB already holds.
+  const m3bSlotStart = await (async (): Promise<Date> => {
+    // Sibling windows owned by OTHER sections (see the reminder walk): 5h/6h
+    // ops, 8h/9h reschedule, 30h/31h m3, 32h activity feed.
+    const SIBLING_HOURS = new Set([5, 6, 8, 9, 30, 31, 32]);
+    for (let h = 1; h < 24; h++) {
+      if (SIBLING_HOURS.has(h)) continue;
+      const start = new Date(Date.now() + h * 60 * 60 * 1000);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const clash = await prisma.bookingSlot.count({
+        where: { workerId: khaled!.id, startAt: { lt: end }, endAt: { gt: start } },
+      });
+      if (clash === 0) return start;
+    }
+    throw new Error("SMOKE ASSERT FAILED: no free m3-slot window inside the refund window");
+  })();
   const m3bSlot = await prisma.bookingSlot.create({
     data: {
       workerId: khaled!.id,

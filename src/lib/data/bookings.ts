@@ -14,6 +14,12 @@ import { ACTION_CODES, logAdminActivity } from "./activity";
 import { BENCHMARK_WINDOW_DAYS, type BenchmarkJob } from "./price-benchmarks";
 import { healStoreShape } from "./demo-store-shape";
 import {
+  planGuestClaimAll,
+  summarizeGuestClaim,
+  type GuestClaimPlan,
+  type GuestClaimResult,
+} from "./guest-claim";
+import {
   BOOKING_RESCHEDULABLE_FROM,
   BOOKING_TERMINAL_STATUSES,
   BOOKING_TRANSITION_FROM,
@@ -910,10 +916,17 @@ export async function demoAcceptChatQuote(
   return booking;
 }
 
-export function demoGetCustomerBookings(identifier: { email?: string; phone?: string } = {}): Booking[] {
+export function demoGetCustomerBookings(
+  identifier: { email?: string; phone?: string; customerId?: string } = {}
+): Booking[] {
   const phone = identifier.phone?.replace(/[\s\-()]/g, "");
   return STORE.bookings
     .filter((b) => {
+      // §Guest → account claim — a claimed booking is matched by OWNER first.
+      // The identifier's email/phone still work (a guest booking carries the
+      // phone it was made with even after the claim), but a customer whose
+      // guest booking had no email would otherwise never see it again.
+      if (identifier.customerId && b.customerId === identifier.customerId) return true;
       if (identifier.email && b.customerEmail?.toLowerCase() === identifier.email.toLowerCase()) return true;
       if (phone && b.customerPhone.replace(/[\s\-()]/g, "") === phone) return true;
       return false;
@@ -2318,15 +2331,76 @@ export async function demoRespondToRecurring(
 
 /** A customer's contracts, matched by email or normalized phone (mirrors
  * demoGetCustomerBookings). */
-export function demoGetCustomerRecurrings(identifier: { email?: string; phone?: string } = {}): RecurringBooking[] {
+export function demoGetCustomerRecurrings(
+  identifier: { email?: string; phone?: string; customerId?: string } = {}
+): RecurringBooking[] {
   const phone = identifier.phone?.replace(/[\s\-()]/g, "");
   return STORE.recurrings
     .filter((r) => {
+      if (identifier.customerId && r.customerId === identifier.customerId) return true;
       if (identifier.email && r.customerEmail?.toLowerCase() === identifier.email.toLowerCase()) return true;
       if (phone && r.customerPhone.replace(/[\s\-()]/g, "") === phone) return true;
       return false;
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * §Guest → account claim (docs/ENHANCEMENT-PLAN.md Phase 2, docs/guest-claim.md)
+ * — link this phone's guest records to the account that just presented it.
+ *
+ * The DECISION is the pure engine's (`planGuestClaim`); this only writes what
+ * the plan allows. Two properties matter and both come from the engine: a
+ * record already owned by somebody else is never touched, and a record this
+ * account already owns is reported rather than re-stamped — so signing in
+ * repeatedly cannot rewrite the "linked on" date or re-notify the customer.
+ */
+export function demoClaimGuestHistory(
+  userId: string,
+  identity: { phone?: string | null; email?: string | null },
+  now: number = Date.now()
+): GuestClaimResult {
+  const plans = planGuestClaimAll({
+    bookings: STORE.bookings,
+    quoteRequests: STORE.quoteRequests,
+    recurrings: STORE.recurrings,
+    identity: { userId, phone: identity.phone, email: identity.email },
+  });
+  const stamp = new Date(now).toISOString();
+
+  const claimOne = <T extends { id: string; customerId?: string; claimedAt?: string }>(rows: T[], plan: GuestClaimPlan) => {
+    const ids = new Set(plan.claimable);
+    for (const row of rows) {
+      if (!ids.has(row.id)) continue;
+      row.customerId = userId;
+      row.claimedAt = stamp;
+    }
+  };
+  claimOne(STORE.bookings, plans.bookings);
+  claimOne(STORE.quoteRequests, plans.quoteRequests);
+  claimOne(STORE.recurrings, plans.recurrings);
+
+  return summarizeGuestClaim(plans);
+}
+
+/**
+ * §Guest → account claim — the records that WOULD be linked if this identity
+ * signed up now, without writing anything. The registration/login surfaces use
+ * it to tell a returning guest what they are about to keep.
+ */
+export function demoClaimableGuestRecords(identity: {
+  userId: string;
+  phone?: string | null;
+  email?: string | null;
+}): GuestClaimResult {
+  return summarizeGuestClaim(
+    planGuestClaimAll({
+      bookings: STORE.bookings,
+      quoteRequests: STORE.quoteRequests,
+      recurrings: STORE.recurrings,
+      identity,
+    })
+  );
 }
 
 /** A contract by id — the admin dispute view resolves an occurrence's

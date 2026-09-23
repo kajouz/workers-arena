@@ -949,6 +949,9 @@ export const ar: Dictionary = {
     settlementOutsideFailed: "تعذر تسجيل التسوية.",
     myBookings: "حجوزاتي",
     myBookingsSubtitle: "تابع طلباتك والمهام المؤكدة.",
+    // §ربط حجوزات الزائر بالحساب (docs/guest-claim.md).
+    claimedTitle: "تم ربط {count} حجز/حجوزات قمت بها قبل إنشاء حسابك بحسابك الآن",
+    claimedBody: "تم الربط بتاريخ {date}. يتم العثور عليها عبر رقم الهاتف المسجل في حسابك.",
     upcoming: "القادمة",
     past: "السابقة",
     empty: "لا توجد حجوزات بعد",

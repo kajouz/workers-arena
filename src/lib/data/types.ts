@@ -162,6 +162,8 @@ export interface QuoteRequest {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  /** §Guest → account claim — when this guest job was linked to an account. */
+  claimedAt?: string;
   jobTitle: string;
   note?: string;
   serviceItem?: ServiceItem;
@@ -415,6 +417,8 @@ export interface Booking {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  /** §Guest → account claim — when this guest booking was linked to an account. */
+  claimedAt?: string;
   /** The customer's preferred notification language (prisma: User.locale via
    * the customer relation; demo: unset → "en"). Recipients follow it so
    * emails/SMS/WhatsApp render in the language the customer actually uses. */
@@ -528,6 +532,8 @@ export interface RecurringBooking {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  /** §Guest → account claim — when this guest contract was linked to an account. */
+  claimedAt?: string;
   serviceItem?: ServiceItem;
   /** True for 24/7 emergency service requests — enables immediate masked calling. */
   jobTitle: string;

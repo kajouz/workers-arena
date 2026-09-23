@@ -65,6 +65,12 @@ import {
 } from "./booking-settlement";
 import { reviewBody, scanReviewText } from "./review-moderation";
 import { BENCHMARK_WINDOW_DAYS, type BenchmarkJob } from "./price-benchmarks";
+import {
+  planGuestClaim,
+  summarizeGuestClaim,
+  type GuestClaimPlans,
+  type GuestClaimResult,
+} from "./guest-claim";
 import { applyPromotionCreditGrant } from "./credit-ledger";
 import { feeSnapshotCreateData } from "./fee-rules-prisma";
 import { categoryBySlug as demoCategoryBySlug } from "./categories";
@@ -914,6 +920,9 @@ export interface PrismaBookingRow {
   customerName: string;
   customerPhone: string;
   customerEmail: string | null;
+  /** §Guest → account claim — set when this guest record was linked to an
+   * account (optional so query shapes that do not select it still type). */
+  claimedAt?: Date | null;
   /** The customer's User row — its locale is the customer's preferred
    * notification language (mapped to Booking.customerLocale). Optional: only
    * queries that include `customer: { select: { locale: true } }` carry it. */
@@ -1008,6 +1017,9 @@ export interface PrismaQuoteRequestRow {
   customerName: string;
   customerPhone: string;
   customerEmail: string | null;
+  /** §Guest → account claim — set when this guest record was linked to an
+   * account (optional so query shapes that do not select it still type). */
+  claimedAt?: Date | null;
   jobTitle: string;
   note: string | null;
   categorySlug: string;
@@ -1035,6 +1047,7 @@ export function toDomainQuoteRequest(row: PrismaQuoteRequestRow): QuoteRequest {
     customerName: row.customerName,
     customerPhone: row.customerPhone,
     customerEmail: row.customerEmail ?? undefined,
+    claimedAt: row.claimedAt?.toISOString(),
     jobTitle: row.jobTitle,
     note: row.note ?? undefined,
     serviceItem: row.serviceItem
@@ -1068,6 +1081,9 @@ export function toDomainBooking(row: PrismaBookingRow): Booking {
     customerName: row.customerName,
     customerPhone: row.customerPhone,
     customerEmail: row.customerEmail ?? undefined,
+    // §Guest → account claim — stamped when this guest booking was linked to an
+    // account; undefined means it is still a guest record.
+    claimedAt: row.claimedAt?.toISOString(),
     // The customer's preferred notification language — User.locale via the
     // customer relation (absent → "en": the user never chose a language).
     customerLocale: row.customer?.locale === "ar" ? "ar" : "en",
@@ -1191,6 +1207,9 @@ export interface PrismaRecurringRow {
   customerName: string;
   customerPhone: string;
   customerEmail: string | null;
+  /** §Guest → account claim — set when this guest record was linked to an
+   * account (optional so query shapes that do not select it still type). */
+  claimedAt?: Date | null;
   serviceItem?: {
     nameEn: string;
     nameAr: string;
@@ -1217,6 +1236,7 @@ export function toDomainRecurring(row: PrismaRecurringRow): RecurringBooking {
     customerName: row.customerName,
     customerPhone: row.customerPhone,
     customerEmail: row.customerEmail ?? undefined,
+    claimedAt: row.claimedAt?.toISOString(),
     serviceItem: row.serviceItem
       ? {
           nameEn: row.serviceItem.nameEn,
@@ -1571,21 +1591,25 @@ export async function prismaAcceptChatQuote(
  * client include and toDomainBooking. Newest first, like the demo.
  */
 export async function prismaGetCustomerBookings(
-  identifier: { email?: string; phone?: string } = {}
+  identifier: { email?: string; phone?: string; customerId?: string } = {}
 ): Promise<Booking[]> {
   const prisma = getPrisma();
   // Trim is deliberate — the /bookings page trims its inputs, and the demo's
   // string compare would miss a stray-space email; keep both sides clean.
   const email = identifier.email?.trim().toLowerCase();
   const phone = identifier.phone?.replace(/[\s\-()]/g, "");
+  const customerId = identifier.customerId?.trim();
 
   let ids: string[] = [];
-  if (email || phone) {
+  if (email || phone || customerId) {
     // Ordering happens in the findMany below — the raw query only picks ids.
+    // §Guest → account claim: an OWNED booking matches by owner first, so a
+    // booking claimed from a guest record with no email is still found.
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       SELECT b."id"
       FROM "Booking" b
-      WHERE (${email ?? null}::text IS NOT NULL AND LOWER(b."customerEmail") = ${email ?? null})
+      WHERE (${customerId ?? null}::text IS NOT NULL AND b."customerId" = ${customerId ?? null})
+         OR (${email ?? null}::text IS NOT NULL AND LOWER(b."customerEmail") = ${email ?? null})
          OR (${phone ?? null}::text IS NOT NULL
              AND REGEXP_REPLACE(b."customerPhone", ${PHONE_SEP_PATTERN}, '', 'g') = ${phone ?? null})
     `;
@@ -2964,6 +2988,134 @@ export async function prismaPriceBenchmarkJobs(days = BENCHMARK_WINDOW_DAYS): Pr
     out.push({ categorySlug, quoteMinor: row.quote });
   }
   return out;
+}
+
+/**
+ * §Guest → account claim (docs/guest-claim.md) — link the guest records made
+ * with this phone to the account that signed up with it.
+ *
+ * The DECISION is the pure engine's (`planGuestClaim`): it owns the two rules
+ * that must never bend — an email alone is not proof, and a record owned by
+ * somebody else is never taken. This function only gathers the candidate rows
+ * and applies the plan.
+ *
+ * The write repeats the engine's guard in its WHERE clause (`customerId: null,
+ * claimedAt: null`), so two claims racing on the same record cannot both stamp
+ * it — the second sees a row that no longer matches and writes nothing. A
+ * re-run is therefore genuinely free: no rewrite, no second "linked" event.
+ */
+export async function prismaClaimGuestHistory(
+  userId: string,
+  identity: { phone?: string | null; email?: string | null },
+  now: number = Date.now()
+): Promise<GuestClaimResult> {
+  const plans = await prismaPlanGuestClaim(userId, identity);
+  const claimedAt = new Date(now);
+
+  const apply = async (
+    plan: { claimable: string[] },
+    update: (ids: string[]) => Promise<number>
+  ): Promise<void> => {
+    if (plan.claimable.length === 0) return;
+    await update(plan.claimable);
+  };
+
+  const prisma = getPrisma();
+  await apply(plans.bookings, (ids) =>
+    prisma.booking
+      .updateMany({
+        where: { id: { in: ids }, customerId: null, claimedAt: null },
+        data: { customerId: userId, claimedAt },
+      })
+      .then((r) => r.count)
+  );
+  await apply(plans.quoteRequests, (ids) =>
+    prisma.quoteRequest
+      .updateMany({
+        where: { id: { in: ids }, customerId: null, claimedAt: null },
+        data: { customerId: userId, claimedAt },
+      })
+      .then((r) => r.count)
+  );
+  await apply(plans.recurrings, (ids) =>
+    prisma.recurringBooking
+      .updateMany({
+        where: { id: { in: ids }, customerId: null, claimedAt: null },
+        data: { customerId: userId, claimedAt },
+      })
+      .then((r) => r.count)
+  );
+
+  return summarizeGuestClaim(plans);
+}
+
+/**
+ * §Guest → account claim — the plan against live rows (read-only). Used to tell
+ * a returning guest what signing up would keep, and by the claim itself so the
+ * decision and the write can never disagree about which rows qualify.
+ *
+ * The candidate query filters on the NORMALIZED phone (the same REGEXP_REPLACE
+ * the /bookings lookup uses), so "+961 70 123 456" finds rows stored as
+ * "+96170123456" and vice versa, plus any row this account already owns (those
+ * are reported as already-owned rather than silently excluded).
+ */
+export async function prismaPlanGuestClaim(
+  userId: string,
+  identity: { phone?: string | null; email?: string | null }
+): Promise<GuestClaimPlans> {
+  const prisma = getPrisma();
+  const phone = identity.phone?.replace(/[\s\-()]/g, "") ?? null;
+  const email = identity.email?.trim().toLowerCase() ?? null;
+
+  type Candidate = { id: string; customerId: string | null; customerPhone: string; customerEmail: string | null };
+  // No credential at all: nothing to look for. (The engine would plan an empty
+  // claim anyway; skipping the round trip keeps the common signed-in path free.)
+  const nothing: GuestClaimPlans = {
+    bookings: planGuestClaim([], { userId: "", phone: null }),
+    quoteRequests: planGuestClaim([], { userId: "", phone: null }),
+    recurrings: planGuestClaim([], { userId: "", phone: null }),
+  };
+  if (!userId || (!phone && !email)) return nothing;
+
+  const bookings = await prisma.$queryRaw<Candidate[]>`
+    SELECT b."id", b."customerId", b."customerPhone", b."customerEmail"
+    FROM "Booking" b
+    WHERE b."customerId" = ${userId}
+       OR (${phone ?? null}::text IS NOT NULL
+           AND REGEXP_REPLACE(b."customerPhone", ${PHONE_SEP_PATTERN}, '', 'g') = ${phone ?? null})
+  `;
+  const quoteRequests = await prisma.$queryRaw<Candidate[]>`
+    SELECT q."id", q."customerId", q."customerPhone", q."customerEmail"
+    FROM "QuoteRequest" q
+    WHERE q."customerId" = ${userId}
+       OR (${phone ?? null}::text IS NOT NULL
+           AND REGEXP_REPLACE(q."customerPhone", ${PHONE_SEP_PATTERN}, '', 'g') = ${phone ?? null})
+  `;
+  const recurrings = await prisma.$queryRaw<Candidate[]>`
+    SELECT r."id", r."customerId", r."customerPhone", r."customerEmail"
+    FROM "RecurringBooking" r
+    WHERE r."customerId" = ${userId}
+       OR (${phone ?? null}::text IS NOT NULL
+           AND REGEXP_REPLACE(r."customerPhone", ${PHONE_SEP_PATTERN}, '', 'g') = ${phone ?? null})
+  `;
+
+  const identityForPlan = { userId, phone, email };
+  return {
+    bookings: planGuestClaim(bookings, identityForPlan),
+    quoteRequests: planGuestClaim(quoteRequests, identityForPlan),
+    recurrings: planGuestClaim(recurrings, identityForPlan),
+  };
+}
+
+/**
+ * §Guest → account claim — the read-only tally a surface shows BEFORE anything
+ * is linked ("3 bookings from before you signed up").
+ */
+export async function prismaClaimableGuestRecords(
+  userId: string,
+  identity: { phone?: string | null; email?: string | null }
+): Promise<GuestClaimResult> {
+  return summarizeGuestClaim(await prismaPlanGuestClaim(userId, identity));
 }
 
 /**
@@ -5420,18 +5572,21 @@ export async function prismaGetWorkerRecurrings(workerId: string): Promise<Recur
 /** A customer's contracts, matched by email or normalized phone (mirrors
  * prismaGetCustomerBookings' lookup — same regexp_replace on both sides). */
 export async function prismaGetCustomerRecurrings(
-  identifier: { email?: string; phone?: string } = {}
+  identifier: { email?: string; phone?: string; customerId?: string } = {}
 ): Promise<RecurringBooking[]> {
   const prisma = getPrisma();
   const email = identifier.email?.trim().toLowerCase();
   const phone = identifier.phone?.replace(/[\s\-()]/g, "");
+  const customerId = identifier.customerId?.trim();
 
   let ids: string[] = [];
-  if (email || phone) {
+  if (email || phone || customerId) {
+    // §Guest → account claim: owner first, then the guest credentials.
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       SELECT r."id"
       FROM "RecurringBooking" r
-      WHERE (${email ?? null}::text IS NOT NULL AND LOWER(r."customerEmail") = ${email ?? null})
+      WHERE (${customerId ?? null}::text IS NOT NULL AND r."customerId" = ${customerId ?? null})
+         OR (${email ?? null}::text IS NOT NULL AND LOWER(r."customerEmail") = ${email ?? null})
          OR (${phone ?? null}::text IS NOT NULL
              AND REGEXP_REPLACE(r."customerPhone", ${PHONE_SEP_PATTERN}, '', 'g') = ${phone ?? null})
     `;

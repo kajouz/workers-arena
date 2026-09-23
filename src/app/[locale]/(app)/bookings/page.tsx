@@ -3,6 +3,7 @@ import { getI18n } from "@/lib/i18n/server";
 import { getSession } from "@/lib/auth-demo";
 import { getCustomerBookings, getCustomerQuoteRequests, getCustomerRecurrings, getWorkerById, getBookingMessages } from "@/lib/data/repo";
 import { bookingEmailPreviewFor } from "@/lib/data/booking-notifications";
+import { formatDate } from "@/lib/utils";
 import { BookingsClient } from "@/components/bookings/bookings-client";
 import type { QuoteWorker } from "@/components/bookings/quote-request-card";
 import type { Booking, BookingMessage, QuoteRequest, RecurringBooking, Notification } from "@/lib/data/types";
@@ -60,9 +61,16 @@ export default async function BookingsPage({
   // phone they used when booking — matched with normalization in the repo).
   const email = session?.email;
   const lookedUp = !email && phoneParam.length > 0;
+  // §Guest → account claim — a signed-in customer is matched by OWNER as well
+  // as by email: a booking claimed from a guest record (docs/guest-claim.md) is
+  // theirs by id, and the guest booking may carry no email at all.
   const bookings = await getCustomerBookings(
-    email ? { email } : phoneParam ? { phone: phoneParam } : {}
+    email ? { email, customerId: session?.id } : phoneParam ? { phone: phoneParam } : {}
   );
+  // The claim's audit trail, derived from the rows rather than stored twice: a
+  // booking with `claimedAt` was a guest record that found its account.
+  const claimedRows = bookings.filter((b) => b.claimedAt);
+  const claimedAt = claimedRows.map((b) => b.claimedAt!).sort().at(-1);
 
   const workers = await Promise.all(
     bookings.map((b) =>
@@ -86,7 +94,11 @@ export default async function BookingsPage({
   }));
 
   // M1 recurring contracts (§7 #1) — same identifier as the bookings lookup.
-  const identifier = email ? { email } : phoneParam ? { phone: phoneParam } : {};
+  const identifier = email
+    ? { email, customerId: session?.id }
+    : phoneParam
+      ? { phone: phoneParam }
+      : {};
   const recurrings = await getCustomerRecurrings(identifier);
   const recWorkers = await Promise.all(
     recurrings.map((r) => getWorkerById(r.workerId).then((w) => (w ? { nameEn: w.nameEn, nameAr: w.nameAr, slug: w.slug, hue: w.hue } : null)))
@@ -124,6 +136,20 @@ export default async function BookingsPage({
         {t("booking.myBookings")}
       </h1>
       <p className="mt-2 text-ink-500 dark:text-ink-400">{t("booking.myBookingsSubtitle")}</p>
+
+      {/* §Guest → account claim — say it once, plainly. A customer who booked
+          before signing up should be told their history was found, not left to
+          notice a booking that appeared on its own. */}
+      {claimedRows.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
+          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+            {t("booking.claimedTitle", { count: claimedRows.length })}
+          </p>
+          <p className="mt-0.5 text-xs text-emerald-700/80 dark:text-emerald-400/80">
+            {t("booking.claimedBody", { date: claimedAt ? formatDate(claimedAt) : "" })}
+          </p>
+        </div>
+      )}
 
       {/* guestPhone: only for a signed-out lookup. The booking mutations
           resolve the caller server-side, and a guest's only credential is the
