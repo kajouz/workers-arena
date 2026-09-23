@@ -48,14 +48,17 @@ npm run check:scripts   # ~1s: 30 files, ~150 modules reached
 ```
 
 `eslint.config` ignores `scripts/**`, so this is the only thing that looks at those
-files. It parses JS/TS (`node --check` / the TypeScript parser) and shell (`sh -n`),
-resolves relative **and `@/`-aliased** specifiers, walks each script's local import
-graph transitively (deleting a module deep in `src/` fails the script that reaches
-it, naming both), warns when an import resolves only because npm hoisted it, and
-imports main-guarded scripts in a child process to catch a throw at load. It runs in
-CI (`Scripts (parse + import graph)`, no `continue-on-error`), in `npm run test:all`,
-and from the pre-commit hook when anything under `scripts/` or `package.json` is
-staged.
+files. It parses JS/TS (`node --check` / the TypeScript parser) and shell — with the
+interpreter the **shebang names** (`bash -n` for `#!/usr/bin/env bash`), and for
+`#!/bin/sh` with the strictest plain sh available, which on this Mac is `/bin/dash`
+(so a bashism cannot hide from macOS's `sh -n` and then break on Ubuntu's, which is
+how `setup-sentry.sh` claiming `#!/bin/sh` while using arrays was found). It resolves
+relative **and `@/`-aliased** specifiers, walks each script's local import graph
+transitively (deleting a module deep in `src/` fails the script that reaches it,
+naming both), warns when an import resolves only because npm hoisted it, and imports
+main-guarded scripts in a child process to catch a throw at load. It runs in CI
+(`Scripts (parse + import graph)`, no `continue-on-error`), in `npm run test:all`, and
+from the pre-commit hook when anything under `scripts/` or `package.json` is staged.
 
 Two rules it depends on: **never mask a check** (no `|| true`, no
 `continue-on-error` on a verification step — a masked check reports success and

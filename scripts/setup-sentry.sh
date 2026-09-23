@@ -1,4 +1,8 @@
-#!/bin/sh
+#!/usr/bin/env bash
+#
+# Declared `sh` until the scripts gate parsed it with dash (which is what
+# `#!/bin/sh` means on Debian/Ubuntu): `read -p` and the VERCEL_vars array below
+# are bash-only, so the script could never have run on Linux as written.
 #
 # Sentry Setup Script for WorkersArena
 #

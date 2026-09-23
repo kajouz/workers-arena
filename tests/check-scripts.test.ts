@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -10,6 +10,7 @@ import {
   collectGraph,
   declaredDependencies,
   discoverScripts,
+  hasBinary,
   importProbeDirective,
   isImportSafe,
   loadAliases,
@@ -17,6 +18,7 @@ import {
   resolveAlias,
   runGate,
   scriptKind,
+  shellKind,
   staticSpecifiers,
   tsconfigAliases,
 } from "../scripts/check-scripts.mjs";
@@ -213,12 +215,34 @@ describe("syntax checking", () => {
     expect(await checkSyntax(file, "js")).toEqual([]);
   });
 
-  it("reports a shell syntax error", async () => {
+  it("reports a shell syntax error, naming the interpreter that judged it", async () => {
     const root = fixtureRoot("syntax-sh");
     const file = write(root, "broken.sh", 'if [ -z "$x" then\n  echo hi\nfi\n');
     const problems = await checkSyntax(file, "sh");
     expect(problems.length).toBe(1);
-    expect(problems[0]).toContain("shell syntax error");
+    expect(problems[0]).toMatch(/shell syntax error \((dash|sh) -n\)/);
+  });
+
+  it("parses a bash script as bash, not as POSIX sh", async () => {
+    // The gate's first CI run reported two healthy scripts as broken because it
+    // fed every .sh to `sh -n`: backup-db.sh and setup-sentry.sh declare bash and
+    // use arrays. Getting this wrong in either direction is a false verdict.
+    const root = fixtureRoot("bash-vs-sh");
+    const file = write(root, "arr.sh", '#!/usr/bin/env bash\nX=(a b)\necho "${X[0]}"\n');
+    expect(await checkSyntax(file, "bash")).toEqual([]);
+    if (hasBinary("dash")) {
+      // …and the same file really is invalid POSIX, which is why the shebang
+      // decides the interpreter rather than the extension.
+      expect((await checkSyntax(file, "sh")).length).toBe(1);
+    }
+  });
+
+  it("reads the interpreter from the shebang", () => {
+    const root = fixtureRoot("shell-kind");
+    expect(shellKind(write(root, "a.sh", "#!/usr/bin/env bash\n"))).toBe("bash");
+    expect(shellKind(write(root, "b.sh", "#!/bin/bash\n"))).toBe("bash");
+    expect(shellKind(write(root, "c.sh", "#!/bin/sh\n"))).toBe("sh");
+    expect(shellKind(write(root, "d.sh", ""))).toBe("sh");
   });
 
   it("reports a TypeScript syntax error without executing the file", async () => {
@@ -237,7 +261,9 @@ describe("scriptKind and discovery", () => {
     expect(scriptKind(write(root, "a.cjs", ""))).toBe("js");
     expect(scriptKind(write(root, "a.ts", ""))).toBe("ts");
     expect(scriptKind(write(root, "a.sh", ""))).toBe("sh");
+    expect(scriptKind(write(root, "bash.sh", "#!/bin/bash\n"))).toBe("bash");
     expect(scriptKind(write(root, "run", "#!/bin/sh\necho hi\n"))).toBe("sh");
+    expect(scriptKind(write(root, "run-bash", "#!/usr/bin/env bash\n"))).toBe("bash");
     expect(scriptKind(write(root, "run-node", "#!/usr/bin/env node\n"))).toBe("js");
     // Data is not a script: a README must not be parsed as one.
     expect(scriptKind(write(root, "notes.txt", "hello"))).toBeNull();
@@ -346,6 +372,28 @@ describe("the repository's own scripts/ (the gate's reason to exist)", () => {
   it("never reports a warning that would be a false positive in this repo", async () => {
     const { results } = await runGate();
     expect(results.flatMap((result) => result.warnings)).toEqual([]);
+  });
+
+  it("parses every shell script with the interpreter it declares", async () => {
+    // The repo-wide assertion above is the one that caught setup-sentry.sh
+    // claiming `#!/bin/sh` while using bash arrays — on macOS `sh -n` accepted it
+    // and on Ubuntu's dash it did not, so pushing was the first place it showed.
+    const shellScripts = discoverScripts().filter((file) => {
+      const kind = scriptKind(file);
+      return kind === "sh" || kind === "bash";
+    });
+    expect(shellScripts.length).toBeGreaterThan(0);
+    for (const file of shellScripts) {
+      const declared = scriptKind(file);
+      const problems = await checkSyntax(file, declared);
+      expect(problems, `${file} (${declared})`).toEqual([]);
+      if (declared === "sh") {
+        expect(
+          /^#!.*\b(sh|dash|ksh|ash)\b/.test(readFileSync(file, "utf8")),
+          `${file} is parsed as POSIX sh but declares no plain-sh shebang`
+        ).toBe(true);
+      }
+    }
   });
 
   it("pins the graph cap so a runaway walk cannot hang CI silently", () => {

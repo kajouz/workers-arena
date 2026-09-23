@@ -96,17 +96,59 @@ export const GRAPH_LIMIT = 2000;
  * @typedef {{ kind: "wildcard" | "exact", prefix?: string, name?: string, targets: string[] }} Alias
  */
 
+/** A binary that can be spawned on this machine. Cached: 30 files, 2 probes. */
+const RUNNABLE = new Map();
+export function hasBinary(name) {
+  if (!RUNNABLE.has(name)) {
+    const res = spawnSync(name, ["-c", "exit 0"], { stdio: "ignore" });
+    RUNNABLE.set(name, !res.error && res.status === 0);
+  }
+  return RUNNABLE.get(name);
+}
+
+/**
+ * Which shell a file declares, from its shebang only (line 1, `#!` at column 0).
+ *
+ * `bash` matters: a `#!/usr/bin/env bash` script may use arrays and `read -p`,
+ * which a POSIX `sh` rejects — parsing it with `sh` reported two healthy scripts
+ * as broken the first time this gate ran on Ubuntu.
+ */
+export function shellKind(file) {
+  try {
+    const first = readFileSync(file, "utf8").split("\n", 1)[0] ?? "";
+    if (/^#!.*\bbash\b/.test(first)) return "bash";
+  } catch {
+    /* unreadable: fall through to the default */
+  }
+  return "sh";
+}
+
+/**
+ * The interpreter a `sh` script should be parsed with.
+ *
+ * A `#!/bin/sh` script runs under whatever `sh` the platform provides — dash on
+ * Debian/Ubuntu, bash-in-posix-mode on macOS. Parsing with the strictest one
+ * available is the only way this gate's verdict matches CI's on a dev machine:
+ * a bashism can hide from macOS's `sh -n` and still break on the runner, which is
+ * exactly what `scripts/setup-sentry.sh` did.
+ */
+export function shellBinary(kind) {
+  if (kind === "bash") return "bash";
+  if (hasBinary("dash")) return "dash";
+  return "sh";
+}
+
 /** How a file under scripts/ is supposed to be parsed. */
 export function scriptKind(file) {
   const ext = path.extname(file).toLowerCase();
   if ([".js", ".jsx", ".mjs", ".cjs"].includes(ext)) return "js";
   if (SOURCE_EXTENSIONS.has(ext)) return "ts";
-  if (ext === ".sh" || ext === ".bash") return "sh";
+  if (ext === ".sh" || ext === ".bash") return shellKind(file);
   if (ext === "") {
     // Extensionless: the shebang decides. Anything else is data, not a script.
     try {
       const first = readFileSync(file, "utf8").split("\n", 1)[0] ?? "";
-      if (/^#!.*\b(sh|bash)\b/.test(first)) return "sh";
+      if (/^#!.*\b(sh|bash|dash|ksh|ash)\b/.test(first)) return shellKind(file);
       if (/^#!.*\bnode\b/.test(first)) return "js";
     } catch {
       return null;
@@ -358,10 +400,14 @@ export function importProbeDirective(source) {
 
 /** Parse a single file. Returns an array of problem strings. */
 export async function checkSyntax(file, kind) {
-  if (kind === "sh") {
-    const res = spawnSync("sh", ["-n", file], { encoding: "utf8" });
+  if (kind === "sh" || kind === "bash") {
+    const bin = shellBinary(kind);
+    const res = spawnSync(bin, ["-n", file], { encoding: "utf8" });
+    if (res.error) return [`could not run ${bin} -n: ${res.error.message}`];
     if (res.status === 0) return [];
-    return [`shell syntax error:\n${(res.stderr || "").trim().split("\n").slice(0, 4).join("\n")}`];
+    // Naming the interpreter matters: "sh -n" on macOS is bash in posix mode and
+    // will accept what dash rejects, so the reader needs to know which one spoke.
+    return [`shell syntax error (${bin} -n):\n${(res.stderr || "").trim().split("\n").slice(0, 4).join("\n")}`];
   }
   if (kind === "js") {
     const res = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });

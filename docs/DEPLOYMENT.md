@@ -27,10 +27,14 @@ exists because `eslint.config` ignores `scripts/**`, so nothing else in the pipe
 looks at those files: `scripts/strip-tsconfig-dist-entries.mjs` carried a
 `SyntaxError` in its own header comment and was a no-op on **every** invocation for
 its whole life, while CI ran it as `node scripts/… || true`. The gate parses JS/TS
-(`node --check` / the TypeScript parser), shell (`sh -n`), resolves relative **and
-`@/`-aliased** specifiers, walks each script's local import graph transitively
+(`node --check` / the TypeScript parser), shell with the interpreter the shebang names
+(`bash -n`, or the strictest plain sh available for `#!/bin/sh`), resolves relative
+**and `@/`-aliased** specifiers, walks each script's local import graph transitively
 (so a module deleted deep in `src/` fails the script that imports it), and warns on
-an import that only works because npm hoisted it.
+an import that only works because npm hoisted it. Its first CI run found two things on
+its own: shell scripts declaring `#!/bin/sh` while using bash arrays (which fail on
+Ubuntu's dash, not on a Mac), and the fact that a script's declared interpreter — not
+its extension — decides whether it can run at all.
 
 The rule that keeps it honest: **never mask a check.** No `|| true`, no
 `continue-on-error` on a step that is supposed to verify something — a masked check
