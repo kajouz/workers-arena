@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Phone, MessageCircle, Mail, Globe, Send, ShieldAlert, BadgeCheck, CalendarClock, ShieldCheck, Users, WifiOff } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Phone, MessageCircle, Mail, Globe, Send, ShieldAlert, BadgeCheck, CalendarClock, ShieldCheck, Users, Link2, Share2 } from "lucide-react";
 import type { BookingSlot, Worker } from "@/lib/data/types";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,12 @@ import { enqueueAction } from "@/lib/offline-queue";
 import { toast } from "@/components/ui/toast";
 import { Price } from "@/components/shared/price";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
+import {
+  bookingEntryShareText,
+  buildBookingEntryUrl,
+  whatsappShareHref,
+  type BookingEntryIntent,
+} from "@/lib/data/booking-entry";
 import { BookingDialog } from "./booking-dialog";
 import { QuoteRequestDialog } from "./quote-request-dialog";
 
@@ -21,16 +27,64 @@ export function ContactCard({
   worker,
   slots,
   candidates,
+  entry,
 }: {
   worker: Worker;
   slots: BookingSlot[];
   /** The pickable worker pool for multi-candidate quotes (profile + related). */
   candidates?: Worker[];
+  /** §WhatsApp booking entry — a resolved shared link (docs/booking-entry.md). */
+  entry?: BookingEntryIntent;
 }) {
   const { locale, t } = useLocale();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [copied, setCopied] = useState(false);
   const name = locale === "ar" ? worker.nameAr : worker.nameEn;
+
+  /**
+   * §WhatsApp booking entry — the recommendation loop. A customer who had a
+   * good job done sends this to whoever needs one next; the link lands them on
+   * the profile with the dialog already open. The share text is bilingual and
+   * built by the pure engine, so the message and the link cannot drift apart.
+   */
+  const shareService = worker.services[0]?.nameEn ?? null;
+  const sharePath = `/${locale}/workers/${worker.slug}`;
+  // A shared link has to be ABSOLUTE — a relative path in a WhatsApp message is
+  // a dead end. `NEXT_PUBLIC_APP_URL` is inlined at build time so production
+  // renders the real link on the server (and hydration sees the same value).
+  const configuredOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");
+  const [origin, setOrigin] = useState(configuredOrigin);
+  // The configured origin is the right answer for the deployed site, but it is
+  // a build-time constant: a Vercel preview URL, or a dev server on a port other
+  // than the one `.env` names, would send the recipient to a host that does not
+  // answer. The browser's own origin is always the one that actually works, so
+  // it wins once we are mounted.
+  useEffect(() => {
+    if (typeof window !== "undefined") setOrigin(window.location.origin);
+  }, []);
+  const shareReady = Boolean(origin);
+  const shareUrl = buildBookingEntryUrl({
+    path: sharePath,
+    serviceNameEn: shareService,
+    source: "share",
+    origin,
+  });
+  const shareText = bookingEntryShareText({ workerName: name, serviceName: shareService, url: shareUrl, locale });
+
+  const copyShareLink = async () => {
+    if (!shareReady) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast("success", t("worker.shareCopied"));
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Clipboard blocked (insecure context / permission) — the WhatsApp button
+      // beside it still works, so this is not worth an error toast.
+      toast("info", shareUrl);
+    }
+  };
 
   const sendRequest = async () => {
     setSending(true);
@@ -72,12 +126,35 @@ export function ContactCard({
           <Price amount={worker.priceMax} currency={worker.currency} locale={locale} className="text-sm font-black text-brand-600 dark:text-brand-400" />
         </div>
 
-        <BookingDialog worker={worker} slots={slots}>
+        <BookingDialog worker={worker} slots={slots} entry={entry}>
           <Button className="w-full" disabled={!worker.available}>
             <CalendarClock className="size-4" />
             {t("booking.dialogTitle")}
           </Button>
         </BookingDialog>
+
+        {/* §WhatsApp booking entry — hand this worker to whoever needs one
+            next. The link carries the worker AND their first published service,
+            so the recipient lands on a booking dialog that is already filled.
+            Disabled for an unavailable worker: recommending someone who cannot
+            take the job is how a recommendation turns into a bad experience. */}
+        {shareReady && (
+          <div className="grid grid-cols-2 gap-2">
+            <Button asChild variant="success" disabled={!worker.available}>
+              <a
+                href={whatsappShareHref(shareText)}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t("worker.shareWhatsapp")}
+              >
+                <Share2 className="size-4" /> {t("worker.shareWhatsapp")}
+              </a>
+            </Button>
+            <Button variant="outline" onClick={copyShareLink} disabled={!worker.available}>
+              <Link2 className="size-4" /> {copied ? t("worker.shareCopied") : t("worker.shareCopy")}
+            </Button>
+          </div>
+        )}
 
         {/* Multi-candidate quotes (docs/multi-candidate-quotes.md) — the
             structural fix to the selection workflow: instead of committing to

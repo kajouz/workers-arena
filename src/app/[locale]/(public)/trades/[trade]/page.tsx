@@ -7,6 +7,7 @@ import { CATEGORIES } from "@/lib/data/categories";
 import { CITY_COORDINATES } from "@/lib/geolocation/geo-service";
 import { notFound } from "next/navigation";
 import { CategoryIcon } from "@/components/shared/category-icon";
+import { getWorkers } from "@/lib/data/repo";
 
 interface TradePageProps {
   params: Promise<{ locale: string; trade: string }>;
@@ -127,6 +128,21 @@ export async function generateMetadata({ params }: TradePageProps): Promise<Meta
 export default async function TradePage({ params }: TradePageProps) {
   const { trade } = await params;
   const category = CATEGORIES.find((c) => c.slug === trade);
+
+  /**
+   * The cities this trade is actually served in — the hub's links out to the
+   * trade × city landing pages (docs/seo-cross-landing.md). Read from the same
+   * workers those pages list, so a city is linked only when a visitor would find
+   * someone there; a failed read links none of them rather than all.
+   */
+  const servedCities = await (async () => {
+    try {
+      const { items } = await getWorkers({ category: trade });
+      return [...new Set(items.map((w) => w.citySlug))];
+    } catch {
+      return [];
+    }
+  })();
 
   if (!category) {
     notFound();
@@ -287,6 +303,27 @@ export default async function TradePage({ params }: TradePageProps) {
                   </summary>
                   <p className="mt-3 text-ink-600 dark:text-ink-300">{item.a}</p>
                 </details>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Cities this trade is served in — the hub's links to the landing pages. */}
+        {servedCities.length > 0 && (
+          <section className="mb-16">
+            <h2 className="mb-4 text-2xl font-bold text-ink-900 dark:text-ink-50">
+              {`${category.nameEn} by city`}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {servedCities.map((citySlug) => (
+                <Link
+                  key={citySlug}
+                  href={`/trades/${trade}/${citySlug}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:border-brand-400 hover:text-brand-600 dark:border-ink-800 dark:text-ink-200"
+                >
+                  <MapPin className="size-4" />
+                  {citySlug.charAt(0).toUpperCase() + citySlug.slice(1)}
+                </Link>
               ))}
             </div>
           </section>

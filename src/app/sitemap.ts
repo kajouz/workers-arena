@@ -95,5 +95,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("Failed to generate city sitemap:", error);
   }
 
-  return [...staticPages, ...workerPages, ...categoryPages, ...tradePages, ...cityPages];
+  /**
+   * Trade × city landing pages — submitted only for the pairs that have supply
+   * (docs/seo-cross-landing.md). A sitemap is a promise that a URL answers the
+   * query it is named after; listing an empty pair is exactly the thin content
+   * its own `noindex` refuses to publish. The pairs are derived from the workers
+   * read once above, so the sitemap and the pages agree on what "served" means.
+   */
+  let crossPages: MetadataRoute.Sitemap = [];
+  try {
+    const workers = await getWorkers({});
+    const served = new Set(workers.items.map((w) => `${w.categorySlug}/${w.citySlug}`));
+    crossPages = [...served].sort().flatMap((pair) => {
+      const [trade, city] = pair.split("/");
+      return forEachLocale(`/trades/${trade}/${city}`, {
+        lastModified: now,
+        changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    });
+  } catch (error) {
+    console.error("Failed to generate trade-city sitemap:", error);
+  }
+
+  return [...staticPages, ...workerPages, ...categoryPages, ...tradePages, ...cityPages, ...crossPages];
 }

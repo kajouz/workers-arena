@@ -119,6 +119,24 @@ export const ar: Dictionary = {
     allCategories: "كل التصنيفات",
     workersIn: "عامل",
   },
+  // §صفحات المهنة × المدينة (src/app/[locale]/(public)/trades/[trade]/[city])
+  crossLanding: {
+    comingSoon: "قيد الإطلاق — لا أحد مسجّل هنا بعد",
+    browse: "تصفح وفلترة",
+    allTradesIn: "كل المهن في {city}",
+    emptyBody:
+      "لم يسجّل أي عامل هذه المهنة هنا بعد. وسّع البحث ليشمل المناطق القريبة، أو انشر طلبك وسنوجّهه إلى العاملين الذين يستطيعون تنفيذه.",
+    widenSearch: "ابحث عن هذه المهنة في كل المناطق",
+    faqHeading: "الأسئلة الشائعة",
+    otherTrades: "مهن أخرى في {city}",
+    sameTradeElsewhere: "{trade} في مدن أخرى",
+    point1: "محترفون موثّقو الهوية بسجل أعمال ظاهر",
+    point2: "التقييمات من عملاء أتمّوا حجزاً على المنصة فقط",
+    point3: "نطاق السعر ظاهر قبل التواصل — بلا مفاجآت",
+    point4: "حتى ثلاثة عروض أسعار للوظيفة الواحدة، ثم تختار",
+    ctaBody: "محترفون موثّقون، أسعار واضحة، وحجوزات يمكنك متابعتها.",
+    listServices: "أضف خدماتك",
+  },
   featured: {
     title: "محترفون مختارون",
     subtitle: "عمال منتقون بأعلى التقييمات ومتاحون بالقرب منك",
@@ -290,6 +308,10 @@ export const ar: Dictionary = {
     instant: "عادةً يرد خلال ساعة",
     responseRate: "معدل الاستجابة {rate}%",
     requestService: "اطلب خدمة",
+    // §ربط الحجز عبر واتساب (docs/booking-entry.md) — حلقة التوصية.
+    shareWhatsapp: "أوصِ به",
+    shareCopy: "انسخ الرابط",
+    shareCopied: "تم نسخ الرابط",
     requestBody: "أخبر {name} بما تحتاجه واحصل على عرض سعر.",
     requestSuccess: "تم إرسال الطلب! سيتواصل {name} معك قريباً.",
     reportWorker: "أبلغ عن هذا الملف",

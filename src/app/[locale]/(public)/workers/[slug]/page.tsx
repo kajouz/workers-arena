@@ -12,6 +12,12 @@ import { WorkerPortfolio } from "@/components/worker/worker-portfolio";
 import { WorkerSponsor } from "@/components/worker/worker-sponsor";
 import { PriceBenchmarkNote } from "@/components/worker/price-benchmark-note";
 import { getAllWorkers, getPriceBenchmark, getRelated, getWorkerBySlug, getWorkerSlots } from "@/lib/data/repo";
+import {
+  ENTRY_SERVICE_PARAM,
+  ENTRY_SLOT_PARAM,
+  ENTRY_SOURCE_PARAM,
+  resolveBookingEntry,
+} from "@/lib/data/booking-entry";
 import { defaultLocale, isLocale } from "@/lib/i18n/config";
 import { localeAlternates } from "@/lib/i18n/routing";
 import { categoryBySlug } from "@/lib/data/categories";
@@ -64,7 +70,17 @@ export async function generateMetadata({
   };
 }
 
-export default async function WorkerPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function WorkerPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  // §WhatsApp booking entry (docs/booking-entry.md) — a shared link carries the
+  // intent (`?book=<service>&slot=<id>&src=whatsapp`). Read on the server so the
+  // dialog opens pre-filled in the FIRST render — no client round-trip, no
+  // flash of an empty dialog.
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { slug } = await params;
   const worker = await getWorkerBySlug(slug);
   if (!worker) notFound();
@@ -81,6 +97,19 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
   ]);
   const cat = categoryBySlug(worker.categorySlug);
   const city = cityBySlug(worker.citySlug);
+
+  // Resolve the shared link against the live catalog and availability: an
+  // unknown service or a slot that has been taken is dropped rather than
+  // pre-filled into a booking the server action would then refuse.
+  const rawEntry = await searchParams;
+  const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+  const entry = resolveBookingEntry({
+    service: first(rawEntry[ENTRY_SERVICE_PARAM]) ?? null,
+    slotId: first(rawEntry[ENTRY_SLOT_PARAM]) ?? null,
+    source: first(rawEntry[ENTRY_SOURCE_PARAM]) ?? null,
+    services: worker.services,
+    slots,
+  });
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -150,6 +179,7 @@ export default async function WorkerPage({ params }: { params: Promise<{ slug: s
             worker={worker}
             slots={slots}
             candidates={[worker, ...related.filter((r) => r.id !== worker.id)]}
+            entry={entry}
           />
           
           {/* Sponsored Ad */}

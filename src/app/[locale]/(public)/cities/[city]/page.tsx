@@ -78,6 +78,21 @@ export default async function CityPage({ params }: CityPageProps) {
   const categories = await getCategories();
   const cityCoords = CITY_COORDINATES[city];
 
+  /**
+   * Which trades this city can actually serve, read from the same workers the
+   * cross-landing pages list. A served trade links to its landing page
+   * (docs/seo-cross-landing.md) — a hub linking to a page that says "nobody
+   * here yet" is a dead end for the visitor and a soft-404 for the crawler, so
+   * the rest keep the search link. A failed read links everything to search.
+   */
+  let servedTrades = new Set<string>();
+  try {
+    const { items } = await getWorkers({ city });
+    servedTrades = new Set(items.map((w) => w.categorySlug));
+  } catch {
+    /* search links remain the fallback */
+  }
+
   // Generate structured data
   const structuredData = {
     "@context": "https://schema.org",
@@ -161,7 +176,11 @@ export default async function CityPage({ params }: CityPageProps) {
             {categories.map((cat) => (
               <Link
                 key={cat.slug}
-                href={`/search?city=${city}&category=${cat.slug}`}
+                href={
+                  servedTrades.has(cat.slug)
+                    ? `/trades/${cat.slug}/${city}`
+                    : `/search?city=${city}&category=${cat.slug}`
+                }
                 className="group flex flex-col items-center gap-3 rounded-2xl border border-ink-100 bg-white p-5 text-center transition-all hover:-translate-y-1 hover:shadow-lift dark:border-ink-800 dark:bg-ink-900"
               >
                 <div className="flex size-12 items-center justify-center rounded-xl bg-brand-50 transition-colors group-hover:bg-brand-100 dark:bg-brand-950/30">

@@ -15,6 +15,7 @@ import { SlotPicker } from "./slot-picker";
 import { Price } from "@/components/shared/price";
 import { instantBookAction, requestBookingAction, requestRecurringBookingAction } from "@/app/actions/bookings";
 import { instantBookDecision, instantServices } from "@/lib/data/instant-book";
+import type { BookingEntryIntent } from "@/lib/data/booking-entry";
 import { cn, durationParts, fillDuration } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { dialPrefix } from "@/lib/tenant/countries";
@@ -52,7 +53,25 @@ function dialogSlaExpiryMs(slotStartMs: number, nowMs: number): number {
  * service → slot → details — then requestBookingAction. On a "slot-taken"
  * conflict it re-fetches live availability from /api/workers/[slug]/slots.
  */
-export function BookingDialog({ worker, slots: initialSlots, children }: { worker: Worker; slots: BookingSlot[]; children: React.ReactNode }) {
+export function BookingDialog({
+  worker,
+  slots: initialSlots,
+  entry,
+  children,
+}: {
+  worker: Worker;
+  slots: BookingSlot[];
+  /**
+   * §WhatsApp booking entry (docs/booking-entry.md) — a resolved shared link.
+   * When it carries a service or a slot the dialog OPENS ITSELF, pre-filled, on
+   * first mount: the customer tapped a link that already said what they want,
+   * and making them find the button again would waste the whole point of the
+   * link. Server-resolved (never raw query strings), so only what the worker's
+   * live catalog and availability can honour is applied.
+   */
+  entry?: BookingEntryIntent;
+  children: React.ReactNode;
+}) {
   const { locale, t } = useLocale();
 
   // LIVE availability (see /api/workers/[slug]/slots): the profile page is
@@ -166,6 +185,37 @@ export function BookingDialog({ worker, slots: initialSlots, children }: { worke
     void refreshSlots();
     setOpen(true);
   };
+
+  /**
+   * Open pre-filled from a shared link. Runs once, on mount, and only when the
+   * server found something usable in the URL — a link whose service or slot had
+   * gone stale (`entry.dropped`) still opens, just without the stale part, so a
+   * month-old WhatsApp thread degrades to a normal booking instead of an error.
+   *
+   * Declared below `openDialog` because it reuses it (the state reset plus the
+   * live-slot refresh a normal open performs); calling it from an effect is
+   * safe, but a call above the declaration reads as a TDZ hazard.
+   */
+  useEffect(() => {
+    if (!entry || entry.empty) return;
+    openDialog();
+    if (entry.serviceNameEn) {
+      const svc = worker.services.find((s) => s.nameEn === entry.serviceNameEn);
+      if (svc) {
+        setServiceName(svc.nameEn);
+        setJobTitle(locale === "ar" ? svc.nameAr : svc.nameEn);
+      }
+    }
+    if (entry.slotId) {
+      setSlotId(entry.slotId);
+      setStep("details");
+    } else if (entry.serviceNameEn) {
+      setStep("slot");
+    }
+    // Mount-only on purpose: re-running on every render would fight the user's
+    // own edits (and reset the step they navigated to).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const pickService = (nameEn: string | null) => {
     setServiceName(nameEn);
