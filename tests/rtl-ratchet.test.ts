@@ -23,6 +23,11 @@ import { describe, it, expect } from "vitest";
  *   ml-* → ms-*   mr-* → me-*   pl-* → ps-*   pr-* → pe-* * left-/right- → start-/end-   text-left/right → text-start/end
  * (left/right-position utilities are out of the ratchet's scope but follow
  * the same rule in review.)
+ *
+ * This suite is the SOURCE-TEXT half of the guard and cannot tell a correct
+ * swap from a correct-looking one. The RENDERED half — proof that logical
+ * spacing actually mirrors in Arabic, measured from resolved geometry in a
+ * real browser — is tests/playwright/rtl-logical-spacing.spec.ts.
  */
 
 const ROOT = path.resolve(__dirname, "..");
