@@ -101,10 +101,15 @@ export function MobileSidebar({ className }: MobileSidebarProps) {
 
   return (
     <>
-      {/* Mobile menu button */}
+      {/* Mobile menu button.
+          `start-4` (not `left-4`) puts it on the leading edge in both writing
+          directions — this is one of the `left-*`/`right-*` positions the RTL
+          ratchet deliberately leaves out of scope, and Arabic had it pinned to
+          the trailing corner. The safe-area offset keeps it clear of the notch
+          the layout opts into with `viewport-fit: cover`. */}
       <button
         onClick={() => setIsOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-dialog p-2.5 bg-white dark:bg-ink-900 rounded-xl shadow-lg border border-ink-200 dark:border-ink-800 hover:bg-ink-50 dark:hover:bg-ink-950 transition-colors"
+        className="lg:hidden fixed top-[calc(env(safe-area-inset-top,0px)+1rem)] start-4 z-dialog p-2.5 bg-white dark:bg-ink-900 rounded-xl shadow-lg border border-ink-200 dark:border-ink-800 hover:bg-ink-50 dark:hover:bg-ink-950 transition-colors"
       >
         <Menu className="w-5 h-5 text-ink-700 dark:text-ink-200" />
       </button>
@@ -120,14 +125,23 @@ export function MobileSidebar({ className }: MobileSidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-dialog h-full w-72 bg-white dark:bg-ink-900 border-r border-ink-200 dark:border-ink-800 transform transition-transform duration-300 ease-in-out overflow-y-auto",
-          isOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:translate-x-0 lg:static lg:z-auto",
+          // `start-0` + `border-e`: the drawer hangs off the LEADING edge and
+          // borders the edge it faces — its physical twin (`left-0` +
+          // `border-r`) pinned the Arabic panel to the wrong side.
+          // `h-dvh` (not `h-full`, which resolves against the LARGE viewport
+          // and pushes the panel's own footer behind a mobile URL bar), and the
+          // header/footer below carry the safe-area insets.
+          "fixed top-0 start-0 z-dialog h-dvh w-72 bg-white dark:bg-ink-900 border-e border-ink-200 dark:border-ink-800 transform transition-transform duration-300 ease-in-out overflow-y-auto",
+          // Closed: off the outer edge, which flips with the writing direction.
+          // A bare `-translate-x-full` slid the Arabic drawer toward the wrong
+          // side; `max-lg:` keeps the desktop sidebar transform-free.
+          isOpen ? "translate-x-0" : "max-lg:-translate-x-full max-lg:rtl:translate-x-full",
+          "lg:h-full lg:static lg:z-auto",
           className
         )}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 border-b bg-white/80 backdrop-blur-sm dark:bg-ink-900/80">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] border-b bg-white/80 backdrop-blur-sm dark:bg-ink-900/80">
           <Link href="/admin" className="flex items-center gap-2.5">
             <div className="w-9 h-9 bg-gradient-to-br from-brand-500 to-brand-600 rounded-xl flex items-center justify-center shadow-sm">
               <span className="text-white font-bold text-sm">WA</span>
@@ -190,7 +204,7 @@ export function MobileSidebar({ className }: MobileSidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="sticky bottom-0 border-t bg-white/80 backdrop-blur-sm dark:bg-ink-900/80 px-3 py-4">
+        <div className="sticky bottom-0 border-t bg-white/80 backdrop-blur-sm dark:bg-ink-900/80 px-3 py-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-ink-50 dark:bg-ink-950">
             <div className="w-9 h-9 bg-gradient-to-br from-ink-200 dark:from-ink-800 to-ink-300 dark:to-ink-700 rounded-full flex items-center justify-center">
               <span className="text-sm font-semibold text-ink-600 dark:text-ink-300">A</span>

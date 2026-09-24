@@ -182,9 +182,15 @@ export function Header({ session }: { session?: SessionRole | null }) {
         </div>
       </div>
 
-      {/* Mobile nav */}
+      {/* Mobile nav.
+          `placement="anchored"`: this is a menu, not a modal — it hangs under
+          the sticky header (respecting the status-bar inset) and is capped so
+          it can never fill the screen. It used to pass `top-6 max-w-sm
+          translate-y-0 sm:mx-auto`, which did not remove the primitive's
+          centring, only tried to out-rank it; `sm:mx-auto` was dead weight
+          (the base already centres with `left-1/2 -translate-x-1/2`). */}
       <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
-        <DialogContent className="top-6 max-w-sm translate-y-0 sm:mx-auto">
+        <DialogContent placement="anchored">
           <DialogHeader>
             <DialogTitle>{t("common.menu")}</DialogTitle>
           </DialogHeader>

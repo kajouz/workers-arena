@@ -58,14 +58,15 @@ export function Testimonials() {
           >
             <Quote className="absolute end-6 top-6 size-10 text-brand-500/15" />
             <Rating value={item.rating} />
-            <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-ink-600 dark:text-ink-300">
+            {/* Quote + attribution: 16px/14px on phones, denser from sm: up. */}
+            <blockquote className="mt-4 flex-1 text-base leading-relaxed text-ink-600 sm:text-sm dark:text-ink-300">
               “{locale === "ar" ? item.quoteAr : item.quoteEn}”
             </blockquote>
             <figcaption className="mt-6 flex items-center gap-3 border-t border-ink-100 pt-5 dark:border-ink-800">
               <GradientAvatar name={item.name} hue={i * 90 + 20} />
               <div>
                 <p className="text-sm font-bold text-ink-900 dark:text-ink-50">{item.name}</p>
-                <p className="text-xs text-ink-400">{locale === "ar" ? item.roleAr : item.roleEn}</p>
+                <p className="text-sm text-ink-400 sm:text-xs">{locale === "ar" ? item.roleAr : item.roleEn}</p>
               </div>
             </figcaption>
           </motion.figure>

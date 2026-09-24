@@ -147,7 +147,8 @@ export function ReviewsSection({ worker, onReview }: { worker: Worker; onReview?
               </div>
               <Rating value={r.rating} size={12} />
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-ink-600 dark:text-ink-300">
+            {/* Review prose: 16px on phones, the denser scale from sm: up. */}
+            <p className="mt-3 text-base leading-relaxed text-ink-600 sm:text-sm dark:text-ink-300">
               {locale === "ar" ? r.textAr : r.textEn}
             </p>
           </Card>

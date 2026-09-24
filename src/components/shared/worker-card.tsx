@@ -130,7 +130,9 @@ export function WorkerCard({
             <GradientAvatar name={worker.nameEn} hue={worker.hue} className="-mt-8 size-12 ring-4 ring-white dark:ring-ink-900" />
             <div className="min-w-0 flex-1 pt-1">
               <h3 className="clamp-1 text-base font-bold text-ink-900 dark:text-ink-50">{name}</h3>
-              <p className="clamp-1 text-xs font-medium text-ink-500 dark:text-ink-400">
+              {/* Phone body copy is 16px (audit finding: the tagline and bio
+                  were 12-14px); `sm:` restores the denser desktop scale. */}
+              <p className="clamp-1 text-base font-medium text-ink-500 sm:text-xs dark:text-ink-400">
                 {locale === "ar" ? cat?.nameAr : cat?.nameEn} · {locale === "ar" ? cat?.taglineAr : cat?.taglineEn}
               </p>
             </div>
@@ -175,7 +177,7 @@ export function WorkerCard({
             </div>
           )}
 
-          <p className="clamp-2 mt-2.5 text-sm leading-relaxed text-ink-600 dark:text-ink-300">
+          <p className="clamp-2 mt-2.5 text-base leading-relaxed text-ink-600 sm:text-sm dark:text-ink-300">
             {locale === "ar" ? worker.bioAr : worker.bioEn}
           </p>
 

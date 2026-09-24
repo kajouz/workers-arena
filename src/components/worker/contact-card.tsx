@@ -110,9 +110,13 @@ export function ContactCard({
         <CardTitle className="text-white">
           {t("worker.requestService")}
         </CardTitle>
-        <CardDescription className="text-white/80">
+        {/* A plain `p`, not `CardDescription`: that component carries its own
+            `text-sm`, so raising it here would be a same-property override
+            decided by stylesheet order — the exact race the dialog placement
+            fix removes. Phone copy is 16px (audit finding). */}
+        <p className="text-base leading-relaxed text-white/80 sm:text-sm">
           {t("worker.requestBody").replace("{name}", name)}
-        </CardDescription>
+        </p>
       </CardHeader>
       <CardContent className="space-y-4 pt-5">
         <div className="flex items-center justify-between rounded-xl bg-ink-50 px-4 py-3 dark:bg-ink-800">
@@ -164,8 +168,11 @@ export function ContactCard({
             </Button>
           </QuoteRequestDialog>
         )}
+        {/* The 11px hint was below the phone reading floor; denser from sm: up. */}
         {candidates && candidates.length > 0 && (
-          <p className="-mt-2 text-center text-[11px] text-ink-400">{t("booking.quotesCtaHint")}</p>
+          <p className="-mt-2 text-center text-base text-ink-400 sm:text-[11px]">
+            {t("booking.quotesCtaHint")}
+          </p>
         )}
 
         {/* M5 — fee-waiver awareness at the point of checkout (docs/booking-take-rate.md).

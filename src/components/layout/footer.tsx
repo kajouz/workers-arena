@@ -70,7 +70,8 @@ export function Footer() {
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <Logo />
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-500 dark:text-ink-400">
+            {/* 16px on phones, denser from sm: up (audit finding). */}
+            <p className="mt-4 max-w-sm text-base leading-relaxed text-ink-500 sm:text-sm dark:text-ink-400">
               {t("footer.about")}
             </p>
             <div className="mt-5 flex items-center gap-2">
@@ -149,7 +150,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-ink-200/60 pt-6 text-xs text-ink-400 dark:border-ink-800 sm:flex-row">
+        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-ink-200/60 pt-6 text-base text-ink-400 sm:text-xs dark:border-ink-800 sm:flex-row">
           <p>
             © {new Date().getFullYear()} {t("app.name")}. {t("common.rights")}
           </p>

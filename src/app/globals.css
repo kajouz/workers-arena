@@ -415,6 +415,21 @@ body {
   }
 }
 
+/* ─── Top chrome ───
+ * The mirror of --bottom-chrome for anything that must sit BELOW the sticky
+ * header. The header is an h-16 row plus the status-bar inset (the layout opts
+ * into `viewport-fit: cover` — see app/[locale]/layout.tsx), so a panel
+ * anchored at a bare `top-6` landed 42px INSIDE the header it was supposed to
+ * follow, and on a notched device under the status bar itself. `z-dialog` (60)
+ * outranks `z-header` (40), so review never saw the collision.
+ */
+:root {
+  /* 4rem = the header's h-16 row; +2px = the border its glass surface carries
+     (the mobile guard measures the header box at 66px on an inset-free
+     viewport, and a 64px offset sat 2px inside it). */
+  --top-chrome: calc(4rem + 2px + env(safe-area-inset-top, 0px));
+}
+
 @media (pointer: coarse) {
   button,
   [role="button"],

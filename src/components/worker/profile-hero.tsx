@@ -81,7 +81,8 @@ export function ProfileHero({ worker }: { worker: Worker }) {
                 {worker.verified && <VerifiedBadge />}
                 {worker.premium && <PremiumBadge />}
               </div>
-              <p className="mt-1 text-sm font-medium text-ink-500 dark:text-ink-400">
+              {/* 16px on phones, denser from sm: up (audit finding). */}
+              <p className="mt-1 text-base font-medium text-ink-500 sm:text-sm dark:text-ink-400">
                 {locale === "ar" ? cat?.nameAr : cat?.nameEn} ·{" "}
                 {locale === "ar" ? cat?.taglineAr : cat?.taglineEn}
               </p>

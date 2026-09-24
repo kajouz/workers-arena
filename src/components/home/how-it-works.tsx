@@ -40,7 +40,8 @@ export function HowItWorks() {
               <h3 className="mt-5 text-lg font-bold text-ink-900 dark:text-ink-50">
                 {t(`how.${STEPS[i * 2]}`)}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-500 dark:text-ink-400">
+              {/* 16px on phones, denser from sm: up (audit finding). */}
+              <p className="mt-2 text-base leading-relaxed text-ink-500 sm:text-sm dark:text-ink-400">
                 {t(`how.${STEPS[i * 2 + 1]}`)}
               </p>
             </motion.div>
