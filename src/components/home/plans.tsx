@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "@/components/i18n/link";
 import { motion } from "framer-motion";
-import { Calculator, Check, Crown } from "lucide-react";
+import { Calculator, Check, Crown, ChevronDown } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,10 @@ const TIER_BADGE: Record<string, string> = {
 export function Plans({ catalog }: { /** The admin-editable catalog in force (overrides over the shipped defaults) — loaded server-side. */ catalog: ResolvedPlanCatalog }) {
   const { locale, t } = useLocale();
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
+  // FINDING 15: the worker-pricing block (plans + calculator) is ~3,285px on
+  // its own. Collapsed behind a toggle on phones so the homepage isn't 15
+  // screens; open by default on desktop where there's vertical room.
+  const [expanded, setExpanded] = useState(false);
   // §Category pricing — null = the base (mid-tier) price; picking a trade
   // reprices every plan through effectiveMonthlyPrice().
   const [trade, setTrade] = useState<string | null>(null);
@@ -75,6 +79,19 @@ export function Plans({ catalog }: { /** The admin-editable catalog in force (ov
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading eyebrow={t("plans.popular")} title={t("plans.title")} subtitle={t("plans.subtitle")} />
 
+        {/* FINDING 15 — mobile-only collapse toggle. */}
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="mx-auto mt-5 flex items-center gap-2 rounded-full border border-ink-200/80 bg-white px-5 py-2.5 text-sm font-bold text-ink-700 shadow-soft lg:hidden dark:border-ink-800 dark:bg-ink-900 dark:text-ink-200"
+        >
+          {expanded ? t("plans.hidePlans") : t("plans.showPlans")}
+          <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
+        </button>
+
+        {/* Collapsed below `lg` until the toggle is pressed; always open above. */}
+        <div className={cn(expanded ? "block" : "hidden", "lg:block")}>
         {/* Billing period — annual pays 9 months for 12 (3 months free). */}
         <div className="mb-6 flex flex-col items-center gap-2">
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-ink-100 p-1 dark:bg-ink-800">
@@ -272,6 +289,7 @@ export function Plans({ catalog }: { /** The admin-editable catalog in force (ov
             ))}
           </div>
           <p className="mt-3 text-[11px] text-ink-400">{t("plans.trialHint")}</p>
+        </div>
         </div>
       </div>
     </section>

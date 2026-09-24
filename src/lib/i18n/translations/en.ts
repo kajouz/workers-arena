@@ -196,6 +196,8 @@ export const en = {
     current: "Current plan",
     trial: "First month free",
     trialHint: "Starter and Growth include 30 free days; Pro includes 14. Business trials are assisted — no credit card required.",
+    showPlans: "Show plans & pricing",
+    hidePlans: "Hide plans & pricing",
     team: "Team pricing",
     teamHint: "Business plan: add extra workers at $15/mo each (3+ workers).",
     categoryAdjust: "Prices vary by trade",

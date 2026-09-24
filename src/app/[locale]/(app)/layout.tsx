@@ -30,7 +30,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           is signed in, so it renders the signed-out state immediately instead
           of asking /api/session. */}
       <Header session={session?.role ?? null} />
-      <main id="main-content" tabIndex={-1} className="focus:outline-none pb-20 lg:pb-0">
+      {/* See (public)/layout.tsx — pads by the tab-bar height + safe area (finding 12). */}
+      <main id="main-content" tabIndex={-1} className="focus:outline-none pb-[var(--bottom-chrome)] lg:pb-0">
         {children}
       </main>
     </>

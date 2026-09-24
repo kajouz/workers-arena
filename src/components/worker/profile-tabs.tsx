@@ -20,7 +20,11 @@ export function ProfileTabs({ worker }: { worker: Worker }) {
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="w-full">
-      <TabsList className="w-full flex-wrap justify-start sm:w-auto">
+      {/* Phones: five tabs wrapped onto a second row and, because the list is
+          `h-11`, that row drew OVER the "About" heading below (finding 2).
+          Scroll sideways instead — `shrink-0` on each trigger (see tabs.tsx)
+          keeps them on one line. */}
+      <TabsList className="w-full justify-start overflow-x-auto no-scrollbar sm:w-auto">
         <TabsTrigger value="about">
           <Briefcase className="size-4" /> {t("worker.about")}
         </TabsTrigger>

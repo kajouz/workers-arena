@@ -44,7 +44,8 @@ export function Toaster() {
   const dismiss = useToastStore((s) => s.dismiss);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-toast flex flex-col items-center gap-2 px-4 sm:items-end sm:pe-6">
+    // Above --bottom-chrome so toasts don't land on the tab bar (finding 3).
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--bottom-chrome)+1rem)] z-toast flex flex-col items-center gap-2 px-4 sm:items-end sm:pe-6">
       <AnimatePresence>
         {toasts.map((t) => (
           <motion.div

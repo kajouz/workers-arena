@@ -7,13 +7,13 @@ import type { Category } from "@/lib/data/types";
 import { useLocale } from "@/components/providers/locale-provider";
 import { SectionHeading } from "@/components/shared/section-heading";
 import { CategoryIcon } from "@/components/shared/category-icon";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, pluralize } from "@/lib/utils";
 
 export function CategoriesGrid({ categories }: { categories: Category[] }) {
   const { locale, t, dir } = useLocale();
 
   return (
-    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-6 sm:py-20 lg:px-8" data-tour="categories">
+    <section className="mx-auto max-w-7xl px-5 py-10 sm:px-6 sm:py-20 lg:px-8" data-tour="categories">
       <SectionHeading
         eyebrow={t("categories.title")}
         title={t("categories.subtitle")}
@@ -30,6 +30,9 @@ export function CategoriesGrid({ categories }: { categories: Category[] }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-40px" }}
             transition={{ duration: 0.35, delay: Math.min(i * 0.03, 0.5) }}
+            // `h-full` so the tile STRETCHES to its grid cell — it used to hug
+            // its content and fill half the cell (finding 16).
+            className="h-full"
           >
             <Link
               href={`/search?category=${cat.slug}`}
@@ -47,8 +50,13 @@ export function CategoriesGrid({ categories }: { categories: Category[] }) {
                 <p className="text-xs font-bold text-ink-900 sm:text-sm dark:text-ink-50">
                   {locale === "ar" ? cat.nameAr : cat.nameEn}
                 </p>
+                {/* Pluralized via Intl.PluralRules — `"1 workers"` is wrong in
+                    English and Arabic (6 forms) alike (finding 16). */}
                 <p className="mt-0.5 text-[9px] font-medium text-ink-400 sm:text-[11px] dark:text-ink-500">
-                  {formatNumber(cat.workerCount)} {t("categories.workersIn")}
+                  {formatNumber(cat.workerCount)}{" "}
+                  {pluralize(locale, cat.workerCount, locale === "ar"
+                    ? { zero: "لا عمال", one: "عامل", two: "عاملان", few: "عمال", many: "عاملًا", other: "عامل" }
+                    : { one: "worker", other: "workers" })}
                 </p>
               </div>
               <ArrowUpRight className="absolute end-3 top-3 size-4 text-ink-300 opacity-0 transition-all duration-300 group-hover:text-brand-500 group-hover:opacity-100 dark:text-ink-600" />

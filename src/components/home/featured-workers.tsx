@@ -10,7 +10,7 @@ export function FeaturedWorkers({ workers }: { workers: Worker[] }) {
   const { locale, t, dir } = useLocale();
 
   return (
-    <section className="relative bg-ink-950 py-20 dark:bg-ink-900/40">
+    <section className="relative bg-ink-950 py-12 dark:bg-ink-900/40 sm:py-20">
       <div className="absolute inset-0 overflow-hidden">
         <div className="bg-grid absolute inset-0 opacity-40 [mask-image:radial-gradient(60%_60%_at_50%_40%,black,transparent)] dark:[mask-image:radial-gradient(60%_60%_at_50%_40%,black,transparent)]" />
         <div className="absolute -top-24 start-1/3 size-96 rounded-full bg-brand-600/20 blur-3xl" />

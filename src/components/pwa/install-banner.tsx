@@ -69,6 +69,17 @@ export function InstallBanner({ className }: InstallBannerProps) {
       }
     }
 
+    // SECOND-VISIT gate (finding 13): on a first-ever visit the install sheet
+    // is a 456px wall dropped in front of a stranger before they know what the
+    // app even is. Count visits; only pitch from the second one onward, when
+    // the value is already evident.
+    const visits = Number(localStorage.getItem("wa-visit-count") ?? "0");
+    localStorage.setItem("wa-visit-count", String(visits + 1));
+    if (visits < 1) {
+      setShowBanner(false);
+      return;
+    }
+
     // Show banner after a short delay for better UX
     const timer = setTimeout(() => setShowBanner(true), 2000);
     return () => clearTimeout(timer);
@@ -110,7 +121,9 @@ export function InstallBanner({ className }: InstallBannerProps) {
           className={cn(
             // pb includes the safe-area inset so the buttons clear the
             // home-indicator on notched phones.
-            "fixed inset-x-0 bottom-0 z-prompt p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-w-sm sm:pb-4",
+            // Sits above --bottom-chrome so the sheet never covers the tab bar;
+            // `end-6` (not right-6) flips in RTL (findings 3, 14).
+            "fixed inset-x-0 bottom-[var(--bottom-chrome)] z-prompt p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:inset-x-auto sm:bottom-6 sm:end-6 sm:max-w-sm sm:pb-4",
             className
           )}
         >

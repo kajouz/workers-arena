@@ -29,12 +29,16 @@ export function SponsoredSearchResult({
   city,
   variant,
   onAdClick,
-  showStats = true,
+  showStats = false,
 }: SponsoredResultProps & {
   variant?: any;
   onAdClick?: (adId: string) => void;
   showStats?: boolean;
 }) {
+  // NOTE: `showStats` defaults to FALSE. The card renders in CUSTOMER search
+  // results — CTR / clicks / impressions are advertiser metrics and "Create
+  // campaign" is the wrong audience for someone shopping for a plumber
+  // (finding 6). The advertiser console opts IN to the stats view.
   const { locale, t } = useLocale();
 
   const handleClick = () => {
@@ -89,12 +93,15 @@ export function SponsoredSearchResult({
         )}
 
         {/* CTA Button */}
+        {/* Customer-facing CTA ("Learn more"), not "Create campaign" — that
+            invite belongs to the advertiser console, not a job seeker
+            (finding 6). */}
         <a
           href={`/company`}
           onClick={handleClick}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition-all hover:from-violet-600 hover:to-fuchsia-700 hover:shadow-xl"
         >
-          {t("company.createCampaign")}
+          {t("company.adLearnMore")}
           <ExternalLink className="size-4" />
         </a>
       </div>

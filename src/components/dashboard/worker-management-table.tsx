@@ -263,7 +263,7 @@ export function WorkerManagementTable({
       </p>
 
       <div className="max-h-96 overflow-y-auto">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead>
             <tr className="border-y border-ink-100 text-start text-xs uppercase tracking-wider text-ink-400 dark:border-ink-800">
               <th className="px-6 py-2.5 text-start font-semibold">{t("common.viewProfile")}</th>
@@ -355,7 +355,7 @@ export function WorkerManagementTable({
               </tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {/* Plan-change confirmation — an accidental tier change can't fire

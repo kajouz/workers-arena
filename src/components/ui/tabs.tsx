@@ -28,7 +28,9 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-ink-900 data-[state=active]:shadow-soft dark:data-[state=active]:bg-ink-950 dark:data-[state=active]:text-ink-50",
+      // `shrink-0`: in a horizontally-scrolling list (mobile profile tabs) the
+      // triggers must keep their width or they compress and wrap over content.
+      "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-ink-900 data-[state=active]:shadow-soft dark:data-[state=active]:bg-ink-950 dark:data-[state=active]:text-ink-50",
       className
     )}
     {...props}

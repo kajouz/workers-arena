@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPrice, hueFromSeed, initials, timeAgo } from "@/lib/utils";
+import { formatPrice, hueFromSeed, initials, pluralize, timeAgo } from "@/lib/utils";
 import { sanitizeText } from "@/lib/security";
 
 describe("formatPrice", () => {
@@ -44,5 +44,28 @@ describe("sanitizeText", () => {
   it("strips HTML and script tags", () => {
     const dirty = '<script>alert("x")</script>Hello <b>world</b>';
     expect(sanitizeText(dirty)).toBe('alert("x")Hello world');
+  });
+});
+
+describe("pluralize", () => {
+  it("picks the English singular/plural via Intl.PluralRules", () => {
+    const forms = { one: "worker", other: "workers" };
+    expect(pluralize("en", 1, forms)).toBe("worker");
+    expect(pluralize("en", 0, forms)).toBe("workers");
+    expect(pluralize("en", 22, forms)).toBe("workers");
+  });
+
+  it("handles Arabic's six plural forms", () => {
+    const forms = { zero: "لا عمال", one: "عامل", two: "عاملان", few: "عمال", many: "عاملًا", other: "عامل" };
+    expect(pluralize("ar", 0, forms)).toBe("لا عمال");
+    expect(pluralize("ar", 1, forms)).toBe("عامل");
+    expect(pluralize("ar", 2, forms)).toBe("عاملان");
+    expect(pluralize("ar", 5, forms)).toBe("عمال");
+    expect(pluralize("ar", 11, forms)).toBe("عاملًا");
+    expect(pluralize("ar", 100, forms)).toBe("عامل");
+  });
+
+  it("falls back to `other` for an uncovered rule", () => {
+    expect(pluralize("en", 5, { one: "x", other: "y" })).toBe("y");
   });
 });

@@ -83,7 +83,9 @@ export function WhatsAppFAB({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "fixed bottom-6 end-6 z-dialog flex size-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-all hover:scale-110 hover:shadow-xl",
+        // z-fab (below dialogs) + above --bottom-chrome: it used to be z-dialog
+        // at bottom-6, covering the tab bar AND sitting over open dialogs (finding 3).
+        "fixed bottom-[calc(var(--bottom-chrome)+1.5rem)] end-6 z-fab flex size-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-all hover:scale-110 hover:shadow-xl",
         className
       )}
       aria-label="Contact on WhatsApp"

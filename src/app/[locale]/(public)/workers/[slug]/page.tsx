@@ -8,11 +8,13 @@ import { ReviewsSection } from "@/components/worker/reviews-section";
 import { MapEmbed } from "@/components/worker/map-embed";
 import { RelatedWorkers } from "@/components/worker/related-workers";
 import { FloatingWhatsApp } from "@/components/worker/whatsapp-contact";
+import { StickyBookingBar } from "@/components/worker/sticky-booking-bar";
 import { WorkerPortfolio } from "@/components/worker/worker-portfolio";
 import { WorkerSponsor } from "@/components/worker/worker-sponsor";
 import { PriceBenchmarkNote } from "@/components/worker/price-benchmark-note";
 import { getAllWorkers, getPriceBenchmark, getRelated, getWorkerBySlug, getWorkerSlots } from "@/lib/data/repo";
 import { defaultLocale, isLocale } from "@/lib/i18n/config";
+import { dictionaries } from "@/lib/i18n/dictionaries";
 import { localeAlternates } from "@/lib/i18n/routing";
 import { categoryBySlug } from "@/lib/data/categories";
 import { cityBySlug } from "@/lib/data/cities";
@@ -86,9 +88,11 @@ export async function generateMetadata({
 export default async function WorkerPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { slug } = await params;
+  const { locale: raw, slug } = await params;
+  const locale = isLocale(raw) ? raw : defaultLocale;
+  const dict = dictionaries[locale];
   const worker = await getWorkerBySlug(slug);
   if (!worker) notFound();
 
@@ -135,15 +139,16 @@ export default async function WorkerPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* breadcrumb */}
+      {/* breadcrumb — localized (finding 14): was hardcoded English "Home" /
+          nameEn even on Arabic pages. */}
       <nav className="mb-6 flex flex-wrap items-center gap-1.5 text-xs font-medium text-ink-400" aria-label="Breadcrumb">
-        <Link href="/" className="transition-colors hover:text-brand-600">Home</Link>
+        <Link href="/" className="transition-colors hover:text-brand-600">{dict.nav.home}</Link>
         <span aria-hidden>/</span>
         <a href={`/search?category=${worker.categorySlug}`} className="transition-colors hover:text-brand-600">
-          {cat?.nameEn}
+          {locale === "ar" ? cat?.nameAr : cat?.nameEn}
         </a>
         <span aria-hidden>/</span>
-        <span className="text-ink-700 dark:text-ink-200">{worker.nameEn}</span>
+        <span className="text-ink-700 dark:text-ink-200">{locale === "ar" ? worker.nameAr : worker.nameEn}</span>
       </nav>
 
       <ProfileHero worker={worker} />
@@ -159,7 +164,12 @@ export default async function WorkerPage({
         categoryNameAr={cat?.nameAr ?? worker.categorySlug}
       />
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-3">
+      {/* grid-cols-1: without an explicit template the mobile single column is
+          an IMPLICIT track sized to max-content — any wide child (the profile
+          tab list) blew the page out to ~700px at 360px viewports. minmax(0,1fr)
+          (what grid-cols-1 compiles to) lets the column shrink and the tab list
+          scroll inside its overflow container instead. */}
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <ProfileTabs worker={worker} />
           <ReviewsSection worker={worker} />
@@ -185,13 +195,20 @@ export default async function WorkerPage({
 
       <RelatedWorkers workers={related} />
 
-      {/* Floating WhatsApp button for quick contact */}
+      {/* Desktop-only floating WhatsApp — on phones the StickyBookingBar below
+          replaces it (finding 5): the FAB covered the tab bar and pushed the
+          Book action out of reach. */}
       {worker.phone && (
         <FloatingWhatsApp
           whatsapp={worker.phone}
-          workerName={worker.nameEn}
+          workerName={locale === "ar" ? worker.nameAr : worker.nameEn}
+          className="hidden lg:inline-flex"
         />
       )}
+
+      {/* Mobile sticky booking bar: price + Book + Call/WhatsApp always in
+          thumb reach (finding 5). */}
+      <StickyBookingBar worker={worker} slots={slots} />
     </div>
   );
 }

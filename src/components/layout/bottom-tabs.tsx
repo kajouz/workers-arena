@@ -1,11 +1,11 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { Link } from "@/components/i18n/link";
 import { motion } from "framer-motion";
 import { Home, Search, Calendar, Heart, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/components/providers/locale-provider";
+import { useActivePathname } from "@/hooks/use-active-pathname";
 
 interface Tab {
   href: string;
@@ -47,10 +47,11 @@ const TABS: Tab[] = [
     // (user-reported on a Galaxy Note 9). The header keeps the full label.
     labelKey: "nav.dashboardShort",
     icon: User,
-    match: (p) =>
-      p.startsWith("/dashboard") ||
-      p.startsWith("/admin") ||
-      p.startsWith("/workers/"),
+    // NOTE: deliberately NOT `/workers/*` — that is the PUBLIC worker profile,
+    // a page a signed-in customer lands on constantly. It used to light up the
+    // Dashboard tab and mislead people into thinking they were in their own
+    // account. Admin lives under /admin; company under /company.
+    match: (p) => p.startsWith("/dashboard") || p.startsWith("/admin"),
   },
 ];
 
@@ -68,11 +69,15 @@ const TABS: Tab[] = [
  *
  * Measured on /auth/login at 416×748: button row y 711–755 vs bar y 683–748
  * (document.elementFromPoint at the button's centre returned the bar).
+ *
+ * Comparison is against the locale-STRIPPED path (useActivePathname), so both
+ * `/auth/login` and `/en/auth/login` hide the bar — previously only the
+ * bare path matched and the locale-prefixed route kept the bar on screen.
  */
 const HIDDEN_ON = ["/auth/login", "/auth/register"];
 
 export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
-  const pathname = usePathname();
+  const pathname = useActivePathname();
   const { t } = useLocale();
 
   if (HIDDEN_ON.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null;
@@ -106,17 +111,22 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
               <div className="relative">
                 <Icon className="size-6" strokeWidth={active ? 2.5 : 2} />
 
-                {/* Badge */}
+                {/* Badge — `end-*` (not `right-*`) so it flips to the correct
+                    corner in RTL instead of floating off the tab. */}
                 {count && count > 0 && (
-                  <span className="absolute -right-2 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  <span className="absolute -end-2 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                     {count > 9 ? "9+" : count}
                   </span>
                 )}
               </div>
 
-              {/* truncate + nowrap: a label that outgrew its ~68px slot used
-                  to wrap and grow the tab's height (Galaxy Note 9 report). */}
-              <span className="block w-full truncate whitespace-nowrap text-[11px] font-medium leading-tight text-ink-700 dark:text-ink-300">
+              {/* truncate + nowrap: a label that outgrew its slot used to wrap
+                  and grow the tab's height (Galaxy Note 9 report). `text-[10px]`
+                  so the longest label ("Dashboard") fits at 375px without an
+                  ellipsis — it was clipping mid-word there. No colour class
+                  here on purpose: the label inherits the icon's active colour
+                  (it used to force grey while the icon turned orange). */}
+              <span className="block w-full truncate whitespace-nowrap text-[10px] font-medium leading-tight">
                 {t(tab.labelKey)}
               </span>
 

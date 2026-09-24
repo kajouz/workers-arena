@@ -63,7 +63,10 @@ export function WorkerCard({
         href={`/workers/${worker.slug}`}
         className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-200/80 bg-white shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-lift dark:border-ink-800 dark:bg-ink-900"
       >
-        <WorkerCover hue={worker.hue} icon={cat?.icon} className="h-40 w-full">
+        {/* FINDING 8: the 160px cover made a card ~390px tall — barely 1.5
+            results per phone screen. Shorter cover on phones (≈2.5 cards per
+            screen) so customers scan more of the list without scrolling. */}
+        <WorkerCover hue={worker.hue} icon={cat?.icon} className="h-28 w-full sm:h-40">
           <div className="absolute inset-x-3 top-3 flex items-start justify-between">
             <div className="flex flex-wrap gap-1.5">
               {worker.emergency && <EmergencyBadge compact />}

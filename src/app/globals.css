@@ -76,6 +76,7 @@
   --z-index-tour: 75; /* the onboarding tour — it points AT the UI above it */
   --z-index-toast: 80; /* transient feedback, above what it reports on */
   --z-index-skip-link: 90; /* must outrank all of it when focused */
+  --z-index-fab: 45; /* floating action buttons — above nav/header, BELOW dialogs so a modal covers them */
 
   /* Elevation */
   --shadow-soft: 0 1px 2px 0 rgb(20 18 15 / 0.04), 0 8px 24px -8px rgb(20 18 15 / 0.08);
@@ -393,6 +394,27 @@ body {
  * `pointer: coarse` is the actual condition the guideline is about, and it is
  * what the device-matrix suite emulates.
  */
+/* ─── Bottom chrome ───
+ * The ONE offset every bottom-fixed element (tab bar, floating action
+ * buttons, toasts, banners) positions above. It is the tab bar height
+ * (h-16 = 4rem) plus the iOS home-indicator inset. The tab bar is `lg:hidden`,
+ * so the chrome collapses to zero on desktop and floating elements fall back
+ * to their natural corner. Before this, each floating element hard-coded
+ * `bottom-4`/`bottom-6` and landed ON TOP of the tab bar and dialogs.
+ */
+:root {
+  /* 4rem = the bar's h-16 content; +1px = its border-top (the Playwright
+     chrome guard measured the bar at 65px and a 64px offset overlapped its
+     top edge by exactly 1px). */
+  --bottom-chrome: calc(4rem + 1px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --bottom-chrome: 0px;
+  }
+}
+
 @media (pointer: coarse) {
   button,
   [role="button"],

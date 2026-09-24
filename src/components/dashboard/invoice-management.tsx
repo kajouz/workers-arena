@@ -601,7 +601,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
 
       {/* Invoice Table */}
       <div className="mt-6 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-700">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead>
             <tr className="border-b border-ink-200 bg-ink-50 dark:border-ink-700 dark:bg-ink-800/50">
               <th className="w-10 px-3 py-3">
@@ -703,7 +703,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
               </motion.tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {filteredInvoices.length === 0 && (
@@ -979,7 +979,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
 
               {/* Line Items Table */}
               <div className="mt-4 overflow-hidden rounded-xl border border-ink-200 dark:border-ink-700">
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead>
                     <tr className="bg-ink-50 dark:bg-ink-800/50">
                       <th className="px-3 py-2 text-left font-semibold text-ink-600 dark:text-ink-300">Description</th>
@@ -998,7 +998,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
 
               {/* Totals */}

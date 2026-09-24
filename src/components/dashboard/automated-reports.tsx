@@ -493,7 +493,7 @@ export function AutomatedReports() {
       {/* History Tab */}
       {activeTab === "history" && (
         <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto"><table className="w-full">
             <thead className="bg-ink-50 dark:bg-ink-950">
               <tr>
                 <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Report</th>
@@ -543,7 +543,7 @@ export function AutomatedReports() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 

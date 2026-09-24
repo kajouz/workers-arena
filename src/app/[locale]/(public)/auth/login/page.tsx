@@ -65,7 +65,9 @@ export default function LoginPage() {
           <form action={formAction} className="mt-6 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">{t("auth.email")}</Label>
-              <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+              {/* autoComplete/inputMode/enterKeyHint: the phone keyboard and
+                  password manager need these (finding 17). */}
+              <Input id="email" type="email" inputMode="email" autoComplete="email" enterKeyHint="next" placeholder="you@example.com" {...register("email")} />
               {errors.email && <p className="text-xs text-red-500">{t("auth.emailInvalid")}</p>}
             </div>
             <div className="space-y-1.5">
@@ -79,6 +81,8 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  enterKeyHint="go"
                   placeholder="••••••••"
                   {...register("password")}
                   className="pe-10"

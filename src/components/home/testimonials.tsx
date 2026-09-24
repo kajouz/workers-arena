@@ -44,7 +44,7 @@ export function Testimonials() {
   const { locale, t, dir } = useLocale();
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:px-8">
       <SectionHeading eyebrow="★★★★★" title={t("testimonials.title")} subtitle={t("testimonials.subtitle")} dir={dir} />
       <div className="grid gap-6 md:grid-cols-3">
         {TESTIMONIALS.map((item, i) => (

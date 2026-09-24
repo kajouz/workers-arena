@@ -29,7 +29,11 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   return (
     <>
       <Header />
-      <main id="main-content" tabIndex={-1} className="focus:outline-none pb-20 lg:pb-0">
+      {/* `pb-[var(--bottom-chrome)]`: the page's LAST element (this <main>) pads
+          by the tab-bar height + safe area so its tail isn't hidden under the
+          bar. `pb-20` (80px) was shorter than the bar on iPhones (~98px).
+          Finding 12. */}
+      <main id="main-content" tabIndex={-1} className="focus:outline-none pb-[var(--bottom-chrome)] lg:pb-0">
         {children}
       </main>
     </>

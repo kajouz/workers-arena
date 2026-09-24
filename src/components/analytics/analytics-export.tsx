@@ -291,28 +291,28 @@ function generateCombinedPDFHTML(
   <p class="subtitle">${dateRange}</p>
 
   <h2>Page Views</h2>
-  <table>
+  <div className="overflow-x-auto"><table>
     <tr><th>Page</th><th>Views</th><th>Unique Visitors</th></tr>
     ${data.pageViews.map((p) => `<tr><td>${p.path}</td><td>${p.views}</td><td>${p.uniqueVisitors}</td></tr>`).join("")}
-  </table>
+  </table></div>
 
   <h2>Top Workers</h2>
-  <table>
+  <div className="overflow-x-auto"><table>
     <tr><th>Worker</th><th>Views</th><th>Leads</th><th>Bookings</th></tr>
     ${data.topWorkers.map((w) => `<tr><td>${w.name}</td><td>${w.views}</td><td>${w.leads}</td><td>${w.bookings}</td></tr>`).join("")}
-  </table>
+  </table></div>
 
   <h2>Revenue</h2>
-  <table>
+  <div className="overflow-x-auto"><table>
     <tr><th>Date</th><th>Amount</th><th>Currency</th></tr>
     ${data.revenue.map((r) => `<tr><td>${r.date}</td><td>${r.amount}</td><td>${r.currency}</td></tr>`).join("")}
-  </table>
+  </table></div>
 
   <h2>Search Queries</h2>
-  <table>
+  <div className="overflow-x-auto"><table>
     <tr><th>Query</th><th>Count</th><th>Results</th></tr>
     ${data.searchQueries.map((s) => `<tr><td>${s.query}</td><td>${s.count}</td><td>${s.results}</td></tr>`).join("")}
-  </table>
+  </table></div>
 </body>
 </html>
   `;

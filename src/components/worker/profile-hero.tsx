@@ -70,9 +70,12 @@ export function ProfileHero({ worker }: { worker: Worker }) {
             <GradientAvatar
               name={worker.nameEn}
               hue={worker.hue}
-              className="size-28 ring-[6px] ring-white dark:ring-ink-900"
+              className="size-28 shrink-0 ring-[6px] ring-white dark:ring-ink-900"
             />
-            <div className="pb-1">
+            {/* min-w-0 + flex-1: without it the name/badge row could overflow
+                ONTO the avatar on phones (finding 14's badge collision) — the
+                flex child refused to shrink below its content width. */}
+            <div className="min-w-0 flex-1 pb-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-black tracking-tight text-ink-900 dark:text-ink-50 sm:text-3xl">{name}</h1>
                 {worker.verified && <VerifiedBadge />}

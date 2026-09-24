@@ -13,7 +13,7 @@ export function HowItWorks() {
   const hues = [205, 45, 150];
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:px-8">
       <SectionHeading eyebrow="✦" title={t("how.title")} subtitle={t("how.subtitle")} dir={dir} />
       <div className="relative grid gap-6 md:grid-cols-3">
         <div className="absolute inset-x-16 top-10 hidden h-px bg-gradient-to-r from-transparent via-brand-400/50 to-transparent md:block" aria-hidden />

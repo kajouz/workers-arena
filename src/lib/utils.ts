@@ -25,6 +25,22 @@ export function formatNumber(n: number): string {
   return new Intl.NumberFormat(NUMBER_LOCALE).format(n);
 }
 
+/**
+ * Pick the right plural form for `count` using `Intl.PluralRules`.
+ *
+ * Arabic has SIX plural forms (zero/one/two/few/many/other) vs English's two,
+ * so string concatenation (`"1 workers"`) is wrong in both languages. Pass the
+ * forms you support; the matching one wins, `other` is the fallback.
+ */
+export function pluralize(
+  locale: string,
+  count: number,
+  forms: Partial<Record<Intl.LDMLPluralRule, string>> & { other: string }
+): string {
+  const rule = new Intl.PluralRules(locale).select(count);
+  return forms[rule as keyof typeof forms] ?? forms.other;
+}
+
 /** Compact numbers: 12.4K — ASCII digits, same rule as `formatNumber`. */
 export function formatCompact(n: number): string {
   return new Intl.NumberFormat(NUMBER_LOCALE, { notation: "compact", maximumFractionDigits: 1 }).format(n);

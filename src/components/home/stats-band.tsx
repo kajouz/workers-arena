@@ -80,7 +80,7 @@ export function StatsBand({ citiesServed }: { citiesServed: number }) {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-500 to-orange-500 py-16 text-white">
+    <section className="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-500 to-orange-500 py-10 text-white sm:py-16">
       <div className="absolute inset-0 opacity-15" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
       <div className="relative mx-auto grid max-w-5xl grid-cols-2 gap-8 px-4 sm:px-6 lg:grid-cols-4 lg:px-8">
         {stats.map((s, i) => (

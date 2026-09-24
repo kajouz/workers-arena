@@ -34,13 +34,20 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-dialog grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-ink-200 bg-white p-6 shadow-lift duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 dark:border-ink-800 dark:bg-ink-900",
+        // `max-h-[calc(100dvh-2rem)] overflow-y-auto`: the dialog was taller
+        // than a small phone (751px content in a ~748px iPhone SE) with
+        // `overflow: visible`, so its footer/Next button was cut off and
+        // unreachable once the keyboard opened. Now the body scrolls (finding 9).
+        // `100dvh` (not `vh`) tracks the mobile URL bar so it doesn't overshoot.
+        "fixed left-1/2 top-1/2 z-dialog grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-2xl border border-ink-200 bg-white p-6 shadow-lift duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 dark:border-ink-800 dark:bg-ink-900",
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute end-4 top-4 rounded-lg p-1 opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+      {/* 44px hit target (was a 24px `p-1` box — below the touch minimum and
+          fiddly to hit on a phone). The icon stays visually small. */}
+      <DialogPrimitive.Close className="absolute end-2 top-2 flex size-11 items-center justify-center rounded-lg opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
         <X className="size-4 text-ink-500 dark:text-ink-300" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

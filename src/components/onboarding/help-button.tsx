@@ -23,7 +23,10 @@ export function HelpButton() {
       onClick={startOnboarding}
       aria-label={t("common.help") ?? "Take a tour"}
       title={t("common.help") ?? "Take a tour"}
-      className="fixed bottom-24 end-6 z-prompt size-12 rounded-full bg-brand-700 text-white shadow-lg hover:bg-brand-800 hover:shadow-xl"
+      // z-prompt (70) sat ABOVE dialogs (60) and covered the booking dialog's
+      // Next button. z-fab puts it below any modal so a dialog hides it — and
+      // above --bottom-chrome so it clears the tab bar (finding 3).
+      className="fixed bottom-[calc(var(--bottom-chrome)+6rem)] end-6 z-fab size-12 rounded-full bg-brand-700 text-white shadow-lg hover:bg-brand-800 hover:shadow-xl"
     >
       <HelpCircle className="size-6" />
     </Button>

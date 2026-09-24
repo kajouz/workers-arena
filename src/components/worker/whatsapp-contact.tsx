@@ -88,7 +88,9 @@ export function WhatsAppContact({
     primary: "bg-green-500 hover:bg-green-600 text-white shadow-md",
     secondary: "bg-green-100 hover:bg-green-200 text-green-800 border border-green-200 dark:bg-green-500/15 dark:text-green-300",
     icon: "bg-green-500 hover:bg-green-600 text-white p-2 rounded-full",
-    floating: "bg-green-500 hover:bg-green-600 text-white shadow-lg rounded-full fixed bottom-6 right-6 z-dialog",
+    // `end-6` (not `right-6`) flips to the correct side in RTL (finding 14);
+    // z-fab + above --bottom-chrome so it clears the tab bar and dialogs (finding 3).
+    floating: "bg-green-500 hover:bg-green-600 text-white shadow-lg rounded-full fixed bottom-[calc(var(--bottom-chrome)+1.5rem)] end-6 z-fab",
   };
 
   return (
@@ -112,8 +114,10 @@ export function WhatsAppContact({
       {showLabel && variant !== "icon" && variant !== "floating" && (
         <span>WhatsApp</span>
       )}
+      {/* Logical margin (ms-2) — the gap flips in RTL, the physical class it
+          replaces did not (finding 14). */}
       {variant === "floating" && (
-        <span className="ml-2">Chat</span>
+        <span className="ms-2">Chat</span>
       )}
     </a>
   );

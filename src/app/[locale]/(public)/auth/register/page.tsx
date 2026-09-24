@@ -72,12 +72,12 @@ export default function RegisterPage() {
             {referralCode && <input type="hidden" name="referralCode" value={referralCode} />}
             <div className="space-y-1.5">
               <Label htmlFor="name">{t("auth.name")}</Label>
-              <Input id="name" placeholder="Ahmed Ali" {...register("name")} />
+              <Input id="name" autoComplete="name" enterKeyHint="next" placeholder="Ahmed Ali" {...register("name")} />
               {errors.name && <p className="text-xs text-red-500">{t("auth.nameMin")}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="email">{t("auth.email")}</Label>
-              <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+              <Input id="email" type="email" inputMode="email" autoComplete="email" enterKeyHint="next" placeholder="you@example.com" {...register("email")} />
               {errors.email && <p className="text-xs text-red-500">{t("auth.emailInvalid")}</p>}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -87,6 +87,8 @@ export default function RegisterPage() {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    enterKeyHint="next"
                     placeholder="••••••••"
                     {...register("password")}
                     className="pe-10"
@@ -104,13 +106,13 @@ export default function RegisterPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="confirmPassword">{t("auth.confirmPassword")}</Label>
-                <Input id="confirmPassword" type="password" placeholder="••••••••" {...register("confirmPassword")} />
+                <Input id="confirmPassword" type="password" autoComplete="new-password" enterKeyHint="next" placeholder="••••••••" {...register("confirmPassword")} />
                 {errors.confirmPassword && <p className="text-xs text-red-500">{t("auth.match")}</p>}
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="phone">{t("auth.phone")}</Label>
-              <Input id="phone" type="tel" placeholder={`${dialPrefix()} 7X XXX XXX`} {...register("phone")} />
+              <Input id="phone" type="tel" inputMode="tel" autoComplete="tel" enterKeyHint="done" placeholder={`${dialPrefix()} 7X XXX XXX`} {...register("phone")} />
             </div>
 
             <div className="space-y-1.5">

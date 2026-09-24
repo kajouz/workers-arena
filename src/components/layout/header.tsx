@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/components/i18n/link";
-import { usePathname } from "next/navigation";
+import { useActivePathname } from "@/hooks/use-active-pathname";
 import { Menu, LayoutDashboard, ShieldCheck, Megaphone, LogOut, User as UserIcon, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -33,7 +33,10 @@ import { useInstallPrompt } from "@/hooks/use-install-prompt"
  */
 export function Header({ session }: { session?: SessionRole | null }) {
   const { locale, t } = useLocale();
-  const pathname = usePathname();
+  // Locale-STRIPPED path — `usePathname()` returns `/en/search`, so every
+  // `startsWith(href)` comparison here used to silently fail and NO nav item
+  // ever showed as active (finding 1).
+  const pathname = useActivePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { canInstall, isInstalled, install } = useInstallPrompt();
   const [installing, setInstalling] = useState(false);
@@ -65,7 +68,7 @@ export function Header({ session }: { session?: SessionRole | null }) {
     role === "admin" ? ShieldCheck : role === "company" ? Megaphone : LayoutDashboard;
 
   return (
-    <header className="sticky top-0 z-header">
+    <header className="sticky top-0 z-header pt-[env(safe-area-inset-top)]">
       <div className="glass-strong border-x-0 border-t-0">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <Logo textClassName="hidden sm:inline" />
@@ -106,9 +109,11 @@ export function Header({ session }: { session?: SessionRole | null }) {
                       ? t("nav.company")
                       : t("nav.dashboard")}
                 </Link>
-                <Link href="/auth/register">
-                  {/* 44px mobile touch target (was 32px — below the platform minimum). */}
-                  <Button variant="ghost" className="h-11 w-11 sm:hidden" aria-label={t("nav.listService")}>
+                {/* 44px mobile touch target (was 32px — below the platform minimum).
+                    Points at the DASHBOARD — it used to send signed-in users to
+                    /auth/register (the sign-up page) on every tap (finding 10). */}
+                <Link href={dashboardHref}>
+                  <Button variant="ghost" className="h-11 w-11 sm:hidden" aria-label={t("nav.dashboard")}>
                     <UserIcon className="size-4" />
                   </Button>
                 </Link>
@@ -198,14 +203,31 @@ export function Header({ session }: { session?: SessionRole | null }) {
               </Link>
             ))}
             {signedIn && (
-              <Link
-                href={dashboardHref}
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
-              >
-                <DashboardIcon className="size-5" />
-                {role === "admin" ? t("nav.admin") : role === "company" ? t("nav.company") : t("nav.dashboard")}
-              </Link>
+              <>
+                <Link
+                  href={dashboardHref}
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
+                >
+                  <DashboardIcon className="size-5" />
+                  {role === "admin" ? t("nav.admin") : role === "company" ? t("nav.company") : t("nav.dashboard")}
+                </Link>
+                {/* Logout lives in the mobile menu too — it was `sm:inline-flex`
+                    only, so a signed-in phone user had NO way to sign out
+                    (finding 10). */}
+                <button
+                  onClick={() => {
+                    logoutAction();
+                    invalidateSession();
+                    toast("info", t("common.logout"));
+                    setMobileOpen(false);
+                  }}
+                  className="flex items-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
+                >
+                  <LogOut className="size-5" />
+                  {t("common.logout")}
+                </button>
+              </>
             )}
             {signedOut && (
               <>

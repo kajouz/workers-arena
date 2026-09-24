@@ -300,6 +300,7 @@ export function SearchClient({
             clearAll={clearAll}
             L={L}
             locale={locale}
+            geo={{ latitude, longitude, setFilters }}
           />
         </div>
       </aside>
@@ -338,26 +339,35 @@ export function SearchClient({
                   runSearch({ ...filters, query }, 1);
                 }
               }}
+              // type=search + enterKeyHint=search: the phone shows a search
+              // key and the right keyboard (finding 17).
+              type="search"
+              enterKeyHint="search"
               placeholder={L.placeholder}
               className="ps-10 pe-20"
               aria-label={L.placeholder}
             />
-            {supported && (
-              <button
-                type="button"
-                onClick={toggle}
-                title={L.voice}
-                aria-label={L.voice}
-                className={cn(
-                  // -mx compensation: the 40px+ tap box extends outside the
-                  // visual icon without shifting the input's caret padding.
-                  "absolute end-2.5 top-1/2 -translate-y-1/2 -mx-2.5 rounded-lg p-3 transition-colors",
-                  listening ? "bg-red-500 text-white animate-pulse-soft" : "text-ink-400 hover:bg-brand-500/10 hover:text-brand-600"
-                )}
-              >
-                <Mic className="size-4" />
-              </button>
-            )}
+            {/* FINDING 7: this used to render only after hydration
+                (`supported` flips post-mount), popping into the row and pushing
+                content down. It now renders in the server HTML (reserving its
+                spot) and merely stays disabled until voice support is
+                confirmed; an unsupported browser hides it after mount. */}
+            <button
+              type="button"
+              onClick={toggle}
+              disabled={!mounted || !supported}
+              title={L.voice}
+              aria-label={L.voice}
+              className={cn(
+                // -mx compensation: the 40px+ tap box extends outside the
+                // visual icon without shifting the input's caret padding.
+                "absolute end-2.5 top-1/2 -translate-y-1/2 -mx-2.5 rounded-lg p-3 transition-colors",
+                mounted && !supported && "hidden",
+                listening ? "bg-red-500 text-white animate-pulse-soft" : "text-ink-400 hover:bg-brand-500/10 hover:text-brand-600"
+              )}
+            >
+              <Mic className="size-4" />
+            </button>
             <AnimatePresence>
               {suggestOpen && suggestions.length > 0 && (
                 <motion.div
@@ -389,83 +399,46 @@ export function SearchClient({
             </AnimatePresence>
           </div>
 
-          {/* location-based search */}
-          {/* Mounted gate: useGeolocation().isSupported reads `navigator`,
-              which is undefined during SSR — without the gate the server HTML
-              omits this button while the client's first render includes it,
-              failing hydration (CI e2e failure, 2026-09-10). */}
-          {mounted && geoSupported && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (!latitude || !longitude) {
-                  requestPosition();
-                } else {
-                  update("sort", "nearest");
-                }
-              }}
-              disabled={geoLoading}
-              className={cn(
-                "h-11 gap-2 sm:h-8 sm:rounded-lg",
-                filters.sort === "nearest" && "border-brand-500 bg-brand-500/10 text-brand-600"
-              )}
-            >
-              <MapPin className="size-4" />
-              {geoLoading
-                ? (locale === "ar" ? "جارٍ تحديد الموقع…" : "Locating…")
-                : filters.sort === "nearest"
-                ? (locale === "ar" ? "قريب مني" : "Near Me")
-                : (locale === "ar" ? "ابحث القريب مني" : "Find Near Me")}
-            </Button>
-          )}
-
-          {/* sort */}
-          <Select value={filters.sort ?? "relevance"} onValueChange={(v) => update("sort", v as SearchFilters["sort"])}>
-            <SelectTrigger aria-label={L.sortBy} className="sm:w-52">
-              <SelectValue placeholder={L.sortBy} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="relevance">{L.sortRelevance}</SelectItem>
-              <SelectItem value="rating">{L.sortRating}</SelectItem>
-              <SelectItem value="reviews">{L.sortReviews}</SelectItem>
-              <SelectItem value="priceLow">{L.sortPriceLow}</SelectItem>
-              <SelectItem value="priceHigh">{L.sortPriceHigh}</SelectItem>
-              <SelectItem value="experience">{L.sortExperience}</SelectItem>
-              <SelectItem value="nearest">{L.sortNearest}</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* radius — measured from the device position when granted (Find
-              Near Me), otherwise the selected city's centre resolves server-side. */}
-          <Select
-            value={filters.radiusKm != null ? String(filters.radiusKm) : "any"}
-            onValueChange={(v) => {
-              if (v === "any") {
-                setFilters((f) => ({ ...f, radiusKm: undefined, nearLat: undefined, nearLng: undefined, page: undefined }));
+          {/* location-based search — FINDING 7 (layout shift).
+              This button used to mount only AFTER hydration
+              (`mounted && geoSupported`), so it popped into the flex column and
+              shoved every result down mid-scroll. It now renders in the server
+              HTML (reserving its row) and simply stays disabled until
+              geolocation is confirmed; if a browser truly lacks it, it hides
+              post-mount — but on desktop that is a flex ROW, so no vertical
+              shift either way. */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (!latitude || !longitude) {
+                requestPosition();
               } else {
-                setFilters((f) => ({
-                  ...f,
-                  radiusKm: Number(v),
-                  nearLat: latitude ?? undefined,
-                  nearLng: longitude ?? undefined,
-                  page: undefined,
-                }));
+                update("sort", "nearest");
               }
             }}
+            disabled={!mounted || !geoSupported || geoLoading}
+            className={cn(
+              "h-11 gap-2 sm:h-8 sm:rounded-lg",
+              mounted && !geoSupported && "hidden",
+              filters.sort === "nearest" && "border-brand-500 bg-brand-500/10 text-brand-600"
+            )}
           >
-            <SelectTrigger aria-label={L.radiusLabel} className="sm:w-40">
-              <SelectValue placeholder={L.radiusLabel} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="any">{L.radiusAny}</SelectItem>
-              {[5, 10, 25, 50].map((km) => (
-                <SelectItem key={km} value={String(km)}>
-                  {km} km
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <MapPin className="size-4" />
+            {geoLoading
+              ? (locale === "ar" ? "جارٍ تحديد الموقع…" : "Locating…")
+              : filters.sort === "nearest"
+              ? (locale === "ar" ? "قريب مني" : "Near Me")
+              : (locale === "ar" ? "ابحث القريب مني" : "Find Near Me")}
+          </Button>
+
+          {/* Sort + Distance moved INTO the FilterControls sheet (finding 6):
+              on phones they were two of five stacked rows that pushed the first
+              result a full screen down. The desktop sidebar renders the same
+              FilterControls, so both surfaces keep the controls — the toolbar
+              keeps only search, Find-Near-Me and the Filters button. */}
+
+
 
           {/* mobile filters */}
           <Dialog>
@@ -494,6 +467,7 @@ export function SearchClient({
                 clearAll={clearAll}
                 L={L}
                 locale={locale}
+                geo={{ latitude, longitude, setFilters }}
               />
             </DialogContent>
           </Dialog>
@@ -587,6 +561,7 @@ function FilterControls({
   clearAll,
   L,
   locale,
+  geo,
 }: {
   filters: SearchFilters;
   update: <K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => void;
@@ -597,6 +572,12 @@ function FilterControls({
   clearAll: () => void;
   L: Labels;
   locale: "en" | "ar";
+  /** Sort + radius controls (moved here from the toolbar — finding 6). */
+  geo: {
+    latitude: number | null;
+    longitude: number | null;
+    setFilters: React.Dispatch<React.SetStateAction<SearchFilters>>;
+  };
 }) {
   return (
     <div className="space-y-6">
@@ -611,6 +592,57 @@ function FilterControls({
         >
           {L.clearFilters}
         </button>
+      </div>
+
+      {/* Sort + radius — relocated from the toolbar (finding 6). Same values,
+          same handlers as before; just one surface now. */}
+      <div className="space-y-2">
+        <Label>{L.sortBy}</Label>
+        <Select value={filters.sort ?? "relevance"} onValueChange={(v) => update("sort", v as SearchFilters["sort"])}>
+          <SelectTrigger aria-label={L.sortBy}>
+            <SelectValue placeholder={L.sortBy} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="relevance">{L.sortRelevance}</SelectItem>
+            <SelectItem value="rating">{L.sortRating}</SelectItem>
+            <SelectItem value="reviews">{L.sortReviews}</SelectItem>
+            <SelectItem value="priceLow">{L.sortPriceLow}</SelectItem>
+            <SelectItem value="priceHigh">{L.sortPriceHigh}</SelectItem>
+            <SelectItem value="experience">{L.sortExperience}</SelectItem>
+            <SelectItem value="nearest">{L.sortNearest}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>{L.radiusLabel}</Label>
+        <Select
+          value={filters.radiusKm != null ? String(filters.radiusKm) : "any"}
+          onValueChange={(v) => {
+            if (v === "any") {
+              geo.setFilters((f) => ({ ...f, radiusKm: undefined, nearLat: undefined, nearLng: undefined, page: undefined }));
+            } else {
+              geo.setFilters((f) => ({
+                ...f,
+                radiusKm: Number(v),
+                nearLat: geo.latitude ?? undefined,
+                nearLng: geo.longitude ?? undefined,
+                page: undefined,
+              }));
+            }
+          }}
+        >
+          <SelectTrigger aria-label={L.radiusLabel}>
+            <SelectValue placeholder={L.radiusLabel} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">{L.radiusAny}</SelectItem>
+            {[5, 10, 25, 50].map((km) => (
+              <SelectItem key={km} value={String(km)}>
+                {km} km
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
@@ -696,6 +728,7 @@ function FilterControls({
         <div className="flex items-center gap-2">
           <Input
             type="number"
+            inputMode="decimal"
             min={0}
             aria-label={locale === "ar" ? "الحد الأدنى للسعر" : "Minimum price"}
             placeholder={locale === "ar" ? "الحد الأدنى" : "Min"}
@@ -706,6 +739,7 @@ function FilterControls({
           <span className="text-ink-400">–</span>
           <Input
             type="number"
+            inputMode="decimal"
             min={0}
             aria-label={locale === "ar" ? "الحد الأقصى للسعر" : "Maximum price"}
             placeholder={locale === "ar" ? "الحد الأقصى" : "Max"}
