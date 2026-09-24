@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>WorkersArena — نموذج الأعمال ودليل الاستخدام وتدفّق الإيرادات للعمال</title>
+<style>
+  /* ---------- الصفحة والخطوط ---------- */
+  @page { size: A4; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; color-scheme: light only; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Geeza Pro", "Noto Naskh Arabic", "Arabic Typesetting", Helvetica, Arial, sans-serif;
+    font-size: 10.6pt;
+    line-height: 1.75;
+    color: #1c2330;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  main { padding: 0; }
+
+  h1, h2, h3, h4 { line-height: 1.4; color: #0f172a; }
+  h1 { font-size: 21pt; margin: 0 0 6pt; }
+  h2 { font-size: 15pt; margin: 22pt 0 8pt; padding-bottom: 4pt; border-bottom: 2pt solid #2563eb; break-after: avoid; }
+  h3 { font-size: 12pt; margin: 16pt 0 6pt; color: #1e40af; break-after: avoid; }
+  h4 { font-size: 10.8pt; margin: 12pt 0 4pt; color: #334155; break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt; padding-inline-start: 18pt; }
+  li { margin-bottom: 3pt; }
+  strong { color: #0f172a; }
+  .muted { color: #5b6472; }
+  .small { font-size: 9pt; }
+  a { color: #1d4ed8; text-decoration: none; }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.9em; background: #f1f5f9; border: 0.5pt solid #e2e8f0;
+    border-radius: 2pt; padding: 0 3pt;
+    direction: ltr; unicode-bidi: isolate;
+  }
+
+  /* ---------- الغلاف ---------- */
+  .cover {
+    border: 1.5pt solid #0f172a;
+    border-top: 8pt solid #2563eb;
+    border-radius: 4pt;
+    padding: 26pt 24pt 20pt;
+    margin-bottom: 16pt;
+  }
+  .cover .brand { font-size: 9.5pt; letter-spacing: 2pt; color: #2563eb; font-weight: 700; margin-bottom: 10pt; }
+  .cover h1 { font-size: 25pt; }
+  .cover .sub { font-size: 12pt; color: #334155; margin: 6pt 0 16pt; }
+  .cover .meta { display: flex; gap: 24pt; flex-wrap: wrap; border-top: 1pt solid #cbd5e1; padding-top: 12pt; font-size: 9.4pt; }
+  .cover .meta div span { display: block; color: #64748b; font-size: 8.4pt; font-weight: 700; margin-bottom: 1pt; }
+
+  /* ---------- الفهرس ---------- */
+  .toc { border: 1pt solid #cbd5e1; border-radius: 4pt; padding: 12pt 16pt; margin-bottom: 14pt; background: #f8fafc; break-inside: avoid; }
+  .toc h2 { margin-top: 0; border-bottom: none; font-size: 12.5pt; }
+  .toc ol { padding-inline-start: 18pt; margin-bottom: 0; }
+  .toc li { margin-bottom: 4pt; font-size: 9.8pt; }
+
+  /* ---------- الجداول ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.4pt; break-inside: auto; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th, td { border: 0.6pt solid #cbd5e1; padding: 4.5pt 6pt; text-align: start; vertical-align: top; overflow-wrap: anywhere; }
+  th { background: #eff6ff; color: #0f172a; font-weight: 700; }
+  tbody tr:nth-child(even) td { background: #f8fafc; }
+  td.num, th.num { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+  caption { caption-side: top; text-align: start; font-size: 9pt; color: #5b6472; padding-bottom: 3pt; font-style: normal; }
+  tfoot td { background: #dbeafe !important; font-weight: 700; }
+
+  /* ---------- الصناديق ---------- */
+  .note, .warn, .rule {
+    border-inline-start: 3.5pt solid #2563eb; background: #eff6ff;
+    padding: 7pt 10pt; margin: 8pt 0; border-radius: 3pt; break-inside: avoid;
+  }
+  .warn { border-inline-start-color: #d97706; background: #fffbeb; }
+  .rule { border-inline-start-color: #059669; background: #ecfdf5; }
+  .note .t, .warn .t, .rule .t { font-weight: 700; display: block; margin-bottom: 2pt; font-size: 9.6pt; }
+  .note .t { color: #1d4ed8; } .warn .t { color: #b45309; } .rule .t { color: #047857; }
+
+  /* ---------- المخططات (بديل RTL عن الرسوم النصية) ---------- */
+  .flow { margin: 8pt 0 10pt; break-inside: avoid; }
+  .flow .step {
+    border: 0.8pt solid #cbd5e1; border-radius: 4pt; background: #fff;
+    padding: 6pt 9pt; margin-bottom: 0; font-size: 9.6pt;
+  }
+  .flow .step b { color: #1e40af; }
+  .flow .arrow { text-align: center; color: #94a3b8; font-size: 11pt; line-height: 1.1; margin: 2pt 0; }
+  .actor {
+    display: inline-block; font-size: 7.8pt; font-weight: 700;
+    border-radius: 8pt; padding: 0.5pt 6pt; margin-inline-end: 5pt;
+    vertical-align: 1pt;
+  }
+  .a-buyer { background: #dbeafe; color: #1e40af; }
+  .a-platform { background: #0f172a; color: #fff; }
+  .a-admin { background: #fef3c7; color: #92400e; }
+  .a-worker { background: #d1fae5; color: #065f46; }
+  .a-customer { background: #ede9fe; color: #5b21b6; }
+  .money { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
+
+  figure { margin: 10pt 0 12pt; break-inside: avoid; }
+  figure svg { width: 100%; height: auto; display: block; border: 1pt solid #cbd5e1; border-radius: 4pt; background: #fff; }
+  figcaption { font-size: 8.8pt; color: #5b6472; margin-top: 4pt; }
+
+  /* ---------- الخطوات ---------- */
+  ol.steps { counter-reset: step; list-style: none; padding-inline-start: 0; margin: 6pt 0 10pt; }
+  ol.steps > li {
+    counter-increment: step; position: relative;
+    padding: 6pt 34pt 6pt 9pt; border: 0.6pt solid #cbd5e1; border-radius: 3pt;
+    margin-bottom: 5pt; background: #fff; break-inside: avoid;
+  }
+  ol.steps > li::before {
+    content: counter(step); position: absolute; inset-inline-start: 7pt; top: 6pt;
+    width: 17pt; height: 17pt; border-radius: 50%;
+    background: #2563eb; color: #fff; font-size: 8.4pt; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.steps > li b { color: #1e40af; }
+
+  .pill { display: inline-block; font-size: 7.6pt; font-weight: 700; padding: 1pt 5pt; border-radius: 8pt; vertical-align: 1pt; }
+  .live { background: #d1fae5; color: #065f46; }
+  .built { background: #dbeafe; color: #1e40af; }
+  .plan { background: #fef3c7; color: #92400e; }
+
+  .section { break-before: page; }
+  .kpi-grid { display: flex; flex-wrap: wrap; gap: 8pt; margin: 8pt 0 10pt; }
+  .kpi { flex: 1 1 30%; border: 0.8pt solid #cbd5e1; border-top: 3pt solid #2563eb; border-radius: 3pt; padding: 7pt 9pt; background: #f8fafc; break-inside: avoid; }
+  .kpi .v { font-size: 13.5pt; font-weight: 800; color: #0f172a; }
+  .kpi .l { font-size: 8.4pt; color: #5b6472; font-weight: 700; }
+  .signoff { margin-top: 22pt; border-top: 1pt solid #cbd5e1; padding-top: 8pt; font-size: 8.8pt; color: #64748b; }
+</style>
+</head>
+<body>
+<main>
+
+<!-- ============================= الغلاف ============================= -->
+<header class="cover">
+  <div class="brand">WorkersArena · بيروت · لبنان</div>
+  <h1>نموذج الأعمال ودليل الاستخدام<br />ودفعة الإيرادات للعامل</h1>
+  <div class="sub">المرجع النصي الكامل باللغة العربية: كيف تربح المنصة، وكيف يستخدم كل طرف النظام خطوة بخطوة،
+  وكيف يكسب العامل ويُدفع له، وأين تكمن فرص التحسين القادمة.</div>
+  <div class="meta">
+    <div><span>المستند</span> مرجعي تجاري نصي (PDF)</div>
+    <div><span>الإصدار</span> 1.0 — 23 سبتمبر 2026</div>
+    <div><span>السوق</span> لبنان (بيروت) · دولار أمريكي · عربي/إنجليزي</div>
+    <div><span>قنوات الدفع الحيّة</span> OMT وWhish (يدوية، بتأكيد المشرف)</div>
+    <div><span>الإنتاج</span> https://workers-arena.vercel.app</div>
+  </div>
+</header>
+
+<div class="toc">
+  <h2>المحتويات</h2>
+  <ol>
+    <li><strong>القسم 1 — نموذج الأعمال الحالي.</strong> ما هي المنصة، وأطرافها، وجميع مصادر الدخل بأسعارها الدقيقة، وقنوات الدفع، والقاعدة التي تجعل نسبة العمولة مالًا حقيقيًا.</li>
+    <li><strong>القسم 2 — الاستخدام خطوة بخطوة.</strong> أربعة مسارات كاملة — العامل، العميل، الشركة المُعلن، والمشرف — من أول نقرة حتى توريد المال، بما في ذلك حلقة التأكيد اليدوية عبر OMT/Whish في كل عملية.</li>
+    <li><strong>القسم 3 — دفّق الإيرادات للعامل.</strong> كيف يكسب العامل، ومثالان رقميان متكاملان، والاقتصاد الشهري لكل شريحة اشتراك، ومخطّط توزيع المال، ودورة السحب، ولوحات القياس.</li>
+    <li><strong>القسم 4 — توصيات لتحسينات مطلوبة.</strong> 25 توصية مرتّبة حسب الأولوية عبر تسييل الدخل والجودة والعمليات والنمو والمخاطر — لكل منها سببها وجهدها وأثرها المتوقع.</li>
+  </ol>
+</div>
+
+<div class="note">
+  <span class="t">كيف أُنتج هذا المستند</span>
+  أُنشئ في 23 سبتمبر 2026 اعتمادًا على التوثيق الحيّ في المستودع والشيفرة:
+  <code>docs/BUSINESS-MODEL.md</code> و<code>docs/BUSINESS-MODEL-SUMMARY.md</code> و<code>docs/REVENUE-STREAMS.md</code> و
+  <code>docs/PAYMENTS.md</code> و<code>docs/booking-settlement.md</code> و<code>docs/booking-take-rate.md</code> و
+  <code>docs/payouts.md</code> و<code>docs/ADVERTISING-SYSTEM.md</code>.
+  جميع الأسعار والنسب والصيغ الواردة أدناه هي القيم الافتراضية كما هي مطبَّقة؛ كلها قابلة للتعديل من لوحة تحكم المشرف،
+  لذا قد تختلف المنصة الحيّة بعد تغيير في الإعدادات. والأرقام المُعلَّمة بأنها <em>تصديرية</em> هي تقديرات نمذجة وليست قياسات فعلية.
+</div>
+
+<section class="section">
+<h2>القسم 1 — نموذج الأعمال الحالي</h2>
+
+<h3>1.1 ما هي المنصة</h3>
+<p>
+WorkersArena <strong>سوق ثنائي الجانب</strong> للخدمات المنزلية والتجارية — سبّاكون، كهربائيون، عمّال نظافة، فنّيوا تكييف، نجّارون، دهّانون وغيرها. وإلى جانبهم جانب ثالث من الشركات: <strong>شركات</strong> تشتري مساحات إعلانية. المنتج ثنائي اللغة (عربي من اليمين إلى اليسار / إنجليزي من اليسار إلى اليمين)، ويعرض كل الأسعار بـ<strong>دولار أمريكي</strong>، ويخدم حاليًا <strong>بيروت لبنان</strong> كنطاق جغرافي. الملفات الشخصية والعروض والحجوزات والتقييمات وعروض الطلبات والفواتير موجودة باللغتين.
+</p>
+<p>
+الأطروحة التجارية متعمّدة التراكب: <strong>العمال يدفعون لتُرى ملفاتهم</strong> (اشتراك)،
+<strong>ويدفعون للتنافس</strong> (رصيد ← طلبات)، <strong>وتأخذ المنصة نصيبًا من الأعمال الفائزة</strong>
+(نسبة العمولة، يعاد جزء منها عبر استرداد قيمة الطلب)، <strong>وثقة تُباع</strong> (توثيق، ظهور مميّز،
+علامة طوارئ)، <strong>والشركات تدفع للوصول إلى الجمهور</strong> (إعلانات). أما جانب الطلب — العملاء —
+فهو <strong>مجاني عمدًا</strong>، لأن فرض رسوم على الحجز مبكرًا كان سيُعطّل أثر الشبكة الذي يجعل بقية
+مصادر الدخل قابلة للتحقيق.
+</p>
+
+<h4>أطراف المنصة الأربعة</h4>
+<table>
+  <thead><tr><th style="width:16%">الطرف</th><th style="width:34%">ماذا يفعل</th><th>ماذا يدفع</th></tr></thead>
+  <tbody>
+    <tr><td><strong>العامل</strong> (العرض)</td>
+        <td>يبني ملفًا شخصيًا بأسعاره وشهاداته وأوقات عمله وتوفره؛ يشتري طلبات؛ يرسل عروض أسعار؛ يدير الحجوزات؛ ويقبض عبر سجل المنصة.</td>
+        <td>اشتراك (‏7.50$–299$/شهر بحسب الشريحة × مضاعف المهنة)، رصيد طلبات (‏1$ للرصيد)، توثيق مدفوع (‏9$/19$)، ظهور مميّز (‏49$/فئة/شهر)، علامة طوارئ (‏9$/شهر)، إضافةً إلى نسبة العمولة على المهام المكتملة.</td></tr>
+    <tr><td><strong>العميل</strong> (الطلب)</td>
+        <td>يبحث، يتصفّح، يفضّل، يقيّم، يطلب خدمات، ويدفع العربون والرصيد المستحق.</td>
+        <td><strong>لا يدفع شيئًا للمنصة</strong> — قيمة الخدمة تذهب للعامل، وعمولة المنصة تُخصم من جانب العامل.</td></tr>
+    <tr><td><strong>الشركة</strong> (قطاع الأعمال)</td>
+        <td>تشغّل حملات إعلانية عبر 8 صيغ إعلانية باستهداف مدينة وفئة، وتحليلات عائد على الاستثمار.</td>
+        <td>ميزانيات الحملات — بسعر ‏~10$ لكل ألف ظهور (CPM) و‏1$ لكل نقرة في النموذج الحالي.</td></tr>
+    <tr><td><strong>المشرف</strong> (المنصة)</td>
+        <td>يؤكد المدفوعات اليدوية، يوافق على السحوبات، يعدّل كل سعر وقاعدة، يراجع طلبات استرداد الرصيد، يرسل تواصل واتساب، ويطابق الأرصدة.</td>
+        <td>يحصّل كل مصدر من المصادر أدناه.</td></tr>
+  </tbody>
+</table>
+
+<h3>1.2 هندسة الإيرادات — كل المصدران دفعة واحدة</h3>
+<table>
+  <caption>كل الأوجه القابلة للتسعير كما هي مطبَّقة. عمود «الحالة» يفرّق بين ما يحصّل مالًا اليوم وما هو مبني وينتظر بوابة دفع.</caption>
+  <thead><tr><th>#</th><th>مصدر الدخل</th><th>الحالة</th><th>التسعير كما هو مُعد</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>اشتراكات العمال</td><td><span class="pill live">حيّ</span></td><td>‏15$ / 39$ / 99$ / 199$ شهريًا × مضاعف المهنة (0.5×–1.5×)؛ سنوي = 9 أشهر بدل 12</td></tr>
+    <tr><td>2</td><td>عمولة المنصة (Take rate)</td><td><span class="pill live">حيّ</span></td><td>‏4%–12% من قيمة عرض السعر، بحد أدنى 5$ وحد أقصى 300$ للمهمة</td></tr>
+    <tr><td>3</td><td>سوق الطلبات</td><td><span class="pill live">حيّ</span></td><td>‏5 / 9 / 20 / 35 رصيدًا حسب الدرجة (برونزي→طوارئ)، بمضاعف تسعير ذكي 0.7×–2.0×</td></tr>
+    <tr><td>4</td><td>شراء الرصيد</td><td><span class="pill live">حيّ</span></td><td>باقات ‏10$ / 25$ / 50$ / 100$ مع مكافآت رصيد تصل إلى ‎+30</td></tr>
+    <tr><td>5</td><td>استرداد قيمة الطلب</td><td><span class="pill live">حيّ</span></td><td>قيمة الطلب المشترى تُردّ ضد عمولة المنصة عند التحويل إلى مهمة (حلقة ولاء)</td></tr>
+    <tr><td>6</td><td>التوثيق المدفوع</td><td><span class="pill live">حيّ</span></td><td>‏9$ أساسي (هوية) / 19$ احترافي (رخصة + فحص سجل)، بصلاحية 12 شهرًا</td></tr>
+    <tr><td>7</td><td>الظهور المميّز</td><td><span class="pill live">حيّ</span></td><td>‏49$ لكل فئة كل شهر، ظهور في قسم العمال المميّزين بالرئيسية</td></tr>
+    <tr><td>8</td><td>علامة الطوارئ</td><td><span class="pill live">حيّ</span></td><td>‏9$ شهريًا، شارة «متاح 24/7» + مؤهلية عروض طلبات الطوارئ</td></tr>
+    <tr><td>9</td><td>برنامج الإحالة</td><td><span class="pill live">حيّ</span></td><td>‏25 رصيدًا للمحالِل و‏10 للمحالَل، بسقف 10 شهريًا، التأهل عند أول حجز مكتمل</td></tr>
+    <tr><td>10</td><td>إعلانات الشركات</td><td><span class="pill built">مبني · قنوات يدوية</span></td><td>‏~10$ CPM + 1$ CPC، ‏8 صيغ، 6 مواضع، التفعيل مشروط بالدفع</td></tr>
+    <tr><td>11</td><td>التسعير الذكي</td><td><span class="pill live">حيّ</span></td><td>مضاعف سعر الطلب 0.7×–2.0× (ازدحام، نهاية أسبوع، موسم، أعياد، عرض/طلب، طوارئ)</td></tr>
+    <tr><td>12</td><td>محرّك العروض الترويجية</td><td><span class="pill live">حيّ</span></td><td>مكافآت رصيد يحملها حملات ينشئها المشرف</td></tr>
+    <tr><td>13</td><td>المهام المتكرّرة</td><td><span class="pill live">حيّ</span></td><td>المهام الدورية تُنشئ نسخًا مجدولة → قيمة أعمال متكرّرة وعمولة متكرّرة</td></tr>
+    <tr><td>14</td><td>أوجه الاحتفاظ والتحليلات</td><td><span class="pill built">مبني</span></td><td>لوحة العائد (ROI)، كشف الأرباح، تحليلات جودة الطلبات، تصدير الاحتفاظ — قياس لا فوترة</td></tr>
+  </tbody>
+</table>
+
+<h3>1.3 تفصيل كل مصدر</h3>
+
+<h4>أ. اشتراكات العمال — الأساس المتكرّر</h4>
+<table>
+  <thead><tr><th>الشريحة</th><th class="num">شهريًا</th><th class="num">سنوي (9 أشهر)</th><th class="num">طلبات/شهر</th><th>ما تفتحه</th></tr></thead>
+  <tbody>
+    <tr><td><strong>مبدأية (Starter)</strong></td><td class="num">15$</td><td class="num">135$</td><td class="num">3</td><td>ملف شخصي + ظهور في البحث (هنا يبدأ الجدار المدفوع)</td></tr>
+    <tr><td><strong>نمو (Growth)</strong></td><td class="num">39$</td><td class="num">351$</td><td class="num">10</td><td>+ أهلية الظهور المميّز والتوثيق وطلبات أكثر</td></tr>
+    <tr><td><strong>احترافي (Pro)</strong></td><td class="num">99$</td><td class="num">891$</td><td class="num">25</td><td>+ أولوية في المطابقة، تحليلات، علامة طوارئ</td></tr>
+    <tr><td><strong>أعمال (Business)</strong></td><td class="num">199$</td><td class="num">1,791$</td><td class="num">غير محدود</td><td>+ عمولة منصّة مخفّضة 4%، إدارة فريق</td></tr>
+  </tbody>
+  <tfoot><tr><td colspan="5">الفوترة السنوية = ادفع 9 أشهر واحصل على 12 (خصم 25%). كل الأسعار والحدود والميزات تُعدَّل من <code>/admin/revenue-settings</code> ولا تُكتب داخل الشيفرة.</td></tr></tfoot>
+</table>
+<ul>
+  <li><strong>تسعير حسب المهنة.</strong> المهن مصنّفة بحسب متوسط قيمة العمل: <em>منخفضة القيمة</em> (تنظيف، بستنة، مكافحة آفات) ×0.5 ← باقة مبدأية بـ7.50$؛ <em>متوسطة القيمة</em> (سباكة، كهرباء، نجارة) ×1.0 ← 15$؛ <em>عالية القيمة</em> (تكييف، صيانة مركبات) ×1.5 ← 22.50$. نفس السعر × المضاعف يظهر في صفحة التعليمات والفاتورة وسجل الاشتراك.</li>
+  <li><strong>سياسة التجربة.</strong> مبدأية/نمو 30 يومًا مجانًا، احترافي 14 يومًا، وأعمال بتجربة بمساعدة الفريق افتراضيًا. الأهلية تُفحص من الخادم مرة واحدة لكل عامل؛ انتهاء التجربة لا يُعيد فتحها.</li>
+  <li><strong>الجدار المدفوع (حجب الظهور).</strong> انتهاء الاشتراك يُخرج العامل من نتائج البحث العامة. الظهور في البحث هو مؤشر الأداء الأول لدى العمال، فالانتهاء يصبح أقوى محفّز للترقية، مدعومًا بتذكيرات قبل 7/3/1 يوم وشارة «ينتهي قريبًا».</li>
+  <li><strong>الفوترة.</strong> كل تجديد مؤكَّد يولّد فاتورة <code>INV-*</code> بالمبلغ المحصّل تمامًا.</li>
+</ul>
+
+<h4>ب. عمولة المنصة (Take rate) — الرافعة الأساسية</h4>
+<table>
+  <thead><tr><th>شريحة الخطة</th><th class="num">النسبة</th><th class="num">الحد الأدنى</th><th class="num">الحد الأقصى</th><th>الصيغة</th></tr></thead>
+  <tbody>
+    <tr><td>مجانية</td><td class="num">12%</td><td class="num">5$</td><td class="num">300$</td><td rowspan="5"><code>fee = clamp(round(quote × bps / 10000), 500, 30000)</code><br />تدرّج نصف لأعلى ثم تقييد بالنطاق</td></tr>
+    <tr><td>مبدأية</td><td class="num">9%</td><td class="num">5$</td><td class="num">300$</td></tr>
+    <tr><td>نمو</td><td class="num">7%</td><td class="num">5$</td><td class="num">300$</td></tr>
+    <tr><td>احترافي</td><td class="num">5%</td><td class="num">5$</td><td class="num">300$</td></tr>
+    <tr><td>أعمال</td><td class="num"><strong>4% مخفّضة</strong></td><td class="num">5$</td><td class="num">300$</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><strong>تُختم مرة واحدة ولا تُعاد.</strong> العمولة تُكتب عند <em>القبول مع عرض السعر</em> كـ<code>PlatformFeeSnapshot</code> غير قابل للتغيير (مبلغ + نسبة بالبِدس للتدقيق). أي تغيير لاحق في الأسعار لا يعيد كتابة التاريخ.</li>
+  <li><strong>تُعرض للطرفين.</strong> نافذة الرد عند العامل تعرض <em>«عرض السعر / رسوم المنصة / ستحصل على»</em> لحظة الكتابة؛ وسطر حجز العميل يعرض <em>«80$ · يشمل رسوم المنصة 5.60$ · يستلم العامل 74.40$»</em> — الشفافية ميزة ثقة، وكلا السطحين يستدعي نفس الدالة الحسابية النقية.</li>
+  <li><strong>الاستثناءات.</strong> يمكن للمشرف قواعد خاصة لكل فئة أو ترويج، وقواعد استثناء صريحة — لا تظهر كلمة «معفاة» إلا لقاعدة استثناء صريحة؛ شريحتا أعمال/احترافي <em>مخفّضة</em> فقط افتراضيًا.</li>
+</ul>
+
+<h4>ج. سوق الطلبات — الطلب المؤهَّل كمنتج</h4>
+<table>
+  <thead><tr><th>الدرجة</th><th class="num">السعر</th><th>ما قدمه العميل</th></tr></thead>
+  <tbody>
+    <tr><td><strong>برونزي</strong></td><td class="num">5 رصيد (5$)</td><td>طلب أساسي بلا بريد إلكتروني</td></tr>
+    <tr><td><strong>فضّي</strong></td><td class="num">9 رصيد (9$)</td><td>بريد إلكتروني + فئة + موقع</td></tr>
+    <tr><td><strong>ذهبي</strong></td><td class="num">20 رصيد (20$)</td><td>ملف مكتمل + صور + تسجيل دخول</td></tr>
+    <tr><td><strong>طوارئ</strong></td><td class="num">35 رصيد (35$)</td><td>طلب عاجل على مدار الساعة</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><strong>محرّك المطابقة.</strong> درجة موزونة تقرّر من يرى العرض أصلًا: المهنة 30%، المنطقة 12%، التقييم 12%، معدل الاستجابة 10%، المدينة 8%، التوفّر 8%، المراجعات 6%، شريحة الاشتراك 6%، ملاءمة الطوارئ 5%، التوثيق 3% (المجموع 100).</li>
+  <li><strong>الملكية.</strong> حصرية افتراضيًا — الشراء يُلغي عروض المنافسين — بسقف <code>maxWorkersPerLead</code> (‎3 ظهورًا افتراضيًا) ونافذة انتهاء زمنية (ساعتان افتراضيًا).</li>
+  <li><strong>سلّم كشف التواصل.</strong> مخفي ← مُقنَّع ← مكشوف، بحسب حالة الشراء وشريحة الاشتراك؛ وبعد الحجز يُكشف باحترام موافقة العميل. مشتري الخطة المجانية يبقى مقنَّعًا بعد الشراء — رافعة شريحة مقصودة.</li>
+  <li><strong>حلقة التغذية الراجعة.</strong> العمال يقيّمون الطلب المشتراه من 1–5 نجوم؛ التقييم يقود مضاعفات السعر لكل درجة (خصم 0.8× … غرامة 1.2×) ويعدّل أوزان المطابقة، مع لوحة تحليلات جودة للمشرف.</li>
+</ul>
+
+<h4>د. رصيد المنصة — وحدة الطلب المدفوعة مسبقًا</h4>
+<table>
+  <thead><tr><th>الباقة</th><th class="num">الرصيد</th><th class="num">السعر</th><th class="num">المكافأة</th><th class="num">الإجمالي</th></tr></thead>
+  <tbody>
+    <tr><td>مبدأية</td><td class="num">10</td><td class="num">10$</td><td class="num">0</td><td class="num">10</td></tr>
+    <tr><td>الأكثر طلبًا</td><td class="num">25</td><td class="num">25$</td><td class="num">+5</td><td class="num">30</td></tr>
+    <tr><td>احترافية</td><td class="num">50</td><td class="num">50$</td><td class="num">+15</td><td class="num">65</td></tr>
+    <tr><td>مؤسساتية</td><td class="num">100</td><td class="num">100$</td><td class="num">+30</td><td class="num">130</td></tr>
+  </tbody>
+  <tfoot><tr><td colspan="5">‏1 رصيد = 1$ اتفاقًا. الرصيد الإضافي ترويجي ومفصول في العرض. الرصيد <em>يُشتق</em> من سجل <code>WorkerCreditEntry</code> تراكمي لا يُعدَّل — أبدًا لا يُخزَّن — فكل منح وصرف وتعديل قابل للتدقيق.</td></tr></tfoot>
+</table>
+<p>
+يحق للعامل طلب <strong>استرداد واحد لكل طلب مشتراه</strong> (بيانات تواصل غير صالحة، طلب مكرر، فئة/منطقة خاطئة، العميل لم يطلب الخدمة، أو تعذّر الوصول للعميل). المشرفون يراجعون الأدلة ويوافقون على ردّ رصيد كامل أو جزئي؛ الموافقات تُضيف سطر تعديل إلى السجل — سطر الصرف الأصلي لا يُعدَّل أو يُحذف أبدًا، وطلبات المكرّر تُرفض.
+</p>
+
+<h4>هـ. استرداد قيمة الطلب — شراء الطلبات يخفض العمولة</h4>
+<div class="rule">
+  <span class="t">حلقة الولاء</span>
+  عند تحويل طلب مشتراه إلى مهمة مكتملة، تُردّ قيمة الطلب ضد عمولة المنصة:
+  <code>rebate = min(fee × pctBps/10000, lead cost, ceiling)</code> — افتراضيًا 100% من حصّة العمولة بلا سقف.
+  العمولة المختومة لا تُعاد كتابتها أبدًا؛ الاسترداد يُسجَّل في صف <code>LeadRebate</code> تراكمي.
+</div>
+<table>
+  <caption>مثال تطبيقي (بالقواعد الافتراضية)</caption>
+  <thead><tr><th>البند</th><th class="num">المبلغ</th></tr></thead>
+  <tbody>
+    <tr><td>قيمة عرض السعر</td><td class="num">300.00$</td></tr>
+    <tr><td>عمولة المنصة (المختومة) — عامل بخطة نمو، 7%</td><td class="num">21.00$</td></tr>
+    <tr><td>طلب ذهبي اشتراه العامل سابقًا</td><td class="num">20.00$</td></tr>
+    <tr><td>الاسترداد = <code>min(21 × 100%, 20, ∞)</code></td><td class="num">20.00$</td></tr>
+    <tr><td><strong>ما تبقّى للمنصة</strong></td><td class="num"><strong>1.00$</strong></td></tr>
+    <tr><td><strong>صافي ما ينتجه العامل</strong></td><td class="num"><strong>299.00$</strong></td></tr>
+  </tbody>
+  <tfoot><tr><td>النسبة الفعلية للعمولة على هذه المهمة</td><td class="num">≈ 0.33% بدل 7%</td></tr></tfoot>
+</table>
+<p class="small muted">الاسترداد هو الجواب على اعتراض العامل الكلاسيكي: «دفعتُ مقابل الطلب <em>و</em> تأخذون نصيبًا». الكلفتان حقيقيتان، لكن إحداهما تُردّ حين يفوز الطلب فعليًا.</p>
+
+<h4>و. ثقة تُباع: التوثيق والظهور المميّز والطوارئ</h4>
+<table>
+  <thead><tr><th>المنتج</th><th class="num">السعر</th><th>ما يقدّمه</th></tr></thead>
+  <tbody>
+    <tr><td>توثيق — أساسي</td><td class="num">9$</td><td>فحص هوية، شارة في نتائج البحث، صلاحية 12 شهرًا</td></tr>
+    <tr><td>توثيق — احترافي</td><td class="num">19$</td><td>رخصة + فحص سجل، شارة، صلاحية 12 شهرًا</td></tr>
+    <tr><td>ظهور مميّز</td><td class="num">49$ / فئة / شهر</td><td>مكان في قسم العمال المميّزين بالرئيسية</td></tr>
+    <tr><td>علامة طوارئ</td><td class="num">9$ / شهر</td><td>شارة «متاح 24/7» + مؤهلية عروض طلبات الطوارئ</td></tr>
+  </tbody>
+</table>
+<p>كل منها يُشترى عبر نفس قناة OMT/Whish ويُفعَّل بتأكيد المشرف — ونافذة الترقية عند العامل تعرض الثلاثة في مكان واحد.</p>
+
+<h4>ز. برنامج الإحالة — نمو العرض كتكلفة رصيد</h4>
+<ul>
+  <li>المحالِل <strong>+25 رصيدًا</strong> لكل إحالة ناجحة · المحالَل <strong>+10 رصيدات</strong> عند التسجيل.</li>
+  <li>الإجراء المؤهِّل: على المحالَل <strong>إتمام أول حجز مكتمل</strong> (لا تُمنح رصيدات مقابل التسجيل وحده).</li>
+  <li>السقف: <strong>10 إحالات لكل عامل شهريًا</strong>، وبدون سقف مدى الحياة. قابل للضبط عبر <code>FeeRuleSet.referral</code>.</li>
+</ul>
+
+<h4>ح. إعلانات الشركات — محرّك الأعمال النائم</h4>
+<ul>
+  <li><strong>8 صيغ:</strong> بانر، سلايدر، بطاقة مميّزة، بحث مموَّل، فئة مموَّلة، نافذة منبثقة، محتوى أصلي، فيديو.</li>
+  <li><strong>6 مواضع:</strong> أعلى نتائج البحث، صفحة الفئات، عمود الملف الشخصي، بانر جوال ثابت (قابل للإخفاء 24 ساعة)، النشرة البريدية الأسبوعية (مع بكسل قياس)، وطبقة إعادة الاستهداف (تظهر بعد أكثر من زيارة أو ارتداد أقل من 30 ثانية).</li>
+  <li><strong>نموذج التسعير المبني:</strong> كل ظهور يحرق 0.01$ وكل نقرة تحرق 1$ — أي ≈ <strong>10$ CPM + 1$ CPC</strong>. استهداف مدينة وفئة، تدوير، وتحليلات ظهور/نقرة/CTR/CPC/ROAS.</li>
+  <li><strong>بوابة التفعيل:</strong> إنشاء الحملة يولّد فاتورة PENDING ودفعًا، والشركة تدفع، وتأكيد المشرف/الويبهوك وحده يقلبها إلى ACTIVE. <code>getActiveAdsFor</code> يطابق ACTIVE فقط — حملة غير مدفوعة لا تخدم ظهورًا واحدًا.</li>
+  <li><strong>تدفّق الحالة:</strong> PENDING (غير مدفوعة) → ACTIVE (نشطة) ⇄ PAUSED → ENDED؛ والاسترداد ينهي الحملة ويلغي الفاتورة كإشعار دائن.</li>
+</ul>
+
+<h4>ط. التسعير الذكي — قيمة الطلب تتغيّر بحسب الساعة</h4>
+<table>
+  <thead><tr><th>العامل</th><th class="num">المضاعف</th></tr></thead>
+  <tbody>
+    <tr><td>ساعات الذروة (6–9 صباحًا، 5–8 مساءً)</td><td class="num">+15%</td></tr>
+    <tr><td>نهاية الأسبوع (السبت–الأحد)</td><td class="num">+10–20%</td></tr>
+    <tr><td>الموسم — تكييف صيفًا / سباكة شتاءً</td><td class="num">+25% / +15%</td></tr>
+    <tr><td>الأعياد (رمضان، عيد، عيد الميلاد)</td><td class="num">+30–35%</td></tr>
+    <tr><td>اختلال عرض/طلب</td><td class="num">0.7×–2.0×</td></tr>
+    <tr><td>علاوة إرسال طوارئ (محدودة)</td><td class="num">≤1.5×</td></tr>
+    <tr><td>تقييم جودة الطلب (ردّ فعل العامل)</td><td class="num">0.8×–1.2×</td></tr>
+  </tbody>
+  <tfoot><tr><td>كل النتائج مقنّعة داخل [0.7، 2.0]. المضاعف النهائي + سبب مقروء يُحفظان على العرض عند إنشائه، فيستطيع العامل أو المشرف تدقيق سبب السعر المعروض — والعروض القائمة لا تُعاد تسعيرها أبدًا.</td></tr></tfoot>
+</table>
+
+<h3>1.4 كيف يُحصَّل المال فعلًا: قناة OMT / Whish اليدوية</h3>
+<p>أتمتة الدفع (Stripe وبوابات MENA) <strong>مؤجَّلة عمدًا</strong>. كل ما يكلّم مالاً يمر عبر شبكتَي النقد اللبنانيتين بلا مفاتيح بوابة وبدون ويبهوك — المنصة تُصدر <strong>صفحة تعليمات موقّعة</strong>، المشتري يدفع خارج النظام بمرجع، ومشرف يؤكد الاستلام. إنها التوأم اليدوي للويبهوك، وهي تحمل اليوم كل المسارات الثمانية: تجديد الاشتراك، شراء الرصيد، التوثيق، الظهور المميّز، علامة الطوارئ، حملات الإعلانات، عربون الحجز ورصيد المهمة.</p>
+
+<table>
+  <caption>حلقة الدفع اليدوية — واحدة لجميع عمليات الشراء</caption>
+  <thead><tr><th style="width:8%">#</th><th style="width:18%">الطرف</th><th>ماذا يحدث</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><span class="actor a-buyer">العامل / الشركة</span></td><td>ينقر «شراء / تجديد / ادفع الآن».</td></tr>
+    <tr><td>2</td><td><span class="actor a-platform">المنصة</span></td><td>تُنشئ دفعة <code>Payment(PENDING)</code> + رابط تعليمات موقّع <code>/payments/manual?provider=omt&amp;ref=OMT-BK-1000-000&amp;sig=…</code>.</td></tr>
+    <tr><td>3</td><td><span class="actor a-buyer">العامل / الشركة</span></td><td>يفتح الصفحة، ويدفع في وكيل OMT أو تطبيق Whish <strong>مع المرجع</strong>.</td></tr>
+    <tr><td>4</td><td><span class="actor a-admin">المشرف</span></td><td>يرى السطر في بطاقة المدفوعات المعلّقة بالـ<code>/admin</code>: الوصف والمبلغ والطريقة والمرجع وقيد الدفع.</td></tr>
+    <tr><td>5</td><td><span class="actor a-admin">المشرف</span></td><td>ينقر «تأكيد» (عملية idempotent، للمشرفين فقط).</td></tr>
+    <tr><td>6</td><td><span class="actor a-platform">المنصة</span></td><td><strong>القدرة تُفعَّل:</strong> اشتراك فعّال / رصيد مُضاف / شارة موثّق / علامة طوارئ وظهور مميّز / حملة ACTIVE / تأكيد العربون — مع إصدار فاتورة <code>WA-YYYY-NNNNN</code>.</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><strong>مُحكَّم دون ويبهوك:</strong> كل مزوّد يوقّع بملح خاص وبادئات مرجع مختلفة (<code>OMT-</code> / <code>WHISH-</code>)؛ صفحة التعليمات تتحقق من التوقيع عبر نفس العقد الذي تستخدمه مسار الويبهوك.</li>
+  <li><strong>Idempotent لكل طريقة:</strong> إعادة النقر بالطريقة نفسها تعيد الرابط المُصدر أصلًا؛ تبديل الطريقة يعيد الإصدار، فلا يتسرب رابط تجريبي قديم إلى زر «ادفع عبر Whish».</li>
+  <li><strong>المبالغ تعود لقناة الدفع:</strong> إلغاء الحجز يستدعي المزوّد الذي قبض المال — عربون مدفوع عبر OMT يُسترد عبر مزوّد OMT، لا افتراضيًا.</li>
+  <li><strong>المطابقة المحاسبية:</strong> كل سطر يدخل سجل المشرف ويُصدَّر CSV (الحالة، المرجع، الطوابع الزمنية، الفاتورة، القيد). مهمة دورية تُلغي تجديدات الاشتراك غير المدفوعة بعد 7 أيام وتسجّل الحدث؛ والعامل يستطيع إلغاء تجديده المعلّق فورًا.</li>
+  <li><strong>وضع بلا مفاتيح:</strong> بدون مفاتيح Stripe يستخدم التطوير/الاختبارات مزوّدًا محاكيًا يُكمل فورًا؛ وفي الإنتاج يرفض السجل المحاكي <em>بشكل صريح</em>، فمسار البطاقة مغلق حتى توجد مفاتيح حقيقية.</li>
+</ul>
+
+<h3>1.5 القاعدة التي تجعل العمولة مالًا حقيقيًا</h3>
+<div class="rule">
+  <span class="t">مُثبّت التحصيل</span>
+  <strong>السجل لا يُقيّد أبدًا أكثر مما تحصّلت المنصة، والعمولة لا تُخصم إلا من مال وصل فعلًا.</strong>
+  دالة واحدة نقيّة — <code>settlementFor(facts)</code> — هي نقطة القرار الوحيدة، تستدعيها كلا واجهتَي قاعدة البيانات،
+  وبطاقة دفع العميل، ولوحة العامل، وحارس السحب، ومطابقة المشرف. لا سطح يقرأ صفوف الدفع الخام ليقرّر إن كان يحق دفع عامل.
+</div>
+
+<p>قيمة الحجز تصل على <strong>قيدَين</strong>: <em>العربون</em> قبل العمل (<code>Booking.paymentId</code>) و<em>التسوية</em> — الرصيد المتبقي بعدها (<code>Booking.settlementPaymentId</code>). طابور المشرف يوسم كل سطر بـ<code>leg</code> (<code>deposit</code> | <code>settlement</code>) فلا يستطيع مشغّل تأكيد المبلغ الخاطئ لنفس الحجز.</p>
+
+<table>
+  <caption>أين قد يقف مال المهمة، وماذا يُقيَّد لحساب العامل.</caption>
+  <thead><tr><th>الحالة</th><th>المعنى</th><th>المُقيَّد للعامل</th></tr></thead>
+  <tbody>
+    <tr><td><code>funded</code></td><td>المتحصَّل ≥ عرض السعر (العربون غطّى المهمة)</td><td><code>collected − fee</code> — المسار الكلاسيكي</td></tr>
+    <tr><td><code>part-funded</code></td><td>العربون وصل والرصيد لم يصل</td><td>الجزء المُتحصَّل الآن، والباقي كـ<code>ADJUSTMENT</code> حين يُؤكَّد الرصيد</td></tr>
+    <tr><td><code>awaiting-customer</code></td><td>لا شيء مُتحصَّل ولا مطلوب بعد</td><td>لا شيء</td></tr>
+    <tr><td><code>awaiting-confirmation</code></td><td>مرجع OMT/Whish صادر ولم يُدفع</td><td>لا شيء — الوعد ليس مالًا</td></tr>
+    <tr><td><code>outside-platform</code></td><td>الطرفان تساويا نقدًا في الميدان</td><td>لا شيء — العمولة تصبح <strong>مطالبة</strong> تُحصَّل جزءًا جزءًا من رصيد العامل</td></tr>
+    <tr><td><code>overpaid</code></td><td>المتحصَّل &gt; عرض السعر (دفعة مكرّرة)</td><td><code>collected − fee</code> مع إشارة الفائض للاسترداد</td></tr>
+    <tr><td><code>no-quote</code></td><td>قبول بلا عرض سعر</td><td>لا شيء (لا توجد قيمة عمل)</td></tr>
+  </tbody>
+</table>
+<p>لماذا يهم هذا تجاريًا: قبل هذه القاعدة كانت مهمة بعرض سعر فقط تُقيّد أجرًا لم تحصّله المنصة أبدًا، وكان اعتماد السحب يدفع العامل <em>من أموال المنصة</em>. بقية رافعات الدخل — الطلبات، الرصيد، الاشتراكات، الإعلانات — كلها مبنية فوق هذه، فسلامة التحصيل هي أساس النموذج كله.</p>
+
+<h3>1.6 خريطة المال</h3>
+<figure>
+<svg viewBox="0 0 720 330" role="img" aria-label="خريطة أموال نموذج أعمال WorkersArena">
+  <defs>
+    <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2563eb"/></marker>
+    <marker id="ag" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#059669"/></marker>
+    <marker id="ao" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#d97706"/></marker>
+  </defs>
+  <!-- المربّعات (نفس هندسة النسخة الإنجليزية، النصوص مُترجمة) -->
+  <rect x="16" y="120" width="150" height="90" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="91" y="150" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">العملاء</text>
+  <text x="91" y="168" text-anchor="middle" font-size="9.5" fill="#334155">جانب الطلب · استخدام مجاني</text>
+  <text x="91" y="184" text-anchor="middle" font-size="9.5" fill="#334155">يدفعون قيمة الخدمة</text>
+  <text x="91" y="199" text-anchor="middle" font-size="9.5" fill="#334155">(عربون + رصيد)</text>
+
+  <rect x="250" y="30" width="180" height="130" rx="6" fill="#0f172a" stroke="#0f172a"/>
+  <text x="340" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">المنصة</text>
+  <text x="340" y="76" text-anchor="middle" font-size="9.5" fill="#93c5fd">تمتلك قيد دفع للمهمة</text>
+  <text x="340" y="94" text-anchor="middle" font-size="9.5" fill="#86efac">عمولة 4–12% (5$–300$)</text>
+  <text x="340" y="110" text-anchor="middle" font-size="9.5" fill="#86efac">اشتراكات 15–199$ × المضاعف</text>
+  <text x="340" y="126" text-anchor="middle" font-size="9.5" fill="#86efac">رصيد · طلبات · إضافات · إعلانات</text>
+  <text x="340" y="144" text-anchor="middle" font-size="9.5" fill="#fde68a">OMT/Whish ← تأكيد المشرف</text>
+
+  <rect x="560" y="30" width="150" height="90" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+  <text x="635" y="58" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">العمال</text>
+  <text x="635" y="76" text-anchor="middle" font-size="9.5" fill="#334155">جانب العرض · يدفعون للظهور</text>
+  <text x="635" y="92" text-anchor="middle" font-size="9.5" fill="#334155">والمنافسة</text>
+  <text x="635" y="107" text-anchor="middle" font-size="9.5" fill="#334155">الصافي = المتحصَّل − العمولة + الاسترداد</text>
+
+  <rect x="560" y="185" width="150" height="80" rx="6" fill="#fff7ed" stroke="#d97706" stroke-width="1.5"/>
+  <text x="635" y="212" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">الشركات</text>
+  <text x="635" y="230" text-anchor="middle" font-size="9.5" fill="#334155">معلنون (B2B)</text>
+  <text x="635" y="246" text-anchor="middle" font-size="9.5" fill="#334155">≈ 10$ CPM + 1$ CPC</text>
+
+  <rect x="244" y="215" width="192" height="80" rx="6" fill="#f8fafc" stroke="#64748b" stroke-dasharray="4 3"/>
+  <text x="340" y="240" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0f172a">السجلات</text>
+  <text x="340" y="257" text-anchor="middle" font-size="9" fill="#475569">WorkerLedgerEntry (أرباح/سحوبات)</text>
+  <text x="340" y="271" text-anchor="middle" font-size="9" fill="#475569">WorkerCreditEntry (رصيد تراكمي)</text>
+  <text x="340" y="285" text-anchor="middle" font-size="9" fill="#475569">Invoice · Payment · FeeSnapshot · Rebate</text>
+
+  <!-- الأسهم -->
+  <line x1="166" y1="150" x2="246" y2="110" stroke="#2563eb" stroke-width="2" marker-end="url(#ah)"/>
+  <text x="208" y="95" text-anchor="middle" font-size="8.5" fill="#1d4ed8" font-weight="700">العربون + الرصيد</text>
+  <text x="208" y="108" text-anchor="middle" font-size="8.5" fill="#1d4ed8">(دفعتان)</text>
+
+  <line x1="434" y1="80" x2="556" y2="70" stroke="#059669" stroke-width="2" marker-end="url(#ag)"/>
+  <text x="495" y="54" text-anchor="middle" font-size="9" fill="#047857" font-weight="700">المدفوع = المتحصَّل − العمولة</text>
+  <text x="495" y="67" text-anchor="middle" font-size="9" fill="#047857">(سحب بموافقة المشرف)</text>
+
+  <line x1="558" y1="115" x2="438" y2="128" stroke="#d97706" stroke-width="2" marker-end="url(#ao)"/>
+  <text x="497" y="91" text-anchor="middle" font-size="9" fill="#b45309" font-weight="700">اشتراك · رصيد</text>
+  <text x="497" y="104" text-anchor="middle" font-size="9" fill="#b45309">توثيق · إضافات</text>
+
+  <line x1="558" y1="195" x2="438" y2="150" stroke="#d97706" stroke-width="2" marker-end="url(#ao)"/>
+  <text x="497" y="196" text-anchor="middle" font-size="9" fill="#b45309" font-weight="700">ميزانية الحملة</text>
+
+  <line x1="340" y1="164" x2="340" y2="211" stroke="#64748b" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+  <text x="410" y="180" text-anchor="middle" font-size="9" fill="#475569">كل حركة تُقيَّد في السجل</text>
+</svg>
+<figcaption>الشكل 1 — خريطة المال. العملاء يموّلون المنصة؛ العمال يموّلونها ويُموَّلون منها؛ والشركات تموّلها مقابل الانتشار؛ ولا تتحرك ورقة بلا قيد في السجل.</figcaption>
+</figure>
+
+<div class="note">
+  <span class="t">اقتصاديات الوحدة (تصديرية — نمذجة لا قياس)</span>
+  لكل عامل مدفوع شهريًا: اشتراك 15$–199$ (المزيج ≈ 40–60$) + عمولة + تعبئة رصيد. توقع الوثائق المصدرية ‏3.8 ألف$ في الشهر الأول ← ‏15.5 ألف$ في الشهر الثالث ← ‏46 ألف$ في الشهر السادس ← ‏127 ألف$ في الشهر الثاني عشر إجماليًا لدخل المنصة عند 50 ← 1,000 عامل. والإعلانات تسهم بـ0$ اليوم لأن الحملات لا تزال على القنوات اليدوية.
+</div>
+</section>
+<section class="section">
+<h2>القسم 2 — الاستخدام خطوة بخطوة</h2>
+<p>أربعة مسارات، كل منها مكتوب كمسار نقرات فعلي يلتقطه الشخص، مع ما يفعله النظام في كل خطوة. وكل خطوة دفع فيه هي نفس حلقة OMT/Whish الواردة في §1.4 — المرجع يتغيّر، والآلية لا تتغيّر أبدًا.</p>
+
+<h3>2.1 المسار أ — العامل، من التسجيل حتى السحب</h3>
+<ol class="steps">
+  <li><b>التسجيل واختيار اللغة.</b> العامل ينشئ حسابًا (عربي/إنجليزي) ويصل إلى لوحة التحكم. <strong>تُطبَّق تجربة مجانية تلقائيًا</strong> من الخادم: 30 يومًا لباقتي مبدأية/نمو، و14 يومًا لاحترافي، وأعمال بتجربة بمساعدة. الأهلية مرة واحدة لكل عامل.</li>
+  <li><b>بناء الملف الشخصي.</b> الفئة، المدينة، المنطقة، الأسعار، أوقات العمل، الشهادات، صور الأعمال (قبل/بعد)، اللغات. جودة الملف تغذّي محرّك المطابقة مباشرة (المهنة 30% + المنطقة 12% + المدينة 8%).</li>
+  <li><b>اختيار الباقة قبل انتهاء التجربة.</b> صفحة الأسعار العامة تعرض أسعارًا مضبوطة حسب المهنة — نظّافة يرى باقة مبدأية بـ7.50$، وفنّي تكييف بـ22.50$. نافذة التجديد تعرض شهريًا مقابل سنوي (9 بدل 12) وتسمّي التغيير ترقية/تخفيضًا/دون تغيير مع عرض الفرق.</li>
+  <li><b>دفع الاشتراك (OMT/Whish).</b> اختيار الطريقة ← صفحة <code>/payments/manual</code> موقّعة بالمرجع ← الدفع عند وكيل OMT أو في تطبيق Whish ← بطاقة المدفوعات المعلّقة لدى المشرف تؤكد ← الاشتراك يُفعَّل، تُصدر الفاتورة، وتُستعاد (أو تُمنح) الرؤية. <em>حتى هذا التأكيد، الاشتراك المنتهي يعني غياب العامل من البحث العام.</em></li>
+  <li><b>(اختياري) شراء منتجات الثقة.</b> نافذة الترقية تبيع التوثيق (‏9$/19$)، والظهور المميّز (‏49$/فئة/شهر)، وعلامة الطوارئ (‏9$/شهر) في مكان واحد، كل منها على نفس القناة؛ والتأكيد يقلب <code>verified</code> / <code>featured</code> / <code>emergency</code>.</li>
+  <li><b>شراء الرصيد.</b> بطاقة رصيد الطلبات ← «اشترِ المزيد» ← الباقة (‏10$/25$/50$/100$ مع مكافآت) ← OMT/Whish ← التأكيد يضيف الرصيد إلى السجل التراكمي. الرصيد مشتق دائمًا من القيود.</li>
+  <li><b>متابعة لوحة الطلبات.</b> طلبات العملاء المؤهَّلة تصل كعروض مدرَّجة (برونزي 5 ← طوارئ 35 رصيدًا)، مطابقة بدرجة موزونة، حصرية، تنتهي بمؤقّت، وسعرها يحدّده التسعير الذكي مع ذكر السبب.</li>
+  <li><b>فتح طلب.</b> «افتح بـ-N رصيدًا» يخصم من السجل بشكل idempotent لكل عرض ويكشف بيانات التواصل وفق سياسة الشريحة. قيّم الطلب بعدها من 1–5 نجوم — هذا التقييم يحرّك أسعار الدرجات المستقبلية (0.8×–1.2×) وأوزان المطابقة. وسيء يمكن استرداده مرة واحدة عبر طابور مراجعة المشرف.</li>
+  <li><b>استقبال طلبات الحجز والرد بعرض سعر.</b> نافذة الرد تعرض <em>«عرض السعر 80$ · رسوم المنصة 5.60$ · ستحصل على 74.40$»</em> لحظيًا — نفس الدالة النقية التي تختوم اللقطة غير القابلة للتغيير عند القبول.</li>
+  <li><b>تعيين العربون.</b> قبول مع عربون اختياري ← الحجز يصبح <code>PENDING_PAYMENT</code> ← العميل يحصل على صفحة دفع (تعليمات OMT/Whish) ← المشرف يؤكد ← <code>CONFIRMED</code>. العمولة كانت مختومة بالفعل؛ الأوقات تتحرك لاحقًا، والمال لا.</li>
+  <li><b>إنجاز العمل وإتمام المهمة.</b> عند الإتمام تقرأ محرّكة التسوية القيدَين: إن تحصّلت المنصة ≥ عرض السعر يُقيَّد في السجل <code>collected − fee</code> كـ<code>EARNING</code> (قيد واحد لكل حجز، idempotent). وإن وصل العربون وحده، يرى العامل «في انتظار العميل — مستحق 200$».</li>
+  <li><b>الرصيد والاسترداد.</b> بطاقة دفع العميل تطلق الرصيد المتبقي على نفس القناة؛ وعند التأكيد يُقيَّد الفرق كـ<code>ADJUSTMENT</code>. وإن كان الطلب مشتراه، يُقيَّد الاسترداد ضد العمولة — والمنصة تبقى بعمولة − استرداد.</li>
+  <li><b>قراءة الكشوف.</b> <strong>لوحة العائد (ROI)</strong> تعرض: طلبات مشتراة، عروض مُرسَلة، مهام فائزة، قيمة الأعمال، عمولات المنصة، تكلفة الاشتراك، إجمالي الإنفاق في السوق، والمضاعف الناتج للشهر. و<strong>كشف الأرباح</strong> يعرض المهام المكتملة وقيمة الأعمال والعمولات والاستردادات وصافي الأرباح لكل مهمة.</li>
+  <li><b>السحب.</b> بطاقة المدفوعات ← الرصيد المتاح مقابل المعلّق ← طلب مبلغ (بحد أقصى المتاح − المعلّق؛ الطلب يحجز المبلغ) ← المشرف يوافق أو يرفض ← الرصيد يُخصم عند الموافقة فقط. والعامل يُشعَر بالقرار في الحالتين.</li>
+  <li><b>الإحالة والإعادة.</b> شارك رمز الإحالة الفريد: ‎+25 رصيدًا حين يُتمّ المحالَل أول حجز له، ‎+10 له عند التسجيل، و10 شهريًا. وتذكيرات التجديد (7/3/1 يوم) وشارة «ينتهي» يبقيان الاشتراك حيًّا.</li>
+</ol>
+
+<h3>2.2 المسار ب — العميل</h3>
+<ol class="steps">
+  <li><b>البحث أو التصفّح.</b> بحث بفئة/مدينة/كلمة (الإدخال العربي يعمل — الفهرس يدعمه)، وملفات عمال بتقييم ومراجعات ومعدل استجابة وتوفّر وشارة توثيق. والعمال المميّزون في الرئيسية.</li>
+  <li><b>اختيار موعد وطلب.</b> فتح التوفّر الحيّ للعامل وطلب حجز — أو الوصول عبر رابط مشارَك <code>?book=…&amp;slot=…</code> من محادثة واتساب يفتح النافذة معبّأة مسبقًا (كل جزء غير صالح يُهجر بسببه، لا فشل صلب).</li>
+  <li><b>استلام عرض السعر.</b> العامل يرد بعرض سعر وعربون اختياري. والسطر شفاف: <em>«80$ · يشمل رسوم المنصة 5.60$ · يستلم العامل 74.40$»</em>.</li>
+  <li><b>دفع العربون.</b> اختيار OMT أو Whish ← صفحة تعليمات بمرجع ← الدفع خارج النظام ← المشرف يؤكد ← الحجز ينقلب <code>CONFIRMED</code> وتُصدر فاتورة <code>WA-YYYY-NNNNN</code> للمسجّلين.</li>
+  <li><b>سير العمل.</b> أي طرف يمكنه إعادة الجدولة. الإلغاءات تتبع نافذة سياسة 24 ساعة: إلغاء العميل أو النظام يُسترد دائمًا؛ وعامل يلغي داخل 24 ساعة من البدء يحتفظ بالعربون.</li>
+  <li><b>دفع الرصيد بعد الإتمام.</b> إن لم يغطِّ العربون عرض السعر، تظهر بطاقة دفع بالمبلغ المستحق بدقة على نفس القناة — والدفع هو ما يُطلق أجر العامل، والواجهة تصرّح بذلك.</li>
+  <li><b>التقييم.</b> عند الإتمام تطلب المنصة تقييمًا (اطلب الآن، ذكّر مرة بعد 3 أيام، وصمت بعد 30 أو فور وجود تقييم). لا يقيّم إلا من له مهمة مكتملة — <code>verifiedPurchase</code> محسوب من حجوزات المقيّم نفسه.</li>
+  <li><b>المتابعة.</b> المفضّلة، نشرة بريدية أسبوعية بقسم مموَّل، ومسار طلب لمن بلا عامل مطابق — وهو ما يتحوّل إلى طلب مدرَّج في السوق.</li>
+</ol>
+
+<h3>2.3 المسار ج — الشركة / المُعلن</h3>
+<ol class="steps">
+  <li><b>فتح لوحة الشركة</b> وبناء حملة: اسم بالعربية والإنجليزية، واحدة من 8 صيغ، موضع، ميزانية، نطاق تواريخ، واستهداف مدينة/فئة.</li>
+  <li><b>الدفع للتفعيل.</b> الإنشاء يُصدر فاتورة PENDING ودفعًا. «ادفع الآن» يصدر تعليمات OMT/Whish؛ وتبقى الحملة <strong>PENDING ولا تخدم شيئًا</strong> حتى يؤكد المشرف — عندها تنقلب ACTIVE وتُدفع الفاتورة.</li>
+  <li><b>الخدمة تُقدَّم حسب الموضع:</b> بحث مموَّل أعلى النتائج، بانر الفئة، عمود الملف، بانر جوال ثابت، نشرة أسبوعية (بالبكسل)، وطبقة إعادة الاستهداف. النقرات تمر عبر <code>/api/ads/:id/click</code>.</li>
+  <li><b>الإنفاق يتراكم</b> عند ~0.01$/ظهور و1$/نقرة ضد الميزانية حتى نفادها أو مرور تاريخ الانتهاء ← ENDED.</li>
+  <li><b>قياس العائد</b> في عرض التحليلات: ظهور، نقرة، CTR، CPC، CPM، ROAS، توزيع حسب الموضع، أداء يومي، استهلاك الميزانية، تصدير.</li>
+  <li><b>مسار الاسترداد:</b> استرداد المشرف ← الحملة ENDED، الدفعة REFUNDED، الفاتورة VOID (إشعار دائن)، والإشعار للشركة بالسبب.</li>
+</ol>
+
+<h3>2.4 المسار د — المشرف</h3>
+<ol class="steps">
+  <li><b>تأكيد المدفوعات.</b> بطاقة <em>المدفوعات المعلّقة</em> تعرض كل سطر OMT/Whish بالمعرّف والنطاق والوسم ثنائي اللغة والمبلغ والطريقة والمرجع ووقت الإنشاء والحالة — وللحجوزات القيد (<code>deposit</code>/<code>settlement</code>). تحقّق من مرجع المشتري، انقر «تأكيد» (idempotent؛ غير المشرف يحصل على <code>unauthorized</code>)، فتُفعَّل القدرة.</li>
+  <li><b>إدارة التسعير من إعدادات الدخل.</b> <code>/admin/revenue-settings</code> يعدّل أسعار الباقات، حدود الطلبات، مضاعفات المهن، باقات الرصيد، أسعار الدرجات، أوزان المطابقة، سياسة كشف التواصل، قواعد الاسترداد (تشغيل/حصّة/سقف)، سلّم العمولة والعروض الترويجية — كل نشر يُنشئ إصدارًا مُدقَّقًا. لا شيء مما سبق مكتوب داخل الشيفرة.</li>
+  <li><b>تشغيل سوق الطلبات.</b> لوحة السوق تعرض العروض والرصيد والاستردادات والتقييمات، واقتراح السعر الذكي/الموجّه (نقرة واحدة تملأ تعديل سعر الطوارئ الأساسي حين يقول تقرير الـ30 يومًا إن الوضع صحي أو مبالغ فيه)، وقالب <strong>واتساب لكل درجة</strong> يرسله المشرف يدويًا عبر رابط <code>wa.me</code> معبّأ للعامل المحدَّد.</li>
+  <li><b>مراجعة استردادات الطلبات.</b> طلب واحد لكل طلب، دليل مراجَع، موافقة على ردّ رصيد كامل أو جزئي مع ملاحظة — يُضاف للسجل دون المساس بسطر الصرف.</li>
+  <li><b>اعتماد السحوبات.</b> بطاقة <em>السحوبات المعلّقة</em>: العامل، المبلغ، وقت الطلب ← موافقة (PROCESSED، يُخصم الرصيد) أو رفض (لا يتحرك شيء). القرار عملية مقارنة واستبدال فلا يقرّر مشرفان معًا.</li>
+  <li><b>المطابقة المحاسبية.</b> بطاقة تسوية الحجوزات تعرض العمولة <em>المختومة</em> مقابل العمولة <em>المُتحصَّلة</em>، والعملاء بانتظار الدفع، <strong>الرصيد غير المغطى (يجب أن يكون 0.00$)</strong>، الرصيد المحجوب على التحصيل، ومطالبات ما دون المنصة — الأسوأ أولًا. وتصدير سجل OMT/Whish CSV للمحاسبة.</li>
+  <li><b>مراقبة الاحتفاظ.</b> لوحة الاحتفاظ و<code>/api/admin/retention</code> تشتق من سجل <code>SubscriptionEvent</code> التراكمي: تحويل التجربة إلى مدفوع، الهجرة، الترقيات/التخفيضات، متوسط العمر، دخل التجديد/LTV، وعدّادات تواصل الواتساب — إضافةً إلى عمال معرّضين للخطر مرتّبين بأقرب انتهاء للتواصل فردي.</li>
+  <li><b>مراقبة الجودة والموجّه.</b> تحليلات جودة الطلبات (اتجاهات تقييم أسبوعية، إحصاء لكل درجة، معدّلات تحويل، أثر المضاعفات) وتقرير موجّه الطوارئ لـ30 يومًا بحكم حاسم وسجل قرار CSV؛ والملخّص يُدرَج أيضًا في نشرة المشرف الأسبوعية عبر واتساب.</li>
+</ol>
+
+<div class="note">
+  <span class="t">الحلقة الوحيدة التي يجب تذكّرها</span>
+  كل عملية شراء في المسارات الأربعة هي: <strong>إجراء المشتري ← دفعة PENDING + مرجع موقّع ← دفع خارج النظام ← تأكيد المشرف ← تفعيل القدرة ← فاتورة + قيد في السجل</strong>. الأتمتة لا تستبدل سوى آخر خطوتين — وهذا بالضبط ما تفعله ربط Stripe (مؤجّل، انظر §4).
+</div>
+</section>
+<section class="section">
+<h2>القسم 3 — دفّق الإيرادات للعامل</h2>
+
+<h3>3.1 كيف يكسب العامل</h3>
+<div class="flow">
+  <div class="step"><b>العميل يطلب حجزًا ← العامل يقبل مع عرض سعر</b> ← تُختوم العمولة (لقطة غير قابلة للتغيير: نسبة حسب الشريحة، مقنّعة بين 5$ و300$)</div>
+  <div class="arrow">▼</div>
+  <div class="step"><b>دفع العربون الاختياري</b> (القيد الأول — OMT/Whish ← تأكيد المشرف)</div>
+  <div class="arrow">▼</div>
+  <div class="step"><b>العمل يُنجَز ← الحجز COMPLETED</b></div>
+  <div class="arrow">▼</div>
+  <div class="step"><b>فرعان فقط:</b> (أ) المنصة حصّلت المال ← السجل يقيّد <span class="money">collected − fee</span> (+ استرداد قيمة الطلب إن كان مشتراه) ؛ (ب) الطرفان تساويا نقدًا ← لا يُقيَّد شيء، والعمولة تصبح مطالبة تُحصَّل من رصيد العامل</div>
+  <div class="arrow">▼</div>
+  <div class="step"><b>رصيد قابل للسحب</b> (مشتق من السجل دائمًا)</div>
+  <div class="arrow">▼</div>
+  <div class="step"><b>العامل يطلب سحبًا ← المشرف يوافق ← الرصيد يُخصم والمال يُرسَل</b></div>
+</div>
+<p><strong>صافي الأرباح = قيمة الأعمال − عمولة المنصة + استردادات الطلبات.</strong> <strong>والإنفاق في السوق = اشتراك + رصيد + إضافات.</strong> <strong>والعائد = صافي الأرباح ÷ الإنفاق في السوق</strong> — الرقم الذي تعرضه لوحة العائد (ROI) على شاشة العامل الرئيسية.</p>
+
+<h3>3.2 مثال مطّبق (أ) — مهمة واحدة من البداية للنهاية (عامل بخطة نمو، طلب ذهبي)</h3>
+<table>
+  <thead><tr><th style="width:38%">الخطوة</th><th class="num">المبلغ</th><th>ماذا يحدث</th></tr></thead>
+  <tbody>
+    <tr><td>العميل يطلب مهمة سباكة</td><td class="num">—</td><td>تُدرَّج <strong>ذهبية</strong> (ملف مكتمل + صور + تسجيل دخول) = 20 رصيدًا</td></tr>
+    <tr><td>العامل يشتري الطلب</td><td class="num">−20 رصيدًا</td><td>يُخصم من سجل الرصيد، يُكشف التواصل، وتُلغى عروض المنافسين</td></tr>
+    <tr><td>العامل يقبل بعرض سعر</td><td class="num">300.00$</td><td>تُختوم العمولة: 7% (نمو) × 300 = <strong>21.00$</strong>، داخل نطاق 5$–300$</td></tr>
+    <tr><td>العميل يدفع العربون (القيد الأول)</td><td class="num">300.00$</td><td>مرجع OMT ← تأكيد المشرف ← <code>CONFIRMED</code>؛ المهمة الآن <code>funded</code></td></tr>
+    <tr><td>المهمة تكتمل</td><td class="num">—</td><td>محرّكة التسوية: المتحصَّل 300 ≥ عرض السعر 300 ← يُقيَّد <span class="money">300 − 21</span></td></tr>
+    <tr><td><strong>يُقيَّد EARNING</strong></td><td class="num"><strong>+279.00$</strong></td><td>صف واحد لكل حجز (<code>@@unique([bookingId])</code>) — إعادة تأكيد لا تُضاعف القيد</td></tr>
+    <tr><td>يُقيَّد استرداد الطلب</td><td class="num">+20.00$</td><td><span class="money">min(21 × 100%, 20, ∞)</span> — تبقى للمنصة 1$ من العمولة</td></tr>
+    <tr><td><strong>ما يستلمه العامل</strong></td><td class="num"><strong>299.00$</strong></td><td>النسبة الفعلية على هذه المهمة: <strong>0.33%</strong> بدل 7%</td></tr>
+    <tr><td>تبقى للمنصة</td><td class="num">1.00$</td><td>إضافةً إلى الرصيد الـ20 المصرف مسبقًا على الطلب</td></tr>
+    <tr><td>العامل يطلب سحبًا</td><td class="num">−279.00$</td><td>PENDING يحجز المبلغ ← المشرف يوافق ← PROCESSED</td></tr>
+  </tbody>
+</table>
+<div class="warn">
+  <span class="t">المسار الذي لم يُسلَك</span>
+  لو تساوى الطرفان نقدًا عند الباب بدل أن يدفعا عبر المنصة، لكانت خطوة «يُقيَّد EARNING» قيّدت <strong>لا شيء</strong>: العامل يصرّح «تسويناها مباشرة»، والعمولة تصبح مطالبة، و<code>feeClaimPlan</code> يحصّلها جزءًا جزءًا من رصيد العامل (مال مدفوع مسبقًا حقيقيًا)، وتعرض المطابقة أي متبقٍّ لمشرف يُحصّله أو يتجاوزه. سلامة التحصيل أهم من تحصيل العمولة.
+</div>
+
+<h3>3.3 مثال مطّبق (ب) — الاقتصاد الشهري لكل شريحة اشتراك</h3>
+<table>
+  <caption>نموذج شهري تصديري (التوقع الوارد في الوثائق المصدرية؛ ليس قياسًا فعليًا).</caption>
+  <thead><tr><th>المؤشر</th><th class="num">مبدأية</th><th class="num">نمو</th><th class="num">احترافي</th></tr></thead>
+  <tbody>
+    <tr><td>مهام تقريبًا / شهر</td><td class="num">5</td><td class="num">12</td><td class="num">25</td></tr>
+    <tr><td>متوسط قيمة المهمة</td><td class="num">80$</td><td class="num">150$</td><td class="num">200$</td></tr>
+    <tr><td><strong>قيمة الأعمال (GMV)</strong></td><td class="num">400$</td><td class="num">1,800$</td><td class="num">5,000$</td></tr>
+    <tr><td>عمولة المنصة (9% / 7% / 5%)</td><td class="num">−36$</td><td class="num">−126$</td><td class="num">−250$</td></tr>
+    <tr><td>تكلفة الاشتراك</td><td class="num">−15$</td><td class="num">−39$</td><td class="num">−99$</td></tr>
+    <tr><td>طلبات مشتراة (نموذج 5/شهر)</td><td class="num">−25$</td><td class="num">−45$</td><td class="num">−100$</td></tr>
+    <tr><td><strong>صافي أرباح العامل</strong></td><td class="num"><strong>324$</strong></td><td class="num"><strong>1,590$</strong></td><td class="num"><strong>4,551$</strong></td></tr>
+    <tr><td><strong>العائد (أرباح ÷ إنفاق)</strong></td><td class="num"><strong>6.0×</strong></td><td class="num"><strong>17.1×</strong></td><td class="num"><strong>23.0×</strong></td></tr>
+  </tbody>
+</table>
+<table>
+  <caption>ما يعيده الثلاثة للمنصة شهريًا (تصديري).</caption>
+  <thead><tr><th>المصدر</th><th class="num">مبدأية</th><th class="num">نمو</th><th class="num">احترافي</th></tr></thead>
+  <tbody>
+    <tr><td>الاشتراك</td><td class="num">15.00$</td><td class="num">39.00$</td><td class="num">99.00$</td></tr>
+    <tr><td>العمولة (بلا خصم الاسترداد، معروضة إجماليًا هنا)</td><td class="num">36.00$</td><td class="num">126.00$</td><td class="num">250.00$</td></tr>
+    <tr><td>مشتريات رصيد الطلبات</td><td class="num">12.50$</td><td class="num">22.50$</td><td class="num">50.00$</td></tr>
+    <tfoot><tr><td><strong>دخل المنصة لكل عامل</strong></td><td class="num"><strong>63.50$</strong></td><td class="num"><strong>187.50$</strong></td><td class="num"><strong>399.00$</strong></td></tr></tfoot>
+  </tbody>
+</table>
+
+<h3>3.4 مخطّط توزيع المال (شريحة احترافي، شهر واحد)</h3>
+<figure>
+<svg viewBox="0 0 720 250" role="img" aria-label="مخطّط توزيع من قيمة الأعمال إلى صافي الأرباح لشريحة احترافي">
+  <line x1="60" y1="205" x2="700" y2="205" stroke="#94a3b8" stroke-width="1.2"/>
+  <rect x="70" y="45" width="90" height="160" fill="#2563eb"/>
+  <text x="115" y="38" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">5,000$</text>
+  <text x="115" y="222" text-anchor="middle" font-size="10" fill="#334155">إجمالي الأعمال</text>
+  <text x="115" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">25 مهمة × 200$</text>
+  <rect x="195" y="45" width="90" height="30" fill="#dc2626"/>
+  <line x1="160" y1="45" x2="195" y2="45" stroke="#94a3b8" stroke-dasharray="3 2"/>
+  <text x="240" y="66" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">−250$</text>
+  <text x="240" y="222" text-anchor="middle" font-size="10" fill="#334155">رسوم المنصة</text>
+  <text x="240" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">5% (احترافي)، نطاق 5$–300$</text>
+  <rect x="320" y="75" width="90" height="12" fill="#d97706"/>
+  <line x1="285" y1="75" x2="320" y2="75" stroke="#94a3b8" stroke-dasharray="3 2"/>
+  <text x="365" y="84" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">−99$</text>
+  <text x="365" y="222" text-anchor="middle" font-size="10" fill="#334155">الاشتراك</text>
+  <text x="365" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">احترافي × مضاعف المهنة</text>
+  <rect x="445" y="87" width="90" height="12" fill="#d97706"/>
+  <line x1="410" y1="87" x2="445" y2="87" stroke="#94a3b8" stroke-dasharray="3 2"/>
+  <text x="490" y="96" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">−100$</text>
+  <text x="490" y="222" text-anchor="middle" font-size="10" fill="#334155">رصيد الطلبات</text>
+  <text x="490" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">5 طلبات مشتراة</text>
+  <rect x="570" y="60" width="90" height="145" fill="#059669"/>
+  <line x1="535" y1="99" x2="570" y2="99" stroke="#94a3b8" stroke-dasharray="3 2"/>
+  <text x="615" y="53" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">4,551$</text>
+  <text x="615" y="222" text-anchor="middle" font-size="10" fill="#334155">صافي الأرباح</text>
+  <text x="615" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">للعامل · عائد 23.0×</text>
+  <text x="60" y="24" font-size="10.5" font-weight="700" fill="#0f172a">شريحة احترافي، شهر — أين تذهب 5,000$ من العمل (تصديري)</text>
+</svg>
+<figcaption>الشكل 2 — المخطّط. استردادات الطلبات محذوفة هنا للوضوح: كل استرداد يقصّ من العمود الأحمر، وهذه بالضبط حلقة الولاء في §1.3-هـ.</figcaption>
+</figure>
+
+<h3>3.5 كيف يُقبض المال — دورة السحب</h3>
+<div class="flow">
+  <div class="step"><b>EARNING / ADJUSTMENT ← POSTED</b> — تُنشأ عند الإتمام والتحصيل، idempotent، فرصة واحدة لكل حجز</div>
+  <div class="arrow">▼</div>
+  <div class="step"><b>الرصيد المتاح = مجموع القيود POSTED − مجموع السحوبات PROCESSED</b> (يُشتق دائمًا، لا يُخزَّن)</div>
+  <div class="arrow">▼</div>
+  <div class="step"><b>العامل: طلب سحب</b> بمبلغ ≤ المتاح − المعلّق ← <span class="money">WITHDRAWAL · PENDING</span> <b>يحجز المبلغ</b> (لا إنفاق مزدوج)</div>
+  <div class="arrow">▼</div>
+  <div class="step"><b>المشرف: قرار واحد فقط</b> (مقارنة واستبدال — مشرفان لا يقرّران معًا)</div>
+  <div class="arrow">▼</div>
+  <div class="step"><b>موافقة ← PROCESSED</b> (يُحتسب كخصم) &nbsp;|&nbsp; <b>رفض ← REJECTED</b> (ميت، لا يُحتسب أبدًا، لا يتحرك شيء)</div>
+</div>
+<ul>
+  <li><strong>الرصيد مشتق لا مخزَّن.</strong> السجل هو مصدر الحقيقة الوحيد؛ وكل صف يحفظ <code>balanceAfter</code> كسطر تدقيق لرصيده الجاري.</li>
+  <li><strong>حارس السحب دالة واحدة</strong> (<code>payoutGuard</code>) يستخدمها كل السطوح — وبما أن كل قيد أرباح مموَّل بالبناء، فلا يمكن لأي قيد قديم غير مموَّل أن يُسحب أبدًا.</li>
+  <li><strong>الموافقة ≠ تحويل، اليوم.</strong> <code>PROCESSED</code> تعني حاليًا «وافق المشرف»؛ وربط دفع فعلي (تحويل OMT / Stripe Payouts) في نفس نقطة الوصل توصية من §4 — ونموذج السجل لن يحتاج تغييرًا.</li>
+</ul>
+
+<h3>3.6 اللوحات التي تقيس الدفّق</h3>
+<div class="kpi-grid">
+  <div class="kpi"><div class="v">ROI</div><div class="l">لوحة العائد</div>
+    <div class="small" style="margin-top:4pt">طلبات مشتراة · عروض مُرسَلة · مهام فائزة · قيمة الأعمال · عمولات المنصة · تكلفة الاشتراك · إجمالي الإنفاق في السوق · المضاعف الناتج — شهريًا</div></div>
+  <div class="kpi"><div class="v">الأرباح</div><div class="l">كشف شهري</div>
+    <div class="small" style="margin-top:4pt">مهام مكتملة · قيمة الأعمال · عمولات مخصومة · استردادات مطبّقة · صافي الأرباح · تفصيل لكل مهمة — شهريًا</div></div>
+  <div class="kpi"><div class="v">التحليلات</div><div class="l">للعامل</div>
+    <div class="small" style="margin-top:4pt">مشاهدات · طلبات · مهام مكتملة · معدّل تحويل · متوسط قيمة المهمة · تقييم · معدل استجابة · رؤى قابلة للتنفيذ</div></div>
+</div>
+<div class="kpi-grid">
+  <div class="kpi"><div class="v">للمشرف</div><div class="l">الاحتفاظ والهجرة</div>
+    <div class="small" style="margin-top:4pt">تحويل التجربة، الهجرة، الترقيات/التخفيضات، العمر، دخل التجديد/LTV، تواصل الواتساب — من سجل SubscriptionEvent</div></div>
+  <div class="kpi"><div class="v">للمشرف</div><div class="l">المطابقة المحاسبية</div>
+    <div class="small" style="margin-top:4pt">عمولة مختومة مقابل مُتحصَّلة · عملاء بانتظار الدفع · رصيد غير مغطى (يجب 0.00$) · رصيد محجوب · مطالبات خارج المنصة — الأسوأ أولًا</div></div>
+  <div class="kpi"><div class="v">للمشرف</div><div class="l">جودة الطلبات والموجّه</div>
+    <div class="small" style="margin-top:4pt">اتجاهات تقييم أسبوعية، تحويل لكل درجة، أثر المضاعفات؛ وحكم تقرير طوارئ 30 يومًا مع سجل قرار CSV</div></div>
+</div>
+
+<h3>3.7 أربعة سيناريوهات جنبًا إلى جنب</h3>
+<table>
+  <thead><tr><th>السيناريو</th><th>ما تحصّلته المنصة</th><th class="num">العمولة</th><th class="num">ما قُيِّد للعامل</th><th>ملاحظة</th></tr></thead>
+  <tbody>
+    <tr><td><strong>مهمة مموَّلة بعربون</strong></td><td>300$ (عرض السعر كاملًا)</td><td class="num">21$</td><td class="num">279$ + استرداد</td><td>المسار الكلاسيكي؛ يُطلق السحب</td></tr>
+    <tr><td><strong>تمويل جزئي</strong></td><td>عربون 100$ ورصيد 200$ غير مدفوع</td><td class="num">21$</td><td class="num">79$ الآن، +200$ كـ ADJUSTMENT</td><td>العامل يرى «في انتظار العميل — 200$»</td></tr>
+    <tr><td><strong>نقد عند الباب</strong></td><td>0$</td><td class="num">21$ كمطالبة</td><td class="num">0$</td><td><code>settledOutside</code>؛ تُحصَّل من رصيد الرصيد أو تُتجاوز</td></tr>
+    <tr><td><strong>إلغاء حسب السياسة</strong></td><td>العربون مُسترد</td><td class="num">0$</td><td class="num">0$</td><td>المنصة تكسب العمولة على المهام المكتملة فقط</td></tr>
+    <tr><td><strong>شهر بتحفيز إحالة</strong></td><td>—</td><td class="num">—</td><td class="num">+35 رصيد قيمة</td><td>25 (للمحالِل) + 10 (للمحالَل) عند أول حجز — ميزانية طلبات مجانية</td></tr>
+  </tbody>
+</table>
+</section>
+<section class="section">
+<h2>القسم 4 — توصيات لتحسينات مطلوبة</h2>
+<p>مجمّعة حسب الموضوع، ومرتّبة بالأولوية داخل كل موضوع. عمود «السبب» مستند إلى الشيفرة والتوثيق كما هما اليوم — بما في ذلك قراران مؤجّلان عمدًا (أتمتة الدفع، وعمليات واتساب/Meta) مُشار إليهما كـ<em>مؤجَّل</em> لا كـ<em>ناقص</em>.</p>
+
+<h3>4.1 تسييل الدخل — أعلى رافعة ربح</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">التوصية</th><th>لماذا تهم</th><th style="width:11%">الجهد</th><th style="width:16%">الأثر المتوقع</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><strong>ربط بوابة دفع (Stripe أولًا ثم MyFatoorah/Tap/STC Pay)</strong> <span class="pill plan">مؤجَّل بالقرار</span></td>
+        <td>كل عملية شراء يؤكدها مشرف: التأخير ضريبة تحويل على التجديدات وتعبئة الرصيد وتفعيل الإعلانات، وعمل التأكيد يدوي يتضاعف مع قيمة الأعمال. سجلّ المزوّدات جعل البوابة تغيير ملف واحد (<code>PaymentProvider</code> + registry)، والإنتاج يرفض المحاكي فعلًا — نقطة الوصل جاهزة.</td>
+        <td>متوسط</td><td>يزيل أول عائق في التحويل؛ يفتح التجديد التلقائي (تقليل هجرة 30–50% وفق التوثيق) والإعلانات الخدمة الذاتية</td></tr>
+    <tr><td>2</td><td><strong>ضمان/أدوار دفع للمهام الكبيرة (Escrow)</strong></td>
+        <td>العربونات تُمرَّر لكن لا تُحتجَز مقابل الإتمام. حجز الأموال حتى صورة/قائمة تحقق يبيع «دفع محمي» كميزة ثقة، يرفع قيم المهام الممكنة، ويجمع العمولة <em>عند الإطلاق</em> — مع منفعة سيولة. يحتاج وسيطًا مرخّصًا لا حساب المنصة نفسه (§4.5).</td>
+        <td>مرتفع</td><td>+25% متوسط قيمة المهمة (تقدير التوثيق) وميزة تمييز قابلة للدفاع</td></tr>
+    <tr><td>3</td><td><strong>تحويل الإعلانات إلى سوق حقيقي: درجات CPM/CPC، حد أدنى للميزانية، إيقاع إنفاق، بوابة خدمة ذاتية</strong></td>
+        <td>المنتج الإعلاني يخدم ويقيس ويفوّر — لكن بسعر تجريبي ثابت بلا درجات ولا إيقاع وتفعيل يحتاج بشريًا. الشركات تدفع 0$ اليوم. بنية درجات (مثل 8$/12$/15$ CPM حسب الموضع) مع بوابة ذاتية تحوّل محرّكًا مبنيًا نائمًا إلى دخل أعمال متكرّر.</td>
+        <td>متوسط</td><td>ثاني دخل أعمال؛ تقدير التوثيق 2–10 ألف$/شهر عند 20 معلنًا</td></tr>
+    <tr><td>4</td><td><strong>تقليل تسريب النقد خارج المنصة</strong></td>
+        <td>مهام <code>settledOutside</code> لا تُقيّد شيئًا وتترك مطالبة عمولة. أدوات منتجية: دعوة دفع محمي مرئية للعميل، وعمولة مخفّضة غير صفرية للنقد المصرَّح به، ونشرة أسبوعية لحالة المطالبات للمشرفين. كل مهمة مسرَّبة خسارة 100% من العمولة على عمل جاءته المنصة.</td>
+        <td>منخفض–متوسط</td><td>يستعيد عمولة تُهدر حاليًا</td></tr>
+    <tr><td>5</td><td><strong>إطلاق تدفّق الترقية/التخفيض منتصف الدورة مع الاحتساب النسبي</strong></td>
+        <td>نافذة التجديد تعرض الفرق بالفعل — لكن التغيير يُطبَّق عند التجديد. السماح بالترقية فورًا (برصيد عن الفترة غير المستهلكة) يلتقط النية حين يبلغ الجوع للظهور ذروته: عند انتهاء حصة الطلبات.</td>
+        <td>منخفض</td><td>انتقال ARPU؛ تقدير التوثيق ‎+20%</td></tr>
+    <tr><td>6</td><td><strong>تجميع منتجات الثقة وجعلها سنوية</strong></td>
+        <td>التوثيق (‏9$/19$) والظهور المميّز (‏49$) وعلامة الطوارئ (‏9$) تُباع منفصلة بعمليات تأكيد منفصلة. حزمة «ثقة وظهور» مع خيارات سنوية تحوّل ثلاث حلقات تأكيد إلى واحدة وترفع الالتزام.</td>
+        <td>منخفض</td><td>نسبة رفع أعلى وانحراف أقل في الإضافات</td></tr>
+    <tr><td>7</td><td><strong>صقل تسعير الطلبات بالبيانات الموجودة فعليًا</strong></td>
+        <td>التسعير الذكي (0.7×–2.0×) ومضاعفات الجودة (0.8×–1.2×) وحكم تقرير 30 يومًا كلها موجودة. الناقص هو انضباط القرار: إعادة تسعير أرضية الدرجات شهريًا بناءً على التقرير وتحليلات الجودة، وإضافة واجهة إلحاح (عدّاد انتهاء، «3 عمال يشاهدون”) لرفع معدّل الشراء.</td>
+        <td>منخفض</td><td>تقدير ‎+15% دخل الطلبات، ‎+30% معدّل الشراء</td></tr>
+    <tr><td>8</td><td><strong>إكمال مسار السحب (من الموافقة إلى تحويل فعلي)</strong></td>
+        <td><code>PROCESSED</code> تعني «وافق المشرف» لا «أُرسل المال». إضافة <code>payout()</code> إلى <code>PaymentProvider</code> وعرض السحوبات في كشف الأرباح (الكشف لا يعرض السحوبات حاليًا) يجعل اقتصاديات العامل كاملة مرئية — وهذا ما يبقيه يدفع اشتراكه.</td>
+        <td>متوسط</td><td>ثقة واحتفاظ؛ تقارير مالية صادقة</td></tr>
+  </tbody>
+</table>
+
+<h3>4.2 الثقة والجودة وجانب الطلب</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">التوصية</th><th>لماذا تهم</th><th style="width:11%">الجهد</th><th style="width:16%">الأثر المتوقع</th></tr></thead>
+  <tbody>
+    <tr><td>9</td><td><strong>وزن ترتيب البحث بـ<em>عدد</em> المراجعات لا بمتوسطها فقط</strong></td>
+        <td>البحث يقيس <code>bonus + rating × 3</code> — متوسط بلا حجم ولا حداثة، فيسبق تقييم 5★ واحدًا ثمانين تقييمًا عند 4.7. وبما أن طلب التقييم يحدث عند الإتمام، فالترتيب هو حيث يجب أن يُحصَّل هذا الاستثمار؛ درجة بايزية موزونة بالحجم تحوّل كل تقييم جديد إلى إشارة سوق حقيقية.</td>
+        <td>منخفض</td><td>إشارة الجودة تصل للعملاء؛ مكافأة العمال الذين يطلبون التقييمات</td></tr>
+    <tr><td>10</td><td><strong>إضافة تحليلات قمع التقييمات</strong></td>
+        <td>لا يوجد <code>reviewRate</code>/<code>reviewsPerJob</code> في الشيفرة: لا شيء يقيس مكتمل ← مُطلَب ← مُقيَّم ← منشور، ولا نسبة التقييم لكل مهنة، ولا طابور الإشراف. بدونها تبقى ميزة طلب التقييمات غير قابلة للإثبات.</td>
+        <td>منخفض</td><td>يجعل الإصدارات الأخيرة قابلة للقياس</td></tr>
+    <tr><td>11</td><td><strong>إرسال طلب التقييم خارج التطبيق (واتساب) مع ضوابط</strong></td>
+        <td>النافذة الداخلية تصل فقط لمن يعود — أقلية بعد انتهاء العمل. لمسة واتساب تعيد استخدام سجل التسليم وسياسة إعادة المحاولة وصورة الـ24 ساعة الموجودة فعلاً؛ وتحتاج قطعة حالة جديدة واحدة (<code>reviewAskedAt</code> + عدّاد تذكير محدود) حتى لا تزعج العميل أبدًا.</td>
+        <td>متوسط</td><td>تقييمات أكثر ← ترتيب أفضل ← تحويل طلب أفضل</td></tr>
+    <tr><td>12</td><td><strong>إكمال سلّم التوثيق (رخصة ← فحص سجل كأدوات مدفوعة)</strong></td>
+        <td>أنواع الثقة موجودة لكن تسييل فحص السجل الأعلى قيمة غير موصول من الطرفين. الثقة هي أكثر ما يقبل العامل دفع ثمنه في سوق يخاف فيه العملاء من عدم الحضور.</td>
+        <td>متوسط</td><td>دخل جديد هامشيه عالٍ؛ رفع تحويل للعملاء</td></tr>
+    <tr><td>13</td><td><strong>عرض تغييرات السعر المدفوعة بالتقييم كاملة في لوحة المشرف</strong></td>
+        <td>محرّك التغذية الراجعة مبني، لكن رؤية المشرف لتغييرات مضاعفات الأسعار لكل درجة ناقصة جزئيًا. مشغّل لا يرى سبب تغيّر السعر لن يثق بالحلقة ولا يستخدمها.</td>
+        <td>منخفض</td><td>يُغلق حلقة جودة الطلبات تشغيليًا</td></tr>
+    <tr><td>14</td><td><strong>حماية استردادات الطلبات بإشارة التقييم</strong></td>
+        <td>استرداد واحد لكل طلب سخيّ؛ الجمع بينه وبين تقييمات 1–5 النجوم يُعلِّم العامل الذي يقيّم سوءًا <em>وي</em> يستردّ مرارًا. يحمي نية السياسة (الثقة) من أن تصبح مسارًا مجانيًا للرصيد.</td>
+        <td>منخفض</td><td>يحدّ من تسريب الرصيد</td></tr>
+  </tbody>
+</table>
+
+<h3>4.3 العمليات والبيانات وانضباط الهندسة</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">التوصية</th><th>لماذا تهم</th><th style="width:11%">الجهد</th><th style="width:16%">الأثر المتوقع</th></tr></thead>
+  <tbody>
+    <tr><td>15</td><td><strong>أتمتة نشرة المال الأسبوعية</strong></td>
+        <td>نشرة المشرف الأسبوعية عبر واتساب تحمل ملخّص الموجّه بالفعل. أضف إليها: مؤشر الرصيد غير المغطى من المطابقة، مطالبات العمولة المفتوحة، السحوبات المعلّقة، مخاطر الاحتفاظ، وإنفاق الإعلانات — رسالة واحدة تُبقي كل وجه من أوجه الدخل مرئيًا.</td>
+        <td>منخفض</td><td>القرارات تُتخذ فعليًا أسبوعيًا</td></tr>
+    <tr><td>16</td><td><strong>إثبات النموذج بتقرير إيرادات قائم على مجتمع حيّ</strong></td>
+        <td>التوقعات (‏3.8 ألف ← 127 ألف) نمذجة، وخلايا «الوضع الحالي» لا تزال <em>غير معروف</em> / <em>0$</em>. تقرير شهري من صفوف <code>Payment</code> و<code>Invoice</code> و<code>PlatformFeeSnapshot</code> و<code>SubscriptionEvent</code> الفعلية — MRR، ARPU، دخل العمولة، دخل الطلبات، التحويل، الهجرة — يحلّ محلّ التخمين بالقياس.</td>
+        <td>متوسط</td><td>كل قرار تسعير يصبح قائمًا على دليل</td></tr>
+    <tr><td>17</td><td><strong>استمرار تجديد مستندات المال</strong></td>
+        <td>دليل DOCX ودليل اختبار الإيرادات يتأخّران عن الشيفرة (وكان الفجوة تعني اختبار قاعدة تسوية مُلغيّة). مولّد <code>docs:manual</code> موجود — ضع التجديد في قائمة إصدار كل نسخة فيقرأ الشريك ما يطابق الإنتاج.</td>
+        <td>منخفض</td><td>يزيل مصدرًا متكررًا لقرارات خاطئة</td></tr>
+    <tr><td>18</td><td><strong>نضارة سوق بيئات العرض</strong></td>
+        <td>السوق الفارغ يُعطّل كل قمع أعلاه. سكربت البذور يموّل المهام المكتملة صحيحة الآن؛ رتّب تحديث بيانات العرض لبيئات العرض العامة، وفي التشغيل الفعلي راقب «الوقت حتى أول مهمة» كمؤشر أساسي.</td>
+        <td>منخفض</td><td>مصداقية انطلاق بارد</td></tr>
+    <tr><td>19</td><td><strong>استمرار صرامة خط CI (بدأ — واصحب)</strong></td>
+        <td>بوابة سكربتات واختبارات «لا تغطية بـ <code>|| true</code>» أغلقت طبقة فشل صامتة. وسّع نفس الانضباط لبقية خطوات الخط، وأضف فحص مسار/مانيفست وقت النشر حتى لا يختفي ملف مخفي مرة أخرى من نشرة.</td>
+        <td>منخفض</td><td>يمنع ارتدادات لا تظهر إلا في الإنتاج</td></tr>
+    <tr><td>20</td><td><strong>التحقق من عمليات Meta WhatsApp عند رفع الأجل</strong></td>
+        <td>سجل التسليم والويبهوك ومسح إعادة المحاولة ولوحة المراجعة مبنية؛ والإرسال الحيّ عبر Meta ينتظر ضبط بيانات اعتماد/ويبهوك في الإنتاج. عند استئناف العمل، الخطوات المتبقية موثّقة بالفعل — عاملها قائمة لا إعادة تصميم.</td>
+        <td>منخفض (إعداد)</td><td>رؤية تسليم لكل التواصلات</td></tr>
+  </tbody>
+</table>
+
+<h3>4.4 النمو والتوسّع</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">التوصية</th><th>لماذا تهم</th><th style="width:11%">الجهد</th><th style="width:16%">الأثر المتوقع</th></tr></thead>
+  <tbody>
+    <tr><td>21</td><td><strong>مدينة ثانية، ثم دولة ثانية</strong></td>
+        <td>طرابلس/صيدا/جونية تعديلات كتالوج تخلق فورًا مخزونًا جديدًا للظهور المميّز وطوال؛ وخطة تعدّل الدولة متعددة تعرف كيف تنقلب المدينة والعملة واللغة. 3–5× سوق قابل للاستهداف بلا منتج جديد.</td>
+        <td>منخفض–متوسط</td><td>نمو السوق ومخزون جديد للبيع</td></tr>
+    <tr><td>22</td><td><strong>مقاعد CRM وحلول توليد الطلبات للشركات</strong></td>
+        <td>الشركات تشتري إعلانات بالفعل؛ مقاعد مع توجيه طلبات وتنبيهات إنفاق وتقارير أسعار السوق (مجهولة الهوية) تحوّل ميزانيات لمرة واحدة إلى دخل أعمال متكرّر (نطاق ‏99–499$/شهر في الخطة).</td>
+        <td>مرتفع</td><td>دخل أعمال متكرّر بتوسّع إضافي</td></tr>
+    <tr><td>23</td><td><strong>ولاء جانب الطلب</strong></td>
+        <td>العملاء مجانيون (وهو صحيح) — لكن ميزة ولاء حجز (خصم عمولة بعد N مهام، معروضة للعامل كميزة أيضًا) تُكرّر قيمة الأعمال دون فرض ضريبة على اكتساب العملاء.</td>
+        <td>منخفض</td><td>قيمة أعمال متكرّرة وCAC فعّالة أقل</td></tr>
+    <tr><td>24</td><td><strong>قطاعات مجاورة</strong></td>
+        <td>سوق موردين (مواد/أدوات)، شركات تأمين (عمولة مسؤولية العامل)، وسوق تدريب/شهادات (منتجات رقمية هامشيها عالي) — كلها تعيد استخدام آلية الرصيد والفاتورة والسجل المبنية أصلًا.</td>
+        <td>مرتفع</td><td>عمود دخل جديد على قنوات قائمة</td></tr>
+    <tr><td>25</td><td><strong>تسييل يركّز على الجوال</strong></td>
+        <td>PWA القابل للتثبيت (إشعار دفع، كاميرا إثبات عمل) هو أعلى قناة نيّة. إرسال طوارئ مدفوع بالدفع مع مسار دفع داخل التطبيق هو حيث ستُجرى الأعمال العاجلة عالية القيمة.</td>
+        <td>متوسط</td><td>تحويل على أعلى قناة نيّة</td></tr>
+  </tbody>
+</table>
+
+<h3>4.5 المخاطر والامتثال وحواجز النموذج</h3>
+<ul>
+  <li><strong>ضريبة القيمة المضافة على العمولات والاشتراكات.</strong> عمولات المنصة واشتراكاتها أحداث ضريبية في أغلب أسواق MENA (السعودية 15%، الإمارات 5%). عرض الأسعار اليوم بالدولار وبلا ضريبة — قرّر بوضوح إن كانت الضريبة شاملة قبل التوسّع، واكتب مكوّن الضريبة في الفواتير من البداية.</li>
+  <li><strong>ضوابط حفظ المال لضمان الأموال.</strong> التوصية #2 يجب تنفيذها <em>عبر وسيط مرخّص أو ضمان البوابة نفسها</em>، لا حساب المنصة أبدًا — وإلا تحوّلت ميزة ثقة إلى مسؤولية تنظيمية.</li>
+  <li><strong>تعريض الاسترداد.</strong> أبقِ عمولة المنصة قابلة للاسترداد مع الحجز الملغى (السلوك الحالي) — أو اجمعها عند الإتمام فقط — حتى لا تتحول موجة إلغاء إلى رفض من العملاء. راقب أثر نافذة ال24 ساعة على دخل العامل وعدّلها ببيانات لا بقصص.</li>
+  <li><strong>ثقافة الدفع النقدية.</strong> النقد عند التسليم شائع في المنطقة؛ فإن تجاوزت المهام النقدية المنصة ضاعت العمولة عن أغلب الصفقات. التوصية #4 هي المعادلة — اجعل الدفع عبر المنصة أوضح أمانًا <em>و</em> رخيصًا بما يكفي ليكون المسار الافتراضي.</li>
+  <li><strong>حساسية سعر العرض.</strong> العمال غير الرسميون حساسون للسعر: أبقِ الباقة المبدأية رخيصة، ودع الاسترداد وحجم الأعمال يبرّران العمولة، وسوّق دائمًا «مهام لا مجرد مشاهدات». لا ترفع العمولة قبل أن يرتفع حجم الأعمال بشكل ملموس.</li>
+  <li><strong>انطلاق ثنائي البارد.</strong> استمر بعدم فرض رسوم على جانب الطلب. كل رسم مقترح يخص العرض أو الشركات حتى تستقرّ أثر الشبكة.</li>
+  <li><strong>افتراض عملة واحدة.</strong> الدولار مناسب للبنان؛ وعملة مستأجرة ثانية لا يجب أن تتسرب إلى السجلات — العمال متعددو العملات مسألة موثّقة لموجة الدولة متعددة، لا خلل يُكتشف متأخرًا.</li>
+</ul>
+
+<h3>4.6 التسلسل المقترح</h3>
+<table>
+  <thead><tr><th>الأفق</th><th>الأولويات</th><th>لأن</th></tr></thead>
+  <tbody>
+    <tr><td><strong>الآن (0–1 شهر)</strong></td><td>#16 تقرير الإيرادات، #15 النشرة، #9 ترتيب بالمراجعات، #10 مقاييس القمع، #5 تدفّق الترقية، #7 انضباط التسعير، #17 تجديد المستندات</td><td>كلها جهد منخفض، وأغلبها يحوّل عملًا مُسلَّمًا بالفعل إلى نتائج <em>مُقاسة</em></td></tr>
+    <tr><td><strong>التالي (1–3 أشهر)</strong></td><td>#1 البوابة، #3 درجات إعلانية + خدمة ذاتية، #4 تسريب النقد، #6 حزم، #8 مسار السحب، #11 طلب تقييم خارجي، #12 سلّم التوثيق</td><td>موجة الدفع هي الشرط الذي تسمّيه الخطة نفسها — وكل ما هنا يضخّمه</td></tr>
+    <tr><td><strong>الاستراتيجي (3–12 شهرًا)</strong></td><td>#2 ضمان (مع وسيط)، #21 مدينة/دولة ثانية، #22 مقاعد CRM، #24 العمودات، #25 تسييل الجوال</td><td>رهانات السوق والهامش التي تحتاج أساس تحصيل موثوقًا أولًا</td></tr>
+  </tbody>
+</table>
+
+<div class="rule">
+  <span class="t">الاستراتيجية في جملة</span>
+  النموذج واسع بالفعل — أربعة عشر مصدرًا، كلها قابلة للضبط من المشرف، وكلها قابلة للتحصيل على القنوات اليدوية اللبنانية. الدولار القادم يأتي أقل من <em>إضافة</em> مصدر جديد وأكثر من <strong>أتمتة التحصيل على المصادر الموجودة</strong> (#1، #3، #8)، و<strong>حماية العمولة من تسريب النقد</strong> (#4)، و<strong>تحويل إشارات الجودة التي تسجّلها أصلًا إلى قرارات ترتيب وتسعير</strong> (#9، #10، #7).
+</div>
+
+<div class="signoff">
+  نهاية المستند · نموذج أعمال WorkersArena ودليل الاستخدام ودفّق الإيرادات للعامل · الإصدار 1.0 · 23 سبتمبر 2026<br />
+  المصادر: docs/BUSINESS-MODEL.md · BUSINESS-MODEL-SUMMARY.md · REVENUE-STREAMS.md · PAYMENTS.md · booking-settlement.md ·
+  booking-take-rate.md · payouts.md · ADVERTISING-SYSTEM.md · الإنتاج على https://workers-arena.vercel.app<br />
+  جميع الأسعار والنسب هي قيم افتراضية كما هي مطبَّقة وقابلة للتعديل من المشرف؛ والأرقام التصديرية تقديرات وليست قياسات.
+</div>
+</section>
+
+</main>
+</body>
+</html>

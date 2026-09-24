@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>WorkersArena — Business Model, Usage Guide &amp; Worker Revenue Stream</title>
+<style>
+  /* ---------- Page &amp; typography ---------- */
+  @page { size: A4; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; color-scheme: light only; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, "Noto Sans", sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.55;
+    color: #1c2330;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  main { padding: 0; }
+
+  h1, h2, h3, h4 { line-height: 1.25; color: #0f172a; }
+  h1 { font-size: 20pt; margin: 0 0 6pt; }
+  h2 { font-size: 14.5pt; margin: 22pt 0 8pt; padding-bottom: 4pt; border-bottom: 2pt solid #2563eb; break-after: avoid; }
+  h3 { font-size: 11.6pt; margin: 16pt 0 6pt; color: #1e40af; break-after: avoid; }
+  h4 { font-size: 10.4pt; margin: 12pt 0 4pt; color: #334155; break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt; padding-left: 17pt; }
+  li { margin-bottom: 3pt; }
+  strong { color: #0f172a; }
+  .muted { color: #5b6472; }
+  .small { font-size: 8.8pt; }
+  a { color: #1d4ed8; text-decoration: none; }
+
+  /* ---------- Cover ---------- */
+  .cover {
+    border: 1.5pt solid #0f172a;
+    border-top: 8pt solid #2563eb;
+    border-radius: 4pt;
+    padding: 26pt 24pt 20pt;
+    margin-bottom: 16pt;
+  }
+  .cover .brand { font-size: 9.5pt; letter-spacing: 2.5pt; text-transform: uppercase; color: #2563eb; font-weight: 700; margin-bottom: 10pt; }
+  .cover h1 { font-size: 26pt; }
+  .cover .sub { font-size: 12pt; color: #334155; margin: 6pt 0 16pt; }
+  .cover .meta { display: flex; gap: 24pt; flex-wrap: wrap; border-top: 1pt solid #cbd5e1; padding-top: 12pt; font-size: 9.2pt; }
+  .cover .meta div span { display: block; color: #64748b; font-size: 8.2pt; text-transform: uppercase; letter-spacing: 0.6pt; }
+
+  /* ---------- TOC ---------- */
+  .toc { border: 1pt solid #cbd5e1; border-radius: 4pt; padding: 12pt 16pt; margin-bottom: 14pt; background: #f8fafc; }
+  .toc h2 { margin-top: 0; border-bottom: none; font-size: 12pt; }
+  .toc ol { columns: 1; padding-left: 16pt; margin-bottom: 0; }
+  .toc li { margin-bottom: 2.5pt; font-size: 9.6pt; }
+
+  /* ---------- Tables ---------- */
+  /* Tables are the one content type that may exceed a page: let them split,
+     but never split inside a row, and repeat the header on every page. */
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.1pt; break-inside: auto; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th, td { border: 0.6pt solid #cbd5e1; padding: 4.5pt 6pt; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+  th { background: #eff6ff; color: #0f172a; font-weight: 700; }
+  tbody tr:nth-child(even) td { background: #f8fafc; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  caption { caption-side: top; text-align: left; font-size: 8.8pt; color: #5b6472; padding-bottom: 3pt; font-style: italic; }
+  tfoot td { background: #dbeafe !important; font-weight: 700; }
+
+  /* ---------- Callouts ---------- */
+  .note, .warn, .rule {
+    border-left: 3.5pt solid #2563eb; background: #eff6ff;
+    padding: 7pt 10pt; margin: 8pt 0; border-radius: 0 3pt 3pt 0; break-inside: avoid;
+  }
+  .warn { border-left-color: #d97706; background: #fffbeb; }
+  .rule { border-left-color: #059669; background: #ecfdf5; }
+  .note .t, .warn .t, .rule .t { font-weight: 700; display: block; margin-bottom: 2pt; font-size: 9.4pt; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .note .t { color: #1d4ed8; } .warn .t { color: #b45309; } .rule .t { color: #047857; }
+
+  /* ---------- Diagrams ---------- */
+  pre {
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 8.4pt; line-height: 1.4;
+    background: #0f172a; color: #e2e8f0;
+    padding: 10pt 12pt; border-radius: 4pt;
+    overflow-x: hidden; white-space: pre; margin: 8pt 0 10pt; break-inside: avoid;
+  }
+  pre .c { color: #7dd3fc; }
+  pre .g { color: #86efac; }
+  pre .y { color: #fde68a; }
+  pre .r { color: #fca5a5; }
+  figure { margin: 10pt 0 12pt; break-inside: avoid; }
+  figure svg { width: 100%; height: auto; display: block; border: 1pt solid #cbd5e1; border-radius: 4pt; background: #fff; }
+  figcaption { font-size: 8.6pt; color: #5b6472; margin-top: 4pt; font-style: italic; }
+
+  /* ---------- Steps ---------- */
+  ol.steps { counter-reset: step; list-style: none; padding-left: 0; margin: 6pt 0 10pt; }
+  ol.steps > li {
+    counter-increment: step; position: relative;
+    padding: 6pt 8pt 6pt 34pt; border: 0.6pt solid #cbd5e1; border-radius: 3pt;
+    margin-bottom: 5pt; background: #fff; break-inside: avoid;
+  }
+  ol.steps > li::before {
+    content: counter(step); position: absolute; left: 7pt; top: 6pt;
+    width: 17pt; height: 17pt; border-radius: 50%;
+    background: #2563eb; color: #fff; font-size: 8.4pt; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.steps > li b { color: #1e40af; }
+
+  .pill { display: inline-block; font-size: 7.6pt; font-weight: 700; padding: 1pt 5pt; border-radius: 8pt; vertical-align: 1pt; }
+  .live { background: #d1fae5; color: #065f46; }
+  .built { background: #dbeafe; color: #1e40af; }
+  .plan { background: #fef3c7; color: #92400e; }
+
+  .section { break-before: page; }
+  .two-col { display: flex; gap: 12pt; }
+  .two-col > div { flex: 1; }
+  .kpi-grid { display: flex; flex-wrap: wrap; gap: 8pt; margin: 8pt 0 10pt; }
+  .kpi { flex: 1 1 30%; border: 0.8pt solid #cbd5e1; border-top: 3pt solid #2563eb; border-radius: 3pt; padding: 7pt 9pt; background: #f8fafc; break-inside: avoid; }
+  .kpi .v { font-size: 14pt; font-weight: 800; color: #0f172a; }
+  .kpi .l { font-size: 8.2pt; color: #5b6472; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .signoff { margin-top: 22pt; border-top: 1pt solid #cbd5e1; padding-top: 8pt; font-size: 8.6pt; color: #64748b; }
+</style>
+</head>
+<body>
+<main>
+
+<!-- ============================= COVER ============================= -->
+<header class="cover">
+  <div class="brand">WorkersArena · Beirut · Lebanon</div>
+  <h1>Business Model, Usage Guide &amp;<br />Worker Revenue Stream</h1>
+  <div class="sub">The complete plain-text reference: how the marketplace makes money, how each participant uses it step by step,
+  how a worker earns and is paid, and where the model should be improved next.</div>
+  <div class="meta">
+    <div><span>Document</span> Plain-text business reference (PDF)</div>
+    <div><span>Version</span> 1.0 — 23 September 2026</div>
+    <div><span>Tenant</span> Lebanon (Beirut) · USD · AR/EN bilingual</div>
+    <div><span>Live rails</span> OMT &amp; Whish Money (manual, admin-confirmed)</div>
+    <div><span>Production</span> https://workers-arena.vercel.app</div>
+  </div>
+</header>
+
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><strong>Section 1 — The Existing Business Model.</strong> What the platform is, the participants, all revenue streams with their exact prices, the payment rails, and the collection rule that makes the take rate real money.</li>
+    <li><strong>Section 2 — Step-by-Step: How to Use It.</strong> Four complete journeys — worker, customer, company/advertiser, and administrator — from first click to money settled, including every OMT/Whish confirmation loop.</li>
+    <li><strong>Section 3 — The Worker Revenue Stream.</strong> How a worker earns, two fully-worked numeric examples, the monthly economics per plan tier, the money waterfall, the payout lifecycle, and the dashboards that measure it.</li>
+    <li><strong>Section 4 — Recommendations for Areas of Improvement.</strong> Prioritised recommendations across monetisation, trust &amp; quality, operations &amp; data, growth, and risk — each with why it matters, effort, and expected impact.</li>
+  </ol>
+</div>
+
+<div class="note">
+  <span class="t">How this document was produced</span>
+  Generated 23 September 2026 from the repository's living documentation and code:
+  <code>docs/BUSINESS-MODEL.md</code>, <code>docs/BUSINESS-MODEL-SUMMARY.md</code>, <code>docs/REVENUE-STREAMS.md</code>,
+  <code>docs/PAYMENTS.md</code>, <code>docs/booking-settlement.md</code>, <code>docs/booking-take-rate.md</code>,
+  <code>docs/payouts.md</code>, <code>docs/ADVERTISING-SYSTEM.md</code>. All prices, rates and formulas below are the
+  defaults as implemented; every one of them is admin-editable at runtime, so the live site may differ after a
+  configuration change. Figures marked <em>illustrative</em> are modelled projections, not measurements.
+</div>
+
+<!-- ================================================================= -->
+<!-- SECTION 1                                                          -->
+<!-- ================================================================= -->
+<section class="section">
+<h2>Section 1 — The Existing Business Model</h2>
+
+<h3>1.1 What the platform is</h3>
+<p>
+WorkersArena is a <strong>two-sided local-services marketplace</strong> for home and commercial work — plumbers,
+electricians, cleaners, AC technicians, carpenters, painters and more. It has a third, business-facing side:
+<strong>companies</strong> that buy advertising. The product is bilingual (Arabic RTL / English LTR), prices
+everything in <strong>US dollars</strong>, and currently serves <strong>Beirut, Lebanon</strong> as its city.
+Profiles, quotes, bookings, reviews, lead offers and invoices all exist in both languages.
+</p>
+<p>
+The commercial thesis is deliberately layered: <strong>workers pay to be seen</strong> (subscription),
+<strong>workers pay to compete</strong> (credits → leads), <strong>the platform takes a cut of work won</strong>
+(take rate, refunded partly by lead rebates), <strong>trust is sold</strong> (verification, featured slots,
+emergency markers), and <strong>companies pay to reach the audience</strong> (advertising). Customers — the demand
+side — are intentionally <strong>free</strong>, because charging bookers early would throttle the network effect
+that makes every other stream worth anything.
+</p>
+
+<h4>The four participants</h4>
+<table>
+  <thead><tr><th style="width:16%">Participant</th><th style="width:34%">What they do</th><th>What they pay</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Worker</strong> (supply)</td>
+        <td>Builds a profile with prices, certificates, hours and availability; buys leads; sends quotes; takes bookings; gets paid through the platform's ledger.</td>
+        <td>Subscription ($7.50–$299/mo depending on plan × trade multiplier), lead credits ($1 each), paid verification ($9/$19), featured ($49/category/mo), emergency marker ($9/mo), plus the take rate on completed jobs.</td></tr>
+    <tr><td><strong>Customer</strong> (demand)</td>
+        <td>Searches, browses, favourites, reviews, requests jobs, pays deposit and balance.</td>
+        <td><strong>Nothing to the platform</strong> — the job price is paid to the worker; the platform's fee comes out of the worker's side.</td></tr>
+    <tr><td><strong>Company</strong> (B2B)</td>
+        <td>Runs advertising campaigns across 8 ad formats with city/category targeting and ROI analytics.</td>
+        <td>Campaign budgets — priced at ~$10 CPM / $1 CPC in the current model.</td></tr>
+    <tr><td><strong>Admin</strong> (platform)</td>
+        <td>Confirms manual payments, approves payouts, edits every price and rule, reviews lead refunds, sends WhatsApp outreach, reconciles money.</td>
+        <td>Collects every stream listed below.</td></tr>
+  </tbody>
+</table>
+
+<h3>1.2 The revenue architecture — every stream at a glance</h3>
+<table>
+  <caption>All monetisable surfaces as implemented. "Status" distinguishes what collects money today from what is built but waiting on a gateway.</caption>
+  <thead><tr><th>#</th><th>Revenue stream</th><th>Status</th><th>Pricing as configured</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Worker subscriptions</td><td><span class="pill live">LIVE</span></td><td>$15 / $39 / $99 / $199 per month × trade multiplier (0.5×–1.5×); annual = 9 months for 12</td></tr>
+    <tr><td>2</td><td>Platform fee (take rate)</td><td><span class="pill live">LIVE</span></td><td>4%–12% of job quote, min $5, max $300 per job</td></tr>
+    <tr><td>3</td><td>Lead marketplace</td><td><span class="pill live">LIVE</span></td><td>5 / 9 / 20 / 35 credits per grade (Bronze→Emergency), smart-pricing 0.7×–2.0×</td></tr>
+    <tr><td>4</td><td>Credit purchases</td><td><span class="pill live">LIVE</span></td><td>$10 / $25 / $50 / $100 packages, bonus credits up to +30</td></tr>
+    <tr><td>5</td><td>Lead rebates</td><td><span class="pill live">LIVE</span></td><td>Lead cost credited back against the platform fee on conversion (loyalty loop)</td></tr>
+    <tr><td>6</td><td>Paid verification</td><td><span class="pill live">LIVE</span></td><td>$9 Basic (ID) / $19 Professional (licence + background), 12-month validity</td></tr>
+    <tr><td>7</td><td>Featured slot</td><td><span class="pill live">LIVE</span></td><td>$49 per category per month, homepage placement</td></tr>
+    <tr><td>8</td><td>Emergency marker</td><td><span class="pill live">LIVE</span></td><td>$9 per month, 24/7 urgent-job badge + emergency lead offers</td></tr>
+    <tr><td>9</td><td>Referral program</td><td><span class="pill live">LIVE</span></td><td>25 credits to referrer, 10 to invitee, cap 10/month, qualifies on first booking</td></tr>
+    <tr><td>10</td><td>Company advertising</td><td><span class="pill built">BUILT · manual rails</span></td><td>~$10 CPM + $1 CPC, 8 ad types, 6 placements, activation gated on payment</td></tr>
+    <tr><td>11</td><td>Smart pricing</td><td><span class="pill live">LIVE</span></td><td>Lead-price multiplier 0.7×–2.0× (rush, weekend, season, holidays, supply/demand, emergency)</td></tr>
+    <tr><td>12</td><td>Promotions engine</td><td><span class="pill live">LIVE</span></td><td>Campaign-driven credit bonuses, admin-created</td></tr>
+    <tr><td>13</td><td>Recurring jobs</td><td><span class="pill live">LIVE</span></td><td>Cron materialises recurring occurrences → repeat GMV and repeat fees</td></tr>
+    <tr><td>14</td><td>Retention / analytics surfaces</td><td><span class="pill built">BUILT</span></td><td>ROI dashboard, earnings statement, lead-quality analytics, retention export — measurement, not billing</td></tr>
+  </tbody>
+</table>
+
+<h3>1.3 Stream detail</h3>
+
+<h4>A. Worker subscriptions — the recurring base</h4>
+<table>
+  <thead><tr><th>Plan</th><th class="num">Monthly</th><th class="num">Annual (9 mo)</th><th class="num">Leads/mo</th><th>What it unlocks</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Starter</strong></td><td class="num">$15</td><td class="num">$135</td><td class="num">3</td><td>Profile + search listing (the paywall starts here)</td></tr>
+    <tr><td><strong>Growth</strong></td><td class="num">$39</td><td class="num">$351</td><td class="num">10</td><td>+ featured placement eligibility, verification, more leads</td></tr>
+    <tr><td><strong>Pro</strong></td><td class="num">$99</td><td class="num">$891</td><td class="num">25</td><td>+ priority matching, analytics, emergency marker</td></tr>
+    <tr><td><strong>Business</strong></td><td class="num">$199</td><td class="num">$1,791</td><td class="num">Unlimited</td><td>+ reduced 4% take rate, team management</td></tr>
+  </tbody>
+  <tfoot><tr><td colspan="5">Annual billing = pay 9 months, get 12 (25% off). New plans/prices are edited at <code>/admin/revenue-settings</code>, never hard-coded.</td></tr></tfoot>
+</table>
+<ul>
+  <li><strong>Category-adjusted pricing.</strong> Trades are classified by average job value: <em>low-value</em> (cleaning, gardening, pest control) ×0.5 → Starter $7.50; <em>mid-value</em> (plumbing, electrical, carpentry) ×1.0 → $15; <em>high-value</em> (HVAC, satellite, mechanic) ×1.5 → $22.50. The same price × multiplier is used on the instructions page, the invoice and the subscription record.</li>
+  <li><strong>Trial policy.</strong> Starter/Growth get 30 days free, Pro 14 days, Business is assisted by default. Eligibility is checked server-side, once per worker; a lapsed trial never reopens.</li>
+  <li><strong>The paywall (visibility gating).</strong> An expired subscription removes the worker from public search. Search visibility is workers' #1 KPI, so expiry doubles as the highest-converting upsell trigger, reinforced by 7/3/1-day renewal reminders (cron + dashboard banner) and an "expiring" status.</li>
+  <li><strong>Invoicing.</strong> Every confirmed renewal mints an <code>INV-*</code> invoice with the exact charged amount.</li>
+</ul>
+
+<h4>B. Platform fee (take rate) — the headline lever</h4>
+<table>
+  <thead><tr><th>Plan tier</th><th class="num">Rate</th><th class="num">Floor</th><th class="num">Cap</th><th>Formula</th></tr></thead>
+  <tbody>
+    <tr><td>Free</td><td class="num">12%</td><td class="num">$5</td><td class="num">$300</td><td rowspan="5"><code>fee = clamp(round(quote × bps / 10000), 500, 30000)</code><br />rounded half-up to the minor unit, then clamped</td></tr>
+    <tr><td>Starter</td><td class="num">9%</td><td class="num">$5</td><td class="num">$300</td></tr>
+    <tr><td>Growth</td><td class="num">7%</td><td class="num">$5</td><td class="num">$300</td></tr>
+    <tr><td>Pro</td><td class="num">5%</td><td class="num">$5</td><td class="num">$300</td></tr>
+    <tr><td>Business</td><td class="num"><strong>4% reduced</strong></td><td class="num">$5</td><td class="num">$300</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><strong>Stamped once, never recomputed.</strong> The fee is written at <em>accept-with-quote</em> as an immutable <code>PlatformFeeSnapshot</code> (amount + rate-in-bps audit trail). Later rate changes cannot rewrite history.</li>
+  <li><strong>Shown on both sides.</strong> The worker's respond dialog previews <em>"Quote / Platform fee / You receive"</em> live as they type; the customer's booking row shows <em>"$80 · Includes platform fee $5.60 · Worker receives $74.40"</em> — transparency is a trust feature, and both surfaces call the same pure calculator.</li>
+  <li><strong>Overrides.</strong> Admins can set per-category and per-promotion rules, and can mark a rule explicitly exempt — only an explicit exempt rule renders "waived"; Business/Enterprise are merely <em>reduced-rate</em> by default.</li>
+</ul>
+
+<h4>C. Lead marketplace — selling qualified demand</h4>
+<table>
+  <thead><tr><th>Grade</th><th class="num">Price</th><th>What the customer supplied</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Bronze</strong></td><td class="num">5 credits ($5)</td><td>Basic request info, no email</td></tr>
+    <tr><td><strong>Silver</strong></td><td class="num">9 credits ($9)</td><td>Email + category + location</td></tr>
+    <tr><td><strong>Gold</strong></td><td class="num">20 credits ($20)</td><td>Full profile + photos + signed in</td></tr>
+    <tr><td><strong>Emergency</strong></td><td class="num">35 credits ($35)</td><td>24/7 urgent request</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><strong>Matching engine.</strong> Weighted score decides who even sees the offer: trade 30%, area 12%, rating 12%, response rate 10%, city 8%, availability 8%, reviews 6%, plan tier 6%, emergency fit 5%, verified 3% (= 100).</li>
+  <li><strong>Ownership.</strong> Exclusive by default — buying revokes rivals' offers — capped at <code>maxWorkersPerLead</code> (default 3 shown) with a time-based expiry window (default 2 hours).</li>
+  <li><strong>Contact reveal ladder.</strong> hidden → masked → revealed, by purchase status and plan tier; after a booking, the customer's consent reveals it. A free-plan buyer keeps a masked contact after purchase — a deliberate plan-tier lever.</li>
+  <li><strong>Quality feedback loop.</strong> Workers rate a purchased lead 1–5 stars; the rating drives per-grade price multipliers (0.8× discount … 1.2× surcharge) and nudges matching weights, with an admin lead-quality analytics dashboard.</li>
+</ul>
+
+<h4>D. Platform credits — the pre-paid unit of demand</h4>
+<table>
+  <thead><tr><th>Package</th><th class="num">Credits</th><th class="num">Price</th><th class="num">Bonus</th><th class="num">Total</th></tr></thead>
+  <tbody>
+    <tr><td>Starter</td><td class="num">10</td><td class="num">$10</td><td class="num">0</td><td class="num">10</td></tr>
+    <tr><td>Popular</td><td class="num">25</td><td class="num">$25</td><td class="num">+5</td><td class="num">30</td></tr>
+    <tr><td>Professional</td><td class="num">50</td><td class="num">$50</td><td class="num">+15</td><td class="num">65</td></tr>
+    <tr><td>Enterprise</td><td class="num">100</td><td class="num">$100</td><td class="num">+30</td><td class="num">130</td></tr>
+  </tbody>
+  <tfoot><tr><td colspan="5">1 credit = $1 by convention. Bonus credits are promotional and itemised separately. Balance is <em>derived</em> from an append-only <code>WorkerCreditEntry</code> ledger — never stored — so every grant, spend and refund adjustment is auditable.</td></tr></table>
+</table>
+<p>
+Workers may request <strong>one refund per purchased lead</strong> (invalid contact, duplicate, wrong category/area,
+customer never requested the service, unreachable customer). Admins review evidence and approve full or partial
+credit returns; approvals append an adjustment row — the original spend row is never edited or deleted, and
+duplicates are rejected.
+</p>
+
+<h4>E. Lead rebate — buying leads lowers the take rate you pay</h4>
+<div class="rule">
+  <span class="t">The loyalty loop</span>
+  When a bought lead converts to a completed job, the lead's cost is credited back against the platform fee:
+  <code>rebate = min(fee × pctBps/10000, lead cost, ceiling)</code> — default 100% of the fee share, no ceiling.
+  The stamped fee is never rewritten; the rebate is recorded in an append-only <code>LeadRebate</code> row.
+</div>
+<pre>
+<span class="c">Worked example (default rules)</span>
+  Quote                        = $300.00      Growth worker → 7% take rate
+  Platform fee (stamped)       = $21.00       7% × 300, inside the $5–$300 band
+  Gold lead the worker BOUGHT  = $20.00       (20 credits spent earlier)
+  Rebate                       = $20.00       min(21 × 100%, 20, ∞)
+  ─────────────────────────────────────
+  Platform keeps               = $1.00        effective take rate on this job ≈ 0.33%
+  Worker nets                  = $299.00      ($300 − $21 fee + $20 rebate)
+</pre>
+<p class="small muted">The rebate is the mechanism that answers the classic worker objection — "I paid for a lead
+<em>and</em> you take a cut". Both costs are real, but only one is returned when the lead actually wins work.</p>
+
+<h4>F. Paid trust: verification, featured, emergency</h4>
+<table>
+  <thead><tr><th>Product</th><th class="num">Price</th><th>Delivered</th></tr></thead>
+  <tbody>
+    <tr><td>Verification — Basic</td><td class="num">$9</td><td>ID check, badge in search, 12-month validity</td></tr>
+    <tr><td>Verification — Professional</td><td class="num">$19</td><td>Licence + background check, badge, 12-month validity</td></tr>
+    <tr><td>Featured slot</td><td class="num">$49 / category / mo</td><td>Homepage featured-worker section placement</td></tr>
+    <tr><td>Emergency marker</td><td class="num">$9 / mo</td><td>"Available 24/7" badge + eligibility for emergency lead offers</td></tr>
+  </tbody>
+</table>
+<p>Each is purchased through the same OMT/Whish rail and flipped on by the admin's confirmation — the worker's
+upgrade dialog offers all three inline.</p>
+
+<h4>G. Referral program — supply growth as a credit cost</h4>
+<ul>
+  <li>Referrer <strong>+25 credits</strong> per successful referral · Invitee <strong>+10 credits</strong> on signup.</li>
+  <li>Qualifying action: the invitee must <strong>complete their first booking</strong> (credits are not paid for a bare signup).</li>
+  <li>Cap: <strong>10 referrals per worker per month</strong>, lifetime unlimited. Configurable via <code>FeeRuleSet.referral</code>.</li>
+</ul>
+
+<h4>H. Company advertising — the dormant B2B engine</h4>
+<ul>
+  <li><strong>8 ad types:</strong> banner, slider, featured card, sponsored search, sponsored category, popup, native, video.</li>
+  <li><strong>6 placements:</strong> search results top, category page, worker-profile sidebar, sticky mobile banner (24h-dismissible), weekly email digest (with tracking pixel), retargeting overlay (fires after 2+ views or a &lt;30s bounce).</li>
+  <li><strong>Pricing model as built:</strong> impressions burn $0.01 and clicks burn $1 — i.e. roughly <strong>$10 CPM + $1 CPC</strong>. Targeting by city and category; rotation; impression/click/CTR/CPC/ROAS analytics.</li>
+  <li><strong>Activation gate:</strong> campaign creation mints a PENDING invoice + payment, the company pays, and only the admin/webhook confirmation flips it to ACTIVE. <code>getActiveAdsFor</code> matches ACTIVE only — an unpaid campaign never serves an impression.</li>
+  <li><strong>Status flow:</strong> PENDING (unpaid) → ACTIVE (live) ⇄ PAUSED → ENDED; refunds end the campaign and void the invoice as a credit note.</li>
+</ul>
+
+<h4>I. Smart pricing — what a lead is worth changes by the hour</h4>
+<table>
+  <thead><tr><th>Factor</th><th class="num">Multiplier</th></tr></thead>
+  <tbody>
+    <tr><td>Rush hour (6–9 AM, 5–8 PM)</td><td class="num">+15%</td></tr>
+    <tr><td>Weekend (Sat–Sun)</td><td class="num">+10–20%</td></tr>
+    <tr><td>Seasonal — AC in summer / plumbing in winter</td><td class="num">+25% / +15%</td></tr>
+    <tr><td>Holidays (Ramadan, Eid, Christmas)</td><td class="num">+30–35%</td></tr>
+    <tr><td>Supply/demand imbalance</td><td class="num">0.7×–2.0×</td></tr>
+    <tr><td>Emergency dispatch premium (bounded)</td><td class="num">≤1.5×</td></tr>
+    <tr><td>Lead-quality rating (worker feedback)</td><td class="num">0.8×–1.2×</td></tr>
+  </tbody>
+  <tfoot><tr><td colspan="2">Everything is clamped to [0.7, 2.0]. The final multiplier + human-readable reason are <strong>persisted on the offer at creation</strong>, so a worker or admin can audit exactly why a price was what it was — and existing offers are never repriced.</td></tr></tfoot>
+</table>
+
+<h3>1.4 How money is actually collected: the OMT / Whish manual rail</h3>
+<p>Payment automation (Stripe and MENA gateways) is <strong>intentionally deferred</strong>. Everything that costs
+money runs on Lebanon's two cash networks with no gateway keys and no webhook — the platform mints a
+<strong>signed instructions page</strong>, the buyer pays offline with a reference, and an admin confirms receipt.
+It is the manual twin of a provider webhook, and it currently carries all eight flows: subscription renewals,
+credit purchases, verification, featured, emergency, advertising campaigns, booking deposits and booking balances.</p>
+
+<pre>
+<span class="c">THE MANUAL PAYMENT LOOP (identical for every purchase type)</span>
+
+ worker / company                platform                          admin
+ ────────────────                ────────                          ─────
+ 1. clicks "Buy / Renew /
+    Pay now"  ──────────────▶  2. action mints Payment(PENDING)
+                                 + signed instructions URL
+                                 /payments/manual?provider=omt
+                                 &amp;ref=OMT-BK-1001-000&amp;sig=…  ───▶  4. sees the row in the
+                              3. buyer opens the page,              /admin pending-payments
+                                 pays at the OMT agent or            card: label, amount,
+                                 Whish app WITH the reference        method, reference, leg
+                                        │                                    │
+                                        └────────── buyer confirms paid ─────▶│
+                                                                  5. admin clicks Confirm
+                                                                     (idempotent, admin-only)
+                                                                          │
+  ◀─────────────────────────  6. capability activates  ◀──────────────────┘
+    subscription active /         credits granted / verified flag /
+    campaign ACTIVE /             featured+emergency flags /
+    deposit CONFIRMED             invoice WA-YYYY-NNNNN minted
+</pre>
+<ul>
+  <li><strong>Tamper-proof without a webhook:</strong> each provider signs with its own salt and reference prefix (<code>OMT-</code> / <code>WHISH-</code>); the instructions page verifies the signature through the same contract the webhook route uses.</li>
+  <li><strong>Idempotent per method:</strong> re-clicking the same method returns the already-minted URL; switching method re-mints, so a stale Stripe pre-mint can never leak a simulate URL to a Whish click.</li>
+  <li><strong>Refunds follow the payer:</strong> a cancel resolves the provider that took the money — an OMT-paid deposit refunds via the OMT provider, not a default.</li>
+  <li><strong>Reconciliation:</strong> every row lands in the admin ledger and exports as CSV (status, reference, timestamps, invoice, leg). A cron cancels unpaid subscription renewals older than 7 days and records the lifecycle event; workers can cancel their own pending renewal immediately.</li>
+  <li><strong>Keyless mode:</strong> with no Stripe keys, dev/tests use a simulated provider that completes instantly; in production the registry <em>refuses</em> simulation, so the card path stays closed until real keys exist.</li>
+</ul>
+
+<h3>1.5 The rule that makes the take rate real money</h3>
+<div class="rule">
+  <span class="t">Collection invariant</span>
+  <strong>The ledger never credits more than the platform has collected, and the fee is only ever taken out of
+  money actually received.</strong> One pure function — <code>settlementFor(facts)</code> — is the single decision
+  point, called by both database adapters, the customer's pay card, the worker's banner, the payout guard and the
+  admin reconciliation. No surface reads raw payment rows to decide whether a worker can be paid.
+</div>
+
+<p>A booking's value arrives on <strong>two legs</strong>: the <em>deposit</em> before the work
+(<code>Booking.paymentId</code>) and the <em>settlement</em> — the outstanding balance after it
+(<code>Booking.settlementPaymentId</code>). The admin's queue tags each row with a <code>leg</code>
+(<code>deposit</code> | <code>settlement</code>) so an operator can never confirm the wrong amount for the right
+booking.</p>
+
+<table>
+  <caption>Where a job's money can stand, and what the worker's ledger receives.</caption>
+  <thead><tr><th>State</th><th>Meaning</th><th>Credited to worker</th></tr></thead>
+  <tbody>
+    <tr><td><code>funded</code></td><td>Collected ≥ quote (deposit covered the job)</td><td><code>collected − fee</code> — the classic path</td></tr>
+    <tr><td><code>part-funded</code></td><td>Deposit landed, balance didn't</td><td>Collected part now; the rest as an <code>ADJUSTMENT</code> when the balance is confirmed</td></tr>
+    <tr><td><code>awaiting-customer</code></td><td>Nothing collected, nothing requested yet</td><td>Nothing</td></tr>
+    <tr><td><code>awaiting-confirmation</code></td><td>A manual OMT/Whish reference is issued but unpaid</td><td>Nothing — a reference is a promise, not money</td></tr>
+    <tr><td><code>outside-platform</code></td><td>The parties settled in cash on the doorstep</td><td>Nothing — the fee becomes a <strong>claim</strong> recoverable tranche-by-tranche from the worker's credit balance</td></tr>
+    <tr><td><code>overpaid</code></td><td>Collected &gt; quote (double-paid deposit)</td><td><code>collected − fee</code>, excess flagged for refund</td></tr>
+    <tr><td><code>no-quote</code></td><td>Quote-less accept</td><td>Nothing (there is no job value)</td></tr>
+  </tbody>
+</table>
+<p>Why this matters commercially: before this rule existed, a quote-only job credited a payout the platform never
+collected, and an approved payout paid the worker <em>out of platform funds</em>. Every other revenue lever —
+leads, credits, subscriptions, ads — sits on top of this one, so collection integrity is the foundation of the
+whole model.</p>
+
+<h3>1.6 The money map</h3>
+<figure>
+<svg viewBox="0 0 720 330" role="img" aria-label="Money map of the WorkersArena business model">
+  <defs>
+    <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2563eb"/></marker>
+    <marker id="ag" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#059669"/></marker>
+    <marker id="ao" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#d97706"/></marker>
+  </defs>
+  <!-- boxes -->
+  <rect x="16" y="120" width="150" height="90" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="91" y="150" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">CUSTOMERS</text>
+  <text x="91" y="168" text-anchor="middle" font-size="9.5" fill="#334155">demand side · free to use</text>
+  <text x="91" y="184" text-anchor="middle" font-size="9.5" fill="#334155">pay the job price</text>
+  <text x="91" y="199" text-anchor="middle" font-size="9.5" fill="#334155">(deposit + balance)</text>
+
+  <rect x="250" y="30" width="180" height="130" rx="6" fill="#0f172a" stroke="#0f172a"/>
+  <text x="340" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">PLATFORM</text>
+  <text x="340" y="76" text-anchor="middle" font-size="9.5" fill="#93c5fd">holds two payment legs</text>
+  <text x="340" y="94" text-anchor="middle" font-size="9.5" fill="#86efac">take rate 4–12% (min $5 max $300)</text>
+  <text x="340" y="110" text-anchor="middle" font-size="9.5" fill="#86efac">subscriptions $15–$199 × mult.</text>
+  <text x="340" y="126" text-anchor="middle" font-size="9.5" fill="#86efac">credits · leads · add-ons · ads</text>
+  <text x="340" y="144" text-anchor="middle" font-size="9.5" fill="#fde68a">OMT/Whish → admin confirms</text>
+
+  <rect x="560" y="30" width="150" height="90" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+  <text x="635" y="58" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">WORKERS</text>
+  <text x="635" y="76" text-anchor="middle" font-size="9.5" fill="#334155">supply side · pay to be seen</text>
+  <text x="635" y="92" text-anchor="middle" font-size="9.5" fill="#334155">and to compete</text>
+  <text x="635" y="107" text-anchor="middle" font-size="9.5" fill="#334155">net = collected − fee + rebate</text>
+
+  <rect x="560" y="185" width="150" height="80" rx="6" fill="#fff7ed" stroke="#d97706" stroke-width="1.5"/>
+  <text x="635" y="212" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">COMPANIES</text>
+  <text x="635" y="230" text-anchor="middle" font-size="9.5" fill="#334155">B2B advertisers</text>
+  <text x="635" y="246" text-anchor="middle" font-size="9.5" fill="#334155">≈ $10 CPM + $1 CPC</text>
+
+  <rect x="244" y="215" width="192" height="80" rx="6" fill="#f8fafc" stroke="#64748b" stroke-dasharray="4 3"/>
+  <text x="340" y="240" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0f172a">LEDGERS</text>
+  <text x="340" y="257" text-anchor="middle" font-size="9" fill="#475569">WorkerLedgerEntry (earnings/payouts)</text>
+  <text x="340" y="271" text-anchor="middle" font-size="9" fill="#475569">WorkerCreditEntry (credits, append-only)</text>
+  <text x="340" y="285" text-anchor="middle" font-size="9" fill="#475569">Invoice · Payment · FeeSnapshot · Rebate</text>
+
+  <!-- arrows -->
+  <line x1="166" y1="150" x2="246" y2="110" stroke="#2563eb" stroke-width="2" marker-end="url(#ah)"/>
+  <text x="172" y="95" font-size="9" fill="#1d4ed8" font-weight="700">deposit + balance</text>
+  <text x="172" y="108" font-size="9" fill="#1d4ed8">(2 payment legs)</text>
+
+  <line x1="434" y1="80" x2="556" y2="70" stroke="#059669" stroke-width="2" marker-end="url(#ag)"/>
+  <text x="495" y="54" text-anchor="middle" font-size="9" fill="#047857" font-weight="700">payout = collected − fee</text>
+  <text x="495" y="67" text-anchor="middle" font-size="9" fill="#047857">(admin-approved withdrawal)</text>
+
+  <line x1="558" y1="115" x2="438" y2="128" stroke="#d97706" stroke-width="2" marker-end="url(#ao)"/>
+  <text x="497" y="91" text-anchor="middle" font-size="9" fill="#b45309" font-weight="700">subscription · credits</text>
+  <text x="497" y="104" text-anchor="middle" font-size="9" fill="#b45309">verification · add-ons</text>
+
+  <line x1="558" y1="195" x2="438" y2="150" stroke="#d97706" stroke-width="2" marker-end="url(#ao)"/>
+  <text x="497" y="196" text-anchor="middle" font-size="9" fill="#b45309" font-weight="700">campaign budget</text>
+
+  <line x1="340" y1="164" x2="340" y2="211" stroke="#64748b" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+  <text x="346" y="180" font-size="9" fill="#475569">every movement is journaled</text>
+</svg>
+<figcaption>Figure 1 — The money map. Customers fund the platform; workers both fund it and are funded by it; companies fund it for reach; nothing moves without a ledger row.</figcaption>
+</figure>
+
+<div class="note">
+  <span class="t">Unit economics (illustrative — modelled, not measured)</span>
+  Per paying worker per month: subscription $15–$199 (mix ≈ $40–60) + take rate + credit top-ups. The projection in
+  the source docs is $3.8K month-1 → $15.5K month-3 → $46K month-6 → $127K month-12 total platform revenue at
+  50 → 1,000 workers. Advertising contributes $0 today because campaigns still run on manual rails.
+</div>
+</section>
+
+<!-- ================================================================= -->
+<!-- SECTION 2                                                          -->
+<!-- ================================================================= -->
+<section class="section">
+<h2>Section 2 — Step-by-Step: How to Use It</h2>
+<p>Four journeys, each written as the literal click-path a person follows, with what the system does at every step.
+Every payment step is the same OMT/Whish loop shown in §1.4 — the reference changes, the mechanism never does.</p>
+
+<h3>2.1 Journey A — the worker, from signup to payout</h3>
+<ol class="steps">
+  <li><b>Register and pick a language.</b> The worker signs up (AR/EN) and lands on the dashboard. A <strong>free trial is applied automatically</strong> server-side: 30 days on Starter/Growth, 14 on Pro, Business assisted. Eligibility is once per worker.</li>
+  <li><b>Build the profile.</b> Category, city, area, prices, working hours, certificates, portfolio photos (before/after), languages. Profile quality directly feeds the matching engine (trade 30% + area 12% + city 8%).</li>
+  <li><b>Choose a plan before the trial ends.</b> The public pricing page shows category-adjusted prices — a cleaner sees $7.50 Starter, an HVAC technician $22.50. The renew dialog quotes monthly vs annual (9-for-12) and labels the change as upgrade / downgrade / unchanged with the price difference previewed.</li>
+  <li><b>Pay the subscription (OMT/Whish).</b> Select method → signed <code>/payments/manual</code> page opens with the reference → pay at the OMT agent or in the Whish app → the admin's pending-payments card confirms → subscription activates, invoice mints, visibility is (re)granted. <em>Until this confirms, an expired plan means the worker is absent from public search.</em></li>
+  <li><b>(Optional) Buy trust products.</b> The dashboard upgrade dialog sells verification ($9/$19), the featured slot ($49/category/mo) and the emergency marker ($9/mo) inline, each on the same rail; confirmation flips <code>verified</code> / <code>featured</code> / <code>emergency</code>.</li>
+  <li><b>Buy credits.</b> Lead Credits card → "Buy More" → package ($10/$25/$50/$100 with bonuses) → OMT/Whish → confirmation grants the credits to the append-only ledger. Balance is always derived from entries.</li>
+  <li><b>Watch the lead board.</b> Qualified customer requests arrive as graded offers (Bronze 5 → Emergency 35 credits), matched by weighted score, exclusive, expiring on a timer, priced by smart pricing with the reason shown.</li>
+  <li><b>Unlock a lead.</b> "Unlock for N credits" debits the ledger idempotently per offer and reveals contact details per the plan-tier policy. Rate the lead 1–5 afterwards — that rating moves future per-grade prices (0.8×–1.2×) and matching weights. A bad lead can be refunded once via the admin review queue.</li>
+  <li><b>Receive booking requests and respond with a quote.</b> The respond dialog previews <em>"Quote $80 · Platform fee $5.60 · You receive $74.40"</em> live — the same pure function that stamps the immutable fee snapshot on accept.</li>
+  <li><b>Set the deposit.</b> Accept with an optional deposit → the booking goes <code>PENDING_PAYMENT</code> → the customer gets a checkout (OMT/Whish instructions) → admin confirms → <code>CONFIRMED</code>. The fee was already stamped; times can move later, money cannot.</li>
+  <li><b>Do the work, complete the job.</b> On completion the settlement engine reads both legs: if the platform collected ≥ quote the ledger is credited <code>collected − fee</code> as an <code>EARNING</code> (one per booking, idempotent). If only the deposit landed, the worker sees "waiting for the customer — $X outstanding".</li>
+  <li><b>Balance and rebate.</b> The customer's pay card releases the outstanding balance on the same rails; when it confirms, the difference posts as an <code>ADJUSTMENT</code>. If the lead was bought, the rebate posts against the fee — the platform keeps fee − rebate.</li>
+  <li><b>Read the statements.</b> The <strong>ROI dashboard</strong> shows leads bought, quotes sent, jobs won, GMV, platform fees, subscription cost, total marketplace spend and the resulting multiple for the month. The <strong>earnings statement</strong> shows completed jobs, GMV, fees, rebates and net earnings per job.</li>
+  <li><b>Withdraw.</b> Payouts card → available vs pending balance → request an amount (capped at available − pending; the request reserves the amount) → admin approves or rejects → balance debits only on approval. The worker is notified either way.</li>
+  <li><b>Refer and repeat.</b> Share the unique referral code: +25 credits when the invitee completes their first booking, +10 for them at signup, 10 per month. Renewal reminders (7/3/1 day) and the expiring banner keep the subscription alive.</li>
+</ol>
+
+<h3>2.2 Journey B — the customer</h3>
+<ol class="steps">
+  <li><b>Search or browse.</b> Category/city/keyword search (Arabic input works — the index handles it), worker profiles with rating, reviews, response rate, availability and verification badges. Featured workers sit on the homepage.</li>
+  <li><b>Pick a slot and request.</b> Open the worker's live availability and request a booking — or arrive through a shared <code>?book=…&amp;slot=…</code> entry link from a WhatsApp thread, which opens the dialog pre-filled (each unusable part is dropped with a reason, never a hard failure).</li>
+  <li><b>Receive the quote.</b> The worker responds with a quote and optional deposit. The row is transparent: <em>"$80 · Includes platform fee $5.60 · Worker receives $74.40"</em>.</li>
+  <li><b>Pay the deposit.</b> Choose OMT or Whish → instructions page with reference → pay offline → admin confirms → booking flips <code>CONFIRMED</code> and a <code>WA-YYYY-NNNNN</code> invoice is minted for signed-in customers.</li>
+  <li><b>Job runs.</b> Either party can reschedule. Cancellations follow the 24h policy window: customer/system cancels always refund; a worker cancelling inside 24h of start keeps the deposit.</li>
+  <li><b>Pay the balance after completion.</b> If the deposit didn't cover the quote, a pay card names the exact outstanding amount on the same rails — paying it is what releases the worker's payout, and the UI says so.</li>
+  <li><b>Review.</b> At completion the platform asks for a review (ask now, remind once after 3 days, silent after 30 or once a review exists). Only customers with a completed booking can review — <code>verifiedPurchase</code> is computed from the reviewer's own bookings.</li>
+  <li><b>Follow-up.</b> Favourites, weekly digest email with sponsored section, and a request path for customers without a worker match — which is what becomes a graded lead on the marketplace.</li>
+</ol>
+
+<h3>2.3 Journey C — the company / advertiser</h3>
+<ol class="steps">
+  <li><b>Open the company dashboard</b> and start a campaign builder: bilingual name, one of 8 ad types, placement, budget, date range, and city/category targeting.</li>
+  <li><b>Pay to activate.</b> Creation mints a PENDING invoice and payment. "Pay now" issues the OMT/Whish instructions; the campaign stays <strong>PENDING and serves nothing</strong> until the admin confirms — then it flips ACTIVE and the invoice is paid.</li>
+  <li><b>Ads serve by placement:</b> sponsored search top, category banner, profile sidebar, sticky mobile banner, weekly digest (pixel-measured), retargeting overlay. Clicks route through <code>/api/ads/:id/click</code>.</li>
+  <li><b>Spend accrues</strong> at ~$0.01/impression and $1/click against the budget until it is exhausted or the end date passes → ENDED.</li>
+  <li><b>Measure ROI</b> in the analytics view: impressions, clicks, CTR, CPC, CPM, ROAS, placement breakdown, daily performance, budget utilisation, export.</li>
+  <li><b>Refund path:</b> admin refund → campaign ENDED, payment REFUNDED, invoice VOID (credit note), company notified with the reason.</li>
+</ol>
+
+<h3>2.4 Journey D — the administrator</h3>
+<ol class="steps">
+  <li><b>Confirm payments.</b> The <em>pending-payments</em> card lists every OMT/Whish row with ID, scope, bilingual label, amount, method, reference, created time, status and — for bookings — the leg (<code>deposit</code>/<code>settlement</code>). Verify the buyer's reference, click Confirm (idempotent; non-admins get <code>unauthorized</code>), capability activates.</li>
+  <li><b>Run pricing from revenue settings.</b> <code>/admin/revenue-settings</code> edits plan prices, lead quotas, category multipliers, credit packages, grade prices, matching weights, contact-reveal policy, rebate rules (on/off, share, ceiling), fee ladder and promotions — each publish creates an audit version. Nothing above is hard-coded.</li>
+  <li><b>Operate the lead market.</b> The lead-market panel shows offers, credits, rebates, ratings, the smart-price/surge suggestion (one click prefills the emergency base-price adjustment when the 30-day surge verdict says healthy or overpriced), and per-grade <strong>WhatsApp templates</strong> an admin sends manually to matched workers via a pre-filled <code>wa.me</code> link.</li>
+  <li><b>Review lead refunds.</b> One request per lead, evidence reviewed, approve full/partial credit return with a note — appended to the ledger, never rewriting the spend.</li>
+  <li><b>Approve payouts.</b> The <em>pending-payouts</em> card: worker, amount, time → Approve (PROCESSED, debits balance) or Reject (nothing moves). The decision is a compare-and-swap, so two admins cannot both decide.</li>
+  <li><b>Reconcile.</b> The settlement reconciliation card shows fee <em>stamped</em> vs fee <em>collected</em>, customers being awaited, <strong>unbacked credit (must read $0.00)</strong>, credit blocked on collection, and outside-platform claims — worst-first. Export the OMT/Whish ledger as CSV for accounting.</li>
+  <li><b>Watch retention.</b> The retention panel and <code>/api/admin/retention</code> derive trial-to-paid conversion, churn, upgrades/downgrades, average lifetime, renewal revenue/LTV and WhatsApp outreach counts from the append-only <code>SubscriptionEvent</code> ledger — plus at-risk workers ordered by soonest expiry for individual WhatsApp outreach.</li>
+  <li><b>Watch quality and surge.</b> Lead-quality analytics (weekly rating trends, per-grade stats, conversion, price-multiplier impact) and the 30-day emergency surge report with a deterministic verdict and CSV decision record; the summary also rides the weekly admin WhatsApp digest.</li>
+</ol>
+
+<div class="note">
+  <span class="t">The one loop to remember</span>
+  Every purchase in all four journeys is: <strong>buyer action → PENDING payment + signed reference → offline payment
+  → admin confirmation → capability activates → invoice + ledger row</strong>. Automation replaces only the last two
+  steps — that is precisely what connecting Stripe (deferred, see §4) would do.
+</div>
+</section>
+
+<!-- ================================================================= -->
+<!-- SECTION 3                                                          -->
+<!-- ================================================================= -->
+<section class="section">
+<h2>Section 3 — The Worker Revenue Stream</h2>
+
+<h3>3.1 How a worker earns</h3>
+<pre>
+ customer books ──▶ worker accepts WITH a quote ──▶ fee STAMPED (immutable snapshot)
+      │                      │                            rate by plan tier, clamped $5–$300
+      │                      ▼
+      │              optional DEPOSIT paid (leg 1, OMT/Whish → admin confirms)
+      │                      │
+      ▼                      ▼
+              the job is done  ──▶ booking COMPLETED
+                                        │
+                       ┌────────────────┴─────────────────┐
+                       ▼                                  ▼
+        platform collected the money            parties settled in cash
+                       │                                  │
+        <span class="g">ledger credits  collected − fee</span>          nothing credited;
+        (+ rebate if the lead was bought)      fee becomes a CLAIM against
+                       │                       the worker's credit balance
+                       ▼
+              WITHDRAWABLE BALANCE (derived from ledger)
+                       │
+        worker requests payout ──▶ admin approves ──▶ balance debits, money sent
+</pre>
+<p><strong>Net earnings = GMV − platform fee + lead rebates.</strong> <strong>Marketplace spend = subscription +
+credits + add-ons.</strong> <strong>ROI multiple = net earnings ÷ marketplace spend</strong> — the number the ROI
+dashboard puts on the worker's home screen.</p>
+
+<h3>3.2 Worked example A — one job, end to end (Growth worker, gold lead)</h3>
+<table>
+  <thead><tr><th style="width:38%">Step</th><th class="num">Amount</th><th>What happens</th></tr></thead>
+  <tbody>
+    <tr><td>Customer requests plumbing job</td><td class="num">—</td><td>Graded <strong>Gold</strong> (full profile + photos + signed in) = 20 credits</td></tr>
+    <tr><td>Worker buys the lead</td><td class="num">−20 credits</td><td>Credit ledger debited, contact revealed, rivals' offers revoked</td></tr>
+    <tr><td>Worker accepts with quote</td><td class="num">$300.00</td><td>Fee stamped: 7% (Growth) × 300 = <strong>$21.00</strong>, inside the $5–$300 band</td></tr>
+    <tr><td>Customer pays deposit (leg 1)</td><td class="num">$300.00</td><td>OMT reference → admin confirms → <code>CONFIRMED</code>; job is now <code>funded</code></td></tr>
+    <tr><td>Job completed</td><td class="num">—</td><td>Settlement engine: collected $300 ≥ quote $300 → credit <code>300 − 21</code></td></tr>
+    <tr><td><strong>EARNING posted</strong></td><td class="num"><strong>+$279.00</strong></td><td>One row per booking (<code>@@unique([bookingId])</code>) — a redelivered confirm cannot double-credit</td></tr>
+    <tr><td>Lead rebate posts</td><td class="num">+$20.00</td><td><code>min(21 × 100%, 20, ∞)</code> — platform keeps $1 of the fee</td></tr>
+    <tr><td><strong>Worker receives</strong></td><td class="num"><strong>$299.00</strong></td><td>Effective take rate on this job: <strong>0.33%</strong> instead of 7%</td></tr>
+    <tr><td>Platform keeps</td><td class="num">$1.00</td><td>Plus the 20 credits already banked for the lead</td></tr>
+    <tr><td>Worker requests payout</td><td class="num">−$279.00</td><td>PENDING reserves the amount → admin approves → PROCESSED</td></tr>
+  </tbody>
+</table>
+<div class="warn">
+  <span class="t">The path not taken</span>
+  Had the parties settled in cash on the doorstep instead of paying through the platform, step "EARNING posted"
+  would credit <strong>nothing</strong>: the worker declares <em>"we settled this directly"</em>, the fee becomes a
+  claim, and <code>feeClaimPlan</code> recovers it tranche-by-tranche from the worker's credit balance (real prepaid
+  money) while the reconciliation lists any remainder for an admin to pursue or write off. Collection integrity
+  beats fee collection.
+</div>
+
+<h3>3.3 Worked example B — monthly economics per plan tier</h3>
+<table>
+  <caption>Illustrative monthly model (the projection carried in the source documentation; not a measurement).</caption>
+  <thead><tr><th>Metric</th><th class="num">Starter</th><th class="num">Growth</th><th class="num">Pro</th></tr></thead>
+  <tbody>
+    <tr><td>Avg jobs / month</td><td class="num">5</td><td class="num">12</td><td class="num">25</td></tr>
+    <tr><td>Avg job value</td><td class="num">$80</td><td class="num">$150</td><td class="num">$200</td></tr>
+    <tr><td><strong>GMV</strong></td><td class="num">$400</td><td class="num">$1,800</td><td class="num">$5,000</td></tr>
+    <tr><td>Platform fee (9% / 7% / 5%)</td><td class="num">−$36</td><td class="num">−$126</td><td class="num">−$250</td></tr>
+    <tr><td>Subscription cost</td><td class="num">−$15</td><td class="num">−$39</td><td class="num">−$99</td></tr>
+    <tr><td>Leads purchased (5/mo model)</td><td class="num">−$25</td><td class="num">−$45</td><td class="num">−$100</td></tr>
+    <tr><td><strong>Net earnings to worker</strong></td><td class="num"><strong>$324</strong></td><td class="num"><strong>$1,590</strong></td><td class="num"><strong>$4,551</strong></td></tr>
+    <tr><td><strong>ROI (earnings ÷ spend)</strong></td><td class="num"><strong>6.0×</strong></td><td class="num"><strong>17.1×</strong></td><td class="num"><strong>23.0×</strong></td></tr>
+  </tbody>
+</table>
+<table>
+  <caption>What the same three workers return to the platform per month (illustrative).</caption>
+  <thead><tr><th>Stream</th><th class="num">Starter</th><th class="num">Growth</th><th class="num">Pro</th></tr></thead>
+  <tbody>
+    <tr><td>Subscription</td><td class="num">$15.00</td><td class="num">$39.00</td><td class="num">$99.00</td></tr>
+    <tr><td>Take rate (net of rebates, shown gross here)</td><td class="num">$36.00</td><td class="num">$126.00</td><td class="num">$250.00</td></tr>
+    <tr><td>Lead credit purchases</td><td class="num">$12.50</td><td class="num">$22.50</td><td class="num">$50.00</td></tr>
+    <tfoot><tr><td><strong>Platform revenue per worker</strong></td><td class="num"><strong>$63.50</strong></td><td class="num"><strong>$187.50</strong></td><td class="num"><strong>$399.00</strong></td></tr></tfoot>
+  </tbody>
+</table>
+
+<h3>3.4 The money waterfall (Pro tier, one month)</h3>
+<figure>
+<svg viewBox="0 0 720 250" role="img" aria-label="Waterfall from GMV to net earnings for a Pro tier worker">
+  <!-- axis -->
+  <line x1="60" y1="205" x2="700" y2="205" stroke="#94a3b8" stroke-width="1.2"/>
+  <!-- scale: 5000 = 600px  => 0.12 px per $ -->
+  <!-- GMV bar -->
+  <rect x="70" y="45" width="90" height="160" fill="#2563eb"/>
+  <text x="115" y="38" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">$5,000</text>
+  <text x="115" y="222" text-anchor="middle" font-size="10" fill="#334155">GMV</text>
+  <text x="115" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">25 jobs × $200</text>
+  <!-- fee drop: 250 => 30px, top at 45 -->
+  <rect x="195" y="45" width="90" height="30" fill="#dc2626"/>
+  <line x1="160" y1="45" x2="195" y2="45" stroke="#94a3b8" stroke-dasharray="3 2"/>
+  <text x="240" y="66" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">−$250</text>
+  <text x="240" y="222" text-anchor="middle" font-size="10" fill="#334155">Platform fee</text>
+  <text x="240" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">5% (Pro), $5–$300 band</text>
+  <!-- sub drop 99 => 11.9px -->
+  <rect x="320" y="75" width="90" height="12" fill="#d97706"/>
+  <line x1="285" y1="75" x2="320" y2="75" stroke="#94a3b8" stroke-dasharray="3 2"/>
+  <text x="365" y="84" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">−$99</text>
+  <text x="365" y="222" text-anchor="middle" font-size="10" fill="#334155">Subscription</text>
+  <text x="365" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">Pro × trade multiplier</text>
+  <!-- leads 100 => 12px -->
+  <rect x="445" y="87" width="90" height="12" fill="#d97706"/>
+  <line x1="410" y1="87" x2="445" y2="87" stroke="#94a3b8" stroke-dasharray="3 2"/>
+  <text x="490" y="96" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">−$100</text>
+  <text x="490" y="222" text-anchor="middle" font-size="10" fill="#334155">Lead credits</text>
+  <text x="490" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">5 leads bought</text>
+  <!-- net: 4551 => 546px -->
+  <rect x="570" y="60" width="90" height="145" fill="#059669"/>
+  <line x1="535" y1="99" x2="570" y2="99" stroke="#94a3b8" stroke-dasharray="3 2"/>
+  <text x="615" y="53" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">$4,551</text>
+  <text x="615" y="222" text-anchor="middle" font-size="10" fill="#334155">Net earnings</text>
+  <text x="615" y="236" text-anchor="middle" font-size="8.5" fill="#64748b">to the worker · 23.0× ROI</text>
+  <text x="60" y="24" font-size="10.5" font-weight="700" fill="#0f172a">Pro tier, one month — where $5,000 of work goes (illustrative)</text>
+</svg>
+<figcaption>Figure 2 — The waterfall. Lead <em>rebates</em> are omitted for clarity: every rebate reduces the red bar, which is exactly the loyalty loop of §1.3-E.</figcaption>
+</figure>
+
+<h3>3.5 Getting paid — the payout lifecycle</h3>
+<pre>
+  EARNING / ADJUSTMENT ──▶ POSTED ─────────────────────────────┐
+       (created at completion + collection, idempotent)        │
+                                                              ▼
+   available = Σ POSTED earnings/adjustments − Σ PROCESSED withdrawals
+                                                              │
+  worker: requestPayout(amount)  ── amount ≤ available − pending
+        │                                                     │
+        ▼                                                     │
+  WITHDRAWAL · PENDING   <span class="y">← reserves the amount (no double-spend)</span> │
+        │                                                     │
+   admin: decidePayout (CAS — one decision only)              │
+        ├── approve ──▶ PROCESSED  <span class="g">← now counts as a debit</span> ────┘
+        └── reject  ──▶ REJECTED   (dead, never counts; nothing moves)
+</pre>
+<ul>
+  <li><strong>Balance is derived, never stored.</strong> The ledger is the single source of truth; each row keeps only its own <code>balanceAfter</code> as an audit trail.</li>
+  <li><strong>The payout guard is one function</strong> (<code>payoutGuard</code>) used everywhere — and because every posted earning is funded by construction, an unfunded legacy credit can never be paid out.</li>
+  <li><strong>Approval ≠ transfer, today.</strong> <code>PROCESSED</code> currently means "admin approved"; wiring an actual provider payout (OMT transfer / Stripe Payouts) into the same seam is a §4 recommendation — the ledger model will not need to change.</li>
+</ul>
+
+<h3>3.6 The dashboards that measure the stream</h3>
+<div class="kpi-grid">
+  <div class="kpi"><div class="v">ROI</div><div class="l">Dashboard</div>
+    <div class="small" style="margin-top:4pt">leads bought · quotes sent · jobs won · GMV · platform fees · subscription cost · total marketplace spend · resulting multiple, per month</div></div>
+  <div class="kpi"><div class="v">Earnings</div><div class="l">Statement</div>
+    <div class="small" style="margin-top:4pt">completed jobs · GMV · fees deducted · rebates applied · net earnings · per-job detail, per month</div></div>
+  <div class="kpi"><div class="v">Analytics</div><div class="l">Worker</div>
+    <div class="small" style="margin-top:4pt">views · leads · completed jobs · conversion rate · avg job value · rating · response rate · actionable insights</div></div>
+</div>
+<div class="kpi-grid">
+  <div class="kpi"><div class="v">Admin</div><div class="l">Retention &amp; churn</div>
+    <div class="small" style="margin-top:4pt">trial-to-paid, churn, upgrades/downgrades, lifetime, renewal revenue/LTV, WhatsApp outreach — from the SubscriptionEvent ledger</div></div>
+  <div class="kpi"><div class="v">Admin</div><div class="l">Reconciliation</div>
+    <div class="small" style="margin-top:4pt">fee stamped vs collected · awaiting customers · unbacked credit (must be $0) · blocked credit · outside-platform claims — worst-first</div></div>
+  <div class="kpi"><div class="v">Admin</div><div class="l">Lead quality &amp; surge</div>
+    <div class="small" style="margin-top:4pt">weekly rating trends, per-grade conversion, price-multiplier impact; 30-day emergency surge verdict with CSV decision record</div></div>
+</div>
+
+<h3>3.7 Four scenarios side by side</h3>
+<table>
+  <thead><tr><th>Scenario</th><th>What the platform collected</th><th class="num">Fee</th><th class="num">Worker credited</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Funded deposit job</strong></td><td>$300 (full quote)</td><td class="num">$21</td><td class="num">$279 + rebate</td><td>The classic path; payout released</td></tr>
+    <tr><td><strong>Part-funded</strong></td><td>$100 deposit, $200 balance unpaid</td><td class="num">$21</td><td class="num">$79 now, +$200 as ADJUSTMENT</td><td>Worker sees "waiting for customer — $200"</td></tr>
+    <tr><td><strong>Cash on the doorstep</strong></td><td>$0</td><td class="num">$21 as claim</td><td class="num">$0</td><td><code>settledOutside</code>; claim recovered from credit balance or written off</td></tr>
+    <tr><td><strong>Cancelled per policy</strong></td><td>Deposit refunded</td><td class="num">$0</td><td class="num">$0</td><td>The platform earns the fee only on completed jobs</td></tr>
+    <tr><td><strong>Referral-injected month</strong></td><td>—</td><td class="num">—</td><td class="num">+35 credits value</td><td>25 (referrer) + 10 (invitee) at first booking — free lead budget</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ================================================================= -->
+<!-- SECTION 4                                                          -->
+<!-- ================================================================= -->
+<section class="section">
+<h2>Section 4 — Recommendations for Areas of Improvement</h2>
+<p>Grouped by theme, ordered by priority inside each theme. "Why" is grounded in the code and documentation as it
+stands today — including two deliberately deferred decisions (payment automation, and WhatsApp/Meta operations)
+that are called out as <em>deferred</em> rather than missing.</p>
+
+<h3>4.1 Monetisation — highest revenue leverage</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">Recommendation</th><th>Why it matters</th><th style="width:11%">Effort</th><th style="width:16%">Expected impact</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><strong>Connect a payment gateway (Stripe first, then MyFatoorah/Tap/STC Pay)</strong> <span class="pill plan">deferred by decision</span></td>
+        <td>Every purchase is admin-confirmed: latency is a conversion tax on renewals, credit top-ups and ad activation, and manual confirmation is ops load that scales linearly with GMV. The provider registry already makes a gateway a single-file change (<code>PaymentProvider</code> + registry), and production already refuses simulation — the seam is waiting.</td>
+        <td>Medium</td><td>Removes the #1 conversion friction; unlocks auto-renew (doc-cited 30–50% churn reduction) and self-serve ads</td></tr>
+    <tr><td>2</td><td><strong>Escrow / milestone payments for large jobs</strong></td>
+        <td>Deposits are routed but not held against completion. Holding funds until a photo/checklist milestone sells "protected payment" as a trust feature, raises achievable job values, and lets the platform earn its fee <em>at release</em> — plus float. Needs a licensed facilitator rather than the platform's own account (see §4.5).</td>
+        <td>High</td><td>+25% average job value (doc estimate) and a defensible trust differentiator</td></tr>
+    <tr><td>3</td><td><strong>Turn advertising into a real market: CPM/CPC tiers, minimum budgets, pacing, self-serve portal</strong></td>
+        <td>The ad product serves, tracks and bills — but at a flat demo price with no tiers, no pacing and activation requiring a human. Companies currently pay $0. A tier structure (e.g. $8/$12/$15 CPM by placement) plus a self-serve portal converts a built-but-dormant engine into recurring B2B revenue.</td>
+        <td>Medium</td><td>Second B2B revenue stream; doc projection $2–10K/mo at 20 advertisers</td></tr>
+    <tr><td>4</td><td><strong>Reduce cash leakage on outside-platform settlements</strong></td>
+        <td><code>settledOutside</code> jobs credit nothing and leave a fee claim. Product counter-measures: a visible "protected payment" CTA for customers, a reduced-but-nonzero declared-cash fee, and a weekly claim-status digest to admins. Every leaked job is 100% take-rate loss on work the platform sourced.</td>
+        <td>Low–Med</td><td>Recovers take rate already being forfeited</td></tr>
+    <tr><td>5</td><td><strong>Ship the mid-cycle upgrade/downgrade flow with proration</strong></td>
+        <td>The renewal dialog already previews the difference — but the change applies at renewal. Letting a worker upgrade immediately (credited for unused time) captures intent at the exact moment visibility hunger peaks: when they hit a lead-quota wall.</td>
+        <td>Low</td><td>ARPU migration; doc estimate +20%</td></tr>
+    <tr><td>6</td><td><strong>Bundle the trust SKUs and annualise them</strong></td>
+        <td>Verification ($9/$19), featured ($49) and emergency ($9) are sold separately with separate confirmations. A "Trust &amp; Visibility" bundle and annual variants cut three confirmation loops to one and raise commitment.</td>
+        <td>Low</td><td>Higher attach rate; lower churn on add-ons</td></tr>
+    <tr><td>7</td><td><strong>Tune lead pricing with the data you already collect</strong></td>
+        <td>Smart pricing (0.7×–2.0×), quality multipliers (0.8×–1.2×) and the 30-day surge verdict all exist. What's missing is the discipline loop: use the surge report + lead-quality analytics to actually re-price grade floors monthly, and add urgency UI (expiry countdown, "3 workers viewing") to lift purchase conversion.</td>
+        <td>Low</td><td>Doc estimate +15% lead revenue, +30% purchase rate</td></tr>
+    <tr><td>8</td><td><strong>Complete the payout rail (approval → actual money movement)</strong></td>
+        <td><code>PROCESSED</code> means "admin approved", not "money sent". Adding <code>payout()</code> to <code>PaymentProvider</code> and surfacing payouts in the earnings statement (the statement currently doesn't show payouts) makes the worker's end-to-end economics visible — which is what keeps them paying for subscriptions.</td>
+        <td>Medium</td><td>Trust + retention; honest financial reporting</td></tr>
+  </tbody>
+</table>
+
+<h3>4.2 Trust, quality &amp; the demand side</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">Recommendation</th><th>Why it matters</th><th style="width:11%">Effort</th><th style="width:16%">Expected impact</th></tr></thead>
+  <tbody>
+    <tr><td>9</td><td><strong>Weight search ranking by review <em>volume</em>, not just average</strong></td>
+        <td>Search scores <code>bonus + rating × 3</code> — an average with no volume or recency term, so one 5★ review outranks eighty at 4.7. Since review solicitation now asks at completion, ranking is where that investment must pay; a Bayesian/volume-weighted score converts every new review into real marketplace signal.</td>
+        <td>Low</td><td>Quality signal reaches customers; rewards the workers who solicit</td></tr>
+    <tr><td>10</td><td><strong>Add review-funnel analytics</strong></td>
+        <td>There is no <code>reviewRate</code>/<code>reviewsPerJob</code> anywhere: nothing measures completed → solicited → reviewed → published, per-trade review rate, or moderation backlog. Without it the solicitation feature is unfalsifiable.</td>
+        <td>Low</td><td>Makes the last several releases measurable</td></tr>
+    <tr><td>11</td><td><strong>Send the review ask off-platform (WhatsApp), with guardrails</strong></td>
+        <td>The in-app prompt only reaches customers who come back — a minority after a job. A WhatsApp nudge reuses the delivery ledger, retry policy and health snapshot already built; it needs one new piece of state (<code>reviewAskedAt</code> + bounded reminder count) so it can never nag.</td>
+        <td>Medium</td><td>More reviews → better ranking → better demand conversion</td></tr>
+    <tr><td>12</td><td><strong>Finish the verification ladder (licence → background check as paid tiers)</strong></td>
+        <td>The trust types exist but the higher-value background-check monetisation is not wired end-to-end. Trust is the single most price-elastic thing a worker will buy on a marketplace where customers fear no-shows.</td>
+        <td>Medium</td><td>New high-margin stream; conversion lift for customers</td></tr>
+    <tr><td>13</td><td><strong>Surface rating-driven price changes fully in the admin panel</strong></td>
+        <td>The lead-quality feedback engine is built, but the admin visibility of rating-driven per-grade multiplier changes is partial. An operator who can't see why a price moved won't trust — or use — the loop.</td>
+        <td>Low</td><td>Closes the lead-quality loop operationally</td></tr>
+    <tr><td>14</td><td><strong>Guard lead-refund abuse with the rating signal</strong></td>
+        <td>One refund per lead is generous; combine it with the 1–5 lead ratings so a worker who rates poorly <em>and</em> refunds repeatedly is flagged. Protects the refund policy's intent (trust) from becoming a free credit path.</td>
+        <td>Low</td><td>Limits credit leakage</td></tr>
+  </tbody>
+</table>
+
+<h3>4.3 Operations, data &amp; engineering discipline</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">Recommendation</th><th>Why it matters</th><th style="width:11%">Effort</th><th style="width:16%">Expected impact</th></tr></thead>
+  <tbody>
+    <tr><td>15</td><td><strong>Automate the weekly money digest</strong></td>
+        <td>The weekly admin WhatsApp digest already carries the surge summary. Extend it with: reconciliation's unbacked-credit canary, outstanding fee claims, pending payouts, retention risk, and ad spend — one message that keeps every revenue surface visible.</td>
+        <td>Low</td><td>Decisions actually get made weekly</td></tr>
+    <tr><td>16</td><td><strong>Prove the model with a live-cohort revenue report</strong></td>
+        <td>Projections ($3.8K → $127K) are modelled, and "Current" KPI cells still read <em>Unknown</em> / <em>$0</em>. A monthly report from real <code>Payment</code>, <code>Invoice</code>, <code>PlatformFeeSnapshot</code> and <code>SubscriptionEvent</code> rows — MRR, ARPU, take-rate revenue, lead revenue, conversion, churn — replaces assumption with measurement.</td>
+        <td>Medium</td><td>Every pricing decision becomes evidence-based</td></tr>
+    <tr><td>17</td><td><strong>Keep regenerating the money documents</strong></td>
+        <td>The Word manual and revenue test guide lag code changes (a past gap meant testers exercised a removed settlement rule). The <code>docs:manual</code> generator exists — put regeneration in the release checklist so the PDF/DOCX a partner reads always matches production.</td>
+        <td>Low</td><td>Removes a recurring source of wrong decisions</td></tr>
+    <tr><td>18</td><td><strong>Production marketplace freshness</strong></td>
+        <td>An empty-looking marketplace depresses every funnel above it. The seed script funds completed jobs correctly now; formalise a demo-data refresh for public demo environments and, in real operations, monitor "time to first job" as a first-class KPI.</td>
+        <td>Low</td><td>Cold-start credibility</td></tr>
+    <tr><td>19</td><td><strong>Keep CI honest (already started — continue)</strong></td>
+        <td>The scripts gate and the no-masked-checks tests close one class of silent failure. Extend the same "no <code>|| true</code>" discipline to remaining pipeline steps and add a deploy-time route/manifest check so a hidden file can never again vanish from a deployment.</td>
+        <td>Low</td><td>Prevents regressions that only appear in production</td></tr>
+    <tr><td>20</td><td><strong>Verify Meta WhatsApp operations when un-deferred</strong></td>
+        <td>The delivery ledger, webhook, retry sweep and admin audit view are built; live Meta sending is explicitly pending credential/webhook configuration in production. When that work resumes, the exact remaining steps are already documented — treat them as a checklist, not a redesign.</td>
+        <td>Low (config)</td><td>Delivery visibility for all outreach</td></tr>
+  </tbody>
+</table>
+
+<h3>4.4 Growth &amp; expansion</h3>
+<table>
+  <thead><tr><th style="width:4%">#</th><th style="width:26%">Recommendation</th><th>Why it matters</th><th style="width:11%">Effort</th><th style="width:16%">Expected impact</th></tr></thead>
+  <tbody>
+    <tr><td>21</td><td><strong>Second city, then second country</strong></td>
+        <td>Tripoli/Sidon/Jounieh are catalog edits that instantly create new featured-slot and lead inventory; the multi-country plan already defines how a tenant, currency and locale flip. 3–5× TAM without new product.</td>
+        <td>Low–Med</td><td>TAM growth, new inventory to sell</td></tr>
+    <tr><td>22</td><td><strong>Company CRM / lead-gen seats</strong></td>
+        <td>Companies already buy ads; seats with lead routing, pacing alerts and anonymised market-rate reports turn one-off budgets into B2B ARR ($99–$499/mo range in the plan).</td>
+        <td>High</td><td>Recurring B2B revenue with expansion</td></tr>
+    <tr><td>23</td><td><strong>Loyalty on the demand side</strong></td>
+        <td>Customers are (correctly) free — but a booking-loyalty perk (fee discount after N jobs, surfaced to the worker as a perk too) compounds repeat GMV without taxing acquisition.</td>
+        <td>Low</td><td>Repeat GMV, lower effective CAC</td></tr>
+    <tr><td>24</td><td><strong>Adjacent verticals</strong></td>
+        <td>Supplier marketplace (materials/tools), insurance partnerships (worker liability commission), and training/certification marketplace (high-margin digital goods) all reuse the credit + invoice + ledger machinery already built.</td>
+        <td>High</td><td>New revenue verticals on existing rails</td></tr>
+    <tr><td>25</td><td><strong>Mobile-first monetisation</strong></td>
+        <td>The PWA (installable, push, camera proof-of-work) is the highest-intent channel. Push-driven emergency dispatch with an in-app payment path is where urgent, high-value work will transact.</td>
+        <td>Medium</td><td>Conversion on the highest-intent channel</td></tr>
+  </tbody>
+</table>
+
+<h3>4.5 Risk, compliance &amp; model guardrails</h3>
+<ul>
+  <li><strong>VAT / tax on fees and subscriptions.</strong> Platform fees and subscriptions are tax events in most MENA markets (KSA 15%, UAE 5%). Price displays are USD and tax-naive today — decide explicitly whether tax is inclusive before expanding countries, and store the tax component on invoices from the start.</li>
+  <li><strong>Money-holding rules for escrow.</strong> Recommendation #2 must be implemented <em>through a licensed facilitator or the gateway's own escrow</em>, never the platform's own account — otherwise a trust feature becomes a regulatory liability.</li>
+  <li><strong>Refund exposure.</strong> Keep the platform fee refundable with a cancelled booking (current behaviour) — or charge only at completion — so a cancellation wave never turns into customer backlash. Watch the 24h window's effect on worker income and adjust with data, not anecdotes.</li>
+  <li><strong>Cash-dominant payment culture.</strong> Cash on delivery is normal in the region; if cash jobs bypass the platform entirely, the take rate misses most transactions. Recommendation #4 is the counterweight — make paying through the platform visibly safer <em>and</em> cheap enough to be the default.</li>
+  <li><strong>Supply-side price sensitivity.</strong> Informal workers are cost-sensitive: keep Starter cheap, let the rebate and volume justify the take rate, and always market "jobs, not just views". Never raise the take rate before booking volume demonstrably rises.</li>
+  <li><strong>Two-sided cold start.</strong> Continue not taxing the demand side. Every proposed fee belongs on supply or companies until network effects are established.</li>
+  <li><strong>Single-currency assumption.</strong> USD-only is fine for Lebanon; a second tenant currency must not leak into ledgers — mixed-currency workers are a documented concern for the multi-country wave, not a bug to discover late.</li>
+</ul>
+
+<h3>4.6 Suggested sequencing</h3>
+<table>
+  <thead><tr><th>Horizon</th><th>Do first</th><th>Because</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Now (0–1 month)</strong></td><td>#16 revenue report, #15 digest, #9 review-weighted ranking, #10 funnel metrics, #5 upgrade flow, #7 pricing discipline, #17 doc regeneration</td><td>All are low-effort, and most convert work already shipped into <em>measured</em> outcomes</td></tr>
+    <tr><td><strong>Next (1–3 months)</strong></td><td>#1 gateway, #3 ad tiers + self-serve, #4 cash leakage, #6 bundles, #8 payout rail, #11 off-platform review ask, #12 verification ladder</td><td>The payments wave is the prerequisite the plan itself names — everything else here amplifies it</td></tr>
+    <tr><td><strong>Strategic (3–12 months)</strong></td><td>#2 escrow (with a facilitator), #21 second city/country, #22 company CRM seats, #24 verticals, #25 mobile monetisation</td><td>TAM and margin bets that need the collection foundation to be trustworthy first</td></tr>
+  </tbody>
+</table>
+
+<div class="rule">
+  <span class="t">The one-sentence strategy</span>
+  The model is already broad — fourteen streams, all admin-configurable, all collectable on Lebanon's manual rails.
+  The next dollar of revenue comes less from <em>adding</em> a stream than from <strong>automating collection on the
+  streams that exist</strong> (#1, #3, #8), <strong>defending the take rate against cash leakage</strong> (#4), and
+  <strong>turning the quality signals you already record into ranking and pricing decisions</strong> (#9, #10, #7).
+</div>
+
+<div class="signoff">
+  End of document · WorkersArena Business Model, Usage Guide &amp; Worker Revenue Stream · Version 1.0 · 23 September 2026<br />
+  Sources: docs/BUSINESS-MODEL.md · BUSINESS-MODEL-SUMMARY.md · REVENUE-STREAMS.md · PAYMENTS.md · booking-settlement.md ·
+  booking-take-rate.md · payouts.md · ADVERTISING-SYSTEM.md · production at https://workers-arena.vercel.app<br />
+  All prices and rates are admin-editable defaults as implemented; illustrative figures are projections, not measurements.
+</div>
+</section>
+
+</main>
+</body>
+</html>
