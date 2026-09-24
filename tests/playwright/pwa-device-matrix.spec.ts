@@ -21,7 +21,9 @@ import { test, expect, type Page, devices as pwDevices } from "@playwright/test"
  * contract without multiplying that cost across all six profiles.
  *
  * Device coverage: iPhone SE (smallest common phone), iPhone 14 Pro Max
- * (large phone), iPad portrait + landscape (tablet), 1280 and 1920 desktop.
+ * (large phone), Pixel 7 (Android phone — the other half of the phone
+ * market, with a different UA, DPR, and viewport class), iPad portrait +
+ * landscape (tablet), 1280 and 1920 desktop.
  */
 
 /** Reuse Playwright's real device descriptors so viewport/touch/DPR/UA all
@@ -36,6 +38,7 @@ function sanitize(desc: object): Record<string, unknown> {
 const MATRIX = [
   { key: "iPhone SE", desc: sanitize(pwDevices["iPhone SE"]) },
   { key: "iPhone 14 Pro Max", desc: sanitize(pwDevices["iPhone 14 Pro Max"]) },
+  { key: "Pixel 7", desc: sanitize(pwDevices["Pixel 7"]) },
   { key: "iPad (portrait)", desc: sanitize(pwDevices["iPad (gen 7)"] ?? pwDevices["iPad"]) },
   {
     key: "iPad (landscape)",
