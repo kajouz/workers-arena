@@ -247,13 +247,13 @@ export function ReferralRevenueCard() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-ink-500 dark:text-ink-400">This Month:</span>
-                  <span className="ml-2 font-medium">
+                  <span className="ms-2 font-medium">
                     {program.earnings.thisMonth}
                   </span>
                 </div>
                 <div>
                   <span className="text-ink-500 dark:text-ink-400">Last Month:</span>
-                  <span className="ml-2 font-medium">
+                  <span className="ms-2 font-medium">
                     {program.earnings.lastMonth}
                   </span>
                 </div>
@@ -273,7 +273,7 @@ export function ReferralRevenueCard() {
                     </div>
                   </div>
                   {nextTier && (
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className="text-xs text-amber-600">
                         {nextTier.minReferrals - program.totalReferred} more
                         referrals to {nextTier.tier}
@@ -334,7 +334,7 @@ export function ReferralRevenueCard() {
                       {entry.nameAr}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-end">
                     <div className="font-bold text-emerald-600">
                       {entry.referrals} referrals
                     </div>

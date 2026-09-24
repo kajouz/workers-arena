@@ -160,7 +160,7 @@ export function CommissionTierCard() {
               ${formatNumber(info.lifetimeBillings)}
             </p>
           </div>
-          <div className="text-right">
+          <div className="text-end">
             <p className="text-sm text-ink-500 dark:text-ink-400">You save</p>
             <p className="text-xl font-bold text-green-600">
               {(7 - info.tier.ratePercent)}%

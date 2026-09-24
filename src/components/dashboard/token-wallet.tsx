@@ -161,7 +161,7 @@ export function TokenWalletCard() {
               <button
                 key={pkg.id}
                 className={cn(
-                  "p-3 rounded-lg border-2 text-left transition-all hover:border-purple-500",
+                  "p-3 rounded-lg border-2 text-start transition-all hover:border-purple-500",
                   pkg.popular
                     ? "border-purple-500 bg-purple-50"
                     : "border-ink-200 dark:border-ink-800 hover:bg-ink-50 dark:hover:bg-ink-950"

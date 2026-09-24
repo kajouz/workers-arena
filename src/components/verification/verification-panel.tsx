@@ -312,7 +312,7 @@ export function VerificationPanel({ userId }: { userId: string }) {
                   onClick={handleSend}
                   disabled={cooldown > 0 || sending}
                 >
-                  <RotateCcw className="mr-1 size-3" />
+                  <RotateCcw className="me-1 size-3" />
                   Resend code
                 </Button>
               </div>

@@ -148,7 +148,7 @@ export function GamificationCard() {
               {data.achievement.titleAr}
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-end">
             <div className="text-lg font-bold text-amber-700">
               {formatNumber(data.totalXP)} XP
             </div>
@@ -319,7 +319,7 @@ export function GamificationCard() {
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-end">
                         <div className="text-3xl font-bold text-amber-600">
                           {streak.current}
                         </div>

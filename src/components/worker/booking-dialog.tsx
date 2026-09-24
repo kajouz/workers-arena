@@ -542,7 +542,7 @@ export function BookingDialog({
                       type="button"
                       onClick={() => setIsEmergency(!isEmergency)}
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                        "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-start transition-colors",
                         isEmergency
                           ? "border-red-500/40 bg-red-500/10"
                           : "border-ink-100 bg-white hover:border-red-300 dark:border-ink-800 dark:bg-ink-900 dark:hover:border-red-700"

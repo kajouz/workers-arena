@@ -7,22 +7,22 @@ import { describe, it, expect } from "vitest";
  * ────────────────────────────────────────────────────────────────────────────
  * RTL PHYSICAL-CLASS RATCHET (finding 14)
  * ────────────────────────────────────────────────────────────────────────────
- * The audit counted ~228 physical `ml/mr/pl/pr/left/right` classes (plus 227
- * `text-left/right`) that do NOT flip in Arabic — a button padded `ml-2` grows
- * its gap on the wrong side under `dir="rtl"`. Converting all of them in one
- * pass is a large, risky diff, so this test does what a ratchet does:
+ * The audit counted 326 hit-lines of physical `ml/mr/pl/pr` + `text-left/right`
+ * classes that do NOT flip in Arabic — a button padded `ml-2` grows its gap on
+ * the wrong side under `dir="rtl"`. The pay-down converted all of them to
+ * logical utilities (verified as a pure pair swap), so the baseline is now
+ * ZERO and the ratchet is a hard ban:
  *
- *   • the committed baseline pins each file's current count of physical
- *     direction classes;
- *   • ANY file that EXCEEDS its baseline (i.e. adds a new one) fails with the
- *     offending classes listed and the logical replacement spelled out;
- *   • files may improve (drop below baseline) freely — the baseline is a
- *     ceiling, not a quota.
+ *   • ANY physical direction class in ANY tracked file fails the suite with
+ *     the offending classes listed and the logical replacement spelled out;
+ *   • the committed fixture records 0 everywhere; a genuinely LTR-locked
+ *     class (e.g. a numeric column) may only be exempted by adding it to the
+ *     fixture with a PR comment explaining why it must not flip.
  *
- * New RTL-safe code uses logical utilities that flip automatically:
- *   ml-* → ms-*   mr-* → me-*   pl-* → ps-*   pr-* → pe-*
- *   left-/right- → start-/end-   text-left/right → text-start/end
- * When a file's count reaches 0 you may delete its baseline entry.
+ * New code uses logical utilities that flip automatically:
+ *   ml-* → ms-*   mr-* → me-*   pl-* → ps-*   pr-* → pe-* * left-/right- → start-/end-   text-left/right → text-start/end
+ * (left/right-position utilities are out of the ratchet's scope but follow
+ * the same rule in review.)
  */
 
 const ROOT = path.resolve(__dirname, "..");

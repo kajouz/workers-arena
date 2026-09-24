@@ -240,7 +240,7 @@ export default async function RevenueDashboardPage() {
                         />
                       </div>
                     </div>
-                    <span className="w-20 text-right text-xs font-bold text-ink-900 dark:text-ink-50">
+                    <span className="w-20 text-end text-xs font-bold text-ink-900 dark:text-ink-50">
                       ${formatCompact(total)}
                     </span>
                   </div>
@@ -325,7 +325,7 @@ export default async function RevenueDashboardPage() {
                         {payment.method?.toUpperCase()} · {payment.reference || "No reference"}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <p className="text-sm font-bold text-ink-900 dark:text-ink-50">
                         ${formatCompact(payment.amount / 100)}
                       </p>

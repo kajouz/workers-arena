@@ -264,7 +264,7 @@ export function SLAMonitor({ className }: SLAMonitorProps) {
                     {breach.workerName} → {breach.customerName}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
                     <span className="font-medium text-ink-900 dark:text-ink-50">

@@ -42,7 +42,7 @@ export function WorkerSponsor({ workerCategory, workerCity }: WorkerSponsorProps
       {/* Sponsored Badge */}
       <div className="absolute top-3 right-3 z-10">
         <Badge className="bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-lg">
-          <Sparkles className="mr-1 size-3" />
+          <Sparkles className="me-1 size-3" />
           {locale === "ar" ? "إعلان ممول" : "Sponsored"}
         </Badge>
       </div>

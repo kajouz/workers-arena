@@ -58,7 +58,7 @@ export function WorkerRoiCard({ roi, liveLeadCount }: RoiCardProps) {
           {t("roi.platformFees")}:{" "}
           {money(roi.effectiveFeesMinor)}
           {roi.rebatesMinor > 0 && (
-            <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0">
+            <Badge variant="outline" className="ms-1 text-[10px] px-1 py-0">
               −{money(roi.rebatesMinor)} rebate
             </Badge>
           )}

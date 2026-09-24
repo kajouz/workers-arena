@@ -182,7 +182,7 @@ export function TicketForm({
               key={cat.id}
               onClick={() => setCategory(cat.id)}
               className={cn(
-                "flex items-center gap-2 rounded-xl border p-3 text-left text-sm font-medium transition-all",
+                "flex items-center gap-2 rounded-xl border p-3 text-start text-sm font-medium transition-all",
                 category === cat.id
                   ? "border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-950/30 dark:text-brand-300"
                   : "border-ink-200 text-ink-600 hover:border-ink-300 dark:border-ink-700 dark:text-ink-300"
@@ -239,12 +239,12 @@ export function TicketForm({
       >
         {submitting ? (
           <>
-            <span className="mr-2 size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            <span className="me-2 size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             Submitting...
           </>
         ) : (
           <>
-            <Send className="mr-2 size-4" />
+            <Send className="me-2 size-4" />
             Submit Ticket
           </>
         )}
@@ -285,7 +285,7 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
                     {ticket.subject}
                   </h4>
                   <Badge className={cn("text-[10px]", statusCfg.color)}>
-                    <statusCfg.icon className="mr-1 size-2.5" />
+                    <statusCfg.icon className="me-1 size-2.5" />
                     {statusCfg.label}
                   </Badge>
                 </div>

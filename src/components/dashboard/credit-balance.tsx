@@ -177,7 +177,7 @@ export function CreditBalanceCard() {
                   }}
                   disabled={purchasing !== null}
                   className={cn(
-                    "p-3 rounded-lg border-2 text-left transition-all hover:border-orange-500 disabled:opacity-50",
+                    "p-3 rounded-lg border-2 text-start transition-all hover:border-orange-500 disabled:opacity-50",
                     pkg.popular
                       ? "border-orange-500 bg-orange-50"
                       : "border-ink-200 dark:border-ink-800 hover:bg-ink-50 dark:hover:bg-ink-950"

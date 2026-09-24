@@ -265,7 +265,7 @@ export function RevenueSettingsDashboard() {
 
                 <div className="flex items-center gap-4">
                   {streamAnalytics && (
-                    <div className="text-right">
+                    <div className="text-end">
                       <p className="text-sm font-medium text-ink-900 dark:text-ink-50">
                         ${formatNumber(streamAnalytics.monthlyRevenue)}/mo
                       </p>

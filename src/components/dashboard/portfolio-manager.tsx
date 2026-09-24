@@ -75,7 +75,7 @@ export function PortfolioManager({ items, onSave }: PortfolioManagerProps) {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Portfolio Projects</h3>
         <Button size="sm" onClick={addEntry}>
-          <Plus className="h-4 w-4 mr-1" />
+          <Plus className="h-4 w-4 me-1" />
           Add Project
         </Button>
       </div>
@@ -165,9 +165,9 @@ export function PortfolioManager({ items, onSave }: PortfolioManagerProps) {
       {entries.length > 0 && (
         <Button onClick={handleSave} disabled={saving} className="w-full">
           {saving ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="h-4 w-4 me-2 animate-spin" />
           ) : (
-            <Save className="h-4 w-4 mr-2" />
+            <Save className="h-4 w-4 me-2" />
           )}
           Save Portfolio
         </Button>

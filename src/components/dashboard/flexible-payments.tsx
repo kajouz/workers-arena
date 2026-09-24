@@ -205,7 +205,7 @@ export function FlexiblePaymentsCard() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       {method.bonus > 0 && (
                         <div className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded mb-1 dark:bg-green-500/15 dark:text-green-300">
                           +{method.bonus}% bonus
@@ -323,7 +323,7 @@ export function FlexiblePaymentsCard() {
                         {account.tierAr}
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <div className="text-2xl font-bold text-violet-600">
                         ${account.monthlyFee}
                       </div>

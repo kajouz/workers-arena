@@ -315,7 +315,7 @@ export function AuditTrail() {
             placeholder="Search audit log..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full ps-10 pe-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <select
@@ -390,7 +390,7 @@ export function AuditTrail() {
                       {entry.resource} {entry.resourceId && `(${entry.resourceId})`}
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-end">
                     <p className="text-sm text-ink-600 dark:text-ink-300">{entry.actor.name}</p>
                     <p className="text-xs text-ink-400 dark:text-ink-500">{formatRelative(entry.timestamp)}</p>
                   </div>
@@ -403,7 +403,7 @@ export function AuditTrail() {
                 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 pt-0 ml-12">
+                  <div className="px-4 pb-4 pt-0 ms-12">
                     <div className="bg-ink-50 dark:bg-ink-950 rounded-lg p-4 space-y-3">
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>

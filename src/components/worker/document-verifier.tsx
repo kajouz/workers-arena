@@ -400,7 +400,7 @@ export function DocumentVerifier({
                       onClick={() => handleRetry(doc.id)}
                       className="ml-auto"
                     >
-                      <RotateCcw className="size-3 mr-1" />
+                      <RotateCcw className="size-3 me-1" />
                       {isArabic ? "إعادة المحاولة" : "Retry"}
                     </Button>
                   </div>

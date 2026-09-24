@@ -342,7 +342,7 @@ export function SmartAlerts() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <Bell className="w-4 h-4 inline mr-2" />
+            <Bell className="w-4 h-4 inline me-2" />
             Alert Rules
           </button>
           <button
@@ -354,7 +354,7 @@ export function SmartAlerts() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <Clock className="w-4 h-4 inline mr-2" />
+            <Clock className="w-4 h-4 inline me-2" />
             Alert History
           </button>
         </nav>
@@ -372,7 +372,7 @@ export function SmartAlerts() {
                 placeholder="Search rules..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full ps-10 pe-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <select
@@ -492,7 +492,7 @@ export function SmartAlerts() {
                   </div>
                   <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">{alert.message}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <p className="text-sm text-ink-600 dark:text-ink-300">{formatDateTime(alert.triggeredAt, locale)}</p>
                   {!alert.acknowledged && (
                     <button

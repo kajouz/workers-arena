@@ -225,7 +225,7 @@ export function PlatformSettings() {
                   <div className="p-2 bg-ink-100 dark:bg-ink-800 rounded-lg">
                     <Icon className="w-5 h-5 text-ink-600 dark:text-ink-300" />
                   </div>
-                  <div className="text-left">
+                  <div className="text-start">
                     <p className="font-medium text-ink-900 dark:text-ink-50">{section.title}</p>
                     <p className="text-sm text-ink-500 dark:text-ink-400">{section.description}</p>
                   </div>

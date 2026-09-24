@@ -43,7 +43,7 @@ export default function CommunicationsPage() {
                   : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
               )}
             >
-              <Mail className="w-4 h-4 inline mr-2" />
+              <Mail className="w-4 h-4 inline me-2" />
               Email Campaigns
             </button>
             <button
@@ -55,7 +55,7 @@ export default function CommunicationsPage() {
                   : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
               )}
             >
-              <Bell className="w-4 h-4 inline mr-2" />
+              <Bell className="w-4 h-4 inline me-2" />
               Push Notifications
             </button>
             <button
@@ -67,7 +67,7 @@ export default function CommunicationsPage() {
                   : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
               )}
             >
-              <Tag className="w-4 h-4 inline mr-2" />
+              <Tag className="w-4 h-4 inline me-2" />
               Discount Codes
             </button>
           </nav>

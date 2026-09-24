@@ -161,7 +161,7 @@ export function EmergencyDashboard() {
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={cn(autoRefresh && "border-emerald-500 text-emerald-600")}
           >
-            <Activity className={cn("size-3.5 mr-1", autoRefresh && "animate-pulse")} />
+            <Activity className={cn("size-3.5 me-1", autoRefresh && "animate-pulse")} />
             {autoRefresh ? "Live" : "Paused"}
           </Button>
           <Button variant="outline" size="sm" onClick={fetchData}>
@@ -345,7 +345,7 @@ export function EmergencyDashboard() {
                   </div>
                   <div className="mt-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                     <p className="text-[11px] text-blue-700 dark:text-blue-300">
-                      <Shield className="size-3 inline mr-1" />
+                      <Shield className="size-3 inline me-1" />
                       All emergency bookings have masked numbers created at submission. Real contact details are released only on arrival or completion.
                     </p>
                   </div>
@@ -409,13 +409,13 @@ export function EmergencyDashboard() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-ink-100 dark:border-ink-800">
-                        <th className="text-left py-3 px-3 text-xs font-bold text-ink-500 uppercase">Booking</th>
-                        <th className="text-left py-3 px-3 text-xs font-bold text-ink-500 uppercase">Customer</th>
-                        <th className="text-left py-3 px-3 text-xs font-bold text-ink-500 uppercase">Worker</th>
-                        <th className="text-left py-3 px-3 text-xs font-bold text-ink-500 uppercase">Status</th>
-                        <th className="text-left py-3 px-3 text-xs font-bold text-ink-500 uppercase">Response Time</th>
-                        <th className="text-left py-3 px-3 text-xs font-bold text-ink-500 uppercase">Privacy</th>
-                        <th className="text-left py-3 px-3 text-xs font-bold text-ink-500 uppercase">Created</th>
+                        <th className="text-start py-3 px-3 text-xs font-bold text-ink-500 uppercase">Booking</th>
+                        <th className="text-start py-3 px-3 text-xs font-bold text-ink-500 uppercase">Customer</th>
+                        <th className="text-start py-3 px-3 text-xs font-bold text-ink-500 uppercase">Worker</th>
+                        <th className="text-start py-3 px-3 text-xs font-bold text-ink-500 uppercase">Status</th>
+                        <th className="text-start py-3 px-3 text-xs font-bold text-ink-500 uppercase">Response Time</th>
+                        <th className="text-start py-3 px-3 text-xs font-bold text-ink-500 uppercase">Privacy</th>
+                        <th className="text-start py-3 px-3 text-xs font-bold text-ink-500 uppercase">Created</th>
                       </tr>
                     </thead>
                     <tbody>

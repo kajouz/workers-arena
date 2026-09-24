@@ -70,7 +70,7 @@ export function ManualPaymentsCard({ payments }: { payments: PendingManualPaymen
                   </p>
                   <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-400">
                     <Badge className={METHOD_STYLE[p.method]}>
-                      <span className="mr-1 inline-flex">
+                      <span className="me-1 inline-flex">
                         {p.method === "omt" ? <OMTIconCompact className="size-3" /> : <WishIconCompact className="size-3" />}
                       </span>
                       {t(`payments.method${p.method[0].toUpperCase()}${p.method.slice(1)}`)}

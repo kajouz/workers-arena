@@ -141,7 +141,7 @@ export function DisputeForm({
                     key={cat.id}
                     onClick={() => setCategory(cat.id)}
                     className={cn(
-                      "flex items-start gap-3 rounded-xl border p-3 text-left transition-all",
+                      "flex items-start gap-3 rounded-xl border p-3 text-start transition-all",
                       category === cat.id
                         ? "border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-950/30"
                         : "border-ink-200 hover:border-ink-300 dark:border-ink-700 dark:hover:border-ink-600"
@@ -216,12 +216,12 @@ export function DisputeForm({
               <Button onClick={handleSubmit} disabled={submitting} className="flex-1">
                 {submitting ? (
                   <>
-                    <span className="mr-2 size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span className="me-2 size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     Submitting...
                   </>
                 ) : (
                   <>
-                    <Send className="mr-2 size-4" />
+                    <Send className="me-2 size-4" />
                     File Dispute
                   </>
                 )}
@@ -246,7 +246,7 @@ export function DisputeTimeline({ dispute }: { dispute: Dispute }) {
           Dispute #{dispute.id.slice(-6)}
         </h3>
         <Badge className={cn("text-xs", statusCfg.color)}>
-          <statusCfg.icon className="mr-1 size-3" />
+          <statusCfg.icon className="me-1 size-3" />
           {statusCfg.label}
         </Badge>
       </div>

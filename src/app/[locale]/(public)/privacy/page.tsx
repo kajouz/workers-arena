@@ -32,7 +32,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold">2. Information We Collect</h2>
             <h3 className="text-lg font-medium mt-4">2.1 Information You Provide</h3>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul className="list-disc ps-6 space-y-2">
               <li><strong>Account information:</strong> name, email, phone number, role (customer/worker/company)</li>
               <li><strong>Worker profiles:</strong> trade category, city, area, bio, portfolio photos, certifications</li>
               <li><strong>Booking data:</strong> job requests, quotes, bookings, payments, reviews</li>
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
             </ul>
 
             <h3 className="text-lg font-medium mt-4">2.2 Information Collected Automatically</h3>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul className="list-disc ps-6 space-y-2">
               <li><strong>Device information:</strong> device type, OS version, app version, unique device identifiers</li>
               <li><strong>Usage data:</strong> pages viewed, features used, search queries, booking patterns</li>
               <li><strong>Location data:</strong> city/area (for matching workers with nearby jobs), precise location only with your permission</li>
@@ -51,7 +51,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-semibold">3. How We Use Your Information</h2>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul className="list-disc ps-6 space-y-2">
               <li>To provide, maintain, and improve the Service</li>
               <li>To process bookings, payments, and referrals</li>
               <li>To match customers with suitable workers based on trade, location, and availability</li>
@@ -66,7 +66,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold">4. Information Sharing</h2>
             <p>We share your information only in the following circumstances:</p>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul className="list-disc ps-6 space-y-2">
               <li><strong>With other users:</strong> workers see customer names and phone numbers for bookings; customers see worker profiles and contact info</li>
               <li><strong>With payment processors:</strong> OMT, Whish, and Stripe process payments on our behalf</li>
               <li><strong>With service providers:</strong> hosting, analytics, and notification services that help us operate the platform</li>
@@ -101,7 +101,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-semibold">7. Your Rights</h2>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul className="list-disc ps-6 space-y-2">
               <li><strong>Access:</strong> request a copy of your personal data</li>
               <li><strong>Correction:</strong> request correction of inaccurate data</li>
               <li><strong>Deletion:</strong> request deletion of your account and data</li>
@@ -135,7 +135,7 @@ export default function PrivacyPage() {
             <p>
               If you have questions about this Privacy Policy, please contact us at:
             </p>
-            <ul className="list-disc pl-6 space-y-2">
+            <ul className="list-disc ps-6 space-y-2">
               <li>Email: privacy@workersarena.com</li>
               <li>Address: Beirut, Lebanon</li>
               <li>Support: <span className="text-brand-500">workersarena.com/support</span></li>

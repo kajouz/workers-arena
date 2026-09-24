@@ -129,7 +129,7 @@ export function CampaignAnalytics() {
             <RefreshCw className="size-4" />
           </Button>
           <Button variant="outline" size="sm">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4 me-2" />
             {locale === "ar" ? "تصدير" : "Export"}
           </Button>
         </div>
@@ -312,7 +312,7 @@ export function CampaignAnalytics() {
               {locale === "ar" ? "أفضل الحملات أداءً" : "Top Performing Campaigns"}
             </CardTitle>
             <Badge variant="outline">
-              <BarChart3 className="size-3 mr-1" />
+              <BarChart3 className="size-3 me-1" />
               {topCampaigns.length}
             </Badge>
           </CardHeader>

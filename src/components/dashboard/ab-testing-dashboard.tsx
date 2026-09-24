@@ -64,7 +64,7 @@ export function ABTestingDashboard() {
           </p>
         </div>
         <Button>
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4 me-2" />
           {locale === "ar" ? "تجربة جديدة" : "New Experiment"}
         </Button>
       </div>
@@ -148,7 +148,7 @@ export function ABTestingDashboard() {
                   key={exp.id}
                   onClick={() => setSelectedExperiment(exp.id)}
                   className={cn(
-                    "w-full p-4 text-left transition-colors hover:bg-ink-50 dark:hover:bg-ink-800/50",
+                    "w-full p-4 text-start transition-colors hover:bg-ink-50 dark:hover:bg-ink-800/50",
                     selectedExperiment === exp.id && "bg-violet-50 dark:bg-violet-950/30"
                   )}
                 >

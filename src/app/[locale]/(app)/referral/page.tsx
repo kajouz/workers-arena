@@ -24,7 +24,7 @@ export default function ReferralPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/auth/register">
               <Button size="lg" className="bg-white dark:bg-ink-900 text-brand-600 hover:bg-white/90">
-                Join Now <ArrowRight className="ml-2 h-5 w-5" />
+                Join Now <ArrowRight className="ms-2 h-5 w-5" />
               </Button>
             </Link>
             <Link href="/search">
@@ -120,7 +120,7 @@ export default function ReferralPage() {
           </p>
           <Link href="/auth/register">
             <Button size="lg" className="bg-white dark:bg-ink-900 text-brand-600 hover:bg-white/90">
-              Create Your Account <ArrowRight className="ml-2 h-5 w-5" />
+              Create Your Account <ArrowRight className="ms-2 h-5 w-5" />
             </Button>
           </Link>
         </div>

@@ -15,8 +15,8 @@ export function ImportExport() {
   return (
     <div className="space-y-6">
       <div className="flex gap-4 border-b border-ink-200 dark:border-ink-800">
-        <button onClick={() => setActiveTab("import")} className={cn("pb-3 px-1 text-sm font-medium border-b-2", activeTab === "import" ? "border-blue-500 text-blue-600" : "border-transparent text-ink-500 dark:text-ink-400")}><Upload className="w-4 h-4 inline mr-2" /> Import</button>
-        <button onClick={() => setActiveTab("export")} className={cn("pb-3 px-1 text-sm font-medium border-b-2", activeTab === "export" ? "border-blue-500 text-blue-600" : "border-transparent text-ink-500 dark:text-ink-400")}><Download className="w-4 h-4 inline mr-2" /> Export</button>
+        <button onClick={() => setActiveTab("import")} className={cn("pb-3 px-1 text-sm font-medium border-b-2", activeTab === "import" ? "border-blue-500 text-blue-600" : "border-transparent text-ink-500 dark:text-ink-400")}><Upload className="w-4 h-4 inline me-2" /> Import</button>
+        <button onClick={() => setActiveTab("export")} className={cn("pb-3 px-1 text-sm font-medium border-b-2", activeTab === "export" ? "border-blue-500 text-blue-600" : "border-transparent text-ink-500 dark:text-ink-400")}><Download className="w-4 h-4 inline me-2" /> Export</button>
       </div>
       {activeTab === "import" ? (
         <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6">
@@ -37,7 +37,7 @@ export function ImportExport() {
           <h3 className="text-lg font-semibold mb-4">Export Data</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {["workers", "customers", "bookings", "payments", "reviews", "invoices", "categories", "campaigns"].map((type) => (
-              <button key={type} onClick={() => setExportType(type)} className={cn("p-4 rounded-xl border-2 text-left transition-all", exportType === type ? "border-blue-500 bg-blue-50" : "border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-700")}>
+              <button key={type} onClick={() => setExportType(type)} className={cn("p-4 rounded-xl border-2 text-start transition-all", exportType === type ? "border-blue-500 bg-blue-50" : "border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-700")}>
                 <FileText className="w-6 h-6 text-ink-600 dark:text-ink-300 mb-2" />
                 <p className="font-medium text-ink-900 dark:text-ink-50 capitalize">{type}</p>
               </button>

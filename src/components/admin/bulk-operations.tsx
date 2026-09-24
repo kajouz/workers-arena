@@ -29,7 +29,7 @@ export function BulkOperations() {
           <p className="text-sm font-medium text-ink-500 dark:text-ink-400 mb-3">{cat}</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {actions.filter((a) => a.category === cat).map((action) => { const Icon = action.icon; return (
-              <button key={action.id} onClick={() => setSelectedAction(selectedAction === action.id ? null : action.id)} className={cn("text-left p-4 rounded-xl border-2 transition-all", selectedAction === action.id ? "border-blue-500 bg-blue-50" : "border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-700")}>
+              <button key={action.id} onClick={() => setSelectedAction(selectedAction === action.id ? null : action.id)} className={cn("text-start p-4 rounded-xl border-2 transition-all", selectedAction === action.id ? "border-blue-500 bg-blue-50" : "border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-700")}>
                 <div className="flex items-center gap-3"><div className="p-2 bg-ink-100 dark:bg-ink-800 rounded-lg"><Icon className="w-5 h-5 text-ink-600 dark:text-ink-300" /></div><div><p className="font-medium text-ink-900 dark:text-ink-50">{action.name}</p><p className="text-sm text-ink-500 dark:text-ink-400">{action.description}</p></div></div>
               </button>
             ); })}

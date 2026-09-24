@@ -166,11 +166,11 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setShowAddModal(true)} size="sm">
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4 me-2" />
             Add Customer
           </Button>
           <Button onClick={exportCSV} variant="outline" size="sm">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4 me-2" />
             Export CSV
           </Button>
         </div>
@@ -207,7 +207,7 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
             placeholder="Search customers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 w-full rounded-xl border border-ink-200 bg-white pl-10 pr-4 text-sm dark:border-ink-700 dark:bg-ink-900"
+            className="h-10 w-full rounded-xl border border-ink-200 bg-white ps-10 pe-4 text-sm dark:border-ink-700 dark:bg-ink-900"
           />
         </div>
         <select
@@ -414,9 +414,9 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
                 <div className="flex gap-2 pt-2">
                   <Button type="submit" disabled={addLoading} className="flex-1">
                     {addLoading ? (
-                      <><Loader2 className="size-4 mr-2 animate-spin" /> Creating...</>
+                      <><Loader2 className="size-4 me-2 animate-spin" /> Creating...</>
                     ) : (
-                      <><Plus className="size-4 mr-2" /> Add Customer</>
+                      <><Plus className="size-4 me-2" /> Add Customer</>
                     )}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => { setShowAddModal(false); setAddError(null); setAddSuccess(null); }}>

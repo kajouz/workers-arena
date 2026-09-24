@@ -235,14 +235,14 @@ export function LeadQualityDashboard({
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-ink-100 text-left text-ink-500 dark:border-ink-800">
+              <tr className="border-b border-ink-100 text-start text-ink-500 dark:border-ink-800">
                 <th className="pb-2 font-medium">Grade</th>
-                <th className="pb-2 text-right font-medium">Count</th>
-                <th className="pb-2 text-right font-medium">Avg Quality</th>
-                <th className="pb-2 text-right font-medium">Conversion</th>
-                <th className="pb-2 text-right font-medium">Reachability</th>
-                <th className="pb-2 text-right font-medium">Price Multiplier</th>
-                <th className="pb-2 text-right font-medium">Match Adjustment</th>
+                <th className="pb-2 text-end font-medium">Count</th>
+                <th className="pb-2 text-end font-medium">Avg Quality</th>
+                <th className="pb-2 text-end font-medium">Conversion</th>
+                <th className="pb-2 text-end font-medium">Reachability</th>
+                <th className="pb-2 text-end font-medium">Price Multiplier</th>
+                <th className="pb-2 text-end font-medium">Match Adjustment</th>
               </tr>
             </thead>
             <tbody>
@@ -255,17 +255,17 @@ export function LeadQualityDashboard({
                         {GRADE_LABELS[grade]}
                       </span>
                     </td>
-                    <td className="py-2 text-right tabular-nums">{stats.count}</td>
-                    <td className="py-2 text-right tabular-nums">
+                    <td className="py-2 text-end tabular-nums">{stats.count}</td>
+                    <td className="py-2 text-end tabular-nums">
                       {stats.count > 0 ? `${stats.avgQuality}★` : "—"}
                     </td>
-                    <td className="py-2 text-right tabular-nums">
+                    <td className="py-2 text-end tabular-nums">
                       {stats.count > 0 ? `${stats.conversionRate}%` : "—"}
                     </td>
-                    <td className="py-2 text-right tabular-nums">
+                    <td className="py-2 text-end tabular-nums">
                       {stats.count > 0 ? `${stats.reachabilityRate}%` : "—"}
                     </td>
-                    <td className="py-2 text-right tabular-nums">
+                    <td className="py-2 text-end tabular-nums">
                       {stats.count > 0 ? (
                         <span className={cn(
                           "font-medium",
@@ -275,7 +275,7 @@ export function LeadQualityDashboard({
                         </span>
                       ) : "—"}
                     </td>
-                    <td className="py-2 text-right tabular-nums">
+                    <td className="py-2 text-end tabular-nums">
                       {stats.count > 0 ? (
                         <span className={cn(
                           "font-medium",
@@ -302,28 +302,28 @@ export function LeadQualityDashboard({
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-ink-500 dark:border-ink-800">
+                <tr className="border-b border-ink-100 text-start text-ink-500 dark:border-ink-800">
                   <th className="pb-2 font-medium">Week</th>
-                  <th className="pb-2 text-right font-medium">Ratings</th>
-                  <th className="pb-2 text-right font-medium">Avg Quality</th>
-                  <th className="pb-2 text-right font-medium">Conversion</th>
-                  <th className="pb-2 text-right font-medium">Bronze</th>
-                  <th className="pb-2 text-right font-medium">Silver</th>
-                  <th className="pb-2 text-right font-medium">Gold</th>
-                  <th className="pb-2 text-right font-medium">Emergency</th>
+                  <th className="pb-2 text-end font-medium">Ratings</th>
+                  <th className="pb-2 text-end font-medium">Avg Quality</th>
+                  <th className="pb-2 text-end font-medium">Conversion</th>
+                  <th className="pb-2 text-end font-medium">Bronze</th>
+                  <th className="pb-2 text-end font-medium">Silver</th>
+                  <th className="pb-2 text-end font-medium">Gold</th>
+                  <th className="pb-2 text-end font-medium">Emergency</th>
                 </tr>
               </thead>
               <tbody>
                 {recentWeeks.map((w) => (
                   <tr key={w.weekKey} className="border-b border-ink-50 last:border-0 dark:border-ink-900">
                     <td className="py-2 font-medium tabular-nums">{w.weekKey}</td>
-                    <td className="py-2 text-right tabular-nums">{w.totalCount}</td>
-                    <td className="py-2 text-right tabular-nums">{w.overallAvgQuality}★</td>
-                    <td className="py-2 text-right tabular-nums">{w.overallConversionRate}%</td>
-                    <td className="py-2 text-right tabular-nums">{w.byGrade.bronze.count || "—"}</td>
-                    <td className="py-2 text-right tabular-nums">{w.byGrade.silver.count || "—"}</td>
-                    <td className="py-2 text-right tabular-nums">{w.byGrade.gold.count || "—"}</td>
-                    <td className="py-2 text-right tabular-nums">{w.byGrade.emergency.count || "—"}</td>
+                    <td className="py-2 text-end tabular-nums">{w.totalCount}</td>
+                    <td className="py-2 text-end tabular-nums">{w.overallAvgQuality}★</td>
+                    <td className="py-2 text-end tabular-nums">{w.overallConversionRate}%</td>
+                    <td className="py-2 text-end tabular-nums">{w.byGrade.bronze.count || "—"}</td>
+                    <td className="py-2 text-end tabular-nums">{w.byGrade.silver.count || "—"}</td>
+                    <td className="py-2 text-end tabular-nums">{w.byGrade.gold.count || "—"}</td>
+                    <td className="py-2 text-end tabular-nums">{w.byGrade.emergency.count || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -346,28 +346,28 @@ export function LeadQualityDashboard({
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-ink-500 dark:border-ink-800">
+                <tr className="border-b border-ink-100 text-start text-ink-500 dark:border-ink-800">
                   <th className="pb-2 font-medium">Category</th>
-                  <th className="pb-2 text-right font-medium">Leads</th>
-                  <th className="pb-2 text-right font-medium">Offers</th>
-                  <th className="pb-2 text-right font-medium">Purchased</th>
-                  <th className="pb-2 text-right font-medium">Buy rate</th>
-                  <th className="pb-2 text-right font-medium">Jobs won</th>
-                  <th className="pb-2 text-right font-medium">Lead → job</th>
-                  <th className="pb-2 text-right font-medium">Credits</th>
+                  <th className="pb-2 text-end font-medium">Leads</th>
+                  <th className="pb-2 text-end font-medium">Offers</th>
+                  <th className="pb-2 text-end font-medium">Purchased</th>
+                  <th className="pb-2 text-end font-medium">Buy rate</th>
+                  <th className="pb-2 text-end font-medium">Jobs won</th>
+                  <th className="pb-2 text-end font-medium">Lead → job</th>
+                  <th className="pb-2 text-end font-medium">Credits</th>
                 </tr>
               </thead>
               <tbody>
                 {categoryConversion.window.map((row) => (
                   <tr key={row.categorySlug} className="border-b border-ink-50 last:border-0 dark:border-ink-900">
                     <td className="py-2 font-medium capitalize">{row.categorySlug.replace(/-/g, " ")}</td>
-                    <td className="py-2 text-right tabular-nums">{row.leads}</td>
-                    <td className="py-2 text-right tabular-nums">{row.offers}</td>
-                    <td className="py-2 text-right tabular-nums">{row.purchased}</td>
-                    <td className="py-2 text-right tabular-nums">{row.purchaseRate}%</td>
-                    <td className="py-2 text-right tabular-nums">{row.jobsWon}</td>
-                    <td className="py-2 text-right tabular-nums">{row.jobRate}%</td>
-                    <td className="py-2 text-right tabular-nums">{row.grossCredits}</td>
+                    <td className="py-2 text-end tabular-nums">{row.leads}</td>
+                    <td className="py-2 text-end tabular-nums">{row.offers}</td>
+                    <td className="py-2 text-end tabular-nums">{row.purchased}</td>
+                    <td className="py-2 text-end tabular-nums">{row.purchaseRate}%</td>
+                    <td className="py-2 text-end tabular-nums">{row.jobsWon}</td>
+                    <td className="py-2 text-end tabular-nums">{row.jobRate}%</td>
+                    <td className="py-2 text-end tabular-nums">{row.grossCredits}</td>
                   </tr>
                 ))}
               </tbody>

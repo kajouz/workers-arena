@@ -182,7 +182,7 @@ export function EarningsDashboard() {
           </p>
         </div>
         <Button variant="outline" size="sm">
-          <Download className="mr-2 size-4" />
+          <Download className="me-2 size-4" />
           Export
         </Button>
       </div>
@@ -363,7 +363,7 @@ export function EarningsDashboard() {
                     {tx.bookingNumber && ` · ${tx.bookingNumber}`}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <p
                     className={cn(
                       "text-sm font-bold",
@@ -380,7 +380,7 @@ export function EarningsDashboard() {
                     className="text-[10px]"
                   >
                     {tx.status === "completed" && (
-                      <CheckCircle2 className="mr-1 size-2.5" />
+                      <CheckCircle2 className="me-1 size-2.5" />
                     )}
                     {tx.status}
                   </Badge>

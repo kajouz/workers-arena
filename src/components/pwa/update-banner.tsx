@@ -130,7 +130,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
                   <X className="size-3.5" />
                 </button>
 
-                <div className="flex items-center gap-3 p-4 pr-8">
+                <div className="flex items-center gap-3 p-4 pe-8">
                   {/* Icon */}
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 dark:bg-brand-900/30">
                     <RefreshCw className="size-5 text-brand-600 dark:text-brand-400" />

@@ -18,7 +18,7 @@ export function CompanyAnalyticsView({ session }: { session: SessionUser }) {
         <div className="flex items-center gap-4">
           <Link href="/company">
             <Button variant="outline" size="sm">
-              <ArrowLeft className="size-4 mr-2" />
+              <ArrowLeft className="size-4 me-2" />
               {locale === "ar" ? "العودة" : "Back"}
             </Button>
           </Link>

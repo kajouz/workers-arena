@@ -154,7 +154,7 @@ export function WorkerRoiDashboard({ report }: { report: WorkerRoiReport | null 
             <span className="text-muted-foreground">→</span>
             <span className="font-semibold">{roi.jobsCompleted} {t("roi.jobsCompleted")}</span>
             {roi.winRatePct !== null && (
-              <Badge variant="success" className="ml-2">{roi.winRatePct}% win rate</Badge>
+              <Badge variant="success" className="ms-2">{roi.winRatePct}% win rate</Badge>
             )}
           </div>
           <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-muted-foreground">

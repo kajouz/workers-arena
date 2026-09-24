@@ -222,11 +222,11 @@ export function RetentionCohorts({ data, locale = "en" }: RetentionCohortsProps)
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-ink-100 dark:border-ink-800">
-                  <th className="px-2 py-2 text-left font-semibold text-ink-500">{locale === "ar" ? "الشهر" : "Month"}</th>
-                  <th className="px-2 py-2 text-right font-semibold text-ink-500">{locale === "ar" ? "مسجلون" : "Registered"}</th>
-                  <th className="px-2 py-2 text-right font-semibold text-ink-500">{locale === "ar" ? "احتفاظ" : "Retained"}</th>
-                  <th className="px-2 py-2 text-right font-semibold text-ink-500">{locale === "ar" ? "انسحاب" : "Churned"}</th>
-                  <th className="px-2 py-2 text-right font-semibold text-ink-500">{locale === "ar" ? "النسبة" : "Rate"}</th>
+                  <th className="px-2 py-2 text-start font-semibold text-ink-500">{locale === "ar" ? "الشهر" : "Month"}</th>
+                  <th className="px-2 py-2 text-end font-semibold text-ink-500">{locale === "ar" ? "مسجلون" : "Registered"}</th>
+                  <th className="px-2 py-2 text-end font-semibold text-ink-500">{locale === "ar" ? "احتفاظ" : "Retained"}</th>
+                  <th className="px-2 py-2 text-end font-semibold text-ink-500">{locale === "ar" ? "انسحاب" : "Churned"}</th>
+                  <th className="px-2 py-2 text-end font-semibold text-ink-500">{locale === "ar" ? "النسبة" : "Rate"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -239,10 +239,10 @@ export function RetentionCohorts({ data, locale = "en" }: RetentionCohortsProps)
                     className="border-b border-ink-50 dark:border-ink-800/50"
                   >
                     <td className="px-2 py-2 font-medium text-ink-700 dark:text-ink-200">{cohort.month}</td>
-                    <td className="px-2 py-2 text-right text-ink-600 dark:text-ink-300">{formatCompact(cohort.registered)}</td>
-                    <td className="px-2 py-2 text-right text-emerald-600 dark:text-emerald-400">{formatCompact(cohort.retained)}</td>
-                    <td className="px-2 py-2 text-right text-red-600 dark:text-red-400">{formatCompact(cohort.churned)}</td>
-                    <td className="px-2 py-2 text-right">
+                    <td className="px-2 py-2 text-end text-ink-600 dark:text-ink-300">{formatCompact(cohort.registered)}</td>
+                    <td className="px-2 py-2 text-end text-emerald-600 dark:text-emerald-400">{formatCompact(cohort.retained)}</td>
+                    <td className="px-2 py-2 text-end text-red-600 dark:text-red-400">{formatCompact(cohort.churned)}</td>
+                    <td className="px-2 py-2 text-end">
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${getRetentionBg(cohort.retentionRate)} ${getRetentionColor(cohort.retentionRate)}`}>
                         {cohort.retentionRate.toFixed(1)}%
                       </span>

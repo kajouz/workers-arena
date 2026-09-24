@@ -192,7 +192,7 @@ export function AcquisitionFunnel({
 
                 {/* Drop-off indicator */}
                 {i > 0 && conversions[i].dropoff > 0 && (
-                  <div className="shrink-0 text-right">
+                  <div className="shrink-0 text-end">
                     <span className="text-[10px] text-red-500">
                       -{conversions[i].dropoff.toFixed(1)}%
                     </span>

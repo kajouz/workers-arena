@@ -338,7 +338,7 @@ export default function ChatBox({
                         onClick={() =>
                           onQuoteAccept?.(bookingId, msg.id)
                         }
-                        className="ml-2 rounded bg-emerald-500 px-2 py-0.5 text-xs text-white hover:bg-emerald-600"
+                        className="ms-2 rounded bg-emerald-500 px-2 py-0.5 text-xs text-white hover:bg-emerald-600"
                       >
                         {t("chat.acceptQuote")}
                       </button>

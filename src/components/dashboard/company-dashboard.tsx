@@ -99,7 +99,7 @@ export function CompanyDashboard({
         <div className="flex items-center gap-3">
           <Link href="/company?view=analytics">
             <Button variant="outline">
-              <BarChart3 className="size-4 mr-2" />
+              <BarChart3 className="size-4 me-2" />
               {locale === "ar" ? "تحليلات" : "Analytics"}
             </Button>
           </Link>

@@ -273,7 +273,7 @@ export function GlobalSearch({ onNavigate, className }: GlobalSearchProps) {
                               <div className={cn("p-2 rounded-lg", getTypeColor(result.type))}>
                                 {getTypeIcon(result.type)}
                               </div>
-                              <div className="flex-1 text-left">
+                              <div className="flex-1 text-start">
                                 <p className="font-medium text-ink-900 dark:text-ink-50">{result.title}</p>
                                 <p className="text-sm text-ink-500 dark:text-ink-400">{result.subtitle}</p>
                               </div>

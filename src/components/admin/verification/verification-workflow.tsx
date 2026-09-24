@@ -354,7 +354,7 @@ export function VerificationWorkflow({ className }: VerificationWorkflowProps) {
                   <p className="font-medium text-ink-900 dark:text-ink-50">{request.workerName}</p>
                   <p className="text-sm text-ink-500 dark:text-ink-400">{request.category}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <span
                     className={cn(
                       "inline-block px-2 py-0.5 text-xs font-medium rounded-full",

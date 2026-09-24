@@ -395,7 +395,7 @@ export function PromotedEnhancedCard() {
                     out of {data.competitorData.totalCompetitors} competitors
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <div className="text-sm opacity-80">Your CPC Bid</div>
                   <div className="text-2xl font-bold">
                     ${data.competitorData.yourBid.toFixed(2)}

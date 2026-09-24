@@ -153,11 +153,11 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-ink-100 dark:border-ink-800 text-left text-ink-500 dark:text-ink-400">
+                  <tr className="border-b border-ink-100 dark:border-ink-800 text-start text-ink-500 dark:text-ink-400">
                     <th className="px-5 py-2 font-medium">Date</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                     <th className="px-3 py-2 font-medium">Reason</th>
-                    <th className="px-3 py-2 text-right font-medium">Amount</th>
+                    <th className="px-3 py-2 text-end font-medium">Amount</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -193,14 +193,14 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-ink-100 dark:border-ink-800 text-left text-ink-500 dark:text-ink-400">
+                  <tr className="border-b border-ink-100 dark:border-ink-800 text-start text-ink-500 dark:text-ink-400">
                     <th className="px-5 py-2 font-medium">Job</th>
                     <th className="px-3 py-2 font-medium">Customer</th>
-                    <th className="px-3 py-2 text-right font-medium">GMV</th>
-                    <th className="px-3 py-2 text-right font-medium">Fee</th>
-                    <th className="px-3 py-2 text-right font-medium">Rebate</th>
-                    <th className="px-3 py-2 text-right font-medium">Net</th>
-                    <th className="px-5 py-2 text-right font-medium">Source</th>
+                    <th className="px-3 py-2 text-end font-medium">GMV</th>
+                    <th className="px-3 py-2 text-end font-medium">Fee</th>
+                    <th className="px-3 py-2 text-end font-medium">Rebate</th>
+                    <th className="px-3 py-2 text-end font-medium">Net</th>
+                    <th className="px-5 py-2 text-end font-medium">Source</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -211,10 +211,10 @@ export function EarningsStatementView({ statement, currentMonthKey, workerName }
                 <tfoot>
                   <tr className="border-t-2 border-ink-200 dark:border-ink-800 font-semibold">
                     <td colSpan={2} className="px-5 py-2 text-ink-700 dark:text-ink-200">Total</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmt(statement.gmvMinor)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmt(statement.effectiveFeesMinor)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmt(statement.rebatesMinor)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-emerald-600">
+                    <td className="px-3 py-2 text-end tabular-nums">{fmt(statement.gmvMinor)}</td>
+                    <td className="px-3 py-2 text-end tabular-nums">{fmt(statement.effectiveFeesMinor)}</td>
+                    <td className="px-3 py-2 text-end tabular-nums">{fmt(statement.rebatesMinor)}</td>
+                    <td className="px-3 py-2 text-end tabular-nums text-emerald-600">
                       {fmt(statement.netEarningsMinor)}
                     </td>
                     <td className="px-5 py-2" />
@@ -310,17 +310,17 @@ function JobRow({
         </div>
       </td>
       <td className="px-3 py-2 text-ink-600 dark:text-ink-300">{job.customerName}</td>
-      <td className="px-3 py-2 text-right tabular-nums">{fmt(job.gmvMinor)}</td>
-      <td className="px-3 py-2 text-right tabular-nums text-ink-500 dark:text-ink-400">{fmt(job.feeMinor)}</td>
-      <td className="px-3 py-2 text-right tabular-nums">
+      <td className="px-3 py-2 text-end tabular-nums">{fmt(job.gmvMinor)}</td>
+      <td className="px-3 py-2 text-end tabular-nums text-ink-500 dark:text-ink-400">{fmt(job.feeMinor)}</td>
+      <td className="px-3 py-2 text-end tabular-nums">
         {job.rebateMinor > 0 ? (
           <span className="text-emerald-600">-{fmt(job.rebateMinor)}</span>
         ) : (
           <span className="text-ink-300 dark:text-ink-600">—</span>
         )}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(job.netEarningsMinor)}</td>
-      <td className="px-5 py-2 text-right">
+      <td className="px-3 py-2 text-end tabular-nums font-medium">{fmt(job.netEarningsMinor)}</td>
+      <td className="px-5 py-2 text-end">
         {job.fromLead ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-800 dark:bg-purple-500/15 dark:text-purple-300">
             <Target className="h-2.5 w-2.5" />
@@ -361,7 +361,7 @@ function PayoutRow({
         </Badge>
       </td>
       <td className="px-3 py-2 text-ink-500 dark:text-ink-400">{payout.reason || "—"}</td>
-      <td className="px-3 py-2 text-right font-semibold text-red-600">-{fmt(payout.amountMinor)}</td>
+      <td className="px-3 py-2 text-end font-semibold text-red-600">-{fmt(payout.amountMinor)}</td>
     </tr>
   );
 }

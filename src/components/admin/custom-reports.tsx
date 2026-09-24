@@ -47,7 +47,7 @@ export function CustomReports() {
           </div>
         ))}
       </div>
-      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6"><div className="h-64 bg-ink-100 dark:bg-ink-800 rounded-lg flex items-center justify-center"><BarChart3 className="w-12 h-12 text-ink-400 dark:text-ink-500" /><p className="text-ink-500 dark:text-ink-400 ml-4">Chart visualization</p></div></div>
+      <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 p-6"><div className="h-64 bg-ink-100 dark:bg-ink-800 rounded-lg flex items-center justify-center"><BarChart3 className="w-12 h-12 text-ink-400 dark:text-ink-500" /><p className="text-ink-500 dark:text-ink-400 ms-4">Chart visualization</p></div></div>
     </div>
   );
 }

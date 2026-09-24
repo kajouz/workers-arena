@@ -47,7 +47,7 @@ export function ContentManagement() {
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
-          <input type="text" placeholder="Search pages..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" />
+          <input type="text" placeholder="Search pages..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full ps-10 pe-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" />
         </div>
         <button onClick={() => setEditingPage({ id: "", slug: "", titleEn: "", titleAr: "", contentEn: "", contentAr: "", metaTitleEn: "", metaTitleAr: "", metaDescriptionEn: "", metaDescriptionAr: "", status: "draft", updatedAt: new Date().toISOString() })} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           <Plus className="w-4 h-4" /> New Page
@@ -77,7 +77,7 @@ export function ContentManagement() {
       ) : (
         <div className="bg-white dark:bg-ink-900 rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
           <div className="overflow-x-auto"><table className="w-full">
-            <thead className="bg-ink-50 dark:bg-ink-950"><tr><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Page</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Slug</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Updated</th><th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th></tr></thead>
+            <thead className="bg-ink-50 dark:bg-ink-950"><tr><th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Page</th><th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Slug</th><th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th><th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Updated</th><th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th></tr></thead>
             <tbody className="divide-y divide-ink-200 dark:divide-ink-800">
               {filteredPages.map((page) => (
                 <tr key={page.id} className="hover:bg-ink-50 dark:hover:bg-ink-950">

@@ -103,7 +103,7 @@ export function AdminMaskedNumbers() {
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={fetchMaskedNumbers}>
-          <RefreshCw className="size-4 mr-2" />
+          <RefreshCw className="size-4 me-2" />
           {t("calling.refresh") || "Refresh"}
         </Button>
       </div>
@@ -180,9 +180,9 @@ export function AdminMaskedNumbers() {
                         <span className="font-mono text-sm font-bold">{mn.maskedNumber}</span>
                         <Badge variant={mn.partyType === "worker" ? "default" : "secondary"}>
                           {mn.partyType === "worker" ? (
-                            <User className="size-3 mr-1" />
+                            <User className="size-3 me-1" />
                           ) : (
-                            <Phone className="size-3 mr-1" />
+                            <Phone className="size-3 me-1" />
                           )}
                           {mn.partyType}
                         </Badge>
@@ -203,7 +203,7 @@ export function AdminMaskedNumbers() {
                     {/* Reveal Real Number */}
                     <div>
                       {revealedNumbers.has(mn.id) ? (
-                        <div className="text-right">
+                        <div className="text-end">
                           <p className="text-xs text-ink-500 mb-1">
                             {t("calling.realNumber") || "Real Number"}
                           </p>
@@ -217,7 +217,7 @@ export function AdminMaskedNumbers() {
                               size="sm"
                               onClick={() => handleRevealRealNumber(mn.id)}
                             >
-                              <Eye className="size-4 mr-1" />
+                              <Eye className="size-4 me-1" />
                               {t("calling.reveal") || "Reveal"}
                             </Button>
                           </DialogTrigger>
@@ -242,7 +242,7 @@ export function AdminMaskedNumbers() {
                               </div>
                               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                                 <p className="text-xs text-amber-800 dark:text-amber-200">
-                                  <AlertTriangle className="size-3.5 inline mr-1" />
+                                  <AlertTriangle className="size-3.5 inline me-1" />
                                   {t("calling.auditNotice") || "This action is logged for compliance and audit purposes."}
                                 </p>
                               </div>

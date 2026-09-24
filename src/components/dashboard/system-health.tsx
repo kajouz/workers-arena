@@ -189,7 +189,7 @@ export function SystemHealthMonitor({ locale = "en" }: { locale?: string }) {
               }`}
             />
           </div>
-          <p className="mt-1 text-right text-[10px] text-ink-400">
+          <p className="mt-1 text-end text-[10px] text-ink-400">
             {health.checks.memory.percentage}%
           </p>
         </motion.div>

@@ -482,11 +482,11 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setShowGenerateModal(true)} size="sm">
-            <Plus className="size-4 mr-2" />
+            <Plus className="size-4 me-2" />
             Generate Invoice
           </Button>
           <Button onClick={exportCSV} variant="outline" size="sm">
-            <Download className="size-4 mr-2" />
+            <Download className="size-4 me-2" />
             Export CSV
           </Button>
         </div>
@@ -539,13 +539,13 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
               </span>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => handleBulkAction("send")}>
-                  <Mail className="size-3 mr-1" /> Send All
+                  <Mail className="size-3 me-1" /> Send All
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => handleBulkAction("export")}>
-                  <Download className="size-3 mr-1" /> Export
+                  <Download className="size-3 me-1" /> Export
                 </Button>
                 <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleBulkAction("void")}>
-                  <Ban className="size-3 mr-1" /> Void All
+                  <Ban className="size-3 me-1" /> Void All
                 </Button>
               </div>
               <button
@@ -568,7 +568,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
             placeholder="Search invoices..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 w-full rounded-xl border border-ink-200 bg-white pl-10 pr-4 text-sm dark:border-ink-700 dark:bg-ink-900"
+            className="h-10 w-full rounded-xl border border-ink-200 bg-white ps-10 pe-4 text-sm dark:border-ink-700 dark:bg-ink-900"
           />
         </div>
         <select
@@ -612,13 +612,13 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                   className="size-4 rounded border-ink-300"
                 />
               </th>
-              <th className="px-4 py-3 text-left font-semibold text-ink-600 dark:text-ink-300">Invoice</th>
-              <th className="px-4 py-3 text-left font-semibold text-ink-600 dark:text-ink-300">Worker</th>
-              <th className="px-4 py-3 text-left font-semibold text-ink-600 dark:text-ink-300">Type</th>
-              <th className="px-4 py-3 text-right font-semibold text-ink-600 dark:text-ink-300">Amount</th>
+              <th className="px-4 py-3 text-start font-semibold text-ink-600 dark:text-ink-300">Invoice</th>
+              <th className="px-4 py-3 text-start font-semibold text-ink-600 dark:text-ink-300">Worker</th>
+              <th className="px-4 py-3 text-start font-semibold text-ink-600 dark:text-ink-300">Type</th>
+              <th className="px-4 py-3 text-end font-semibold text-ink-600 dark:text-ink-300">Amount</th>
               <th className="px-4 py-3 text-center font-semibold text-ink-600 dark:text-ink-300">Status</th>
-              <th className="px-4 py-3 text-right font-semibold text-ink-600 dark:text-ink-300">Due Date</th>
-              <th className="px-4 py-3 text-right font-semibold text-ink-600 dark:text-ink-300">Actions</th>
+              <th className="px-4 py-3 text-end font-semibold text-ink-600 dark:text-ink-300">Due Date</th>
+              <th className="px-4 py-3 text-end font-semibold text-ink-600 dark:text-ink-300">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -658,7 +658,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                 <td className="px-4 py-3">
                   <Badge className={TYPE_COLORS[invoice.type]}>{invoice.type.replace("_", " ")}</Badge>
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-end">
                   <span className="font-bold text-ink-900 dark:text-ink-50">
                     {formatPrice(invoice.amount / 100, "USD", locale as "en" | "ar")}
                   </span>
@@ -672,10 +672,10 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                     {invoice.status}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-right text-xs text-ink-500">
+                <td className="px-4 py-3 text-end text-xs text-ink-500">
                   {formatDate(invoice.dueDate, locale as "en" | "ar")}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-end">
                   <div className="flex items-center justify-end gap-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setShowDetailModal(invoice)}>
                       <Eye className="size-3" />
@@ -737,7 +737,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">
-                  <Receipt className="size-5 mr-2 inline text-brand-500" />
+                  <Receipt className="size-5 me-2 inline text-brand-500" />
                   Generate New Invoice
                 </h2>
                 <button onClick={() => { setShowGenerateModal(false); setGenSuccess(false); }} className="rounded-lg p-1 text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800">
@@ -824,7 +824,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                             }}
                             className="h-9 w-24 rounded-lg border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
                           />
-                          <span className="w-20 text-right text-sm font-bold text-ink-700 dark:text-ink-200">
+                          <span className="w-20 text-end text-sm font-bold text-ink-700 dark:text-ink-200">
                             {(li.quantity * li.unitPrice / 100).toFixed(2)}
                           </span>
                           {genLineItems.length > 1 && (
@@ -916,9 +916,9 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                       className="flex-1"
                     >
                       {genLoading ? (
-                        <><Loader2 className="size-4 mr-2 animate-spin" /> Generating...</>
+                        <><Loader2 className="size-4 me-2 animate-spin" /> Generating...</>
                       ) : (
-                        <><Receipt className="size-4 mr-2" /> Generate Invoice</>
+                        <><Receipt className="size-4 me-2" /> Generate Invoice</>
                       )}
                     </Button>
                     <Button variant="outline" onClick={() => { setShowGenerateModal(false); setGenSuccess(false); }}>
@@ -953,7 +953,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">
-                  <FileText className="size-5 mr-2 inline text-brand-500" />
+                  <FileText className="size-5 me-2 inline text-brand-500" />
                   {showDetailModal.number}
                 </h2>
                 <button onClick={() => setShowDetailModal(null)} className="rounded-lg p-1 text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800">
@@ -968,7 +968,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                   <p className="font-bold text-ink-900 dark:text-ink-50">{showDetailModal.workerName}</p>
                   <p className="text-xs text-ink-400">{showDetailModal.workerEmail}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <Badge className={`${STATUS_CONFIG[showDetailModal.status].bg} ${STATUS_CONFIG[showDetailModal.status].color}`}>
                     {STATUS_CONFIG[showDetailModal.status].icon}
                     {showDetailModal.status}
@@ -982,10 +982,10 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                 <div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead>
                     <tr className="bg-ink-50 dark:bg-ink-800/50">
-                      <th className="px-3 py-2 text-left font-semibold text-ink-600 dark:text-ink-300">Description</th>
+                      <th className="px-3 py-2 text-start font-semibold text-ink-600 dark:text-ink-300">Description</th>
                       <th className="px-3 py-2 text-center font-semibold text-ink-600 dark:text-ink-300">Qty</th>
-                      <th className="px-3 py-2 text-right font-semibold text-ink-600 dark:text-ink-300">Unit Price</th>
-                      <th className="px-3 py-2 text-right font-semibold text-ink-600 dark:text-ink-300">Total</th>
+                      <th className="px-3 py-2 text-end font-semibold text-ink-600 dark:text-ink-300">Unit Price</th>
+                      <th className="px-3 py-2 text-end font-semibold text-ink-600 dark:text-ink-300">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -993,8 +993,8 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                       <tr key={li.id} className="border-t border-ink-100 dark:border-ink-800">
                         <td className="px-3 py-2 text-ink-700 dark:text-ink-200">{li.description}</td>
                         <td className="px-3 py-2 text-center text-ink-500">{li.quantity}</td>
-                        <td className="px-3 py-2 text-right text-ink-500">{formatPrice(li.unitPrice / 100, "USD", locale as "en" | "ar")}</td>
-                        <td className="px-3 py-2 text-right font-medium text-ink-700 dark:text-ink-200">{formatPrice(li.total / 100, "USD", locale as "en" | "ar")}</td>
+                        <td className="px-3 py-2 text-end text-ink-500">{formatPrice(li.unitPrice / 100, "USD", locale as "en" | "ar")}</td>
+                        <td className="px-3 py-2 text-end font-medium text-ink-700 dark:text-ink-200">{formatPrice(li.total / 100, "USD", locale as "en" | "ar")}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1002,7 +1002,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
               </div>
 
               {/* Totals */}
-              <div className="mt-3 space-y-1 text-right">
+              <div className="mt-3 space-y-1 text-end">
                 <div className="flex justify-between text-sm text-ink-500">
                   <span>Subtotal</span>
                   <span>{formatPrice(showDetailModal.amount / 100, "USD", locale as "en" | "ar")}</span>
@@ -1060,21 +1060,21 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
               <div className="mt-6 flex gap-2">
                 {showDetailModal.status === "pending" && (
                   <Button size="sm" onClick={() => { handleMarkPaid(showDetailModal); setShowDetailModal(null); }}>
-                    <CheckCircle2 className="size-3 mr-1" /> Mark as Paid
+                    <CheckCircle2 className="size-3 me-1" /> Mark as Paid
                   </Button>
                 )}
                 {showDetailModal.status === "pending" && (
                   <Button size="sm" variant="outline" onClick={() => { handleSendReminder(showDetailModal); setShowDetailModal(null); }}>
-                    <Send className="size-3 mr-1" /> Send Reminder
+                    <Send className="size-3 me-1" /> Send Reminder
                   </Button>
                 )}
                 {(showDetailModal.status === "pending" || showDetailModal.status === "overdue") && (
                   <Button size="sm" variant="outline" className="text-red-600" onClick={() => { setShowDetailModal(null); setShowRevokeModal(showDetailModal); }}>
-                    <Ban className="size-3 mr-1" /> Void Invoice
+                    <Ban className="size-3 me-1" /> Void Invoice
                   </Button>
                 )}
                 <Button size="sm" variant="outline" onClick={() => { handleDuplicate(showDetailModal); setShowDetailModal(null); }}>
-                  <Copy className="size-3 mr-1" /> Duplicate
+                  <Copy className="size-3 me-1" /> Duplicate
                 </Button>
               </div>
             </motion.div>
@@ -1103,7 +1103,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-red-600">
-                  <AlertTriangle className="size-5 mr-2 inline" />
+                  <AlertTriangle className="size-5 me-2 inline" />
                   Void Invoice
                 </h2>
                 <button onClick={() => { setShowRevokeModal(null); setRevokeSuccess(false); }} className="rounded-lg p-1 text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800">
@@ -1182,9 +1182,9 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                       className="flex-1 bg-red-600 hover:bg-red-700"
                     >
                       {revokeLoading ? (
-                        <><Loader2 className="size-4 mr-2 animate-spin" /> Voiding...</>
+                        <><Loader2 className="size-4 me-2 animate-spin" /> Voiding...</>
                       ) : (
-                        <><Ban className="size-4 mr-2" /> Void Invoice</>
+                        <><Ban className="size-4 me-2" /> Void Invoice</>
                       )}
                     </Button>
                     <Button variant="outline" onClick={() => { setShowRevokeModal(null); setRevokeSuccess(false); }}>

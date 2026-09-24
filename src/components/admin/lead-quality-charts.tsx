@@ -57,7 +57,7 @@ export function Sparkline({
       {showTrend && (
         <span
           className={cn(
-            "ml-1 text-[10px] font-medium tabular-nums",
+            "ms-1 text-[10px] font-medium tabular-nums",
             trend > 0 ? "text-emerald-600" : trend < 0 ? "text-red-500" : "text-ink-400"
           )}
         >
@@ -145,11 +145,11 @@ export function GradeBarChart({ data, maxValue: maxProp, className }: GradeBarCh
               />
             </div>
           </div>
-          <span className="w-12 text-right text-xs font-medium tabular-nums text-ink-600 dark:text-ink-300">
+          <span className="w-12 text-end text-xs font-medium tabular-nums text-ink-600 dark:text-ink-300">
             {d.value}
           </span>
           {d.subtitle && (
-            <span className="w-16 text-right text-[10px] text-ink-400">{d.subtitle}</span>
+            <span className="w-16 text-end text-[10px] text-ink-400">{d.subtitle}</span>
           )}
         </div>
       ))}

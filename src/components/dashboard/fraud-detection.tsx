@@ -331,7 +331,7 @@ export function FraudDetection() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <AlertTriangle className="w-4 h-4 inline mr-2" />
+            <AlertTriangle className="w-4 h-4 inline me-2" />
             Active Alerts
           </button>
           <button
@@ -343,7 +343,7 @@ export function FraudDetection() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <Activity className="w-4 h-4 inline mr-2" />
+            <Activity className="w-4 h-4 inline me-2" />
             Risk Patterns
           </button>
           <button
@@ -355,7 +355,7 @@ export function FraudDetection() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <BarChart3 className="w-4 h-4 inline mr-2" />
+            <BarChart3 className="w-4 h-4 inline me-2" />
             Analytics
           </button>
         </nav>
@@ -373,7 +373,7 @@ export function FraudDetection() {
                 placeholder="Search alerts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full ps-10 pe-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <select
@@ -453,7 +453,7 @@ export function FraudDetection() {
                     {alert.assignedTo && (
                       <span>Assigned to: <span className="font-medium">{alert.assignedTo}</span></span>
                     )}
-                    <span className="ml-4">{formatDateTime(alert.createdAt, locale)}</span>
+                    <span className="ms-4">{formatDateTime(alert.createdAt, locale)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -489,12 +489,12 @@ export function FraudDetection() {
           <div className="overflow-x-auto"><table className="w-full">
             <thead className="bg-ink-50 dark:bg-ink-950">
               <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Pattern</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Description</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Severity</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Triggers</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Last Triggered</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Pattern</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Description</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Severity</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Triggers</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Last Triggered</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-200 dark:divide-ink-800">

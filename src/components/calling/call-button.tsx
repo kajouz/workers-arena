@@ -161,12 +161,12 @@ export function CallButton({ bookingId, partyType, partyName, className }: CallB
               >
                 {creating ? (
                   <>
-                    <PhoneCall className="size-4 mr-2 animate-pulse" />
+                    <PhoneCall className="size-4 me-2 animate-pulse" />
                     {t("calling.creating") || "Creating..."}
                   </>
                 ) : (
                   <>
-                    <Phone className="size-4 mr-2" />
+                    <Phone className="size-4 me-2" />
                     {t("calling.createNumber") || "Create Masked Number"}
                   </>
                 )}
@@ -205,7 +205,7 @@ export function CallButton({ bookingId, partyType, partyName, className }: CallB
               {/* Privacy Notice */}
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                 <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <Shield className="size-3.5 inline mr-1" />
+                  <Shield className="size-3.5 inline me-1" />
                   {t("calling.privacyNotice") || "Your real phone number is never shared. Both parties see only platform-provided numbers."}
                 </p>
               </div>
@@ -231,7 +231,7 @@ export function CallButton({ bookingId, partyType, partyName, className }: CallB
 
               {/* Call Button */}
               <Button onClick={handleCall} className="w-full" size="lg">
-                <PhoneCall className="size-5 mr-2" />
+                <PhoneCall className="size-5 me-2" />
                 {t("calling.callNow") || "Call Now"}
               </Button>
             </div>

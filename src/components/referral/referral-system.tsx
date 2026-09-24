@@ -325,7 +325,7 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <Gift className="w-4 h-4 inline mr-2" />
+            <Gift className="w-4 h-4 inline me-2" />
             Reward Tiers
           </button>
           <button
@@ -337,7 +337,7 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <Clock className="w-4 h-4 inline mr-2" />
+            <Clock className="w-4 h-4 inline me-2" />
             History
           </button>
         </nav>
@@ -412,10 +412,10 @@ export function ReferralSystem({ locale = "en" }: { locale?: "en" | "ar" }) {
           <div className="overflow-x-auto"><table className="w-full">
             <thead className="bg-ink-50 dark:bg-ink-950">
               <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Referred User</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Date</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Reward</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Referred User</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Date</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Reward</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-200 dark:divide-ink-800">

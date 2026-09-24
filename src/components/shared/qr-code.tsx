@@ -140,7 +140,7 @@ export function QRCode({
       <div className="flex gap-2">
         {showDownload && qrDataUrl && (
           <Button variant="outline" size="sm" onClick={handleDownload}>
-            <Download className="size-4 mr-1" />
+            <Download className="size-4 me-1" />
             {locale === "ar" ? "تحميل" : "Download"}
           </Button>
         )}
@@ -151,7 +151,7 @@ export function QRCode({
             onClick={handleCopy}
             className={copied ? "bg-emerald-500 text-white" : ""}
           >
-            {copied ? <Check className="size-4 mr-1" /> : <Copy className="size-4 mr-1" />}
+            {copied ? <Check className="size-4 me-1" /> : <Copy className="size-4 me-1" />}
             {copied ? (locale === "ar" ? "تم النسخ" : "Copied!") : (locale === "ar" ? "نسخ" : "Copy")}
           </Button>
         )}

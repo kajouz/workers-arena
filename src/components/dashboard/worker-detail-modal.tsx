@@ -259,13 +259,13 @@ export function WorkerDetailModal({ worker, isOpen, onClose, locale = "en" }: Wo
               {/* Admin Actions */}
               <div className="flex gap-2 border-t border-ink-100 pt-4 dark:border-ink-800">
                 <Button variant="outline" size="sm" className="flex-1">
-                  <MessageSquare className="size-4 mr-2" /> Message
+                  <MessageSquare className="size-4 me-2" /> Message
                 </Button>
                 <Button variant="outline" size="sm" className="flex-1">
-                  <Eye className="size-4 mr-2" /> View Profile
+                  <Eye className="size-4 me-2" /> View Profile
                 </Button>
                 <Button variant="outline" size="sm" className="flex-1 text-amber-600">
-                  <Briefcase className="size-4 mr-2" /> Impersonate
+                  <Briefcase className="size-4 me-2" /> Impersonate
                 </Button>
               </div>
             </div>

@@ -127,7 +127,7 @@ function MapVisualization({
             {/* Label */}
             <div className="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-white/90 px-2 py-0.5 text-[10px] font-bold shadow dark:bg-ink-900/90">
               {city.city}
-              <span className="ml-1 text-ink-400">({city.workerCount})</span>
+              <span className="ms-1 text-ink-400">({city.workerCount})</span>
             </div>
           </div>
         </button>
@@ -270,14 +270,14 @@ export function GeoHeatmap({
                   >
                     <MapPin className="size-4" />
                   </div>
-                  <div className="text-left">
+                  <div className="text-start">
                     <p className="text-sm font-bold text-ink-900 dark:text-ink-50">{cluster.city}</p>
                     <p className="text-[10px] text-ink-400">
                       {cluster.categories.length} {locale === "ar" ? "فئات" : "categories"}
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <p className="text-sm font-bold text-ink-900 dark:text-ink-50">{cluster.workerCount}</p>
                   <p className="text-[10px] text-ink-400">
                     ⭐ {cluster.avgRating.toFixed(1)}

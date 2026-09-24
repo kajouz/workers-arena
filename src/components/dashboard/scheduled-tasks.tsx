@@ -381,7 +381,7 @@ export function ScheduledTasks() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <Clock className="w-4 h-4 inline mr-2" />
+            <Clock className="w-4 h-4 inline me-2" />
             Tasks
           </button>
           <button
@@ -393,7 +393,7 @@ export function ScheduledTasks() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <History className="w-4 h-4 inline mr-2" />
+            <History className="w-4 h-4 inline me-2" />
             History
           </button>
         </nav>
@@ -411,7 +411,7 @@ export function ScheduledTasks() {
                 placeholder="Search tasks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full ps-10 pe-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <select
@@ -529,12 +529,12 @@ export function ScheduledTasks() {
           <div className="overflow-x-auto"><table className="w-full">
             <thead className="bg-ink-50 dark:bg-ink-950">
               <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Task</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Started</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Duration</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Output</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Task</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Started</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Duration</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Output</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-200 dark:divide-ink-800">

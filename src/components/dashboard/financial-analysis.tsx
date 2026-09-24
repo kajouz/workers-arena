@@ -208,7 +208,7 @@ function ContributionWaterfall({
             />
           </div>
           <span
-            className={`w-24 text-right text-xs font-bold ${
+            className={`w-24 text-end text-xs font-bold ${
               item.value >= 0
                 ? "text-emerald-600 dark:text-emerald-400"
                 : "text-red-600 dark:text-red-400"

@@ -66,7 +66,7 @@ export function SearchHistory({ onSelect, className }: SearchHistoryProps) {
                 e.stopPropagation();
                 removeSearch(index);
               }}
-              className="ml-1 rounded-full p-0.5 text-ink-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
+              className="ms-1 rounded-full p-0.5 text-ink-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
               aria-label={t("common.remove")}
             >
               <X className="size-3" />

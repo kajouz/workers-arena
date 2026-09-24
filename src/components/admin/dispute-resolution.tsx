@@ -267,7 +267,7 @@ export function DisputeResolution() {
             placeholder="Search disputes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"
+            className="w-full ps-10 pe-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"
           />
         </div>
         <select
@@ -301,13 +301,13 @@ export function DisputeResolution() {
         <div className="overflow-x-auto"><table className="w-full">
           <thead className="bg-ink-50 dark:bg-ink-950">
             <tr>
-              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Dispute</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Type</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Filed By</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Against</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Deadline</th>
-              <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
+              <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Dispute</th>
+              <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Type</th>
+              <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Filed By</th>
+              <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Against</th>
+              <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
+              <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Deadline</th>
+              <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-200 dark:divide-ink-800">

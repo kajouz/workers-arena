@@ -83,7 +83,7 @@ export function TaxComplianceReport({ locale = "en" }: TaxComplianceProps) {
             <option value={2023}>2023</option>
           </select>
           <Button onClick={exportReport} variant="outline" size="sm" className="h-8">
-            <Download className="size-3 mr-1" />
+            <Download className="size-3 me-1" />
             Export
           </Button>
         </div>
@@ -170,9 +170,9 @@ export function TaxComplianceReport({ locale = "en" }: TaxComplianceProps) {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-ink-100 dark:border-ink-800">
-                <th className="px-2 py-2 text-left font-semibold text-ink-500">Metric</th>
-                <th className="px-2 py-2 text-right font-semibold text-ink-500">Amount</th>
-                <th className="px-2 py-2 text-right font-semibold text-ink-500">% of Revenue</th>
+                <th className="px-2 py-2 text-start font-semibold text-ink-500">Metric</th>
+                <th className="px-2 py-2 text-end font-semibold text-ink-500">Amount</th>
+                <th className="px-2 py-2 text-end font-semibold text-ink-500">% of Revenue</th>
               </tr>
             </thead>
             <tbody>
@@ -185,10 +185,10 @@ export function TaxComplianceReport({ locale = "en" }: TaxComplianceProps) {
               ].map((row) => (
                 <tr key={row.label} className="border-b border-ink-50 dark:border-ink-800/50">
                   <td className="px-2 py-2 font-medium text-ink-700 dark:text-ink-200">{row.label}</td>
-                  <td className={`px-2 py-2 text-right font-bold ${row.color}`}>
+                  <td className={`px-2 py-2 text-end font-bold ${row.color}`}>
                     ${formatCompact(row.value)}
                   </td>
-                  <td className="px-2 py-2 text-right text-ink-500">
+                  <td className="px-2 py-2 text-end text-ink-500">
                     {totalRevenue > 0 ? ((row.value / totalRevenue) * 100).toFixed(1) : 0}%
                   </td>
                 </tr>

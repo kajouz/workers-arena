@@ -254,7 +254,7 @@ export function PushNotificationManager() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <Bell className="w-4 h-4 inline mr-2" />
+            <Bell className="w-4 h-4 inline me-2" />
             Notifications
           </button>
           <button
@@ -266,7 +266,7 @@ export function PushNotificationManager() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <Users className="w-4 h-4 inline mr-2" />
+            <Users className="w-4 h-4 inline me-2" />
             Subscribers
           </button>
           <button
@@ -278,7 +278,7 @@ export function PushNotificationManager() {
                 : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
             )}
           >
-            <Settings className="w-4 h-4 inline mr-2" />
+            <Settings className="w-4 h-4 inline me-2" />
             Settings
           </button>
         </nav>
@@ -296,7 +296,7 @@ export function PushNotificationManager() {
                 placeholder="Search notifications..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full ps-10 pe-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <select
@@ -325,12 +325,12 @@ export function PushNotificationManager() {
             <div className="overflow-x-auto"><table className="w-full">
               <thead className="bg-ink-50 dark:bg-ink-950">
                 <tr>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Notification</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Segment</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Recipients</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Performance</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
+                  <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Notification</th>
+                  <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Segment</th>
+                  <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
+                  <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Recipients</th>
+                  <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Performance</th>
+                  <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-200 dark:divide-ink-800">
@@ -398,11 +398,11 @@ export function PushNotificationManager() {
           <div className="overflow-x-auto"><table className="w-full">
             <thead className="bg-ink-50 dark:bg-ink-950">
               <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Device</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Platform</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Last Active</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Device</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Platform</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Last Active</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Status</th>
+                <th className="text-start px-4 py-3 text-sm font-medium text-ink-600 dark:text-ink-300">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-200 dark:divide-ink-800">

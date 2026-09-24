@@ -43,7 +43,7 @@ export default function AutomationPage() {
                   : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
               )}
             >
-              <FileText className="w-4 h-4 inline mr-2" />
+              <FileText className="w-4 h-4 inline me-2" />
               Automated Reports
             </button>
             <button
@@ -55,7 +55,7 @@ export default function AutomationPage() {
                   : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
               )}
             >
-              <Bell className="w-4 h-4 inline mr-2" />
+              <Bell className="w-4 h-4 inline me-2" />
               Smart Alerts
             </button>
             <button
@@ -67,7 +67,7 @@ export default function AutomationPage() {
                   : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
               )}
             >
-              <Clock className="w-4 h-4 inline mr-2" />
+              <Clock className="w-4 h-4 inline me-2" />
               Scheduled Tasks
             </button>
           </nav>

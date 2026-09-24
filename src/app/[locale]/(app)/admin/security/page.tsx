@@ -43,7 +43,7 @@ export default function SecurityPage() {
                   : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
               )}
             >
-              <Shield className="w-4 h-4 inline mr-2" />
+              <Shield className="w-4 h-4 inline me-2" />
               Security Dashboard
             </button>
             <button
@@ -55,7 +55,7 @@ export default function SecurityPage() {
                   : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
               )}
             >
-              <History className="w-4 h-4 inline mr-2" />
+              <History className="w-4 h-4 inline me-2" />
               Audit Trail
             </button>
             <button
@@ -67,7 +67,7 @@ export default function SecurityPage() {
                   : "border-transparent text-ink-500 dark:text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
               )}
             >
-              <AlertTriangle className="w-4 h-4 inline mr-2" />
+              <AlertTriangle className="w-4 h-4 inline me-2" />
               Fraud Detection
             </button>
           </nav>

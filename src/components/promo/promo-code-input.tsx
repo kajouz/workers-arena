@@ -134,7 +134,7 @@ export function PromoBadge({
       <Tag className="size-3" />
       {code} - {discount}% off
       {onRemove && (
-        <button onClick={onRemove} className="ml-1 hover:text-emerald-700">
+        <button onClick={onRemove} className="ms-1 hover:text-emerald-700">
           <X className="size-3" />
         </button>
       )}

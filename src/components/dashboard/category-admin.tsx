@@ -118,7 +118,7 @@ export function CategoryAdmin({ locale = "en" }: { locale?: string }) {
           </p>
         </div>
         <Button onClick={() => setShowAddForm(true)} size="sm">
-          <Plus className="size-4 mr-2" />
+          <Plus className="size-4 me-2" />
           Add Category
         </Button>
       </div>
@@ -186,10 +186,10 @@ export function CategoryAdmin({ locale = "en" }: { locale?: string }) {
             </div>
             <div className="mt-4 flex gap-2">
               <Button onClick={addCategory} size="sm">
-                <Save className="size-4 mr-2" /> Save
+                <Save className="size-4 me-2" /> Save
               </Button>
               <Button onClick={() => setShowAddForm(false)} variant="outline" size="sm">
-                <X className="size-4 mr-2" /> Cancel
+                <X className="size-4 me-2" /> Cancel
               </Button>
             </div>
           </CardContent>
