@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { runRequestSlaEngine } from "@/lib/data/request-sla";
 import { expireQuoteRequests } from "@/lib/data/repo";
+import { sweepExpiredOtpChallenges } from "@/lib/data/guest-otp";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -19,8 +20,11 @@ export const dynamic = "force-dynamic";
  *
  * Idempotent: the nudge stamps Booking.lastSlaNudgeAt with a CAS so a re-run
  * can never double-nudge; expired bookings are CANCELLED and never rescanned;
- * expired quote jobs flip to EXPIRED once. Response:
- * `{ ok, nudged, expired, scanned, expiredNumbers, quotesExpired }`.
+ * expired quote jobs flip to EXPIRED once. The same pass deletes expired
+ * guest-OTP challenges (a dead challenge must not linger with its hash in the
+ * table — verification reads `expiresAt`, so this is hygiene, not correctness).
+ * Response:
+ * `{ ok, nudged, expired, scanned, expiredNumbers, quotesExpired, otpChallengesDeleted }`.
  */
 export async function GET(req: Request) {
   const authError = verifyCronAuth(req);
@@ -28,5 +32,6 @@ export async function GET(req: Request) {
 
   const run = await runRequestSlaEngine();
   const quotesExpired = await expireQuoteRequests();
-  return NextResponse.json({ ok: true, ...run, quotesExpired });
+  const otpChallengesDeleted = await sweepExpiredOtpChallenges();
+  return NextResponse.json({ ok: true, ...run, quotesExpired, otpChallengesDeleted });
 }

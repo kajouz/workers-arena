@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/components/providers/locale-provider";
+import { GuestOtpSection } from "@/components/auth/guest-otp-section";
 import { toast } from "@/components/ui/toast";
 import { GradientAvatar } from "@/components/ui/avatar";
 import { createQuoteRequestAction } from "@/app/actions/bookings";
@@ -39,6 +40,9 @@ export function QuoteRequestDialog({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
+  // Guest phone OTP — the verification section lifts the code here; empty
+  // unless the environment enforces guest OTP (the section renders then).
+  const [otpCode, setOtpCode] = useState("");
   const [isEmergency, setIsEmergency] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -58,6 +62,7 @@ export function QuoteRequestDialog({
     setPhone("");
     setEmail("");
     setNote("");
+    setOtpCode("");
     setIsEmergency(false);
     setSubmitting(false);
     setDone(false);
@@ -75,6 +80,7 @@ export function QuoteRequestDialog({
     fd.set("customerEmail", email.trim());
     fd.set("jobTitle", jobTitle.trim());
     fd.set("note", note.trim());
+    if (otpCode.trim()) fd.set("otpCode", otpCode.trim());
     // §12 — the urgency flag is part of the REQUEST: it enables immediate masked
     // calling AND makes the marketplace grade this lead as EMERGENCY, which is
     // the difference between a $20 lead and a $35 one for the workers who see it.
@@ -86,7 +92,16 @@ export function QuoteRequestDialog({
       toast("success", t("booking.quotesSent"), t("booking.quotesSentBody"));
       return;
     }
-    toast("error", res.error === "too-many" ? t("booking.quotesMaxError").replace("{max}", String(MAX_QUOTE_WORKERS)) : t("booking.quotesError"));
+    toast(
+      "error",
+      res.error === "otp-required"
+        ? t("booking.otpRequired")
+        : res.error === "otp-invalid"
+          ? t("booking.otpInvalid")
+          : res.error === "too-many"
+            ? t("booking.quotesMaxError").replace("{max}", String(MAX_QUOTE_WORKERS))
+            : t("booking.quotesError")
+    );
   };
 
   return (
@@ -181,6 +196,10 @@ export function QuoteRequestDialog({
                 <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.email")}</label>
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("auth.email")} type="email" dir="ltr" />
               </div>
+
+              {/* Guest phone verification — renders only when the environment
+                  enforces guest OTP; the code rides the submit FormData. */}
+              <GuestOtpSection phone={phone} onCodeChange={setOtpCode} />
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.jobNote")}</label>

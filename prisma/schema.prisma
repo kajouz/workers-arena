@@ -289,6 +289,22 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+/// Guest phone OTP challenges (docs/ENHANCEMENT-PLAN.md — guest phone OTP).
+/// One live challenge per handset (`phone` is the normalized number): re-sending
+/// replaces the row. The code itself is never stored — only its HMAC hash — so
+/// a database leak cannot yield usable codes. Attempts count wrong guesses;
+/// past the cap the challenge is dead regardless of expiry.
+model GuestOtpChallenge {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 // ─────────────────────────────── Catalog ───────────────────────────────
 
 model Category {

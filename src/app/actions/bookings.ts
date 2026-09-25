@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getSession } from "@/lib/auth-demo";
+import { gateGuestWrite, guestOtpFieldsFrom } from "@/lib/data/guest-otp";
 import {
   requireBookingCustomer,
   requireBookingWorker,
@@ -71,7 +72,7 @@ import { instantBookDecision } from "@/lib/data/instant-book";
 
 export type BookingActionResult = {
   ok: boolean;
-  error?: "slot-taken" | "invalid" | "not-found" | "unauthorized";
+  error?: "slot-taken" | "invalid" | "not-found" | "unauthorized" | "otp-required" | "otp-invalid";
 };
 
 /**
@@ -130,6 +131,11 @@ export async function requestBookingAction(
   const cleanJobTitle = sanitizeText(parsed.data.jobTitle, 200);
   const cleanNote = parsed.data.note ? sanitizeText(parsed.data.note, 2000) : undefined;
   if (!cleanCustomerName || !cleanJobTitle) return { ok: false, error: "invalid" };
+
+  // Guest phone OTP (docs/ENHANCEMENT-PLAN.md): when enforced, a signed-out
+  // requester must present a code the send endpoint delivered to this handset.
+  const otp = await gateGuestWrite(session, parsed.data.customerPhone, guestOtpFieldsFrom(formData));
+  if (!otp.ok) return { ok: false, error: otp.error };
 
   const result = await createBookingRequest({
     workerId: worker.id,
@@ -207,6 +213,11 @@ export async function instantBookAction(
   const cleanNote = parsed.data.note ? sanitizeText(parsed.data.note, 2000) : undefined;
   if (!cleanCustomerName || !cleanJobTitle) return { ok: false, error: "invalid" };
 
+  // Guest phone OTP — instant takes a deposit immediately, so the handset is
+  // verified before the slot is claimed (same gate as the request path).
+  const otp = await gateGuestWrite(session, parsed.data.customerPhone, guestOtpFieldsFrom(formData));
+  if (!otp.ok) return { ok: false, error: otp.error };
+
   const created = await createBookingRequest({
     workerId: worker.id,
     slotId: parsed.data.slotId,
@@ -221,7 +232,6 @@ export async function instantBookAction(
   if ("error" in created) return { ok: false, error: created.error };
 
   // The worker's standing consent — accepted at the published price, with the
-  // whole price collected up front.
   const accepted = await respondToBooking(created.id, {
     accept: true,
     quote: decision.priceMinor,
@@ -275,6 +285,11 @@ export async function requestRecurringBookingAction(
   const cleanJobTitle = sanitizeText(parsed.data.jobTitle, 200);
   const cleanNote = parsed.data.note ? sanitizeText(parsed.data.note, 2000) : undefined;
   if (!cleanCustomerName || !cleanJobTitle) return { ok: false, error: "invalid" };
+
+  // Guest phone OTP — same gate as the one-shot request (see above).
+  const otp = await gateGuestWrite(session, parsed.data.customerPhone, guestOtpFieldsFrom(formData));
+  if (!otp.ok) return { ok: false, error: otp.error };
+
   const result = await createRecurringRequest({
     workerId: worker.id,
     slotId: parsed.data.slotId,
@@ -840,7 +855,7 @@ export async function confirmPaymentAction(
 /** Result shape for the quote-request action (rule 1 errors included). */
 export type QuoteActionResult = {
   ok: boolean;
-  error?: "invalid" | "too-many" | "duplicate" | "unknown-worker";
+  error?: "invalid" | "too-many" | "duplicate" | "unknown-worker" | "otp-required" | "otp-invalid";
 };
 
 const quoteRequestSchema = z.object({
@@ -895,6 +910,12 @@ export async function createQuoteRequestAction(
   const cleanQrJobTitle = sanitizeText(parsed.data.jobTitle, 200);
   const cleanQrNote = parsed.data.note ? sanitizeText(parsed.data.note, 2000) : undefined;
   if (!cleanQrCustomerName || !cleanQrJobTitle) return { ok: false, error: "invalid" };
+
+  // Guest phone OTP — quote requests are phone-keyed like bookings, and the
+  // SMS/WhatsApp invites fire on creation, so the gate sits before the write.
+  const otp = await gateGuestWrite(session, parsed.data.customerPhone, guestOtpFieldsFrom(formData));
+  if (!otp.ok) return { ok: false, error: otp.error };
+
   const result = await createQuoteRequest(
     {
       customerId: session?.id,

@@ -14,6 +14,7 @@ import { ServicePicker } from "./service-picker";
 import { SlotPicker } from "./slot-picker";
 import { Price } from "@/components/shared/price";
 import { instantBookAction, requestBookingAction, requestRecurringBookingAction } from "@/app/actions/bookings";
+import { GuestOtpSection } from "@/components/auth/guest-otp-section";
 import { instantBookDecision, instantServices } from "@/lib/data/instant-book";
 import {
   ENTRY_SERVICE_PARAM,
@@ -84,6 +85,9 @@ export function BookingDialog({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
+  // Guest phone OTP — the verification section lifts the code here; empty
+  // unless the environment enforces guest OTP (the section renders then).
+  const [otpCode, setOtpCode] = useState("");
   const [frequency, setFrequency] = useState<RecurringFrequency | null>(null);
   const [isEmergency, setIsEmergency] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -152,6 +156,7 @@ export function BookingDialog({
     setSlotId(null);
     setName("");
     setPhone("");
+    setOtpCode("");
     setEmail("");
     setNote("");
     setFrequency(null);
@@ -279,6 +284,9 @@ export function BookingDialog({
     fd.set("jobTitle", jobTitle.trim());
     fd.set("note", note.trim());
     fd.set("serviceItemName", serviceName ?? "");
+    // Guest phone OTP: the code entered in the verification section rides the
+    // same form — the action verifies it single-use before the write.
+    if (otpCode.trim()) fd.set("otpCode", otpCode.trim());
     if (frequency) fd.set("frequency", frequency);
     if (isEmergency) fd.set("isEmergency", "true");
     return fd;
@@ -312,6 +320,14 @@ export function BookingDialog({
     }
     if (res.error === "slot-taken") {
       return refreshTakenSlot(t("booking.slotTaken"));
+    }
+    if (res.error === "otp-required") {
+      toast("error", t("booking.otpRequired"));
+      return;
+    }
+    if (res.error === "otp-invalid") {
+      toast("error", t("booking.otpInvalid"));
+      return;
     }
     toast("error", t("booking.instantFailed"));
   };
@@ -361,6 +377,14 @@ export function BookingDialog({
       // and land the user back on the picker to re-choose. Never toast success
       // for a failed request.
       return refreshTakenSlot(t("booking.slotTaken"));
+    }
+    if (res.error === "otp-required") {
+      toast("error", t("booking.otpRequired"));
+      return;
+    }
+    if (res.error === "otp-invalid") {
+      toast("error", t("booking.otpInvalid"));
+      return;
     }
     toast("error", t("booking.conflict"));
   };
@@ -498,6 +522,10 @@ export function BookingDialog({
                   />
                   <p className="mt-1 text-[11px] text-ink-400">{t("booking.emailHint")}</p>
                 </div>
+
+                {/* Guest phone verification — renders only when the environment
+                    enforces guest OTP; the code rides the submit FormData. */}
+                <GuestOtpSection phone={phone} onCodeChange={setOtpCode} />
                 <div>
                   <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">{t("booking.jobNote")}</label>
                   <Textarea
