@@ -52,6 +52,21 @@ jobs:
           npm install -g npm@${NPM_VERSION}
           npm ci
 
+      # The dependency-security pass left the production tree at 0 critical /
+      # 0 high (`npm audit --omit=dev`); this step is the ratchet that keeps it
+      # there. Deliberately a step in lint rather than a separate job: lint is
+      # first in the needs chain of build, e2e and deploy-production, so a new
+      # critical/high production finding blocks the deploy, not just the report.
+      # No `pipefail`: `npm audit` exits nonzero for ANY finding (even low),
+      # while the ratchet's verdict belongs to the gate script — which fails
+      # closed on empty, unparsable or npm-error output, so an outage or drift
+      # cannot masquerade as a green gate. Full-tree audits stay out of CI —
+      # since the vitest 5 upgrade (which cleared the last two dev-tree
+      # moderates) a full `npm audit` is clean too, so any finding now means
+      # the same thing in both trees: fix or override before shipping.
+      - name: Production dependency audit (ratchet)
+        run: npm audit --omit=dev --json | node scripts/audit-prod-gate.mjs
+
       - name: Generate Prisma Client
         run: npx prisma generate
 
