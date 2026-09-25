@@ -277,6 +277,15 @@ jobs:
         run: |
           if [ -n "${CRITICAL_SERVER_PID:-}" ]; then
             kill -- -"$CRITICAL_SERVER_PID" 2>/dev/null || kill "$CRITICAL_SERVER_PID" 2>/dev/null || true
+            # The dying dev server keeps writing into its dist dir for a
+            # moment after the kill; `rm -rf` raced that write and failed
+            # with "Directory not empty". Wait (bounded) for the process
+            # group to actually exit so the rm below sees a quiet tree.
+            # This adds no masking — every failure below stays fatal.
+            for i in $(seq 1 20); do
+              kill -0 -- -"$CRITICAL_SERVER_PID" 2>/dev/null || break
+              sleep 0.5
+            done
           fi
           rm -rf "${CRITICAL_DIST_DIR:-.data/.next-e2e-critical-${GITHUB_RUN_ID}}"
           # No `|| true`: this script once swallowed a SyntaxError on every run
