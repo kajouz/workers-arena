@@ -22,6 +22,14 @@ concurrency:
 
 env:
   NODE_VERSION: "22"
+  # npm ≥ 11 is required to honor the *scoped* overrides in package.json
+  # (xcode→uuid, vercel→{tar,path-to-regexp,undici,js-yaml,minimatch,
+  # smol-toml,ajv,@tootallnate/once}). npm 10 — bundled with Node 22 —
+  # silently ignores them and reinstalls the vulnerable versions. Each npm
+  # major also rejects the other's lockfile, so the lockfile committed with
+  # npm 12 must be installed by npm ≥ 12 everywhere (`npm ci` fails fast if
+  # not, as CI 36116092200 proved).
+  NPM_VERSION: "12.0.2"
 
 jobs:
   # ─── Lint & Typecheck ───
@@ -39,7 +47,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies (npm pinned — the scoped overrides in package.json are honored only by npm ≥ 11)
+        run: |
+          npm install -g npm@${NPM_VERSION}
+          npm ci
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -81,7 +92,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies (npm pinned — the scoped overrides in package.json are honored only by npm ≥ 11)
+        run: |
+          npm install -g npm@${NPM_VERSION}
+          npm ci
 
       - name: Setup environment
         run: |
@@ -108,7 +122,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies (npm pinned — the scoped overrides in package.json are honored only by npm ≥ 11)
+        run: |
+          npm install -g npm@${NPM_VERSION}
+          npm ci
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -186,7 +203,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies (npm pinned — the scoped overrides in package.json are honored only by npm ≥ 11)
+        run: |
+          npm install -g npm@${NPM_VERSION}
+          npm ci
 
       - name: Setup environment (real mode)
         run: |
@@ -336,7 +356,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies (npm pinned — the scoped overrides in package.json are honored only by npm ≥ 11)
+        run: |
+          npm install -g npm@${NPM_VERSION}
+          npm ci
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -386,7 +409,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies (npm pinned — the scoped overrides in package.json are honored only by npm ≥ 11)
+        run: |
+          npm install -g npm@${NPM_VERSION}
+          npm ci
 
       - name: Setup environment
         run: |
@@ -454,7 +480,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies (npm pinned — the scoped overrides in package.json are honored only by npm ≥ 11)
+        run: |
+          npm install -g npm@${NPM_VERSION}
+          npm ci
 
       - name: Setup environment
         run: |
