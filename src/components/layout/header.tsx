@@ -2,7 +2,7 @@
 
 import { Link } from "@/components/i18n/link";
 import { useActivePathname } from "@/hooks/use-active-pathname";
-import { Menu, LayoutDashboard, ShieldCheck, Megaphone, LogOut, User as UserIcon, Download } from "lucide-react";
+import { Menu, LayoutDashboard, ShieldCheck, Megaphone, LogOut, User as UserIcon, Download, Home, Search, Heart, LayoutGrid, BadgePercent } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/logo";
@@ -57,11 +57,13 @@ export function Header({ session }: { session?: SessionRole | null }) {
   };
 
   const navLinks = [
-    { href: "/", label: t("nav.home") },
-    { href: "/search", label: t("nav.findWorkers") },
-    { href: "/categories", label: t("nav.categories") },
-    { href: "/favorites", label: t("nav.favorites"), tour: "favorites" },
-    { href: "/company", label: t("nav.advertise") ?? "Advertise" },
+    { href: "/", label: t("nav.home"), icon: Home },
+    { href: "/search", label: t("nav.findWorkers"), icon: Search },
+    { href: "/categories", label: t("nav.categories"), icon: LayoutGrid },
+    { href: "/favorites", label: t("nav.favorites"), icon: Heart, tour: "favorites" },
+    // BadgePercent, not Megaphone — the company dashboard row below already
+    // uses Megaphone, and two rows with the same icon read as duplicates.
+    { href: "/company", label: t("nav.advertise") ?? "Advertise", icon: BadgePercent },
   ];
 
   const isActive = (href: string) =>
@@ -210,18 +212,22 @@ export function Header({ session }: { session?: SessionRole | null }) {
           <DialogHeader>
             <DialogTitle>{t("common.menu")}</DialogTitle>
           </DialogHeader>
+          {/* Every row carries an icon and centers icon + label as one unit —
+              the menu used to mix bare-text rows with icon rows, all pinned to
+              the start edge. */}
           <nav className="flex flex-col gap-1" aria-label="Mobile">
-            {navLinks.map((link) => (
+            {navLinks.map(({ href, label, icon: Icon }) => (
               <Link
-                key={link.href}
-                href={link.href}
+                key={href}
+                href={href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 transition-colors hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800",
-                  isActive(link.href) && "bg-brand-500/10 text-brand-700 dark:text-brand-400"
+                  "flex items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 transition-colors hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800",
+                  isActive(href) && "bg-brand-500/10 text-brand-700 dark:text-brand-400"
                 )}
               >
-                {link.label}
+                <Icon className="size-5 shrink-0" />
+                {label}
               </Link>
             ))}
             {signedIn && (
@@ -229,9 +235,9 @@ export function Header({ session }: { session?: SessionRole | null }) {
                 <Link
                   href={dashboardHref}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
+                  className="flex items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
                 >
-                  <DashboardIcon className="size-5" />
+                  <DashboardIcon className="size-5 shrink-0" />
                   {role === "admin" ? t("nav.admin") : role === "company" ? t("nav.company") : t("nav.dashboard")}
                 </Link>
                 {/* Logout lives in the mobile menu too — it was `sm:inline-flex`
@@ -244,9 +250,9 @@ export function Header({ session }: { session?: SessionRole | null }) {
                     toast("info", t("common.logout"));
                     setMobileOpen(false);
                   }}
-                  className="flex items-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
+                  className="flex items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
                 >
-                  <LogOut className="size-5" />
+                  <LogOut className="size-5 shrink-0" />
                   {t("common.logout")}
                 </button>
               </>

@@ -291,6 +291,8 @@ type MenuGeometry = {
   found: boolean;
   violations: string[];
   unreachable: string[];
+  /** Rows whose icon+label pair is not centered as one unit. */
+  misaligned: string[];
   inspected: number;
   scrollable: boolean;
 };
@@ -308,7 +310,7 @@ async function menuGeometry(page: Page): Promise<MenuGeometry> {
     const header = document.querySelector("header");
     const tabbar = document.querySelector('nav[aria-label="Main navigation"]');
     if (!panel || !header || !tabbar) {
-      return { found: false, violations: ["panel, header or tab bar missing"], unreachable, inspected: 0, scrollable: false };
+      return { found: false, violations: ["panel, header or tab bar missing"], unreachable, misaligned: [], inspected: 0, scrollable: false };
     }
 
     const vh = window.visualViewport?.height ?? window.innerHeight;
@@ -352,10 +354,42 @@ async function menuGeometry(page: Page): Promise<MenuGeometry> {
       }
     }
 
+    // 5. Icon and label sit centered as ONE unit on every menu row — the menu
+    //    used to mix bare-text rows with icon rows, all pinned to the start
+    //    edge. Measured against the panel's box (not classes), so RTL and any
+    //    future padding changes are handled by geometry, not grep.
+    const misaligned: string[] = [];
+    for (const el of actions) {
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      // The dialog primitive's own Close button is absolutely positioned in
+      // the panel corner by design — it is chrome, not a menu row.
+      if (getComputedStyle(el).position === "absolute") continue;
+      const hasIcon = el.querySelector("svg") !== null;
+      if (!hasIcon) {
+        misaligned.push(`${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 20)}" has no icon`);
+        continue;
+      }
+      const rowCenter = (r.left + r.right) / 2;
+      // The label is a text node, not an element — measure the icon+label pair
+      // with a Range spanning the icon through the row's last child.
+      const range = document.createRange();
+      range.setStartBefore(el.querySelector("svg")!);
+      range.setEnd(el, el.childNodes.length);
+      const content = range.getBoundingClientRect();
+      const contentCenter = (content.left + content.right) / 2;
+      if (Math.abs(rowCenter - contentCenter) > 2) {
+        misaligned.push(
+          `${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 20)}" content center ${Math.round(contentCenter)} vs row center ${Math.round(rowCenter)}`
+        );
+      }
+    }
+
     return {
       found: true,
       violations,
       unreachable,
+      misaligned,
       inspected: actions.length,
       scrollable: cs.overflowY === "auto" || cs.overflowY === "scroll",
     };
@@ -404,6 +438,10 @@ for (const locale of ["en", "ar"] as const) {
           g.inspected,
           "the panel exposed no interactive element — the check would be vacuous"
         ).toBeGreaterThan(0);
+        expect(
+          g.misaligned,
+          `menu rows not centered as icon+label units (${locale} ${vp.name}): ${g.misaligned.join(" | ")}`
+        ).toHaveLength(0);
       });
     }
 
