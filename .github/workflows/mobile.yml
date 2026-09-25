@@ -1,0 +1,138 @@
+name: Mobile
+
+# Native shell build gates (docs/mobile-architecture.md §6): compile the iOS
+# and Android Capacitor projects on every push/PR that can affect them, so a
+# bad native edit (Info.plist, Gradle config, entitlements, plugin bump, new
+# Capacitor plugin) fails here instead of on a release morning.
+#
+# Why there is no `next build` / static export here: the shells do not embed
+# the web app. capacitor.config.ts points server.url at the deployed origin
+# (https://workers-arena.vercel.app) and the app is a server-rendered Next app
+# (API route handlers + proxy middleware) that cannot take `output: "export"`.
+# `cap sync` itself confirms the contract — with server.url set, a missing
+# webDir is an explicit non-error ("This is not an error because server.url is
+# set in config"). The sync step below therefore refreshes plugin registries
+# and native config from package.json (which is what a new plugin changes),
+# and the native compile is the actual gate.
+#
+# Deliberately credential-free: builds run unsigned. Signing, store export and
+# fastlane delivery join when the M3 store-launch checklist lands (§5/§6:
+# certificates via fastlane match, Android upload key + Play App Signing).
+
+on:
+  push:
+    branches: [main]
+    tags: ["mobile-*"]
+    paths:
+      - "ios/**"
+      - "android/**"
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "package-lock.json"
+      - "capacitor.config.ts"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - "android/**"
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "package-lock.json"
+      - "capacitor.config.ts"
+      - ".github/workflows/mobile.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  NPM_VERSION: "12.0.2"
+
+jobs:
+  ios:
+    name: iOS shell build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies (npm pinned — the scoped overrides in package.json are honored only by npm ≥ 11)
+        run: |
+          npm install -g npm@${NPM_VERSION}
+          npm ci
+
+      - name: Sync Capacitor plugins and native config
+        # Reads installed plugin versions from node_modules into the native
+        # project (Info.plist usage descriptions, SPM package pins). No web
+        # assets are copied: server.url is set, so webDir is intentionally
+        # empty (see header).
+        run: npx cap sync ios
+
+      - name: Resolve Swift Package Manager dependencies
+        working-directory: ios/App
+        # Capacitor 8 ships an SPM-based shell (CapApp-SPM, no Podfile): this
+        # warms the package cache exactly as Xcode would on first open.
+        run: xcodebuild -resolvePackageDependencies -project App.xcodeproj -scheme App
+
+      - name: Build (unsigned)
+        working-directory: ios/App
+        # Generic destination: no simulator/device needed — compiles the app
+        # target for iOS. CODE_SIGNING_ALLOWED=NO keeps the gate credential-
+        # free; a Release archive + store export joins with fastlane match (§6).
+        run: |
+          xcodebuild \
+            -project App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Verify the built app bundle
+        run: test -d ios/App/build/DerivedData/Build/Products/Release-iphoneos/App.app
+
+  android:
+    name: Android shell build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies (npm pinned — the scoped overrides in package.json are honored only by npm ≥ 11)
+        run: |
+          npm install -g npm@${NPM_VERSION}
+          npm ci
+
+      - name: Sync Capacitor plugins and native config
+        run: npx cap sync android
+
+      - name: Build release bundle (unsigned)
+        working-directory: android
+        # bundleRelease produces the Play-upload AAB shape; unsigned because
+        # upload keys live in repo secrets and join with the M3 checklist.
+        run: ./gradlew --no-daemon bundleRelease
+
+      - name: Verify the bundle artifact
+        run: test -s android/app/build/outputs/bundle/release/app-release.aab

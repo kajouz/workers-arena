@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
+// Haptics: native-only tactile feedback (no-op on web — the wrappers gate on
+// Capacitor.isNativePlatform and stay inert until initCapacitor arms them).
+import { hapticError, hapticMedium, hapticSuccess } from "@/lib/mobile/haptics";
 import { useRouter } from "next/navigation";
 import type { Booking, BookingTransitionTarget } from "@/lib/data/types";
 
@@ -29,12 +32,15 @@ export function BookingActions({ booking }: { booking: Booking }) {
 
   const runTransition = async (to: BookingTransitionTarget, okKey: string) => {
     setBusy(to);
+    void hapticMedium(); // button-press feedback, before the server answers
     const res = await transitionBookingAction(booking.id, to);
     setBusy(null);
     if (res.ok) {
+      void hapticSuccess();
       toast("success", t(okKey));
       router.refresh();
     } else {
+      void hapticError();
       toast("error", t("booking.bookingActionError"));
     }
   };
@@ -49,10 +55,12 @@ export function BookingActions({ booking }: { booking: Booking }) {
     const res = await cancelBookingAction(booking.id, f);
     setBusy(null);
     if (res.ok) {
+      void hapticSuccess();
       toast("success", t("booking.cancelSuccess"));
       setCancelOpen(false);
       router.refresh();
     } else {
+      void hapticError();
       toast("error", t("booking.bookingActionError"));
     }
   };

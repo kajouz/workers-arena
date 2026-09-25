@@ -26,6 +26,14 @@ export async function initCapacitor(): Promise<void> {
 
     if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Running on", Capacitor.getPlatform());
 
+    // Haptics — arm the availability flag once at boot so the haptic* helpers
+    // scattered across booking/chat UIs actually fire on device (they no-op
+    // until initHaptics has run; on web everything no-ops regardless).
+    try {
+      const { initHaptics } = await import("@/lib/mobile/haptics");
+      await initHaptics();
+    } catch { /* plugin not available */ }
+
     // Status bar
     try {
       const { StatusBar, Style } = await import("@capacitor/status-bar");
@@ -61,10 +69,17 @@ export async function initCapacitor(): Promise<void> {
 
         PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
           if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Push action:", action.notification.data);
-          // Navigate based on notification data
+          // Notification-tap deep linking: route through the deep-links
+          // matcher (validates the path, normalizes custom schemes) instead of
+          // assigning data.url verbatim — a malformed payload lands on "/",
+          // never on an arbitrary string. Dynamic import keeps the web bundle
+          // free of the deep-links module, same contract as every import here.
           const url = action.notification.data?.url;
           if (url && typeof window !== "undefined") {
-            window.location.href = url;
+            void import("@/lib/mobile/deep-links").then(({ handleDeepLink }) => {
+              const appPath = handleDeepLink(url);
+              window.location.href = appPath ?? "/";
+            });
           }
         });
       }
@@ -96,6 +111,13 @@ export async function initCapacitor(): Promise<void> {
 
       App.addListener("appUrlOpen", (data) => {
         if (process.env.NODE_ENV !== "production") console.log("[Capacitor] Deep link opened:", data.url);
+        // Universal/app links now route through the deep-links matcher —
+        // previously this listener only logged, so a cold link to
+        // /workers/<slug> or /bookings just sat on whatever page was open.
+        void import("@/lib/mobile/deep-links").then(({ handleDeepLink }) => {
+          const appPath = handleDeepLink(data.url);
+          window.location.href = appPath ?? "/";
+        });
       });
     } catch { /* plugin not available */ }
 

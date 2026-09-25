@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WorkersArena</string>
+    <string name="title_activity_main">WorkersArena</string>
+    <string name="package_name">com.workersarena.app</string>
+    <string name="custom_url_scheme">com.workersarena.app</string>
+</resources>

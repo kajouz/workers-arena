@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/components/i18n/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,6 +14,11 @@ import { Button } from "@/components/ui/button";
 import { loginAction, loginDemoAction, type AuthActionState } from "@/app/actions/auth";
 import { useActionState } from "react";
 import type { SessionRole } from "@/lib/auth-demo";
+// Native-only biometric unlock (Face ID / fingerprint). Both exports no-op on
+// the web PWA — useNativeBiometric reports unsupported in a browser, so the
+// unlock button and the opt-in checkbox below never render on web.
+import { BiometricLogin, BIOMETRIC_HINT_KEY, useNativeBiometric } from "@/components/auth/biometric-login";
+import { enableBiometricLogin } from "@/lib/mobile/biometric-auth";
 
 const schema = z.object({
   email: z.string().email(),
@@ -33,13 +38,25 @@ export default function LoginPage() {
   const { locale, t } = useLocale();
   const [showPassword, setShowPassword] = useState(false);
   const [demoBusy, setDemoBusy] = useState<SessionRole | null>(null);
+  const [saveBiometric, setSaveBiometric] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { supported: biometricSupported } = useNativeBiometric();
 
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(loginAction, {});
 
   const {
     register,
+    setValue,
     formState: { errors },
   } = useForm<Values>({ resolver: zodResolver(schema) });
+
+  // Biometric unlock: fill the same form and submit it — the auth path is
+  // byte-identical to a typed sign-in (loginAction), just prefilled.
+  const unlockAndSignIn = (credentials: { username: string; password: string }) => {
+    if (credentials.username) setValue("email", credentials.username, { shouldValidate: true });
+    setValue("password", credentials.password, { shouldValidate: true });
+    formRef.current?.requestSubmit();
+  };
 
   return (
     <div className="relative flex min-h-[calc(100dvh-4rem)] items-center justify-center overflow-hidden px-4 py-16">
@@ -62,7 +79,27 @@ export default function LoginPage() {
             </p>
           )}
 
-          <form action={formAction} className="mt-6 space-y-4">
+          <BiometricLogin onUnlock={unlockAndSignIn} />
+
+          <form
+            ref={formRef}
+            action={formAction}
+            className="mt-6 space-y-4"
+            onSubmit={(e) => {
+              // Opt-in at submit time: capture the typed credentials and (on
+              // native, after the biometric enable prompt succeeds) store them
+              // for next-visit unlock. If this particular sign-in fails, the
+              // stored password is simply wrong — the next unlock falls back
+              // to the password form and a re-checked opt-in overwrites it.
+              const form = e.currentTarget;
+              const email = (form.elements.namedItem("email") as HTMLInputElement | null)?.value ?? "";
+              const password = (form.elements.namedItem("password") as HTMLInputElement | null)?.value ?? "";
+              if (!saveBiometric || !biometricSupported || !email || !password) return;
+              void enableBiometricLogin(email, password).then((enabled) => {
+                if (enabled) localStorage.setItem(BIOMETRIC_HINT_KEY, email);
+              });
+            }}
+          >
             <div className="space-y-1.5">
               <Label htmlFor="email">{t("auth.email")}</Label>
               {/* autoComplete/inputMode/enterKeyHint: the phone keyboard and
@@ -98,6 +135,17 @@ export default function LoginPage() {
               </div>
               {errors.password && <p className="text-xs text-red-500">{t("auth.passwordMin")}</p>}
             </div>
+            {biometricSupported && (
+              <label className="flex items-center gap-2 text-sm text-ink-500 dark:text-ink-400">
+                <input
+                  type="checkbox"
+                  checked={saveBiometric}
+                  onChange={(e) => setSaveBiometric(e.target.checked)}
+                  className="size-4 accent-brand-600"
+                />
+                {t("auth.biometricEnable")}
+              </label>
+            )}
             <Button type="submit" size="lg" className="w-full" disabled={pending}>
               <LogIn className="size-4" />
               {pending ? t("common.loading") : t("common.login")}

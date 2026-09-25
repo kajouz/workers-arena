@@ -53,9 +53,11 @@ meili_data/
 .freebuff/*.plist
 .freebuff/com.workersarena.*
 
-# Capacitor native platforms (regenerate with npx cap add + npx cap sync)
-/ios/
-/android/
+# Capacitor native shells — the projects ARE committed: they carry hand edits
+# (Info.plist, Gradle config, entitlements) that `cap add` cannot regenerate.
+# Every derived artifact (copied web assets, Pods/builds, generated configs,
+# cordova plugin pods) is ignored by the generated per-shell .gitignore files
+# committed inside ios/ and android/; `npx cap sync` recreates them on build.
 /out/
 
 # Backup files written at the repo root (a stray dumps directory).

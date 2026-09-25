@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Price } from "@/components/shared/price";
 import { toast } from "@/components/ui/toast";
+// Haptics: native-only tactile feedback (no-op on web — the wrappers gate on
+// Capacitor.isNativePlatform and stay inert until initCapacitor arms them).
+import { hapticError, hapticLight, hapticSuccess } from "@/lib/mobile/haptics";
 import { buildWhatsappChatLink } from "@/lib/data/booking-ui";
 import {
   acceptChatQuoteAction,
@@ -197,9 +200,11 @@ export function BookingChat({
     const fd = new FormData();
     fd.set("text", body);
     if (quote.trim()) fd.set("quote", quote.trim());
+    void hapticLight(); // send tap — subtle confirmation the tap registered
     const res = await sendBookingMessageAction(booking.id, fd);
     setSending(false);
     if (res.ok) {
+      void hapticSuccess();
       setText("");
       setQuote("");
       // Sending ends the burst — clear the typing flag and its idle timer.
@@ -208,6 +213,7 @@ export function BookingChat({
       toast("success", t("booking.chatSent"));
       router.refresh();
     } else {
+      void hapticError();
       toast("error", t("booking.chatError"));
     }
   };

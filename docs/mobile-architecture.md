@@ -61,6 +61,8 @@ workersarena/
 └─ scripts/                           # existing dev scripts
 ```
 
+> **Adopted at the repo root, not under `mobile/`:** `capacitor.config.ts`, `ios/` and `android/` live at the project root (both native shells are committed; only their derived artifacts are ignored — see `.gitignore` and the generated per-shell `.gitignore` files). The `src/lib/notifications/providers/{fcm,apns}.ts` split remains future work (§3).
+
 `mobile/capacitor.config.ts` (shape):
 
 ```ts
@@ -88,6 +90,8 @@ export default config;
 ---
 
 ## 3. Native push: FCM + APNs in the notification seam
+
+> **Buildable design lives in [native-push-rollout.md](native-push-rollout.md)** — credential checklist, the `PushDevice` registration flow, delivery providers without SDKs, the admin device table, and the phased rollout. This section remains the architecture sketch; where the two overlap (e.g. extending `PushSubscription` vs a dedicated `PushDevice` model), the design doc's decision wins and says why.
 
 ### 3.1 The seam today (what stays)
 
@@ -318,25 +322,16 @@ From PRODUCT.md §5.4 — expanded into an actionable checklist.
 
 ---
 
-## 6. Build & release pipeline (sketch)
+## 6. Build & release pipeline
 
-```yaml
-# .github/workflows/mobile.yml (M2+)
-# on tag mobile-* or manual dispatch
-jobs:
-  build:
-    runs-on: macos-14            # Xcode + Android SDK
-    steps:
-      - npm ci && npm run db:generate
-      - next build && next export        # static shell
-      - npx cap sync                     # sync web → native projects
-      - # iOS: xcodebuild -workspace mobile/ios/App.xcworkspace -scheme App \
-        #        -configuration Release archive + export for App Store
-      - # Android: cd mobile/android && ./gradlew bundleRelease
-      - # Upload: fastlane deliver / supply (credentials from secrets)
-```
+**Implemented (`.github/workflows/mobile.yml`):** on every push/PR touching `ios/`, `android/`, `src/`, `public/`, the lockfile or the Capacitor config — plus `mobile-*` tags and manual dispatch — two parallel jobs compile the shells:
 
-- **Signing:** iOS certificates + provisioning profiles via Fastlane match (encrypted in repo secrets); Android upload key + Play App Signing.
+- **iOS** (`macos-14`): `npx cap sync ios` → `xcodebuild -resolvePackageDependencies` (Capacitor 8 ships an SPM shell, `CapApp-SPM` — no Podfile) → unsigned `xcodebuild -scheme App -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build` → assert `App.app` exists.
+- **Android** (`ubuntu-latest`, temurin 21): `npx cap sync android` → `./gradlew --no-daemon bundleRelease` → assert `app-release.aab` exists.
+
+Why no `next build` / static export inside mobile CI: the shells do not embed the web app — `capacitor.config.ts` points `server.url` at the deployed origin, and the app is a server-rendered Next app (API route handlers + proxy middleware) that cannot take `output: "export"`. With `server.url` set, Capacitor treats an empty `webDir` as an explicit non-error by design. `cap sync` still refreshes plugin registries and native config from `package.json` — which is exactly what a new Capacitor plugin changes.
+
+- **Signing (M3, not wired):** iOS certificates + provisioning profiles via Fastlane match (encrypted in repo secrets); Android upload key + Play App Signing. The CI builds run `CODE_SIGNING_ALLOWED=NO` / unsigned deliberately.
 - **Staging:** a `NEXT_PUBLIC_APP_URL` pointing at the preview environment for the store build; a separate `mobile/staging` scheme/ flavor pointing at prod for release builds.
 - **Versioning:** sync native `versionCode`/`CFBundleVersion` to the app version on each release tag.
 

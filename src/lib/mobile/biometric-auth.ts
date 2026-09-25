@@ -286,6 +286,7 @@ export async function biometricLogin(
   success: boolean;
   error?: string;
   requiresPassword?: boolean;
+  credentials?: { username: string; password: string };
 }> {
   // Check if biometric is available
   const availability = await isBiometricAvailable();
@@ -332,10 +333,14 @@ export async function biometricLogin(
     };
   }
 
-  // In production, call your login API with credentials — no logging of usernames in prod
-  
+  // Hand the decrypted secret to the caller: biometricLogin authenticates the
+  // USER, but submitting the actual login (the same server action the password
+  // form posts to) stays the caller's job. Until this field existed the
+  // credential was retrieved and then discarded — no caller could ever
+  // complete the flow, so the module had no working consumer.
   return {
     success: true,
+    credentials,
   };
 }
 
