@@ -3,20 +3,20 @@
 import { Link } from "@/components/i18n/link";
 import { useActivePathname } from "@/hooks/use-active-pathname";
 import { Menu, LayoutDashboard, ShieldCheck, Megaphone, LogOut, User as UserIcon, Download } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "./language-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { NotificationBell } from "./notification-bell";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { SessionRole } from "@/lib/auth-demo";
 import { invalidateSession, useSession } from "@/hooks/use-session";
 import { logoutAction } from "@/app/actions/auth";
 import { toast } from "@/components/ui/toast";
-import { useInstallPrompt } from "@/hooks/use-install-prompt"
+import { useInstallPrompt, detectPlatform } from "@/hooks/use-install-prompt"
 
 /**
  * `session` is a THREE-state prop:
@@ -40,6 +40,11 @@ export function Header({ session }: { session?: SessionRole | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { canInstall, isInstalled, install } = useInstallPrompt();
   const [installing, setInstalling] = useState(false);
+  // beforeinstallprompt fires on Android Chrome but not on iOS Safari, many
+  // desktop browsers, or inside WebViews — a browser that can still install
+  // the PWA manually from its own menu. Without a fallback affordance those
+  // visitors got NO install entry point at all.
+  const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const account = useSession(session);
   const role = account.role;
   const signedIn = account.status === "known" && role !== null;
@@ -175,6 +180,17 @@ export function Header({ session }: { session?: SessionRole | null }) {
                 <span className="absolute -top-0.5 -end-0.5 size-2 rounded-full bg-emerald-400 animate-pulse" />
               </Button>
             )}
+            {!canInstall && !isInstalled && (
+              <Button
+                variant="ghost"
+                onClick={() => setInstallHelpOpen(true)}
+                aria-label={t("mobileInstall.desktopLabel")}
+                title={t("mobileInstall.desktopLabel")}
+                className="h-11 w-11 text-brand-600 hover:bg-brand-500/10 sm:h-8 sm:w-8 sm:rounded-lg dark:text-brand-400"
+              >
+                <Download className="size-4" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label={t("common.menu")}>
               <Menu className="size-5" />
             </Button>
@@ -248,6 +264,41 @@ export function Header({ session }: { session?: SessionRole | null }) {
               </>
             )}
           </nav>
+        </DialogContent>
+      </Dialog>
+
+      {/* Install help for browsers that never fire beforeinstallprompt
+          (iOS Safari, some desktop browsers, WebViews): how to install the
+          PWA from the browser's own menu. */}
+      <Dialog open={installHelpOpen} onOpenChange={setInstallHelpOpen}>
+        <DialogContent placement="anchored" className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("mobileInstall.title")}</DialogTitle>
+            <DialogDescription>{t("mobileInstall.subtitle")}</DialogDescription>
+          </DialogHeader>
+          {(() => {
+            const platform = detectPlatform();
+            const steps =
+              platform === "ios"
+                ? ["iosStep1", "iosStep2", "iosStep3"]
+                : platform === "android"
+                  ? ["androidStep1", "androidStep2"]
+                  : ["desktopStep1", "desktopStep2"];
+            return (
+              <ol className="space-y-2.5">
+                {steps.map((step, i) => (
+                  <li key={step} className="flex items-start gap-2.5">
+                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[11px] font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm text-ink-600 dark:text-ink-300">
+                      {t(`mobileInstall.${step}`)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </header>

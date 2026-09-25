@@ -42,9 +42,11 @@ export function CTA() {
               </Button>
             </Link>
           </div>
-          {/* Mobile-only install nudge */}
+          {/* Mobile-only install nudge — scrolls to the MobileAppPromo install
+              section (id="app"). It pointed at #plans, which jumped readers to
+              pricing instead of anything install-related. */}
           <a
-            href="#plans"
+            href="#app"
             className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-300 transition-colors hover:text-brand-200 lg:hidden"
           >
             <Download className="size-4" />

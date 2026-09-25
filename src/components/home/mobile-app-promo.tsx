@@ -12,28 +12,19 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import { useInstallPrompt, detectPlatform, type InstallPlatform as Platform } from "@/hooks/use-install-prompt";
 import { useLocale } from "@/components/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
-type Platform = "ios" | "android" | "desktop" | "unknown";
-
-function detectPlatform(): Platform {
-  if (typeof window === "undefined") return "unknown";
-  const ua = navigator.userAgent.toLowerCase();
-  const isIOS =
-    /iphone|ipad|ipod/.test(ua) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const isAndroid = /android/.test(ua);
-  if (isIOS) return "ios";
-  if (isAndroid) return "android";
-  return "desktop";
-}
-
 /**
- * Landing page section that shows platform-specific PWA install instructions.
- * Visible only on mobile/tablet (< 1024px) when the app isn't already installed.
- * On Android, triggers the native install prompt. On iOS, shows manual steps.
+ * Landing page section that shows platform-specific PWA install instructions
+ * (#app — the target of the "Get the app" CTA link). Visible below 1024px
+ * (lg:hidden) when the app isn't already installed. Android gets a native
+ * install button when the browser allows it; iOS and desktop get the manual
+ * steps for their browser's install menu. Desktop no longer returns null —
+ * a UA-driven null was hiding the whole section from desktop visitors,
+ * leaving every install affordance dark in exactly the browsers where
+ * beforeinstallprompt never fires.
  */
 export function MobileAppPromo() {
   const { t } = useLocale();
@@ -45,9 +36,13 @@ export function MobileAppPromo() {
     setPlatform(detectPlatform());
   }, []);
 
-  // Don't show if already installed or on desktop
+  // Don't show if already installed. A desktop browser still gets the section —
+  // with its own install card (address-bar icon steps) — because "Get the app"
+  // links and the header button may route here from any device, and a section
+  // that vanishes by user-agent made the whole install path invisible on
+  // desktop Chromium, where beforeinstallprompt also does not fire.
   if (isInstalled) return null;
-  if (platform === "unknown" || platform === "desktop") return null;
+  if (platform === "unknown") return null;
 
   const handleInstall = async () => {
     if (platform === "android" && canInstall) {
@@ -67,9 +62,10 @@ export function MobileAppPromo() {
 
   const iosSteps = ["iosStep1", "iosStep2", "iosStep3", "iosStep4"];
   const androidSteps = ["androidStep1", "androidStep2", "androidStep3"];
+  const desktopSteps = ["desktopStep1", "desktopStep2"];
 
   return (
-    <section className="relative overflow-hidden py-12 sm:py-16 lg:hidden">
+    <section id="app" className="relative scroll-mt-24 overflow-hidden py-12 sm:py-16 lg:hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-brand-50/50 via-transparent to-transparent dark:from-brand-950/30" />
 
@@ -88,7 +84,7 @@ export function MobileAppPromo() {
             <h2 className="text-2xl font-black tracking-tight text-ink-900 dark:text-ink-50 sm:text-3xl">
               {t("mobileAppPromo.title")}
             </h2>
-            <p className="mx-auto mt-3 max-w-md text-sm text-ink-500 dark:text-ink-400">
+            <p className="mx-auto mt-3 max-w-md text-base text-ink-500 dark:text-ink-400">
               {t("mobileAppPromo.subtitle")}
             </p>
           </div>
@@ -111,7 +107,32 @@ export function MobileAppPromo() {
                       <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
                         {i + 1}
                       </span>
-                      <span className="text-sm text-ink-600 dark:text-ink-300">
+                      <span className="text-base text-ink-600 dark:text-ink-300">
+                        {t(`mobileAppPromo.${step}`)}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {platform === "desktop" && (
+              <div className="rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft dark:border-ink-800 dark:bg-ink-900">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-brand-100 dark:bg-brand-900/30">
+                    <Download className="size-5 text-brand-600 dark:text-brand-400" />
+                  </div>
+                  <h3 className="text-base font-bold text-ink-900 dark:text-ink-50">
+                    {t("mobileAppPromo.desktopTitle")}
+                  </h3>
+                </div>
+                <ol className="space-y-3">
+                  {desktopSteps.map((step, i) => (
+                    <li key={step} className="flex items-start gap-3">
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+                        {i + 1}
+                      </span>
+                      <span className="text-base text-ink-600 dark:text-ink-300">
                         {t(`mobileAppPromo.${step}`)}
                       </span>
                     </li>
@@ -136,7 +157,7 @@ export function MobileAppPromo() {
                       <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
                         {i + 1}
                       </span>
-                      <span className="text-sm text-ink-600 dark:text-ink-300">
+                      <span className="text-base text-ink-600 dark:text-ink-300">
                         {t(`mobileAppPromo.${step}`)}
                       </span>
                     </li>

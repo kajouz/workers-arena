@@ -313,6 +313,52 @@ describe("Install banner (src/components/pwa/install-banner.tsx)", () => {
   });
 });
 
+describe("Install affordances for browsers that never fire beforeinstallprompt", () => {
+  // iOS Safari, most desktop browsers and in-app WebViews never fire
+  // beforeinstallprompt, so any surface gated purely on canInstall is
+  // permanently invisible there. These tests pin the fallback paths.
+  const promo = readFileSync(src("components/home/mobile-app-promo.tsx"), "utf8");
+  const cta = readFileSync(src("components/home/cta.tsx"), "utf8");
+  const header = readFileSync(src("components/layout/header.tsx"), "utf8");
+  const en = readFileSync(src("lib/i18n/translations/en.ts"), "utf8");
+  const ar = readFileSync(src("lib/i18n/translations/ar.ts"), "utf8");
+
+  it("MobileAppPromo has the #app anchor the CTA link scrolls to", () => {
+    expect(promo).toContain('id="app"');
+    expect(cta).toContain('href="#app"');
+    // The old target was the pricing section — regression guard.
+    expect(cta).not.toContain('href="#plans"');
+    // scroll-mt so the sticky header does not cover the anchored heading.
+    expect(promo).toContain("scroll-mt-");
+  });
+
+  it("MobileAppPromo renders desktop install steps instead of returning null", () => {
+    // The desktop card must exist, driven by the shared translations.
+    expect(promo).toContain('platform === "desktop"');
+    expect(promo).toContain('mobileAppPromo.desktopTitle');
+    expect(promo).toContain('desktopStep1');
+    expect(en).toContain('desktopTitle: "Install for Desktop"');
+    expect(ar).toContain('desktopTitle');
+  });
+
+  it("header offers an install-help fallback when canInstall is false", () => {
+    expect(header).toContain("setInstallHelpOpen");
+    expect(header).toContain("installHelpOpen");
+    // The fallback opens a dialog with manual steps, not a dead button.
+    expect(header).toContain('t("mobileInstall.title")');
+    // Steps are chosen per detected platform.
+    expect(header).toContain("detectPlatform");
+  });
+
+  it("detectPlatform is shared from the hook (single source of truth)", () => {
+    const hook = readFileSync(src("hooks/use-install-prompt.ts"), "utf8");
+    expect(hook).toContain("export function detectPlatform");
+    expect(promo).toContain('from "@/hooks/use-install-prompt"');
+    // No duplicated local copy in the promo component.
+    expect(promo).not.toContain("function detectPlatform");
+  });
+});
+
 describe("Notification actions (public/sw.js)", () => {
   const sw = readFileSync(pub("sw.js"), "utf8");
 

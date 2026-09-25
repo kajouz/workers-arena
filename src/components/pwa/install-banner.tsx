@@ -178,7 +178,7 @@ export function InstallBanner({ className }: InstallBannerProps) {
                         <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-sky-200 text-[9px] font-bold text-sky-700 dark:bg-sky-800 dark:text-sky-300">
                           {i + 1}
                         </span>
-                        <span className="text-[11px] text-sky-700 dark:text-sky-300">
+                        <span className="text-base leading-snug text-sky-700 dark:text-sky-300">
                           {t(`mobileInstall.${step}`)}
                         </span>
                       </li>

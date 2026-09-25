@@ -7,6 +7,25 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+export type InstallPlatform = "ios" | "android" | "desktop" | "unknown";
+
+/**
+ * Best-effort platform detection for choosing which manual install steps to
+ * show. This is user-agent based (not viewport based) on purpose: it decides
+ * WHICH instructions make sense, not WHETHER to offer them.
+ */
+export function detectPlatform(): InstallPlatform {
+  if (typeof window === "undefined") return "unknown";
+  const ua = navigator.userAgent.toLowerCase();
+  const isIOS =
+    /iphone|ipad|ipod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isAndroid = /android/.test(ua);
+  if (isIOS) return "ios";
+  if (isAndroid) return "android";
+  return "desktop";
+}
+
 /**
  * Hook to capture the `beforeinstallprompt` event and provide an install function.
  *
