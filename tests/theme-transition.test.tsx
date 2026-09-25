@@ -21,19 +21,23 @@
  * failure instead of hanging the page's main thread.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MockInstance } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { ThemeTransition } from "@/components/providers/theme-transition";
 
 const MARKER = "theme-transitioning";
 const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function markerAdds(add: ReturnType<typeof vi.spyOn>): number {
+// MockInstance (not ReturnType<typeof vi.spyOn>): vitest 5's spyOn return
+// type no longer carries the spied element type, so the generic left the
+// mock.calls callback parameter implicitly any under noImplicitAny.
+function markerAdds(add: MockInstance): number {
   return add.mock.calls.filter((args) => args[0] === MARKER).length;
 }
 
 describe("ThemeTransition — applies the fade class without re-entering its observer", () => {
-  let add: ReturnType<typeof vi.spyOn>;
-  let remove: ReturnType<typeof vi.spyOn>;
+  let add: MockInstance;
+  let remove: MockInstance;
 
   beforeEach(() => {
     document.documentElement.className = "";

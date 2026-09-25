@@ -83,6 +83,12 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  // Restore the per-test vi.spyOn(simulatedProvider, "refund") spies: vitest 5
+  // (v4+) spyOn returns the SAME mock on re-spy and restoreAllMocks no longer
+  // resets spy state, so without an explicit restore the refund call history
+  // leaks across tests and "not.toHaveBeenCalled" assertions see prior tests'
+  // refunds. Restoring also hands the provider back un-spied for later tests.
+  vi.restoreAllMocks();
   if (!hasLiveDb) return;
   const prisma = getPrisma();
   if (campaignId) {

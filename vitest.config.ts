@@ -18,6 +18,13 @@ export default defineConfig({
     // Keep single project for now; docblock opt-in is intentional — splitting into
     // projects would require duplicating setupFiles/alias. Revisit if flakiness appears.
     environment: "node",
+    // Vitest 5 flips clearMocks to true (vi.clearAllMocks before every test).
+    // Every suite here was written against the v3 leaky default: hoisted vi.fn()
+    // mocks are reset by explicit mockReset() where isolation matters, and some
+    // suites record calls outside the test body (module scope, beforeAll) and
+    // assert on them across tests. Keep v3 semantics — flip deliberately if the
+    // whole surface is audited, not silently by a major bump.
+    clearMocks: false,
     include: ["tests/**/*.test.{ts,tsx}"],
     // Guarded polyfills (matchMedia/ResizeObserver) for the jsdom component
     // tests — a no-op in node env.
