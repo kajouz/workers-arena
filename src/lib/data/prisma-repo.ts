@@ -379,17 +379,19 @@ async function stampWorkerSignals(workers: Worker[]): Promise<Worker[]> {
   const now = new Date();
   const horizon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const freeRows = await prisma.bookingSlot.findMany({
-    where: { workerId: { in: ids }, status: "AVAILABLE", startAt: { gte: now, lte: horizon } },
-    select: { workerId: true },
-  });
+  // Independent reads — run them concurrently (one round trip, not two).
+  const [freeRows, tally] = await Promise.all([
+    prisma.bookingSlot.findMany({
+      where: { workerId: { in: ids }, status: "AVAILABLE", startAt: { gte: now, lte: horizon } },
+      select: { workerId: true },
+    }),
+    prisma.booking.groupBy({
+      by: ["workerId", "status"],
+      where: { workerId: { in: ids } },
+      _count: { _all: true },
+    }),
+  ]);
   const freeIds = new Set(freeRows.map((s) => s.workerId));
-
-  const tally = await prisma.booking.groupBy({
-    by: ["workerId", "status"],
-    where: { workerId: { in: ids } },
-    _count: { _all: true },
-  });
   const answeredByWorker = new Map<string, { total: number; answered: number }>();
   for (const row of tally) {
     const cur = answeredByWorker.get(row.workerId) ?? { total: 0, answered: 0 };
@@ -451,9 +453,12 @@ export async function prismaGetCities(): Promise<City[]> {
 
 export async function prismaGetWorkerBySlug(slug: string): Promise<Worker | null> {
   const prisma = getPrisma();
-  const row = await prisma.worker.findUnique({
+  // findFirst, not findUnique: concurrent findUnique calls are batched, and
+  // the batched form panics the query engine with relationLoadStrategy "join".
+  const row = await prisma.worker.findFirst({
     where: { slug, deletedAt: null },
     include: PROFILE_INCLUDE,
+    relationLoadStrategy: "join",
   });
   if (!row) return null;
   return (await stampWorkerSignals([toDomainWorker(row)]))[0] ?? null;
@@ -461,9 +466,12 @@ export async function prismaGetWorkerBySlug(slug: string): Promise<Worker | null
 
 export async function prismaGetWorkerById(id: string): Promise<Worker | null> {
   const prisma = getPrisma();
-  const row = await prisma.worker.findUnique({
+  // findFirst, not findUnique: concurrent findUnique calls are batched, and
+  // the batched form panics the query engine with relationLoadStrategy "join".
+  const row = await prisma.worker.findFirst({
     where: { id, deletedAt: null },
     include: PROFILE_INCLUDE,
+    relationLoadStrategy: "join",
   });
   if (!row) return null;
   return (await stampWorkerSignals([toDomainWorker(row)]))[0] ?? null;
@@ -471,9 +479,12 @@ export async function prismaGetWorkerById(id: string): Promise<Worker | null> {
 
 export async function prismaGetWorkerByUserId(userId: string): Promise<Worker | null> {
   const prisma = getPrisma();
-  const row = await prisma.worker.findUnique({
+  // findFirst, not findUnique: concurrent findUnique calls are batched, and
+  // the batched form panics the query engine with relationLoadStrategy "join".
+  const row = await prisma.worker.findFirst({
     where: { userId, deletedAt: null },
     include: PROFILE_INCLUDE,
+    relationLoadStrategy: "join",
   });
   if (!row) return null;
   return (await stampWorkerSignals([toDomainWorker(row)]))[0] ?? null;
@@ -484,6 +495,7 @@ export async function prismaGetAllWorkers(): Promise<Worker[]> {
   const rows = await prisma.worker.findMany({
     where: PUBLIC_WORKER_FILTER,
     include: LIST_INCLUDE,
+    relationLoadStrategy: "join",
   });
   return stampWorkerSignals(rows.map(toDomainWorker));
 }
@@ -526,9 +538,12 @@ export async function prismaChangeWorkerPlan(
         : {}),
     },
   });
-  const row = await prisma.worker.findUnique({
+  // findFirst, not findUnique: concurrent findUnique calls are batched, and
+  // the batched form panics the query engine with relationLoadStrategy "join".
+  const row = await prisma.worker.findFirst({
     where: { id: workerId },
     include: PROFILE_INCLUDE,
+    relationLoadStrategy: "join",
   });
   if (!row) return null;
   const worker = toDomainWorker(row);
@@ -730,13 +745,20 @@ export async function prismaSearchWorkers(filters: SearchFilters): Promise<Searc
   const skip = jsPostFilter ? 0 : (page - 1) * PAGE_SIZE;
   const take = jsPostFilter ? POST_FILTER_FETCH : PAGE_SIZE;
 
-  const rows = await prisma.worker.findMany({
-    where,
-    include: LIST_INCLUDE,
-    orderBy: sqlOrderBy(sort),
-    skip,
-    take,
-  });
+  // The exact SQL count is needed unless open-now/radius shrink the set in JS;
+  // it doesn't depend on the page rows, so it runs alongside them.
+  const needsSqlCount = !(jsPostFilter && (filters.openNowOnly || radiusKm != null));
+  const [rows, sqlTotal] = await Promise.all([
+    prisma.worker.findMany({
+      where,
+      include: LIST_INCLUDE,
+      relationLoadStrategy: "join",
+      orderBy: sqlOrderBy(sort),
+      skip,
+      take,
+    }),
+    needsSqlCount ? prisma.worker.count({ where }) : Promise.resolve(0),
+  ]);
 
   let items = rows.map(toDomainWorker);
   if (filters.openNowOnly) items = items.filter((w) => isOpenNow(w));
@@ -771,10 +793,7 @@ export async function prismaSearchWorkers(filters: SearchFilters): Promise<Searc
   // returned page pays for the two batched queries.
   items = await stampWorkerSignals(items);
 
-  const total =
-    jsPostFilter && (filters.openNowOnly || radiusKm != null)
-      ? filteredTotal
-      : await prisma.worker.count({ where });
+  const total = needsSqlCount ? sqlTotal : filteredTotal;
 
   return {
     items,
@@ -788,6 +807,7 @@ export async function prismaGetFeaturedWorkers(limit = 4): Promise<Worker[]> {
   const rows = await prisma.worker.findMany({
     where: { ...PUBLIC_WORKER_FILTER, isFeatured: true },
     include: LIST_INCLUDE,
+    relationLoadStrategy: "join",
     orderBy: { rating: "desc" },
     take: limit,
   });
@@ -4216,6 +4236,7 @@ export async function prismaGetRelated(worker: Worker, limit = 4): Promise<Worke
       ],
     },
     include: LIST_INCLUDE,
+    relationLoadStrategy: "join",
   });
   const list = rows
     .map((r) => {
