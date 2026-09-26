@@ -29,8 +29,9 @@ import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 // Self-hosted by next/font: served from our origin with inlined @font-face and
 // a metric-matched fallback. The Google Fonts <link> this replaces was a
-// render-blocking stylesheet on a third-party origin. Cairo isn't preloaded:
-// only RTL pages use it, and English pages shouldn't pay for its download.
+// render-blocking stylesheet on a third-party origin. The Cairo typeface loads
+// only its Arabic subset (Latin falls through to Inter): preloading it keeps
+// Arabic pages from swapping fonts after paint, for ~30 KB on English pages.
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 const cairo = Cairo({ subsets: ["arabic"], display: "swap", variable: "--font-cairo" });
 
