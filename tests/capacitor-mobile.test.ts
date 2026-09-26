@@ -54,7 +54,7 @@ describe("Mobile wrapper wiring (UI consumers)", () => {
   });
 
   it("the login page wires biometric unlock and the opt-in capture", () => {
-    const login = read("src/app/[locale]/(public)/auth/login/page.tsx");
+    const login = read("src/app/[locale]/(public)/auth/login/login-form.tsx");
     expect(login).toContain("<BiometricLogin");
     expect(login).toContain("enableBiometricLogin");
     expect(login).toContain("unlockAndSignIn");
