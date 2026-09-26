@@ -453,7 +453,9 @@ export async function prismaGetCities(): Promise<City[]> {
 
 export async function prismaGetWorkerBySlug(slug: string): Promise<Worker | null> {
   const prisma = getPrisma();
-  const row = await prisma.worker.findUnique({
+  // findFirst, not findUnique: concurrent findUnique calls are batched, and
+  // the batched form panics the query engine with relationLoadStrategy "join".
+  const row = await prisma.worker.findFirst({
     where: { slug, deletedAt: null },
     include: PROFILE_INCLUDE,
     relationLoadStrategy: "join",
@@ -464,7 +466,9 @@ export async function prismaGetWorkerBySlug(slug: string): Promise<Worker | null
 
 export async function prismaGetWorkerById(id: string): Promise<Worker | null> {
   const prisma = getPrisma();
-  const row = await prisma.worker.findUnique({
+  // findFirst, not findUnique: concurrent findUnique calls are batched, and
+  // the batched form panics the query engine with relationLoadStrategy "join".
+  const row = await prisma.worker.findFirst({
     where: { id, deletedAt: null },
     include: PROFILE_INCLUDE,
     relationLoadStrategy: "join",
@@ -475,7 +479,9 @@ export async function prismaGetWorkerById(id: string): Promise<Worker | null> {
 
 export async function prismaGetWorkerByUserId(userId: string): Promise<Worker | null> {
   const prisma = getPrisma();
-  const row = await prisma.worker.findUnique({
+  // findFirst, not findUnique: concurrent findUnique calls are batched, and
+  // the batched form panics the query engine with relationLoadStrategy "join".
+  const row = await prisma.worker.findFirst({
     where: { userId, deletedAt: null },
     include: PROFILE_INCLUDE,
     relationLoadStrategy: "join",
@@ -532,7 +538,9 @@ export async function prismaChangeWorkerPlan(
         : {}),
     },
   });
-  const row = await prisma.worker.findUnique({
+  // findFirst, not findUnique: concurrent findUnique calls are batched, and
+  // the batched form panics the query engine with relationLoadStrategy "join".
+  const row = await prisma.worker.findFirst({
     where: { id: workerId },
     include: PROFILE_INCLUDE,
     relationLoadStrategy: "join",
