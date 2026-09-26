@@ -182,6 +182,20 @@ describe("Native shells and mobile CI (docs/mobile-architecture.md §6)", () => 
     }
   });
 
+  it("keeps the android assets dir present on a fresh checkout", () => {
+    // Every file cap sync writes into assets/ is gitignored, so without a
+    // tracked placeholder the directory vanishes on a fresh clone and
+    // `cap sync android` fails with ENOENT writing capacitor.config.json —
+    // exactly what the first Mobile CI run hit. The .gitkeep must exist AND
+    // be tracked (an untracked local one would mask the CI failure again).
+    const keep = join(process.cwd(), "android/app/src/main/assets/.gitkeep");
+    expect(existsSync(keep)).toBe(true);
+    const res = spawnSync("git", ["ls-files", "--error-unmatch", "android/app/src/main/assets/.gitkeep"], {
+      cwd: process.cwd(),
+    });
+    expect(res.status, ".gitkeep should be tracked in git").toBe(0);
+  });
+
   it("has a mobile workflow that builds both shells", () => {
     const wf = read(".github/workflows/mobile.yml");
     expect(wf).toContain("xcodebuild");
