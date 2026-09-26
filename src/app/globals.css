@@ -10,8 +10,8 @@
 
 @theme {
   /* Typography */
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-arabic: "Cairo", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-arabic: var(--font-cairo), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
   /* Brand — "embers" orange scale (trades, energy, trust).
 
@@ -430,6 +430,12 @@ body {
   --top-chrome: calc(4rem + 2px + env(safe-area-inset-top, 0px));
 }
 
+/* In the base layer on purpose: unlayered CSS outranks every Tailwind utility,
+   so the `display: inline-flex` below used to override `hidden` on touch
+   devices. The header's `hidden sm:block` sign-in links then showed on every
+   phone, pushed the page 42px wider than the screen, and the browser zoomed
+   out to fit it. Layered, explicit utilities win and the 44px floor stays. */
+@layer base {
 @media (pointer: coarse) {
   button,
   [role="button"],
@@ -449,6 +455,7 @@ body {
     display: inline-flex;
     align-items: center;
   }
+}
 }
 
 /* ─── Focus Transitions ─── */

@@ -7,6 +7,7 @@ import { useABTesting } from "@/hooks/use-ab-testing";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import type { ServedAd } from "@/lib/data/ad-rotation";
 
 interface SponsoredResultProps {
   ad: {
@@ -116,15 +117,22 @@ export function SponsoredSearchResults({
   placement = "search",
   category,
   city,
+  initialAd,
 }: {
   placement?: string;
   category?: string;
   city?: string;
+  /**
+   * The ad the server already picked for these filters (null: none eligible).
+   * Rendering it from the first paint keeps the block from popping in above
+   * the results after hydration (it was the search page's whole CLS).
+   */
+  initialAd?: ServedAd | null;
 }) {
   const { locale, t } = useLocale();
   const { getVariant, trackImpression, trackClick } = useABTesting();
-  const [ads, setAds] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [ads, setAds] = useState<any[]>(initialAd ? [initialAd] : []);
+  const [loading, setLoading] = useState(initialAd === undefined);
 
   // Get A/B test variant
   const variant = getVariant("search-ad-style");
@@ -136,14 +144,18 @@ export function SponsoredSearchResults({
     const params = new URLSearchParams({ placement });
     if (category) params.set("category", category);
     if (city) params.set("city", city);
+    // Keep the server-rendered ad and count its impression.
+    if (initialAd) params.set("ad", initialAd.id);
 
     fetch(`/api/ads?${params}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.ad) setAds([d.ad]);
+        setAds(d.ad ? [d.ad] : []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    // initialAd is read once per filter set; a new server pick comes with new filters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placement, category, city]);
 
   // Track impression when ads load — declared before the early return below

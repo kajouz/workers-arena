@@ -55,7 +55,10 @@ export function WorkerCard({
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 18 }}
+      // No mount animation: search results are the search page's LCP, and
+      // opacity:0 held them back until hydration; a slide-in from the server
+      // render then counted as layout shift (CLS 0.146).
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.4) }}
     >

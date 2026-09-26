@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Cairo, Inter } from "next/font/google";
 import "../globals.css";
 import { notFound } from "next/navigation";
 import { defaultLocale, isLocale, localeDir, locales } from "@/lib/i18n/config";
@@ -25,6 +26,13 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { CurrencyProvider } from "@/components/providers/currency-provider";
 import { PromptQueueProvider } from "@/components/providers/prompt-queue";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+
+// Self-hosted by next/font: served from our origin with inlined @font-face and
+// a metric-matched fallback. The Google Fonts <link> this replaces was a
+// render-blocking stylesheet on a third-party origin. Cairo isn't preloaded:
+// only RTL pages use it, and English pages shouldn't pay for its download.
+const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+const cairo = Cairo({ subsets: ["arabic"], display: "swap", variable: "--font-cairo" });
 
 const DEFAULT_APP_URL = "https://workers-arena.vercel.app";
 
@@ -177,7 +185,7 @@ export default async function RootLayout({
    * class/style delta it introduces, exactly as before.
    */
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning>
+    <html lang={locale} dir={dir} className={`${inter.variable} ${cairo.variable}`} suppressHydrationWarning>
       <head>
         {/* Pre-hydration theme resolution (the next-themes pattern, inlined):
             the server only knows the wa_theme cookie, but the client theme can
@@ -196,14 +204,6 @@ export default async function RootLayout({
             __html:
               '(function(){try{var m=document.cookie.match(/(?:^|; )wa_theme=(light|dark)/),t=m?m[1]:null;if(t!=="dark"&&t!=="light"){t=localStorage.getItem("wa_theme")}if(t!=="dark"&&t!=="light"){t=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}var r=document.documentElement;r.classList.toggle("dark",t==="dark");r.style.colorScheme=t;if(!m){document.cookie="wa_theme="+t+";path=/;max-age=31536000;samesite=lax"}}catch(e){}})();',
           }}
-        />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Load font CSS — preconnects above speed up font delivery */}
-        {/* eslint-disable-next-line @next/next/no-page-custom-font -- App Router: root-layout <head> is the correct home for fonts (the rule targets Pages Router _document) */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet"
         />
       </head>
       <body className="min-h-dvh antialiased">

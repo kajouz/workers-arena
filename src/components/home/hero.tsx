@@ -12,8 +12,10 @@ import { formatPrice } from "@/lib/currency";
 export function Hero({ popular }: { popular: { en: string; ar: string; href: string }[] }) {
   const { locale, t } = useLocale();
 
+  // Slide only, never fade from 0: server-rendered opacity:0 keeps the hero
+  // invisible until hydration, which was the page's LCP (3 s render delay).
   const fadeUp = (delay: number) => ({
-    initial: { opacity: 0, y: 24 },
+    initial: { opacity: 1, y: 24 },
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] as const },
   });
