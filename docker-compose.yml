@@ -11,7 +11,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: workersarena
+      POSTGRES_DB: workers_arena_v2
     ports:
       - "5432:5432"
     volumes:
@@ -35,9 +35,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/workersarena?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/workers_arena_v2?schema=public
       DEMO_MODE: "false"
-      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+      # Required — generate with: openssl rand -base64 32
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET before starting the app service}
       NEXT_PUBLIC_APP_URL: http://localhost:3000
     ports:
       - "3000:3000"

@@ -41,8 +41,11 @@ on:
     - cron: "30 3 * * 0" # activity-log retention prune (Sundays)
   workflow_dispatch: # manual run: hits every endpoint below
 
+# One lane per schedule. A single shared group kept only one pending run, so
+# when several schedules fired in the same minute (every :00 matches */5, */15
+# and the hourly job) GitHub cancelled all but one of them.
 concurrency:
-  group: scheduled-jobs
+  group: scheduled-jobs-${{ github.event.schedule || github.event_name }}
   cancel-in-progress: false
 
 permissions:
