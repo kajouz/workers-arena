@@ -310,6 +310,9 @@ export const ACTION_CODES = {
   // immutable record is the ReviewModeration audit row.
   REVIEW_APPROVED: "REVIEW_APPROVED",
   REVIEW_REJECTED: "REVIEW_REJECTED",
+  // Admin platform settings (/admin/settings) — which keys an admin changed.
+  // The current values live in the `Setting` row; this is the who/when trail.
+  PLATFORM_SETTINGS_UPDATED: "PLATFORM_SETTINGS_UPDATED",
   // Generic fallbacks for callers that don't pass an explicit code (kept for
   // backward compatibility with legacy rows / untyped call sites).
   SYSTEM: "SYSTEM",
