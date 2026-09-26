@@ -26,6 +26,20 @@ import {
   Settings,
   Calculator,
   TrendingUp,
+  KeyRound,
+  Wrench,
+  DatabaseBackup,
+  Database,
+  Webhook,
+  Gauge,
+  LayoutTemplate,
+  Newspaper,
+  FileBarChart,
+  ArrowDownUp,
+  ListChecks,
+  Accessibility,
+  PhoneOff,
+  Siren,
 } from "lucide-react";
 import { Link } from "@/components/i18n/link";
 import { useRouter } from "next/navigation";
@@ -65,7 +79,6 @@ import { decidePayoutAction } from "@/app/actions/payouts";
 import { GlobalSearch } from "@/components/admin/search/global-search";
 import { ActivityFeed } from "@/components/admin/activity/activity-feed";
 import { QuickActionsPanel } from "@/components/admin/actions/quick-actions";
-import { MobileSidebar } from "@/components/admin/layout/mobile-sidebar";
 import { WidgetManager } from "@/components/admin/customization/widget-manager";
 import { DateRangePicker } from "@/components/admin/filters/date-range-picker";
 import { VerificationWorkflow } from "@/components/admin/verification/verification-workflow";
@@ -416,8 +429,62 @@ export function AdminDashboard({
             <Link href="/admin/automation" className="group inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-3 py-2 text-xs font-semibold text-indigo-700 transition-all hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:shadow-sm dark:text-indigo-300">
               <Zap className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Automation
             </Link>
-            <Link href="/admin/logs" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500 dark:border-ink-600/20 bg-ink-500 dark:bg-ink-600/5 px-3 py-2 text-xs font-semibold text-ink-700 dark:text-ink-200 transition-all hover:border-ink-500 dark:hover:border-ink-600/40 hover:bg-ink-500 dark:hover:bg-ink-600/10 hover:shadow-sm dark:text-ink-300">
+            <Link href="/admin/logs" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
               <FileText className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Logs
+            </Link>
+            <Link href="/admin/emergency" className="group inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs font-semibold text-red-700 transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:shadow-sm dark:text-red-300">
+              <Siren className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Emergency
+            </Link>
+          </div>
+        </div>
+
+        {/* Platform & Settings — every other admin page. Settings and these tools
+            existed as routes with no link anywhere (the MobileSidebar that
+            listed some of them was imported here but never rendered). */}
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-400 dark:text-ink-500">Platform & Settings</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/settings" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <Settings className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Settings
+            </Link>
+            <Link href="/admin/roles" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <KeyRound className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Roles & permissions
+            </Link>
+            <Link href="/admin/maintenance" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <Wrench className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Maintenance
+            </Link>
+            <Link href="/admin/backups" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <DatabaseBackup className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Backups
+            </Link>
+            <Link href="/admin/cache" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <Database className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Cache
+            </Link>
+            <Link href="/admin/webhooks" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <Webhook className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Webhooks
+            </Link>
+            <Link href="/admin/api-usage" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <Gauge className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> API usage
+            </Link>
+            <Link href="/admin/templates" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <LayoutTemplate className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Templates
+            </Link>
+            <Link href="/admin/cms" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <Newspaper className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Content (CMS)
+            </Link>
+            <Link href="/admin/reports" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <FileBarChart className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Reports
+            </Link>
+            <Link href="/admin/import-export" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <ArrowDownUp className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Import / Export
+            </Link>
+            <Link href="/admin/bulk" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <ListChecks className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Bulk actions
+            </Link>
+            <Link href="/admin/masked-numbers" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <PhoneOff className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Masked numbers
+            </Link>
+            <Link href="/admin/accessibility" className="group inline-flex items-center gap-1.5 rounded-xl border border-ink-500/20 bg-ink-500/5 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:border-ink-500/40 hover:bg-ink-500/10 hover:shadow-sm dark:text-ink-300">
+              <Accessibility className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100" /> Accessibility
             </Link>
           </div>
         </div>
