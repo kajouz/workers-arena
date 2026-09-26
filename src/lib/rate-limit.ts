@@ -1,6 +1,6 @@
 /**
  * Distributed rate limiter — Upstash Redis REST (edge-compatible) with in-memory fallback.
- * Proxy (edge) and API routes share this so multi-region Vercel (`fra1` etc.) can't
+ * Proxy (edge) and API routes share this so multi-region Vercel can't
  * be bypassed by hitting different edges. In-memory Map is dev/preview-only fallback.
  */
 
