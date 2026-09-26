@@ -5,7 +5,7 @@
   "installCommand": "npm ci",
   "outputDirectory": ".next",
   "regions": [
-    "fra1"
+    "iad1"
   ],
   "headers": [
     {
