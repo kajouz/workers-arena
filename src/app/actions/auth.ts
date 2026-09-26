@@ -6,7 +6,7 @@ import { z } from "zod";
 import { DEMO_USERS, SESSION_COOKIE, getSession, realAuthEnabled, type SessionRole } from "@/lib/auth-demo";
 import { addLead, addReview, getCustomerBookings, registerView } from "@/lib/data/repo";
 import { getLocale } from "@/lib/i18n/server";
-import { DEMO_PASSWORD, hashPassword, sanitizeText, signSessionPayload } from "@/lib/security";
+import { hashPassword, sanitizeText, signSessionPayload } from "@/lib/security";
 import { localeRedirect } from "@/lib/i18n/redirect";
 
 const loginSchema = z.object({
@@ -120,13 +120,13 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
   return await localeRedirect("/dashboard");
 }
 
-/** One-click demo role sign-in (real mode: signs into the seeded demo account). */
+/**
+ * One-click demo role sign-in. Demo mode only: in real mode the login page
+ * hides these buttons and the seeded demo accounts' passwords are disabled, so
+ * the action refuses rather than trying DEMO_PASSWORD against real users.
+ */
 export async function loginDemoAction(role: SessionRole): Promise<void> {
-  if (realAuthEnabled()) {
-    const error = await realSignIn(DEMO_USERS[role].email, DEMO_PASSWORD);
-    if (error) return; // stay on the login page — action returns without redirect
-    return await localeRedirect("/dashboard");
-  }
+  if (realAuthEnabled()) return;
   await setSession(DEMO_USERS[role]);
   return await localeRedirect("/dashboard");
 }
