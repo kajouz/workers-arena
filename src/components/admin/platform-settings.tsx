@@ -118,7 +118,7 @@ export function PlatformSettings() {
 
   if (loadError) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+      <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
         <AlertTriangle className="size-5 shrink-0" />
         <span className="flex-1">Couldn&apos;t load platform settings ({loadError}).</span>
         <button
