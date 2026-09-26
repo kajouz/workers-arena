@@ -1,7 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/toast";
+import {
+  PLATFORM_SETTING_SECTIONS,
+  type PlatformSettingValue,
+  type PlatformSettingValues,
+} from "@/lib/data/platform-settings-schema";
 import {
   Settings,
   Save,
@@ -24,163 +30,116 @@ import {
   Lock,
 } from "lucide-react";
 
-interface SettingSection {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  settings: Setting[];
-}
-
-interface Setting {
-  id: string;
-  label: string;
-  description: string;
-  type: "toggle" | "text" | "number" | "select" | "textarea";
-  value: unknown;
-  options?: { label: string; value: string }[];
-  requiresRestart?: boolean;
-}
+const SECTION_ICONS: Record<string, React.ElementType> = {
+  general: Settings,
+  features: Zap,
+  email: Mail,
+  payments: CreditCard,
+  notifications: Bell,
+  security: Shield,
+  seo: Globe,
+  database: Database,
+};
 
 export function PlatformSettings() {
-  const [sections, setSections] = useState<SettingSection[]>([]);
+  // `saved` is what the server holds; `values` is the form. Changed keys are
+  // the difference, so an edit that's undone no longer counts as a change.
+  const [saved, setSaved] = useState<PlatformSettingValues | null>(null);
+  const [values, setValues] = useState<PlatformSettingValues>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>("general");
-  const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    // Mock data
-    setSections([
-      {
-        id: "general",
-        title: "General Settings",
-        description: "Basic platform configuration",
-        icon: Settings,
-        settings: [
-          { id: "site_name", label: "Site Name", description: "Your platform name", type: "text", value: "WorkersArena" },
-          { id: "site_url", label: "Site URL", description: "Your platform URL", type: "text", value: "https://workers-arena.vercel.app" },
-          { id: "maintenance_mode", label: "Maintenance Mode", description: "Enable to show maintenance page", type: "toggle", value: false, requiresRestart: true },
-          { id: "registration_enabled", label: "Allow New Registrations", description: "Allow new users to register", type: "toggle", value: true },
-          { id: "default_language", label: "Default Language", description: "Default language for new users", type: "select", value: "en", options: [{ label: "English", value: "en" }, { label: "Arabic", value: "ar" }] },
-        ],
-      },
-      {
-        id: "features",
-        title: "Feature Flags",
-        description: "Enable or disable platform features",
-        icon: Zap,
-        settings: [
-          { id: "enable_chat", label: "Real-time Chat", description: "Enable chat between workers and customers", type: "toggle", value: true },
-          { id: "enable_payments", label: "Online Payments", description: "Enable Stripe/online payment processing", type: "toggle", value: true },
-          { id: "enable_manual_payments", label: "Manual Payments (OMT/Whish)", description: "Enable Lebanon manual payment methods", type: "toggle", value: true },
-          { id: "enable_push_notifications", label: "Push Notifications", description: "Enable browser push notifications", type: "toggle", value: true },
-          { id: "enable_whatsapp", label: "WhatsApp Integration", description: "Show WhatsApp contact buttons", type: "toggle", value: true },
-          { id: "enable_analytics", label: "Analytics Tracking", description: "Enable Vercel Analytics", type: "toggle", value: true },
-          { id: "enable_sentry", label: "Error Tracking (Sentry)", description: "Enable Sentry error monitoring", type: "toggle", value: true },
-          { id: "enable_ab_testing", label: "A/B Testing", description: "Enable A/B testing framework", type: "toggle", value: false },
-        ],
-      },
-      {
-        id: "email",
-        title: "Email Settings",
-        description: "Email delivery configuration",
-        icon: Mail,
-        settings: [
-          { id: "email_provider", label: "Email Provider", description: "Select email delivery provider", type: "select", value: "resend", options: [{ label: "Resend", value: "resend" }, { label: "SendGrid", value: "sendgrid" }, { label: "AWS SES", value: "ses" }] },
-          { id: "from_name", label: "From Name", description: "Name shown in email sender", type: "text", value: "WorkersArena" },
-          { id: "from_email", label: "From Email", description: "Email address shown as sender", type: "text", value: "noreply@workersarena.com" },
-          { id: "enable_welcome_email", label: "Welcome Email", description: "Send welcome email on registration", type: "toggle", value: true },
-          { id: "enable_booking_emails", label: "Booking Notifications", description: "Send email notifications for bookings", type: "toggle", value: true },
-          { id: "enable_weekly_digest", label: "Weekly Digest", description: "Send weekly summary emails", type: "toggle", value: true },
-        ],
-      },
-      {
-        id: "payments",
-        title: "Payment Settings",
-        description: "Payment processing configuration",
-        icon: CreditCard,
-        settings: [
-          { id: "currency", label: "Default Currency", description: "Primary currency for transactions (tenant lb — USD only)", type: "select", value: "USD", options: [{ label: "USD", value: "USD" }] },
-          { id: "platform_fee_rate", label: "Platform Fee Rate (%)", description: "Percentage fee on completed bookings", type: "number", value: 10 },
-          { id: "min_booking_amount", label: "Minimum Booking Amount", description: "Minimum amount for a booking", type: "number", value: 10 },
-          { id: "enable_stripe", label: "Enable Stripe", description: "Enable Stripe payment processing", type: "toggle", value: true },
-          { id: "enable_omt", label: "Enable OMT", description: "Enable OMT manual payments", type: "toggle", value: true },
-          { id: "enable_whish", label: "Enable Whish", description: "Enable Whish manual payments", type: "toggle", value: true },
-        ],
-      },
-      {
-        id: "notifications",
-        title: "Notification Settings",
-        description: "Push notification configuration",
-        icon: Bell,
-        settings: [
-          { id: "push_enabled", label: "Push Notifications Enabled", description: "Enable browser push notifications", type: "toggle", value: true },
-          { id: "booking_reminders", label: "Booking Reminders", description: "Send reminders before bookings", type: "toggle", value: true },
-          { id: "reminder_hours", label: "Reminder Hours Before", description: "Hours before booking to send reminder", type: "number", value: 24 },
-          { id: "enable_sms", label: "SMS Notifications", description: "Enable SMS notifications via Twilio", type: "toggle", value: false },
-        ],
-      },
-      {
-        id: "security",
-        title: "Security Settings",
-        description: "Platform security configuration",
-        icon: Shield,
-        settings: [
-          { id: "require_email_verification", label: "Require Email Verification", description: "Require email verification on registration", type: "toggle", value: true },
-          { id: "enable_2fa", label: "Enable 2FA", description: "Allow users to enable two-factor authentication", type: "toggle", value: true },
-          { id: "max_login_attempts", label: "Max Login Attempts", description: "Max failed login attempts before lockout", type: "number", value: 5 },
-          { id: "lockout_duration", label: "Lockout Duration (minutes)", description: "Account lockout duration", type: "number", value: 15 },
-          { id: "session_timeout", label: "Session Timeout (minutes)", description: "Inactive session timeout", type: "number", value: 60 },
-        ],
-      },
-      {
-        id: "seo",
-        title: "SEO Settings",
-        description: "Search engine optimization",
-        icon: Globe,
-        settings: [
-          { id: "meta_title", label: "Meta Title", description: "Default page title for SEO", type: "text", value: "WorkersArena - Find Trusted Workers" },
-          { id: "meta_description", label: "Meta Description", description: "Default meta description", type: "textarea", value: "Find trusted workers for all your home services needs in Lebanon and Saudi Arabia." },
-          { id: "enable_sitemap", label: "Auto-generate Sitemap", description: "Automatically generate sitemap.xml", type: "toggle", value: true },
-          { id: "enable_robots", label: "Enable robots.txt", description: "Allow search engine crawling", type: "toggle", value: true },
-        ],
-      },
-      {
-        id: "database",
-        title: "Database Settings",
-        description: "Database configuration and backups",
-        icon: Database,
-        settings: [
-          { id: "db_provider", label: "Database Provider", description: "Current database provider", type: "text", value: "Neon PostgreSQL", requiresRestart: true },
-          { id: "backup_enabled", label: "Automatic Backups", description: "Enable daily automatic backups", type: "toggle", value: true },
-          { id: "backup_retention", label: "Backup Retention (days)", description: "Number of days to keep backups", type: "number", value: 30 },
-        ],
-      },
-    ]);
+  const fetchSettings = useCallback(async (): Promise<PlatformSettingValues> => {
+    const res = await fetch("/api/admin/platform-settings", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return ((await res.json()) as { settings: PlatformSettingValues }).settings;
   }, []);
 
-  const handleSettingChange = (sectionId: string, settingId: string, value: unknown) => {
-    setSections(sections.map((s) =>
-      s.id === sectionId
-        ? {
-            ...s,
-            settings: s.settings.map((st) =>
-              st.id === settingId ? { ...st, value } : st
-            ),
-          }
-        : s
-    ));
-    setHasChanges(true);
+  const applyLoaded = useCallback((settings: PlatformSettingValues) => {
+    setSaved(settings);
+    setValues(settings);
+  }, []);
+  const applyLoadError = useCallback((err: unknown) => {
+    setLoadError(err instanceof Error ? err.message : "failed to load");
+  }, []);
+
+  const load = useCallback(() => {
+    fetchSettings().then(applyLoaded, applyLoadError);
+  }, [fetchSettings, applyLoaded, applyLoadError]);
+
+  useEffect(() => {
+    let live = true;
+    fetchSettings().then(
+      (settings) => live && applyLoaded(settings),
+      (err) => live && applyLoadError(err)
+    );
+    return () => {
+      live = false;
+    };
+  }, [fetchSettings, applyLoaded, applyLoadError]);
+
+  const changed = saved ? Object.keys(values).filter((id) => values[id] !== saved[id]) : [];
+  const hasChanges = changed.length > 0;
+
+  const sections = PLATFORM_SETTING_SECTIONS.map((section) => ({
+    ...section,
+    icon: SECTION_ICONS[section.id] ?? Settings,
+    settings: section.settings.map((def) => ({ ...def, value: values[def.id] ?? def.default })),
+  }));
+
+  const handleSettingChange = (_sectionId: string, settingId: string, value: PlatformSettingValue) => {
+    setValues((prev) => ({ ...prev, [settingId]: value }));
   };
 
   const handleSave = async () => {
+    if (!hasChanges) return;
     setSaving(true);
-    // Simulate save
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSaving(false);
-    setHasChanges(false);
-    alert("Settings saved successfully!");
+    try {
+      const res = await fetch("/api/admin/platform-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: Object.fromEntries(changed.map((id) => [id, values[id]])) }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { settings?: PlatformSettingValues; errors?: string[] };
+      if (!res.ok || !data.settings) {
+        toast("error", "Settings not saved", data.errors?.join("; ") ?? `HTTP ${res.status}`);
+        return;
+      }
+      setSaved(data.settings);
+      setValues(data.settings);
+      toast("success", "Settings saved", `${changed.length} setting${changed.length === 1 ? "" : "s"} updated`);
+    } catch {
+      toast("error", "Settings not saved", "Network error — check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loadError) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+        <AlertTriangle className="size-5 shrink-0" />
+        <span className="flex-1">Couldn&apos;t load platform settings ({loadError}).</span>
+        <button
+          onClick={() => {
+            setLoadError(null);
+            load();
+          }}
+          className="rounded-lg px-3 py-1.5 font-semibold hover:bg-red-100 dark:hover:bg-red-500/20">
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!saved) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-ink-500 dark:text-ink-400">
+        <RefreshCw className="size-4 animate-spin" /> Loading settings…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -253,6 +212,10 @@ export function PlatformSettings() {
                         )}
                         {setting.type === "toggle" && (
                           <button
+                            type="button"
+                            role="switch"
+                            aria-checked={Boolean(setting.value)}
+                            aria-label={setting.label}
                             onClick={() => handleSettingChange(section.id, setting.id, !setting.value)}
                             className={cn(
                               "relative w-11 h-6 rounded-full transition-colors",
