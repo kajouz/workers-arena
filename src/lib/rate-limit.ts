@@ -6,8 +6,15 @@
 
 const memBuckets = new Map<string, { count: number; resetAt: number }>();
 
+// Keys are per-IP (and per-ad for impressions), so the map would otherwise grow
+// for the life of the instance. Sweep expired buckets once it gets large.
+const MEM_SWEEP_THRESHOLD = 10_000;
+
 function memRateLimit(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
+  if (memBuckets.size > MEM_SWEEP_THRESHOLD) {
+    for (const [k, b] of memBuckets) if (b.resetAt < now) memBuckets.delete(k);
+  }
   const bucket = memBuckets.get(key);
   if (!bucket || bucket.resetAt < now) {
     memBuckets.set(key, { count: 1, resetAt: now + windowMs });
@@ -36,32 +43,29 @@ async function upstashRateLimit(key: string, limit: number, windowMs: number): P
   if (!restUrl || !restToken) return null;
 
   const redisKey = `ratelimit:${key}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 800);
   try {
-    // Upstash REST pipeline: INCR key, then PTTL to decide expire. We do two calls with short timeout.
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 800);
-    // INCR
-    const incrRes = await fetch(`${restUrl}/incr/${encodeURIComponent(redisKey)}`, {
-      headers: { Authorization: `Bearer ${restToken}` },
+    // One round trip: INCR, then set the window's TTL only if the key has none
+    // (PEXPIRE … NX). Separate calls cost two hops per request, and a failed
+    // second call left a key with no TTL — that caller stayed blocked forever.
+    const res = await fetch(`${restUrl}/pipeline`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${restToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify([
+        ["INCR", redisKey],
+        ["PEXPIRE", redisKey, String(windowMs), "NX"],
+      ]),
       signal: controller.signal,
     });
-    if (!incrRes.ok) {
-      clearTimeout(timeout);
-      return null;
-    }
-    const incrJson = (await incrRes.json()) as { result?: number };
-    const count = incrJson.result ?? 1;
-    if (count === 1) {
-      // First hit — set PEXPIRE
-      await fetch(`${restUrl}/pexpire/${encodeURIComponent(redisKey)}/${windowMs}`, {
-        headers: { Authorization: `Bearer ${restToken}` },
-        signal: controller.signal,
-      }).catch(() => {});
-    }
-    clearTimeout(timeout);
-    return count <= limit;
+    if (!res.ok) return null;
+    const [incr] = (await res.json()) as Array<{ result?: number; error?: string }>;
+    if (typeof incr?.result !== "number") return null;
+    return incr.result <= limit;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -83,10 +87,5 @@ export async function checkRateLimit(key: string, limit = 30, windowMs = 60_000)
     console.warn("[rate-limit] No UPSTASH_REDIS_REST_URL/REDIS_URL set — rate limiting is per-instance only (not distributed). Set Upstash REST credentials for production.");
     warnedNoRedis = true;
   }
-  return memRateLimit(key, limit, windowMs);
-}
-
-/** Sync fallback for non-edge callers (API routes that can't await proxy). */
-export function checkRateLimitSync(key: string, limit = 30, windowMs = 60_000): boolean {
   return memRateLimit(key, limit, windowMs);
 }

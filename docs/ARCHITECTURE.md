@@ -88,7 +88,7 @@ docs/                       # architecture, api, payments, deployment
 | XSS | React escaping, `sanitizeText()` on user input, CSP in production |
 | SQL injection | Prisma parameterized queries only |
 | CSRF | SameSite cookies, server-action origin validation |
-| Rate limiting | `rateLimit()` helper (in-memory; Redis in prod) on auth/contact endpoints |
+| Rate limiting | `checkRateLimit()` (`src/lib/rate-limit.ts`): Upstash Redis REST when `UPSTASH_REDIS_REST_URL`/`_TOKEN` are set, per-instance memory otherwise; applied in `src/proxy.ts` to `/api/*` and form POSTs |
 | Password | scrypt-hashed (N=2^14, r=8, p=1 — 16 MiB, OpenSSL-default-cap compatible; costs stored in the hash; legacy SHA-256 rows re-hashed on login) |
 | Roles | Server-side guards on `/admin`, `/company`, `/dashboard` |
 | Audit | `ActivityLog` model; sensitive mutations logged |
