@@ -32,7 +32,7 @@ function put(settings: unknown) {
 }
 
 beforeEach(async () => {
-  resetPlatformSettingsStore();
+  await resetPlatformSettingsStore();
   await resetAdminActivityFeed();
   getSessionMock.mockReset();
 });

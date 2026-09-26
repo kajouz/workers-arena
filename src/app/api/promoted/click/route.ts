@@ -15,7 +15,7 @@ import { isStreamEnabled } from "@/lib/data/revenue-settings";
  */
 export async function POST(request: Request) {
   try {
-    if (!isStreamEnabled("promoted_profiles")) {
+    if (!await isStreamEnabled("promoted_profiles")) {
       return NextResponse.json({ error: "Promoted profiles system is disabled" }, { status: 403 });
     }
 

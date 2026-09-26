@@ -409,6 +409,7 @@ export const en = {
     required: "This field is required",
     nameMin: "Name must be at least 2 characters",
     match: "Passwords must match",
+    registrationClosed: "New registrations are paused right now. Please try again later.",
   },
   dashboard: {
     title: "Dashboard",
@@ -1329,6 +1330,11 @@ export const en = {
     purchasePay: "Pay via {method}",
     purchaseNote:
       "Paid via OMT or Whish — no card needed. The platform confirms receipt and activates your upgrade.",
+  },
+  maintenance: {
+    title: "We'll be right back",
+    body: "WorkersArena is down for scheduled maintenance. Please check back shortly.",
+    admin: "Admin sign-in",
   },
   misc: {
     backHome: "Back to home",

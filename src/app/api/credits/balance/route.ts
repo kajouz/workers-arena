@@ -25,7 +25,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isStreamEnabled("credits")) {
+    if (!await isStreamEnabled("credits")) {
       return NextResponse.json({ error: "Credits system is disabled" }, { status: 403 });
     }
 

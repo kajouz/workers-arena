@@ -9,7 +9,7 @@ import { getTokenPackages, isStreamEnabled } from "@/lib/data/revenue-settings";
  */
 export async function GET() {
   try {
-    if (!isStreamEnabled("tokens")) {
+    if (!await isStreamEnabled("tokens")) {
       return NextResponse.json({ error: "Tokens system is disabled" }, { status: 403 });
     }
 

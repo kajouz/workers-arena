@@ -9,7 +9,7 @@ import { getSaasTools, isStreamEnabled } from "@/lib/data/revenue-settings";
  */
 export async function GET() {
   try {
-    if (!isStreamEnabled("saas_tools")) {
+    if (!await isStreamEnabled("saas_tools")) {
       return NextResponse.json({ error: "SaaS tools system is disabled" }, { status: 403 });
     }
 

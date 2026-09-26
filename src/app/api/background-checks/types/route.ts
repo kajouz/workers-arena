@@ -9,7 +9,7 @@ import { getBackgroundCheckTypes, isStreamEnabled } from "@/lib/data/revenue-set
  */
 export async function GET() {
   try {
-    if (!isStreamEnabled("background_checks")) {
+    if (!await isStreamEnabled("background_checks")) {
       return NextResponse.json({ error: "Background checks system is disabled" }, { status: 403 });
     }
 

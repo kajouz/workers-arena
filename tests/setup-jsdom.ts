@@ -20,6 +20,9 @@
 // assertions keep exercising the real Prisma adapter.
 process.env.ADMIN_ACTIVITY_FILE ??=
   `${require("node:os").tmpdir()}/wa-test-activity-${process.pid}.json`;
+// Same for the admin platform settings (maintenance mode, registrations…).
+process.env.PLATFORM_SETTINGS_FILE ??=
+  `${require("node:os").tmpdir()}/wa-test-platform-settings-${process.pid}.json`;
 
 if (typeof window !== "undefined") {
   if (typeof window.matchMedia !== "function") {
