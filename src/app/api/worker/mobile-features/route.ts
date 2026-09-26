@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth-demo";
 
 /**
  * GET /api/worker/mobile-features
@@ -221,6 +222,10 @@ function generateMobileBonuses(): MobileBonus[] {
 }
 
 export async function GET() {
+  const session = await getSession();
+  if (!session || session.role !== "worker") {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   try {
     const data: MobileFeatures = {
       pushPreferences: generatePushPreferences(),

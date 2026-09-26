@@ -29,7 +29,10 @@ const TYPE_STYLE: Record<string, string> = {
 export default async function NotificationsPage() {
   const { locale, t } = await getI18n();
   const session = await getSession();
-  const [items, unread] = await Promise.all([getNotificationsList(), getNotificationsUnreadCount()]);
+  const [items, unread] = await Promise.all([
+    getNotificationsList(session?.id),
+    getNotificationsUnreadCount(session?.id),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">

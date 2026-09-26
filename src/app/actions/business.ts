@@ -345,14 +345,14 @@ export async function markReadAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session) return;
   const id = String(formData.get("id") ?? "");
-  if (id) await markNotificationReadAction(id);
+  if (id) await markNotificationReadAction(id, session.id);
   revalidatePath("/notifications");
 }
 
 export async function markAllReadAction(): Promise<void> {
   const session = await getSession();
   if (!session) return;
-  await markAllNotificationsReadAction();
+  await markAllNotificationsReadAction(session.id);
   revalidatePath("/notifications");
 }
 

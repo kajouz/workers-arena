@@ -314,35 +314,44 @@ export function rowToNotification(row: PrismaNotificationRow): Notification {
  * The demo inbox is one global feed; production is per-user. `ownerId` scopes a
  * query to one user's rows when provided (session id threaded from repo layer in production; demo ignores it).
  */
+// The prisma inbox is per-user and fails closed: no owner → nothing. An
+// unscoped query would return (or mark read) every user's notifications.
+const INBOX_PAGE_SIZE = 200;
+
 async function prismaGetNotifications(ownerId?: string): Promise<Notification[]> {
+  if (!ownerId) return [];
   return withPrisma(async (db) => {
     const rows = await db.notification.findMany({
-      where: ownerId ? { userId: ownerId } : undefined,
+      where: { userId: ownerId },
       orderBy: { createdAt: "desc" },
+      take: INBOX_PAGE_SIZE,
     });
     return rows.map(rowToNotification);
   });
 }
 
 async function prismaUnreadCount(ownerId?: string): Promise<number> {
+  if (!ownerId) return 0;
   return withPrisma((db) =>
-    db.notification.count({ where: { isRead: false, ...(ownerId ? { userId: ownerId } : {}) } })
+    db.notification.count({ where: { isRead: false, userId: ownerId } })
   );
 }
 
 async function prismaMarkRead(id: string, ownerId?: string): Promise<void> {
+  if (!ownerId) return;
   await withPrisma((db) =>
     db.notification.updateMany({
-      where: { id, ...(ownerId ? { userId: ownerId } : {}) },
+      where: { id, userId: ownerId },
       data: { isRead: true, readAt: new Date() },
     })
   );
 }
 
 async function prismaMarkAllRead(ownerId?: string): Promise<void> {
+  if (!ownerId) return;
   await withPrisma((db) =>
     db.notification.updateMany({
-      where: ownerId ? { userId: ownerId } : undefined,
+      where: { userId: ownerId },
       data: { isRead: true, readAt: new Date() },
     })
   );
