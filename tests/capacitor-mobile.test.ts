@@ -165,12 +165,16 @@ describe("Native shells and mobile CI (docs/mobile-architecture.md §6)", () => 
   it("keeps derived native artifacts out of git", () => {
     // Regenerable outputs must stay ignored even though the shells are
     // committed — `cap sync` and the native builds recreate them.
+    // Dir paths carry a trailing slash: dir-only ignore patterns ("build/")
+    // do not match a bare path whose directory doesn't exist (a fresh CI
+    // checkout has no build products) and `git check-ignore` exits 1 — this
+    // exact mismatch failed the first Mobile CI run while passing locally.
     for (const derived of [
-      "ios/App/App/public",
-      "ios/App/Pods",
-      "ios/DerivedData",
-      "android/app/src/main/assets/public",
-      "android/app/build",
+      "ios/App/App/public/",
+      "ios/App/Pods/",
+      "ios/DerivedData/",
+      "android/app/src/main/assets/public/",
+      "android/app/build/",
       "android/local.properties",
     ]) {
       const res = spawnSync("git", ["check-ignore", derived], { cwd: process.cwd() });
