@@ -294,13 +294,33 @@ function withDemoSignals(workers: Worker[]): Worker[] {
   }));
 }
 
+// Categories and cities are read on nearly every page but only change through
+// the seed (category worker counts drift as workers join). Cache the real-data
+// reads for 5 minutes; revalidateTag(CATALOG_CACHE_TAG, "max") refreshes early.
+export const CATALOG_CACHE_TAG = "catalog";
+const CATALOG_REVALIDATE_SECONDS = 300;
+
+// Built on first real-data use: demo mode and the unit tests (which mock
+// next/cache) never load the cache layer.
+let catalogCache: Promise<{ categories: () => Promise<Category[]>; cities: () => Promise<City[]> }> | undefined;
+function getCatalogCache() {
+  catalogCache ??= import("next/cache").then(({ unstable_cache }) => {
+    const opts = { tags: [CATALOG_CACHE_TAG], revalidate: CATALOG_REVALIDATE_SECONDS };
+    return {
+      categories: unstable_cache(async () => (await prismaRepo()).prismaGetCategories(), ["catalog-categories"], opts),
+      cities: unstable_cache(async () => (await prismaRepo()).prismaGetCities(), ["catalog-cities"], opts),
+    };
+  });
+  return catalogCache;
+}
+
 export async function getCategories(): Promise<Category[]> {
-  if (realDataEnabled) return (await prismaRepo()).prismaGetCategories();
+  if (realDataEnabled) return (await getCatalogCache()).categories();
   return categoriesWithCounts();
 }
 
 export async function getCities(): Promise<City[]> {
-  if (realDataEnabled) return (await prismaRepo()).prismaGetCities();
+  if (realDataEnabled) return (await getCatalogCache()).cities();
   return CITIES;
 }
 
