@@ -15,6 +15,7 @@
  *   npm run db:seed                      # the served tenant (lb)
  *   SEED_COUNTRY=lb npm run db:seed      # one country by slug or ISO code
  *   SEED_COUNTRY=all npm run db:seed     # every configured country
+ *   SEED_CATALOG_ONLY=1 npm run db:seed  # categories + cities only (production)
  *
  * The platform demo identities (users, company, ads) stay tied to the served
  * tenant; the demo bookings/slots below attach to its demo worker and are
@@ -137,6 +138,14 @@ async function main() {
     }
   }
   console.log(`  ✓ ${cities.length} cities with areas across ${countries.length} country(ies)`);
+
+  // SEED_CATALOG_ONLY=1 stops here: a production database gets the reference
+  // catalog without the demo identities below, whose password (DEMO_PASSWORD)
+  // is public in this repo.
+  if (process.env.SEED_CATALOG_ONLY === "1") {
+    console.log("✅ Catalog seed complete (demo users, workers and bookings skipped).");
+    return;
+  }
 
   // Real users for the demo identities — credentials login works end-to-end
   // against the DB (src/app/actions/auth.ts → DEMO_PASSWORD, and the one-click
