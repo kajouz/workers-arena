@@ -88,7 +88,7 @@ docs/                       # architecture, api, payments, deployment
 | XSS | React escaping, `sanitizeText()` on user input, CSP in production |
 | SQL injection | Prisma parameterized queries only |
 | CSRF | SameSite cookies, server-action origin validation |
-| Rate limiting | `rateLimit()` helper (in-memory; Redis in prod) on auth/contact endpoints |
+| Rate limiting | `checkRateLimit()` (`src/lib/rate-limit.ts`): Upstash Redis REST when `UPSTASH_REDIS_REST_URL`/`_TOKEN` are set, per-instance memory otherwise; applied in `src/proxy.ts` to `/api/*` and form POSTs |
 | Password | scrypt-hashed (N=2^14, r=8, p=1 — 16 MiB, OpenSSL-default-cap compatible; costs stored in the hash; legacy SHA-256 rows re-hashed on login) |
 | Roles | Server-side guards on `/admin`, `/company`, `/dashboard` |
 | Audit | `ActivityLog` model; sensitive mutations logged |
@@ -138,7 +138,7 @@ docs/                       # architecture, api, payments, deployment
   2. ✅ Apply the pending migration on the DB: `npx prisma migrate deploy` — adds the nullable `userId` column, `PushSubscription_userId_idx`, and the `PushSubscription_userId_fkey` FK (`ON DELETE CASCADE`) — **done** on `workers_arena_v2` (all 4 migrations applied). `ownerId` stays populated for legacy rows.
   3. ✅ **No route/store changes required** — real session ids (Prisma cuids, not `u-…`) flow through `pushOwnerStamp` and automatically write `userId`. New subscriptions stamp the FK; old demo rows keep `ownerId`.
 
-  **Local DB naming note:** `.env`/`.env.example` use `workers_arena_v2` (the current-schema DB; the pre-existing `workers_arena` holds a legacy schema from an earlier iteration and is left untouched), while `docker-compose.yml`'s app service provisions a `workersarena` database — align the compose DB name with the documented `DATABASE_URL` before running the containerized stack.
+  **Local DB naming note:** `.env`/`.env.example` use `workers_arena_v2` (the current-schema DB; the pre-existing `workers_arena` holds a legacy schema from an earlier iteration and is left untouched), and `docker-compose.yml` provisions the same `workers_arena_v2` database.
   4. Optional cleanup once demo rows are gone: drop the `ownerId` column (`prisma migrate dev --name drop_push_owner_id`). Note legacy `ownerId`-only rows can't be unregistered through the API afterwards (the ownership check requires a matching stamp) — clean them up manually or in a backfill migration before dropping the column.
 - **Local push testing:** `node scripts/mock-push-service.cjs` runs an HTTPS mock push service (self-signed cert in `.data/certs`) that receives and decrypts real web-push payloads — the web-push provider allows an insecure agent for **loopback endpoints only** to support it. Embedded/Electron browsers lack a Web Push service, so real delivery is verified against this mock or a standard browser.
 

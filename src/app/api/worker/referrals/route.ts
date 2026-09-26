@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth-demo";
 
 /**
  * GET /api/worker/referrals
@@ -247,6 +248,10 @@ function generateTierBenefits() {
 }
 
 export async function GET() {
+  const session = await getSession();
+  if (!session || session.role !== "worker") {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   try {
     const referrals = generateReferrals();
     const earnings = generateEarnings();

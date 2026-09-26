@@ -437,7 +437,19 @@ test.describe("Mobile Features Enhancement", () => {
 // ====================================================================
 //  API ENDPOINT TESTS
 // ====================================================================
+test.describe("Enhancement API auth", () => {
+  test("GET /api/worker/analytics rejects an anonymous request", async ({ request }) => {
+    const response = await request.get("/api/worker/analytics");
+    expect(response.status()).toBe(401);
+  });
+});
+
 test.describe("Enhancement API Endpoints", () => {
+  // The /api/worker/* routes require a worker session.
+  test.use({
+    extraHTTPHeaders: { Cookie: `wa_session=${encodeURIComponent(JSON.stringify(WORKER_SESSION))}` },
+  });
+
   test("GET /api/worker/analytics returns full analytics data", async ({ request }) => {
     const response = await request.get("/api/worker/analytics");
     const data = await response.json();

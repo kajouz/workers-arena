@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getActiveAdsFor, recordImpression } from "@/lib/data/repo";
-import { checkRateLimitSync } from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const revalidate = 0;
 
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   // Throttle impression counting per IP+ad (60s per ad) to stop bot inflation (M11).
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
   const impressionKey = `ad:imp:${ip}:${ad.id}`;
-  if (checkRateLimitSync(impressionKey, 1, 60_000)) {
+  if (await checkRateLimit(impressionKey, 1, 60_000)) {
     await recordImpression(ad.id);
   }
 

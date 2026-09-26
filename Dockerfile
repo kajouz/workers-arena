@@ -5,9 +5,13 @@
 # 1) Dependencies
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
+# npm >= 11 honors the scoped security overrides in package.json, and the
+# lockfile was written by npm 12 (Node 22 bundles npm 10, which rejects it).
+# No `npm install` fallback: it would silently drop those overrides.
+RUN npm install -g npm@12.0.2
+COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 # 2) Build
 FROM node:22-alpine AS builder
