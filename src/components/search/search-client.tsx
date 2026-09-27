@@ -118,6 +118,7 @@ export function SearchClient({
   // trigger "Maximum update depth exceeded" when the user toggles a filter
   // (e.g. fee-waived) before hydration finishes.
   const canonicalRef = useRef(filtersToSearchParams(initialFilters));
+  const mountedSearchRef = useRef(false);
   const { addSearch } = useSearchHistory();
   const { trackCategory, trackCity } = useRetargeting();
   const {
@@ -203,14 +204,19 @@ export function SearchClient({
   /** Sync URL when filters change (deep-linkable searches). */
   useEffect(() => {
     const qs = filtersToSearchParams(filters);
+    const isMount = !mountedSearchRef.current;
+    mountedSearchRef.current = true;
     // Skip the redundant replace on mount — the server already rendered the
     // canonical URL.  Only navigate when filters actually changed (user
     // interaction) or the canonical URL drifted (e.g. coercion).
-    if (qs !== canonicalRef.current) {
+    const drifted = qs !== canonicalRef.current;
+    if (drifted) {
       canonicalRef.current = qs;
       router.replace(`/search${qs}`, { scroll: false });
     }
-    runSearch(filters, 1);
+    // On mount the server already rendered these exact results; refetching
+    // only replaced them with an identical list after hydration.
+    if (!isMount || drifted) runSearch(filters, 1);
     // Track search in history
     if (filters.query || filters.category || filters.city) {
       addSearch({
