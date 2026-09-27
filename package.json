@@ -4,6 +4,7 @@
   "private": true,
   "description": "Professional Workers Directory — bilingual (EN/AR, LTR/RTL) marketplace SaaS. Find and hire trusted plumbers, electricians, technicians and more.",
   "scripts": {
+    "postinstall": "node scripts/patch-next-prerender-manifest-write.mjs",
     "dev": "next dev",
     "build": "next build",
     "build:prod": "NEXT_DISABLE_STANDALONE=1 next build",
