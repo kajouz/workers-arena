@@ -63,6 +63,14 @@ for (const locale of ["en", "ar"] as const) {
   test.describe(`360px overflow sweep — ${locale}`, () => {
     test.use({
       viewport: { width: NOTE9_WIDTH, height: 760 },
+      // A real phone: touch input makes `(pointer: coarse)` match, and mobile
+      // mode lets the layout viewport grow past the device width the way a
+      // phone browser zooms out. Without these, globals.css's touch-target
+      // rules never applied here — an unlayered `display: inline-flex` in them
+      // un-hid the header's `hidden sm:block` links and widened every page to
+      // 454px on phones while this sweep stayed green.
+      hasTouch: true,
+      isMobile: true,
       // The i18n layer reads wa_locale (cookie) before Accept-Language, so the
       // cookie below pins the rendering locale; the header is the backstop.
       extraHTTPHeaders: { "accept-language": locale === "ar" ? "ar" : "en" },
