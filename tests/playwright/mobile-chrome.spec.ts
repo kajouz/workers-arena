@@ -291,7 +291,7 @@ type MenuGeometry = {
   found: boolean;
   violations: string[];
   unreachable: string[];
-  /** Rows whose icon+label pair is not centered as one unit. */
+  /** Rows whose icon and label are off one centre line / out of the icon column. */
   misaligned: string[];
   inspected: number;
   scrollable: boolean;
@@ -354,35 +354,44 @@ async function menuGeometry(page: Page): Promise<MenuGeometry> {
       }
     }
 
-    // 5. Icon and label sit centered as ONE unit on every menu row — the menu
-    //    used to mix bare-text rows with icon rows, all pinned to the start
-    //    edge. Measured against the panel's box (not classes), so RTL and any
-    //    future padding changes are handled by geometry, not grep.
+    // 5. Every menu row is a full-width, start-aligned item: its icon and
+    //    label share one vertical centre line, and all icons sit in one
+    //    column. Rows used to centre icon + label independently, so labels of
+    //    different widths left the icons zig-zagging from row to row. Measured
+    //    as geometry (not classes), so RTL is covered by the same check.
     const misaligned: string[] = [];
+    const iconEdges: number[] = [];
+    const rtl = getComputedStyle(panel).direction === "rtl";
     for (const el of actions) {
       const r = el.getBoundingClientRect();
       if (r.width <= 0 || r.height <= 0) continue;
       // The dialog primitive's own Close button is absolutely positioned in
       // the panel corner by design — it is chrome, not a menu row.
       if (getComputedStyle(el).position === "absolute") continue;
-      const hasIcon = el.querySelector("svg") !== null;
-      if (!hasIcon) {
-        misaligned.push(`${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 20)}" has no icon`);
+      const name = `${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 20)}"`;
+      const icon = el.querySelector("svg");
+      if (!icon) {
+        misaligned.push(`${name} has no icon`);
         continue;
       }
-      const rowCenter = (r.left + r.right) / 2;
-      // The label is a text node, not an element — measure the icon+label pair
-      // with a Range spanning the icon through the row's last child.
+      const i = icon.getBoundingClientRect();
       const range = document.createRange();
-      range.setStartBefore(el.querySelector("svg")!);
-      range.setEnd(el, el.childNodes.length);
-      const content = range.getBoundingClientRect();
-      const contentCenter = (content.left + content.right) / 2;
-      if (Math.abs(rowCenter - contentCenter) > 2) {
-        misaligned.push(
-          `${el.tagName.toLowerCase()} "${(el.textContent ?? "").trim().slice(0, 20)}" content center ${Math.round(contentCenter)} vs row center ${Math.round(rowCenter)}`
-        );
+      range.selectNodeContents(el);
+      range.setStartAfter(icon.parentElement === el ? icon : icon.parentElement!);
+      const l = range.getBoundingClientRect();
+      const iconMid = (i.top + i.bottom) / 2;
+      const labelMid = (l.top + l.bottom) / 2;
+      if (Math.abs(iconMid - labelMid) > 1) {
+        misaligned.push(`${name} icon centre y ${iconMid.toFixed(1)} vs label ${labelMid.toFixed(1)}`);
       }
+      if (r.height < 44 - 0.5) misaligned.push(`${name} is ${r.height.toFixed(1)}px tall (< 44px)`);
+      // The icon's start edge — left in LTR, right in RTL.
+      iconEdges.push(rtl ? i.right : i.left);
+    }
+    // All icons in one column: same inline position on every row.
+    const xs = iconEdges;
+    if (xs.length > 1 && Math.max(...xs) - Math.min(...xs) > 1) {
+      misaligned.push(`icons are not in one column: x = ${xs.map((x) => x.toFixed(1)).join(", ")}`);
     }
 
     return {
@@ -440,7 +449,7 @@ for (const locale of ["en", "ar"] as const) {
         ).toBeGreaterThan(0);
         expect(
           g.misaligned,
-          `menu rows not centered as icon+label units (${locale} ${vp.name}): ${g.misaligned.join(" | ")}`
+          `menu rows misaligned (${locale} ${vp.name}): ${g.misaligned.join(" | ")}`
         ).toHaveLength(0);
       });
     }
