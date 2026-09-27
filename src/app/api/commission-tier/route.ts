@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isStreamEnabled("sliding_commissions")) {
+    if (!await isStreamEnabled("sliding_commissions")) {
       return NextResponse.json({ error: "Sliding commissions system is disabled" }, { status: 403 });
     }
 

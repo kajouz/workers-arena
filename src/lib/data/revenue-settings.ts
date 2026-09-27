@@ -597,6 +597,10 @@ interface RevenueSettingsStore {
   supportTiers: SupportTier[];
   insuranceProducts: InsuranceProduct[];
   auditLog: RevenueStreamAudit[];
+  /** The built-in stream configs, before any saved admin change is applied. */
+  defaults: Map<RevenueStreamId, RevenueStreamConfig>;
+  /** When the saved state was last read from the database (real mode). */
+  syncedAt: number;
 }
 
 const GLOBAL_KEY = '__WORKERS_ARENA_REVENUE_SETTINGS__';
@@ -616,6 +620,8 @@ function getStore(): RevenueSettingsStore {
     supportTiers: [...DEFAULT_SUPPORT_TIERS],
     insuranceProducts: [...DEFAULT_INSURANCE_PRODUCTS],
     auditLog: [],
+    defaults: new Map(),
+    syncedAt: 0,
   };
 
   // Initialize default stream configs
@@ -848,24 +854,100 @@ function getStore(): RevenueSettingsStore {
 
   for (const stream of defaultStreams) {
     store.streams.set(stream.id, stream);
+    store.defaults.set(stream.id, stream);
   }
 
   g[GLOBAL_KEY] = store;
   return store;
 }
 
+// ─── Persistence ─────────────────────────────────────────────────────────────
+//
+// Real mode (DEMO_MODE=false + DATABASE_URL): admin changes to a stream
+// (enabled, settings, pricing, effective dates) and the audit log are saved in
+// the `Setting` table under REVENUE_SETTINGS_KEY and layered over the built-in
+// defaults above. Each server instance re-reads them at most every
+// SYNC_TTL_MS, and immediately after its own writes, so a toggle reaches every
+// instance within that window. Demo mode keeps everything in process memory.
+
+export const REVENUE_SETTINGS_KEY = "revenue_streams";
+const SYNC_TTL_MS = 15_000;
+const MAX_PERSISTED_AUDIT = 500;
+
+type StreamOverride = Pick<RevenueStreamConfig, "enabled" | "settings" | "pricing" | "effectiveFrom" | "effectiveUntil" | "updatedAt">;
+interface PersistedRevenueState {
+  streams?: Partial<Record<RevenueStreamId, Partial<StreamOverride>>>;
+  audit?: RevenueStreamAudit[];
+}
+
+function realRevenueStorage(): boolean {
+  return process.env.DEMO_MODE === "false" && Boolean(process.env.DATABASE_URL);
+}
+
+async function revenuePrisma() {
+  const { getPrisma } = await import("@/lib/server/prisma");
+  return getPrisma();
+}
+
+/** Rebuild the in-memory streams from the defaults plus the saved overrides. */
+function applyPersisted(store: RevenueSettingsStore, state: PersistedRevenueState): void {
+  for (const [id, base] of store.defaults) {
+    const o = state.streams?.[id];
+    store.streams.set(id, o ? { ...base, ...o, settings: { ...base.settings, ...(o.settings ?? {}) } } : base);
+  }
+  store.auditLog = Array.isArray(state.audit) ? [...state.audit] : [];
+}
+
+async function syncRevenueSettings(force = false): Promise<RevenueSettingsStore> {
+  const store = getStore();
+  if (!realRevenueStorage()) return store;
+  if (!force && Date.now() - store.syncedAt < SYNC_TTL_MS) return store;
+  const row = await (await revenuePrisma()).setting.findUnique({ where: { key: REVENUE_SETTINGS_KEY } });
+  applyPersisted(store, (row?.value ?? {}) as PersistedRevenueState);
+  store.syncedAt = Date.now();
+  return store;
+}
+
+async function persistRevenueSettings(store: RevenueSettingsStore): Promise<void> {
+  if (!realRevenueStorage()) return;
+  const streams: PersistedRevenueState["streams"] = {};
+  for (const [id, cfg] of store.streams) {
+    streams[id] = {
+      enabled: cfg.enabled,
+      settings: cfg.settings,
+      pricing: cfg.pricing,
+      effectiveFrom: cfg.effectiveFrom,
+      effectiveUntil: cfg.effectiveUntil,
+      updatedAt: cfg.updatedAt,
+    };
+  }
+  const audit = store.auditLog.slice(-MAX_PERSISTED_AUDIT);
+  const value = JSON.parse(JSON.stringify({ streams, audit })) as object;
+  await (await revenuePrisma()).setting.upsert({
+    where: { key: REVENUE_SETTINGS_KEY },
+    create: { key: REVENUE_SETTINGS_KEY, value },
+    update: { value },
+  });
+  store.syncedAt = Date.now();
+}
+
+/** Test helper: back to the built-in defaults (demo mode) and force a re-read. */
+export function resetRevenueSettingsStore(): void {
+  delete g[GLOBAL_KEY];
+}
+
 // ─── Stream Configuration Functions ──────────────────────────────────────────
 
-export function getAllStreamConfigs(): RevenueStreamConfig[] {
-  return Array.from(getStore().streams.values());
+export async function getAllStreamConfigs(): Promise<RevenueStreamConfig[]> {
+  return Array.from((await syncRevenueSettings()).streams.values());
 }
 
-export function getStreamConfig(streamId: RevenueStreamId): RevenueStreamConfig | undefined {
-  return getStore().streams.get(streamId);
+export async function getStreamConfig(streamId: RevenueStreamId): Promise<RevenueStreamConfig | undefined> {
+  return (await syncRevenueSettings()).streams.get(streamId);
 }
 
-export function isStreamEnabled(streamId: RevenueStreamId): boolean {
-  const config = getStore().streams.get(streamId);
+export async function isStreamEnabled(streamId: RevenueStreamId): Promise<boolean> {
+  const config = (await syncRevenueSettings()).streams.get(streamId);
   if (!config) return false;
   
   // Check effective dates
@@ -875,25 +957,29 @@ export function isStreamEnabled(streamId: RevenueStreamId): boolean {
   return config.enabled;
 }
 
-export function getStreamSetting<T>(streamId: RevenueStreamId, settingKey: string): T | undefined {
-  const config = getStore().streams.get(streamId);
+export async function getStreamSetting<T>(streamId: RevenueStreamId, settingKey: string): Promise<T | undefined> {
+  const config = (await syncRevenueSettings()).streams.get(streamId);
   if (!config) return undefined;
   return config.settings[settingKey] as T;
 }
 
-export function updateStreamConfig(
+export async function updateStreamConfig(
   streamId: RevenueStreamId,
   updates: Partial<RevenueStreamConfig>,
   adminId: string,
   adminName: string
-): RevenueStreamConfig {
-  const store = getStore();
+): Promise<RevenueStreamConfig> {
+  const store = await syncRevenueSettings(true);
   const existing = store.streams.get(streamId);
   if (!existing) throw new Error(`Stream ${streamId} not found`);
 
+  // Identity fields stay fixed; only the admin-editable parts can change.
+  const { id: _id, createdAt: _createdAt, ...editable } = updates;
+  void _id;
+  void _createdAt;
   const updated: RevenueStreamConfig = {
     ...existing,
-    ...updates,
+    ...editable,
     updatedAt: new Date().toISOString(),
   };
 
@@ -911,17 +997,18 @@ export function updateStreamConfig(
     createdAt: new Date().toISOString(),
   };
   store.auditLog.push(auditEntry);
+  await persistRevenueSettings(store);
 
   return updated;
 }
 
-export function toggleStream(
+export async function toggleStream(
   streamId: RevenueStreamId,
   enabled: boolean,
   adminId: string,
   adminName: string
-): RevenueStreamConfig {
-  const store = getStore();
+): Promise<RevenueStreamConfig> {
+  const store = await syncRevenueSettings(true);
   const existing = store.streams.get(streamId);
   if (!existing) throw new Error(`Stream ${streamId} not found`);
 
@@ -945,6 +1032,7 @@ export function toggleStream(
     createdAt: new Date().toISOString(),
   };
   store.auditLog.push(auditEntry);
+  await persistRevenueSettings(store);
 
   return updated;
 }
@@ -1166,14 +1254,14 @@ export function updateInsuranceProduct(id: string, updates: Partial<InsurancePro
 
 // ─── Audit Log Functions ─────────────────────────────────────────────────────
 
-export function getAuditLog(limit = 50): RevenueStreamAudit[] {
-  return getStore().auditLog
+export async function getAuditLog(limit = 50): Promise<RevenueStreamAudit[]> {
+  return [...(await syncRevenueSettings()).auditLog]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
 }
 
-export function getAuditLogForStream(streamId: RevenueStreamId, limit = 20): RevenueStreamAudit[] {
-  return getStore().auditLog
+export async function getAuditLogForStream(streamId: RevenueStreamId, limit = 20): Promise<RevenueStreamAudit[]> {
+  return (await syncRevenueSettings()).auditLog
     .filter(a => a.streamId === streamId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);

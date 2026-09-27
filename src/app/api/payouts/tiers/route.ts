@@ -15,7 +15,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isStreamEnabled("instant_payouts")) {
+    if (!await isStreamEnabled("instant_payouts")) {
       return NextResponse.json({ error: "Instant payouts system is disabled" }, { status: 403 });
     }
 

@@ -35,8 +35,8 @@ export const PLATFORM_SETTING_SECTIONS: PlatformSettingSection[] = [
     settings: [
       { id: "site_name", label: "Site Name", description: "Your platform name", type: "text", default: "WorkersArena" },
       { id: "site_url", label: "Site URL", description: "Your platform URL", type: "text", default: "https://workers-arena.vercel.app" },
-      { id: "maintenance_mode", label: "Maintenance Mode", description: "Enable to show maintenance page", type: "toggle", default: false, requiresRestart: true },
-      { id: "registration_enabled", label: "Allow New Registrations", description: "Allow new users to register", type: "toggle", default: true },
+      { id: "maintenance_mode", label: "Maintenance Mode", description: "Show the maintenance page to visitors (admin and sign-in stay open); applies within ~10 seconds", type: "toggle", default: false },
+      { id: "registration_enabled", label: "Allow New Registrations", description: "When off, the sign-up form refuses new accounts", type: "toggle", default: true },
       { id: "default_language", label: "Default Language", description: "Default language for new users", type: "select", default: "en", options: [{ label: "English", value: "en" }, { label: "Arabic", value: "ar" }] },
     ],
   },
