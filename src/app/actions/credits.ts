@@ -49,7 +49,7 @@ export async function createCreditPurchaseAction(input: {
   packageId: string;
   method: "OMT" | "WHISH" | "STRIPE";
 }): Promise<CreditPurchaseResult | CreditPurchaseFailed> {
-  if (!isStreamEnabled("credits")) {
+  if (!await isStreamEnabled("credits")) {
     return { ok: false, error: "Credits system is disabled" };
   }
 

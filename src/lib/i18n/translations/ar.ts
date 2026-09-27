@@ -405,6 +405,7 @@ export const ar: Dictionary = {
     required: "هذا الحقل مطلوب",
     nameMin: "الاسم يجب أن يكون حرفين على الأقل",
     match: "كلمتا المرور غير متطابقتين",
+    registrationClosed: "التسجيل الجديد متوقف حالياً. يرجى المحاولة لاحقاً.",
   },
   dashboard: {
     title: "لوحة التحكم",
@@ -1312,6 +1313,11 @@ export const ar: Dictionary = {
     purchasePay: "ادفع عبر {method}",
     purchaseNote:
       "الدفع عبر OMT أو Whish — لا حاجة لبطاقة. تؤكد المنصة الاستلام وتفعّل ترقيتك.",
+  },
+  maintenance: {
+    title: "سنعود قريباً",
+    body: "وركرز أرينا متوقف مؤقتاً للصيانة المجدولة. يرجى العودة بعد قليل.",
+    admin: "دخول المدير",
   },
   misc: {
     backHome: "العودة للرئيسية",

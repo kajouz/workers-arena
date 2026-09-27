@@ -13,7 +13,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isStreamEnabled("branding")) {
+    if (!await isStreamEnabled("branding")) {
       return NextResponse.json(
         { error: "Branding package is not available" },
         { status: 403 }
@@ -58,7 +58,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isStreamEnabled("branding")) {
+    if (!await isStreamEnabled("branding")) {
       return NextResponse.json(
         { error: "Branding package is not available" },
         { status: 403 }

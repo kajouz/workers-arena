@@ -3,6 +3,8 @@ import type { NextRequest } from "next/server";
 import { hasSessionCookie } from "@/lib/session-cookie";
 import { hasPersonalizationCookie } from "@/lib/personalization-cookie";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isMaintenanceMode } from "@/lib/data/platform-settings";
+import { maintenanceExempt } from "@/lib/maintenance";
 
 import { buildCsp } from "@/lib/security/csp";
 import { LOCALE_COOKIE_NAME } from "@/lib/personalization-cookie";
@@ -79,6 +81,31 @@ export async function proxy(request: NextRequest) {
       url.pathname = localePath(preferredLocale(request), pathname);
       return NextResponse.redirect(url, 301);
     }
+  }
+
+  // ── Maintenance mode ──────────────────────────────────────────────────────
+  // Admin setting (/admin/settings → Maintenance Mode). Pages are rewritten to
+  // the localized maintenance page and APIs answer 503; admin, sign-in and
+  // machine traffic stay open (maintenanceExempt). The flag is cached per
+  // instance for ~10 s, so the exemption check runs first and exempt paths
+  // never read it.
+  if (!maintenanceExempt(pathname) && (await isMaintenanceMode())) {
+    // Copy the security headers set above, but not Next's internal
+    // x-middleware-* ones: `x-middleware-next` (from NextResponse.next())
+    // tells Next to continue to the route, which let /api requests through.
+    const headers = new Headers();
+    response.headers.forEach((value, key) => {
+      if (!key.startsWith("x-middleware-")) headers.set(key, value);
+    });
+    headers.set("Cache-Control", "no-store");
+    headers.set("Retry-After", "300");
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "maintenance" }, { status: 503, headers });
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = localePath(localeFromPath(pathname) ?? preferredLocale(request), "/maintenance");
+    url.search = "";
+    return NextResponse.rewrite(url, { status: 503, headers });
   }
 
   // ── Origin check for state-changing requests (M4) ──

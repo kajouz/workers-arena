@@ -9,7 +9,7 @@ import { getCreditPackages, isStreamEnabled } from "@/lib/data/revenue-settings"
  */
 export async function GET() {
   try {
-    if (!isStreamEnabled("credits")) {
+    if (!await isStreamEnabled("credits")) {
       return NextResponse.json({ error: "Credits system is disabled" }, { status: 403 });
     }
 

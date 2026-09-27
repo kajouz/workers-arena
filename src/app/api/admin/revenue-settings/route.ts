@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     if (audit) {
       const limit = parseInt(searchParams.get("limit") || "50");
-      const auditLog = getAuditLog(limit);
+      const auditLog = await getAuditLog(limit);
       return NextResponse.json({ auditLog });
     }
 
@@ -43,14 +43,14 @@ export async function GET(request: Request) {
     }
 
     if (streamId) {
-      const config = getStreamConfig(streamId);
+      const config = await getStreamConfig(streamId);
       if (!config) {
         return NextResponse.json({ error: "Stream not found" }, { status: 404 });
       }
       return NextResponse.json({ stream: config });
     }
 
-    const allConfigs = getAllStreamConfigs();
+    const allConfigs = await getAllStreamConfigs();
     return NextResponse.json({ streams: allConfigs });
   } catch (error) {
     console.error("Error fetching revenue settings:", error);
@@ -80,7 +80,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "streamId and updates are required" }, { status: 400 });
     }
 
-    const updated = updateStreamConfig(
+    const updated = await updateStreamConfig(
       streamId as RevenueStreamId,
       updates,
       session.id || "admin",
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "streamId and enabled are required" }, { status: 400 });
     }
 
-    const updated = toggleStream(
+    const updated = await toggleStream(
       streamId as RevenueStreamId,
       enabled,
       session.id || "admin",

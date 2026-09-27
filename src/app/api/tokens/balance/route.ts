@@ -15,7 +15,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isStreamEnabled("tokens")) {
+    if (!await isStreamEnabled("tokens")) {
       return NextResponse.json({ error: "Tokens system is disabled" }, { status: 403 });
     }
 

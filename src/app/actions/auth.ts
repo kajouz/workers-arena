@@ -132,6 +132,11 @@ export async function loginDemoAction(role: SessionRole): Promise<void> {
 }
 
 export async function registerAction(_prev: AuthActionState, formData: FormData): Promise<AuthActionState> {
+  // Admin setting (/admin/settings → Allow New Registrations). Checked on the
+  // server, so a hidden or stale form can't get around it.
+  const { isRegistrationOpen } = await import("@/lib/data/platform-settings");
+  if (!(await isRegistrationOpen())) return { error: "registrationClosed" };
+
   const parsed = registerSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
