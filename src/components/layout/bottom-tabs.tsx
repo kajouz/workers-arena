@@ -136,9 +136,10 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
 
               {/* Active indicator. A plain element: the sliding `layoutId`
                   animation needs Framer Motion's larger domMax bundle, which
-                  isn't loaded (see MotionProvider). */}
+                  isn't loaded (see MotionProvider). A div, not a span: the
+                  label is the tab's last <span> (mobile-chrome.spec.ts). */}
               {active && (
-                <span className="absolute -top-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-brand-500" />
+                <div aria-hidden className="absolute -top-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-brand-500" />
               )}
             </Link>
           );
