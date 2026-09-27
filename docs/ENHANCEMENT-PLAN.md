@@ -54,6 +54,42 @@ Phase 1 made the money collectable. Phase 2 goes after the scarce side of the ma
 - ✅ **PWA production hardening:** production push now refuses ephemeral VAPID keys, `npm run check:vapid` gates the required secret triplet, and the production device matrix covers phones, iPads, desktop layouts, installability, service-worker updates, offline fallback, and push-capable browser paths.
 - 🟡 **Cohort history and LTV:** historical lifetime/LTV and transition totals remain intentionally blank until enough production event history exists. Subscription cancellation events, stale-renewal cleanup, and settled manual-payment exports are now implemented; Stripe and automated payment collection remain deferred.
 
+## Mobile phase — postponed (decided 2026-09-27)
+
+⏸️ **Parked on purpose.** Mobile work resumes after the non-mobile phases agreed on 2026-09-27: real data everywhere (the remaining demo-seam reads and mutations), accounts & media (OAuth user linking, Cloudinary uploads), then operations & content (invoice PDFs, blog/help, tickets). This section keeps the mobile backlog in one place so nothing is lost while it waits. Sources: the Mobile UX audit (`WorkersArena-Mobile-UX-Audit.pdf`, 23 Sep 2026, 20 findings; kept outside the repo), [PRODUCT.md §5](PRODUCT.md) (mobile app plan, M1–M4), [mobile-architecture.md](mobile-architecture.md) and [native-push-rollout.md](native-push-rollout.md).
+
+**Already in place, so the phase does not start from zero:** PWA hardening ([PRODUCT.md §3.4](PRODUCT.md), all ticked — offline shell, installable manifest, precached pages, offline queue, push click-through), the Capacitor projects (`capacitor.config.ts`, `android/`, `ios/`), store-listing copy ([store-listing.md](store-listing.md)), and the phone Playwright guards (`tests/playwright/mobile-chrome.spec.ts`, `touch-targets.spec.ts`, `rtl-logical-spacing.spec.ts`).
+
+### M0 — close out the Mobile UX audit
+
+Status re-checked against the code on 2026-09-27 (code read, not a device pass).
+
+- ✅ **Fixed (15 of 20):** route matching / tab highlight (1), profile tab overflow (2), floating elements vs. tab bar (3, `--bottom-chrome`), 16px inputs (4), sticky booking bar (5), customer-facing sponsored card (6), search layout shift (7, CLS 0 after the Phase-3 first-paint work), scrollable dialogs (9), mobile logout (10), iOS safe-area top (11 — **code only, never run on a device**), bottom padding (12), second-visit install prompt (13), category tiles + `Intl.PluralRules` (16), unused `components/mobile/*` removed (19), tab bar details (20, plus labels centred under icons).
+- 🟡 **Compact result cards (8):** the cover shrinks to `h-28` on phones, but the card is still the tall vertical layout. The fix is the one-row card (avatar · name · rating · price) below `sm`.
+- 🟡 **Arabic / logical properties (14):** strings, breadcrumb and badge collisions are fixed, but ~65 physical `ml/mr/pl/pr/left/right/text-left/right` classes remain, and there is still no lint rule to stop new ones.
+- 🟡 **Keyboard hints (17):** login and search are done. Other forms still lack `autoComplete` / `inputMode` / `enterKeyHint` (11 files set them).
+- 🟡 **Wide tables (18):** most sit inside an `overflow-x-auto` wrapper, and roughly 11 still need one (or a stacked-card layout below `sm` on customer-facing screens).
+- 🔜 **Homepage length (15):** not re-measured. The audit found ~15 phone screens; trim or collapse sections on phones and move worker pricing behind a link.
+
+### M1 — PWA polish
+- 🔜 Universal deep links: publish `apple-app-site-association` and `assetlinks.json`, and map `/workers/:slug`, `/bookings` and `/dashboard` into the app ([mobile-architecture.md §4](mobile-architecture.md)).
+- 🔜 Real-device pass (iPhone + mid-range Android, both locales, light/dark): safe areas, keyboard, install and update flow. PRODUCT.md §7 counts a feature as "📱 shipped" only when it is verified on a device.
+
+### M2 — Capacitor apps
+- 🔜 Native push, following [native-push-rollout.md](native-push-rollout.md): device-token registration, then the FCM (Android) and APNs (iOS) providers behind the existing notification seam. Neither provider exists yet.
+- 🔜 Secure token storage and biometric unlock, plus splash screens, adaptive icons and status-bar theming.
+- ⏸️ Apple Pay / Google Pay buttons: blocked on Stripe, which stays deferred.
+
+### M3 — store launch
+- 🔜 Accounts and credentials: Apple Developer Program, Google Play Console, APNs key, Firebase project. **These are calendar-bound (Apple takes 1–2 weeks), so start them a few weeks before M2 ends.**
+- 🔜 Privacy policy / data-deletion process, EN/AR screenshots, TestFlight and Play internal testing, then review ([mobile-architecture.md §5](mobile-architecture.md)).
+- 🔜 Sentry mobile SDK and a store release pipeline.
+
+### M4 — native v2 (evaluate after product–market fit)
+- 💡 Expo/React Native re-implementation of the busiest screens (search, profile, booking) — only if the Capacitor app proves the demand.
+
+**When to resume:** once the real-data phase lands (mobile store builds need real accounts and data behind them), or earlier if phone traffic or a store deadline makes it urgent. When it resumes, start with the M0 leftovers (cheap, and users feel them), then the M3 credential requests running in parallel with M1–M2.
+
 ## 1. Baseline — what's already shipped (the launchpad)
 
 The platform is further along than the roadmap's checkbox state suggests:
