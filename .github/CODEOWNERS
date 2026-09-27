@@ -1,0 +1,8 @@
+# Review routing. With branch protection's "require review from code owners"
+# turned on, changes to these paths need the owner's approval.
+*                   @kajouz
+
+# Deploys, secrets handling and CI gates
+/.github/           @kajouz
+/vercel.json        @kajouz
+/prisma/migrations/ @kajouz
