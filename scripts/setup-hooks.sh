@@ -4,22 +4,34 @@
 # Run this once after cloning the repo:
 #   bash scripts/setup-hooks.sh
 #
+# Points git at scripts/hooks via core.hooksPath instead of copying the files
+# into .git/hooks. Copies went stale silently: a hook fix merged to main never
+# reached a checkout that had run this script before it (the pre-commit hook
+# kept reporting "All unit tests passed" on a failing run long after the fix).
+# With hooksPath, every checkout and worktree runs the committed hooks of the
+# branch it is on.
+#
 
 set -e
 
-HOOKS_DIR="$(git rev-parse --git-path hooks)"
+ROOT="$(git rev-parse --show-toplevel)"
 
 for HOOK in pre-commit pre-push; do
-  HOOK_SOURCE="$(git rev-parse --show-toplevel)/scripts/hooks/$HOOK"
-  if [ ! -f "$HOOK_SOURCE" ]; then
-    echo "❌ Hook source not found: $HOOK_SOURCE"
+  if [ ! -x "$ROOT/scripts/hooks/$HOOK" ]; then
+    echo "❌ Hook missing or not executable: $ROOT/scripts/hooks/$HOOK"
     exit 1
   fi
-  cp "$HOOK_SOURCE" "$HOOKS_DIR/$HOOK"
-  chmod +x "$HOOKS_DIR/$HOOK"
 done
 
-echo "✅ Pre-commit and pre-push hooks installed!"
+git config core.hooksPath scripts/hooks
+
+# Remove the old copies so nobody mistakes them for the live hooks.
+OLD_HOOKS_DIR="$(git rev-parse --git-common-dir)/hooks"
+for HOOK in pre-commit pre-push; do
+  rm -f "$OLD_HOOKS_DIR/$HOOK"
+done
+
+echo "✅ Pre-commit and pre-push hooks installed (core.hooksPath=scripts/hooks)!"
 echo ""
 echo "The hook will run automatically on every commit:"
 echo "  1. Scripts gate (parse + import graph) — when scripts/** or package.json is staged"
