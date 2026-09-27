@@ -118,6 +118,7 @@ export const en = {
     subtitle: "20+ professional categories, all vetted and reviewed",
     allCategories: "All categories",
     workersIn: "workers",
+    noWorkersYet: "No workers yet",
   },
   // §Review solicitation (src/lib/data/review-solicitation.ts) — the prompt shown
   // for a completed job that has no review yet. Only the landmark label lives
