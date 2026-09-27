@@ -11,6 +11,8 @@ WORKDIR /app
 RUN npm install -g npm@12.0.2
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
+# postinstall patches next dev's prerender-manifest write (dev-only fix).
+COPY scripts/patch-next-prerender-manifest-write.mjs ./scripts/
 RUN npm ci --no-audit --no-fund
 
 # 2) Build
