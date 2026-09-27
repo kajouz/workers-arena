@@ -2,7 +2,7 @@
 
 import { Link } from "@/components/i18n/link";
 import { useActivePathname } from "@/hooks/use-active-pathname";
-import { Menu, LayoutDashboard, ShieldCheck, Megaphone, LogOut, User as UserIcon, Download, Home, Search, Heart, LayoutGrid, BadgePercent, type LucideIcon } from "lucide-react";
+import { Menu, LayoutDashboard, ShieldCheck, Megaphone, LogOut, User as UserIcon, Download, Home, Search, Heart, LayoutGrid, BadgePercent } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/shared/logo";
@@ -17,23 +17,6 @@ import { invalidateSession, useSession } from "@/hooks/use-session";
 import { logoutAction } from "@/app/actions/auth";
 import { toast } from "@/components/ui/toast";
 import { useInstallPrompt, detectPlatform } from "@/hooks/use-install-prompt"
-
-/**
- * One mobile-menu row: full width, start-aligned, icon and label centred on
- * the same line. `min-h-11` keeps the 44px touch target on every row;
- * `text-start` keeps a `<button>` row from centring its label.
- */
-const MOBILE_ROW =
-  "flex w-full min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-start text-base font-medium text-ink-700 transition-colors hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800";
-
-/** Fixed-width icon slot, so every row's icon sits in one shared column. */
-function MenuIcon({ icon: Icon }: { icon: LucideIcon }) {
-  return (
-    <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center">
-      <Icon className="size-5" />
-    </span>
-  );
-}
 
 /**
  * `session` is a THREE-state prop:
@@ -229,10 +212,9 @@ export function Header({ session }: { session?: SessionRole | null }) {
           <DialogHeader>
             <DialogTitle>{t("common.menu")}</DialogTitle>
           </DialogHeader>
-          {/* Every row is a full-width start-aligned item: a fixed-width icon
-              slot, then the label, vertically centred on one line. Rows used
-              to centre icon + label independently, so labels of different
-              widths left the icons zig-zagging from row to row. */}
+          {/* Every row carries an icon and centers icon + label as one unit —
+              the menu used to mix bare-text rows with icon rows, all pinned to
+              the start edge. */}
           <nav className="flex flex-col gap-1" aria-label="Mobile">
             {navLinks.map(({ href, label, icon: Icon }) => (
               <Link
@@ -240,12 +222,12 @@ export function Header({ session }: { session?: SessionRole | null }) {
                 href={href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  MOBILE_ROW,
+                  "flex items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 transition-colors hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800",
                   isActive(href) && "bg-brand-500/10 text-brand-700 dark:text-brand-400"
                 )}
               >
-                <MenuIcon icon={Icon} />
-                <span className="min-w-0 flex-1">{label}</span>
+                <Icon className="size-5 shrink-0" />
+                {label}
               </Link>
             ))}
             {signedIn && (
@@ -253,12 +235,10 @@ export function Header({ session }: { session?: SessionRole | null }) {
                 <Link
                   href={dashboardHref}
                   onClick={() => setMobileOpen(false)}
-                  className={MOBILE_ROW}
+                  className="flex items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
                 >
-                  <MenuIcon icon={DashboardIcon} />
-                  <span className="min-w-0 flex-1">
-                    {role === "admin" ? t("nav.admin") : role === "company" ? t("nav.company") : t("nav.dashboard")}
-                  </span>
+                  <DashboardIcon className="size-5 shrink-0" />
+                  {role === "admin" ? t("nav.admin") : role === "company" ? t("nav.company") : t("nav.dashboard")}
                 </Link>
                 {/* Logout lives in the mobile menu too — it was `sm:inline-flex`
                     only, so a signed-in phone user had NO way to sign out
@@ -270,10 +250,10 @@ export function Header({ session }: { session?: SessionRole | null }) {
                     toast("info", t("common.logout"));
                     setMobileOpen(false);
                   }}
-                  className={MOBILE_ROW}
+                  className="flex items-center justify-center gap-2 rounded-xl px-3.5 py-3 text-base font-medium text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800"
                 >
-                  <MenuIcon icon={LogOut} />
-                  <span className="min-w-0 flex-1">{t("common.logout")}</span>
+                  <LogOut className="size-5 shrink-0" />
+                  {t("common.logout")}
                 </button>
               </>
             )}
