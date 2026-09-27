@@ -25,7 +25,7 @@ export function SectionHeading({
   return (
     <div
       className={cn(
-        "mb-10 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between",
+        "mb-8 flex flex-col gap-6 sm:mb-10 sm:flex-row sm:items-end sm:justify-between",
         align === "center" && "sm:flex-col sm:items-center sm:text-center",
         className
       )}
@@ -36,7 +36,7 @@ export function SectionHeading({
             {eyebrow}
           </p>
         )}
-        <h2 className="text-3xl font-extrabold tracking-tight text-ink-900 dark:text-ink-50 sm:text-4xl">{title}</h2>
+        <h2 className="text-balance text-2xl font-extrabold tracking-tight text-ink-900 min-[400px]:text-3xl dark:text-ink-50 sm:text-4xl">{title}</h2>
         {subtitle && <p className="mt-3 text-base text-ink-500 dark:text-ink-400">{subtitle}</p>}
       </div>
       {actionLabel && actionHref && (

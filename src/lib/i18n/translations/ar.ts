@@ -118,6 +118,7 @@ export const ar: Dictionary = {
     subtitle: "أكثر من 20 تصنيفاً مهنياً، جميعها مدققة ومراجعة",
     allCategories: "كل التصنيفات",
     workersIn: "عامل",
+    noWorkersYet: "لا يوجد عمال بعد",
   },
   // §طلب التقييم (src/lib/data/review-solicitation.ts) — التسمية فقط؛ نص الطلب يُبنى لكل حجز.
   reviewSolicitation: {
