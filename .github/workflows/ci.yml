@@ -542,19 +542,14 @@ jobs:
           npm install -g npm@${NPM_VERSION}
           npm ci
 
-      - name: Setup environment
-        run: |
-          cp .env.example .env
-          echo 'DEMO_MODE=true' >> .env
-          # Keep the canonical URL deterministic in the checked-out build. The
-          # Vercel project may contain an unset/legacy value; `vercel pull`
-          # writes it into .env.production.local and Next loads that file over
-          # .env unless the build environment explicitly wins.
-          sed -i 's|^NEXT_PUBLIC_APP_URL=.*|NEXT_PUBLIC_APP_URL="https://workers-arena.vercel.app"|' .env
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
+      # The ONLY production deploy: vercel.json turns off Vercel's Git
+      # deploys for main, so production updates only after lint, unit tests,
+      # e2e and build have all passed. The build itself runs on Vercel —
+      # the production env vars are Sensitive (can't be pulled into CI) and
+      # the prerendered pages read the database at build time, so a
+      # `vercel build --prebuilt` from CI would ship without them. (This job
+      # used to write a .env and run prisma generate; .vercelignore never
+      # uploads .env and Vercel's build generates Prisma itself.)
       - name: Deploy to Vercel (production)
         run: npx vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
         env:
