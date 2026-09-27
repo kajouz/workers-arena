@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { m as motion, useInView } from "framer-motion";
 import { useLocale } from "@/components/providers/locale-provider";
 import { formatNumber } from "@/lib/utils";
 

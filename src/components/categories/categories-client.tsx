@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { Link } from "@/components/i18n/link";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { ArrowUpRight, ChevronDown, Sparkles } from "lucide-react";
 import type { Category } from "@/lib/data/types";
 import { useLocale } from "@/components/providers/locale-provider";

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocaleRouter } from "@/components/i18n/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import { Search, Mic, SlidersHorizontal, X, MapPin } from "lucide-react";
 import type { Category, City, SearchFilters, SearchResult, Suggestion } from "@/lib/data/types";
 import { WorkerCard, WorkerCardSkeleton } from "@/components/shared/worker-card";

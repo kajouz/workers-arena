@@ -1,7 +1,6 @@
 "use client";
 
 import { Link } from "@/components/i18n/link";
-import { motion } from "framer-motion";
 import { Home, Search, Calendar, Heart, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -135,13 +134,11 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
                 {t(tab.labelKey)}
               </span>
 
-              {/* Active indicator */}
+              {/* Active indicator. A plain element: the sliding `layoutId`
+                  animation needs Framer Motion's larger domMax bundle, which
+                  isn't loaded (see MotionProvider). */}
               {active && (
-                <motion.div
-                  layoutId="bottom-tab-indicator"
-                  className="absolute -top-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-brand-500"
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                />
+                <span className="absolute -top-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-brand-500" />
               )}
             </Link>
           );

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Link } from "@/components/i18n/link";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { Calculator, Check, Crown, ChevronDown } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { SectionHeading } from "@/components/shared/section-heading";

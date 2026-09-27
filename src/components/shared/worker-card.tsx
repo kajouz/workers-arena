@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/components/i18n/link";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { Heart, MapPin, Clock, ArrowUpRight, Zap, CalendarCheck2, ShieldCheck } from "lucide-react";
 import type { Worker } from "@/lib/data/types";
 import { isPlanFeeExempt } from "@/lib/data/booking-ui";
@@ -54,7 +54,6 @@ export function WorkerCard({
 
   return (
     <motion.div
-      layout
       // No mount animation: search results are the search page's LCP, and
       // opacity:0 held them back until hydration; a slide-in from the server
       // render then counted as layout shift (CLS 0.146).

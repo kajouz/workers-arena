@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { Loader2, MonitorSmartphone, Send, Sparkles, Trash2 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { toast } from "@/components/ui/toast";
