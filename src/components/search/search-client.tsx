@@ -31,6 +31,7 @@ import { cn, formatNumber } from "@/lib/utils";
 import { SearchResultsAnnouncement } from "@/components/ui/aria-live-region";
 import { filtersToSearchParams } from "@/lib/data/search-params";
 import { SponsoredSearchResults } from "@/components/search/sponsored-result";
+import type { ServedAd } from "@/lib/data/ad-rotation";
 
 interface Labels {
   category: string;
@@ -80,6 +81,7 @@ export function SearchClient({
   cities,
   initialFilters,
   initialResults,
+  initialAd,
   dictLabels: L,
 }: {
   locale: "en" | "ar";
@@ -87,6 +89,8 @@ export function SearchClient({
   cities: City[];
   initialFilters: SearchFilters;
   initialResults: SearchResult;
+  /** Sponsored ad the server picked for initialFilters (null: none). */
+  initialAd?: ServedAd | null;
   dictLabels: Labels;
 }) {
   const router = useLocaleRouter();
@@ -502,6 +506,12 @@ export function SearchClient({
             placement="search"
             category={filters.category}
             city={filters.city}
+            initialAd={
+              filters.category === initialFilters.category &&
+              filters.city === (initialFilters.city ?? "beirut")
+                ? initialAd
+                : undefined
+            }
           />
         )}
 

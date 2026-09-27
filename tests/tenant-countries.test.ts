@@ -185,7 +185,8 @@ describe("country assumptions live in the registry, not the app", () => {
 
   it("no non-tenant city is named in shipping copy", () => {
     const offenders = findOffenders(FOREIGN_CITIES, ["src"]).filter(
-      (line) => !line.includes("fonts.googleapis.com")
+      // "Cairo" is also the Arabic typeface (next/font/google), not the city.
+      (line) => !line.includes("fonts.googleapis.com") && !/\{ Cairo, |\bCairo\(|Cairo typeface/.test(line)
     );
     expect(
       offenders,

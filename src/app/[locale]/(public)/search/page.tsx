@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { SearchClient } from "@/components/search/search-client";
 import { SearchErrorBoundary } from "@/components/search/search-error-boundary";
 import { getCategories, getCities, getWorkers } from "@/lib/data/repo";
+import { pickAd } from "@/lib/data/ad-rotation";
 import { getI18n } from "@/lib/i18n/server";
 import { searchParamsToFilters } from "@/lib/data/search-params";
 
@@ -39,10 +40,13 @@ export default async function SearchPage({
   const { locale, t } = await getI18n();
   const raw = await searchParams;
   const initialFilters = searchParamsToFilters(raw);
-  const [categories, cities, initial] = await Promise.all([
+  // The sponsored ad is picked here (city default mirrors SearchClient's) so it
+  // renders with the page instead of shifting the results down after load.
+  const [categories, cities, initial, initialAd] = await Promise.all([
     getCategories(),
     getCities(),
     getWorkers(initialFilters),
+    pickAd("search", { category: initialFilters.category, city: initialFilters.city ?? "beirut" }).catch(() => null),
   ]);
 
   return (
@@ -63,6 +67,7 @@ export default async function SearchPage({
           cities={cities}
           initialFilters={initialFilters}
           initialResults={initial}
+          initialAd={initialAd}
           dictLabels={{
             category: t("search.category"),
             city: t("search.city"),
