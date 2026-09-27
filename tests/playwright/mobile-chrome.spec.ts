@@ -274,6 +274,73 @@ for (const locale of ["en", "ar"] as const) {
   });
 }
 
+/**
+ * Measure each tab-bar item: the label's centre against its icon's centre
+ * (horizontal), and the icon-over-label stack against the bar's centre
+ * (vertical). The label used to span the tab's full width with no
+ * `text-center`, so it sat at the inline start — ~20px off its icon in both
+ * locales, on opposite sides (Galaxy Note 9 report, 360px).
+ */
+async function tabAlignment(page: Page) {
+  return page.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Main navigation"]');
+    const bar = nav?.firstElementChild?.getBoundingClientRect();
+    if (!nav || !bar) return { inspected: 0, offenders: ["tab bar missing"] };
+    const offenders: string[] = [];
+    const tabs = Array.from(nav.querySelectorAll("a"));
+    for (const a of tabs) {
+      const icon = a.querySelector("svg")!.getBoundingClientRect();
+      const label = Array.from(a.querySelectorAll("span")).pop()!;
+      const range = document.createRange();
+      range.selectNodeContents(label);
+      const l = range.getBoundingClientRect();
+      const name = (label.textContent ?? "").trim();
+      const iconX = (icon.left + icon.right) / 2;
+      const labelX = (l.left + l.right) / 2;
+      if (Math.abs(iconX - labelX) > 1) {
+        offenders.push(`"${name}" label centre x ${labelX.toFixed(1)} vs icon ${iconX.toFixed(1)}`);
+      }
+      const stackY = (icon.top + l.bottom) / 2;
+      const barY = (bar.top + bar.bottom) / 2;
+      if (Math.abs(stackY - barY) > 2) {
+        offenders.push(`"${name}" stack centre y ${stackY.toFixed(1)} vs bar ${barY.toFixed(1)}`);
+      }
+    }
+    return { inspected: tabs.length, offenders };
+  });
+}
+
+for (const locale of ["en", "ar"] as const) {
+  test.describe(`tab bar icon/label alignment @ 360px — ${locale}`, () => {
+    test.use({
+      viewport: { width: 360, height: 740 },
+      extraHTTPHeaders: { "accept-language": locale === "ar" ? "ar" : "en" },
+    });
+
+    test.beforeEach(async ({ context, page }) => {
+      await context.addCookies([
+        { name: LOCALE_COOKIE, value: locale, domain: "localhost", path: "/" },
+      ]);
+      await page.goto("/", { waitUntil: "domcontentloaded", timeout: 120_000 });
+      await page.locator('nav[aria-label="Main navigation"] a').first().waitFor();
+    });
+
+    test("each label is centred under its icon, the pair centred in the bar", async ({ page }) => {
+      const r = await tabAlignment(page);
+      expect(r.inspected, "the bar exposed no tabs — the check would be vacuous").toBeGreaterThan(0);
+      expect(r.offenders, `misaligned tabs (${locale}): ${r.offenders.join(" | ")}`).toHaveLength(0);
+    });
+
+    test("negative control: a start-aligned label must be reported", async ({ page }) => {
+      await page.addStyleTag({
+        content: 'nav[aria-label="Main navigation"] a span { text-align: start !important; }',
+      });
+      const r = await tabAlignment(page);
+      expect(r.offenders.length, "restoring the start-aligned label must trip the guard").toBeGreaterThan(0);
+    });
+  });
+}
+
 /** Menu button accessible name — `t("common.menu")`, per locale. */
 const MENU_LABEL = { en: "Menu", ar: "القائمة" } as const;
 
