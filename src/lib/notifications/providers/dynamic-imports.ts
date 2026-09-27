@@ -10,11 +10,9 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function defaultImport(specifier: string): Promise<any> {
   try {
     // Turbopack can't see through Function() — the import is invisible to it.
-    // eslint-disable-next-line no-new-func, @typescript-eslint/no-require-imports
     const loader = new Function("s", "return import(s)");
     return await loader(specifier);
   } catch {
@@ -23,11 +21,9 @@ async function defaultImport(specifier: string): Promise<any> {
 }
 
 /** Overridable import function — tests can swap this via the module mock. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export let _importFn: (specifier: string) => Promise<any> = defaultImport;
 
 /** Override the import function (for tests). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function _setImportFn(fn: (specifier: string) => Promise<any>) {
   _importFn = fn;
 }

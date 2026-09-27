@@ -56,6 +56,8 @@ const eslintConfig = [
       "meili_data/**",
       ".data/**",
       "tmp/**",
+      // Claude Code background sessions check out full copies of the repo here.
+      ".claude/**",
       "public/**",
       "scripts/**",
     ],

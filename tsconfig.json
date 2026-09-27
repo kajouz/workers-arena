@@ -48,6 +48,7 @@
     ".next",
     ".data",
     "tmp",
+    ".claude",
     "out",
     "coverage",
     "src/lib/mobile/offline-cache.ts",

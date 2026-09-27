@@ -1,7 +1,6 @@
 import path from "node:path";
 
 /** Dynamic fs import — avoids Turbopack bundling node:fs into client chunks. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function nodeFs(): Promise<any> {
   return import(/* turbopackIgnore: true */ "node:fs").then((m: any) => m.promises);
 }
