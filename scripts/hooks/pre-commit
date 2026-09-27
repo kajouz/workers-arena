@@ -68,13 +68,24 @@ fi
 # ── 4. Unit tests (exclude e2e and prisma tests) ────────────────────
 echo ""
 echo "${YELLOW}⏳ Running unit tests...${NC}"
-if npx vitest run \
+# Capture to a file rather than piping into tail: in `cmd | tail` the status is
+# tail's (always 0), and /bin/sh has no pipefail/PIPESTATUS guarantee.
+VITEST_LOG=$(mktemp)
+trap 'rm -f "$VITEST_LOG"' EXIT
+VITEST_STATUS=0
+npx vitest run \
   --exclude '**/e2e-*.test.ts' \
   --exclude '**/*-prisma.test.ts' \
-  --reporter=verbose 2>&1 | tail -20; then
+  --reporter=verbose >"$VITEST_LOG" 2>&1 || VITEST_STATUS=$?
+if [ "$VITEST_STATUS" -eq 0 ]; then
+  tail -20 "$VITEST_LOG"
   echo "${GREEN}✅ All unit tests passed${NC}"
 else
-  echo "${RED}❌ Unit tests failed — commit blocked.${NC}"
+  # Show the failures, not just the summary that tail -20 would keep.
+  grep -E '^ *(FAIL|×) ' "$VITEST_LOG" | sort -u || true
+  echo ""
+  tail -40 "$VITEST_LOG"
+  echo "${RED}❌ Unit tests failed (vitest exit $VITEST_STATUS) — commit blocked.${NC}"
   echo "${YELLOW}Fix the failing tests and try again.${NC}"
   exit 1
 fi
