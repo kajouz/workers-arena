@@ -99,7 +99,9 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
               key={tab.href}
               href={tab.href}
               className={cn(
-                "relative flex flex-1 flex-col items-center gap-0.5 py-1.5",
+                // A full-height column, icon over label, both on the tab's centre
+                // line and centred in the bar as one unit.
+                "relative flex h-full flex-1 flex-col items-center justify-center gap-0.5 py-1.5",
                 "min-h-[44px] min-w-[44px] touch-manipulation",
                 "transition-colors",
                 active
@@ -120,13 +122,16 @@ export function BottomTabs({ badge }: { badge?: Record<string, number> }) {
                 )}
               </div>
 
-              {/* truncate + nowrap: a label that outgrew its slot used to wrap
+              {/* text-center: the label spans the tab's full width, so without
+                  it the text sat at the inline START (right in Arabic, left in
+                  English) — up to ~20px off its icon's centre line.
+                  truncate + nowrap: a label that outgrew its slot used to wrap
                   and grow the tab's height (Galaxy Note 9 report). `text-[10px]`
                   so the longest label ("Dashboard") fits at 375px without an
                   ellipsis — it was clipping mid-word there. No colour class
                   here on purpose: the label inherits the icon's active colour
                   (it used to force grey while the icon turned orange). */}
-              <span className="block w-full truncate whitespace-nowrap text-[10px] font-medium leading-tight">
+              <span className="block w-full truncate whitespace-nowrap text-center text-[10px] font-medium leading-tight">
                 {t(tab.labelKey)}
               </span>
 
