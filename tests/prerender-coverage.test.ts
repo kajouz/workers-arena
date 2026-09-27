@@ -23,8 +23,9 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
+import { newestManifestPath } from "./helpers/prerender-manifest";
 
 const ROOT = process.cwd();
 const LOCALE_DIR = join(ROOT, "src/app/[locale]");
@@ -142,50 +143,12 @@ describe("the public surface stays statically renderable", () => {
 });
 
 /**
- * Find every build's manifest in this checkout. `.next` alone is not enough:
- * this repo deliberately builds into isolated dist dirs (`NEXT_DIST_DIR=.data/.next-*`,
- * `tmp/preview-prod` — one process per dist dir, see .freebuff/run.md), so the
- * newest build's manifest is often NOT the one under `.next`. Reading only
- * `.next` made this whole describe block measure whatever build happened to sit
- * there — including one from before a fix.
- */
-function findManifests(dir: string, depth = 5): string[] {
-  if (!existsSync(dir) || depth < 0) return [];
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name === ".git") continue;
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...findManifests(full, depth - 1));
-    else if (entry.name === "prerender-manifest.json") out.push(full);
-  }
-  return out;
-}
-
-/**
- * The manifest of the most recent build — the one a developer just verified.
- */
-function newestManifestPath(): string | null {
-  const candidates = [
-    join(ROOT, ".next/prerender-manifest.json"),
-    ...findManifests(join(ROOT, ".data")),
-    ...findManifests(join(ROOT, "tmp")),
-  ].filter((file) => {
-    try {
-      return statSync(file).isFile();
-    } catch {
-      return false;
-    }
-  });
-  if (candidates.length === 0) return null;
-  return candidates.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0] ?? null;
-}
-
-/**
  * The effect, when a build is around. Skipped rather than failed without one:
  * the unit job does not build, and a test that demands `next build` would
  * either be permanently red there or force a build into every run.
  */
-const manifestPath: string | null = newestManifestPath();
+// Newest PRODUCTION build only — see tests/helpers/prerender-manifest.ts.
+const manifestPath: string | null = newestManifestPath(ROOT);
 const built = manifestPath !== null;
 
 // NOTE: describe.skipIf still EXECUTES the callback during collection — only
