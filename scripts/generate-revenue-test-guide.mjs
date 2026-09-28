@@ -266,8 +266,8 @@ children.push(
   ),
   H3("User Accounts"),
   B("Admin: sign in as admin (role: admin) — access /admin/* routes"),
-  B("Worker (Khaled): slug khaled-al-harbi-plumbing — has Professional plan"),
-  B("Worker (Sara): slug sara-mansour-electrical — has Premium plan"),
+  B("Worker (Khaled): slug khaled-al-harbi-plumbing — has the Growth plan (enum: professional)"),
+  B("Worker (Sara): slug sara-mansour-electrical — has the Pro plan (enum: premium)"),
   B("Customer: signed-in user u-customer"),
   SEPARATOR(),
 );
@@ -276,13 +276,13 @@ children.push(
 
 children.push(
   H1("2. Revenue Stream 1 — Worker Subscriptions"),
-  P("Workers pay $29–$299/month for a subscription plan that gates visibility and features."),
+  P("Workers pay $15–$199/month (base price; cleaning-type trades pay 0.5×, HVAC-type trades 1.5×) for a subscription plan that gates visibility and features. Annual billing charges 9 months for 12."),
   ROLES("Worker (purchases) · Admin (confirms)"),
   H3("Test: Renew a Worker Subscription"),
   STEP(1, "Sign in as the demo worker (Khaled)."),
   STEP(2, "Open /dashboard — the subscription card shows current plan, days left, and expiry date."),
   STEP(3, "Click Renew / upgrade on the subscription card."),
-  STEP(4, "The dialog shows plan options: Basic $29, Professional $59, Premium $119, Enterprise $299."),
+  STEP(4, "The dialog shows plan options: Starter $15, Growth $39, Pro $99, Business $199 (plumbing is a mid-value trade, so no category adjustment)."),
   STEP(5, "Select a plan and choose OMT or Whish as the payment method."),
   STEP(6, "Click Pay — the OMT/Whish instructions page opens with a reference number."),
   CHECK("Instructions page shows the correct amount, reference (OMT-… or WHISH-…), and steps."),
@@ -308,7 +308,7 @@ children.push(
 
 children.push(
   H1("3. Revenue Stream 2 — Platform Take Rate (Booking Fees)"),
-  P("The platform charges a plan-aware take rate: Free 12%, Starter 9%, Growth 7%, Pro 5%, and Business 4% by default, with a $5 floor and $300 cap. A full exemption applies only when explicitly configured in the active rule set."),
+  P("The shipped default rule set charges 7% on every plan and a reduced 4% for Business, with a $5 floor and $300 cap. The 12/9/7/5/4% ladder (Free, Starter, Growth, Pro, Business) applies only after an admin publishes it from /admin/revenue-settings. A full exemption applies only when explicitly configured in the active rule set."),
   ROLES("Customer (books) · Worker (accepts with quote) · Admin (audits)"),
   H3("Test: Accept a Booking with Fee"),
   STEP(1, "As a customer, create a booking request for a worker (e.g. Khaled)."),
@@ -389,7 +389,7 @@ children.push(
   ROLES("Worker (purchases) · Admin (confirms)"),
   H3("Test: Buy Credits via OMT"),
   STEP(1, "As the worker, open /dashboard/credits."),
-  STEP(2, "The page shows available packages (e.g. Starter 10 credits $10, Pro 25 credits $20, Bulk 100 credits $70)."),
+  STEP(2, "The page shows the packages: Starter 10 credits $10, Popular 25 + 5 bonus $25, Professional 50 + 15 bonus $50, Enterprise 100 + 30 bonus $100."),
   STEP(3, "Click Buy on a package."),
   STEP(4, "Choose OMT as the payment method."),
   CHECK("A checkout is created (POST /api/credits/purchase)."),
@@ -628,8 +628,8 @@ children.push(
   TABLE(
     ["Stream", "Section", "Revenue Type", "Status"],
     [
-      ["Worker Subscriptions", "2", "Recurring ($29–$299/mo)", "Live"],
-      ["Platform Take Rate", "3", "Per-booking (7%, $5–$300)", "Live"],
+      ["Worker Subscriptions", "2", "Recurring ($15–$199/mo)", "Live"],
+      ["Platform Take Rate", "3", "Per-booking (7%, Business 4%, $5–$300)", "Live"],
       ["Lead Marketplace", "4", "Per-lead (5–35 credits)", "Live"],
       ["Credit Purchases", "5", "One-time packages", "Live"],
       ["Advertising", "6", "Campaign budget ($10 CPM)", "Live"],

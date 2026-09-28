@@ -2256,8 +2256,10 @@ export async function prismaRespondToBooking(
         // immutable snapshot in the same tx — the RespondDialog previews the
         // same numbers through the same module, so there is no drift, and no
         // later pricing change can rewrite this fee. Accept-without-quote
-        // stays fee-free (no snapshot row).
-        const quoteMinor = input.quote ?? null;
+        // stays fee-free (no snapshot row). A multi-candidate quote winner
+        // already carries its bid, so accepting it without re-typing the price
+        // keeps (and charges on) that bid — the fee-rules.md §4 "known gap".
+        const quoteMinor = input.quote ?? row.quote ?? null;
         const priced = quoteMinor
           ? await priceQuoteForSnapshot({
               jobId: bookingId,

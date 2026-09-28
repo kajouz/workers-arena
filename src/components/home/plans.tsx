@@ -12,6 +12,7 @@ import { ANNUAL_PAID_MONTHS } from "@/lib/data/subscriptions";
 import { CATEGORY_TIER_MAP, PLAN_CATALOG, effectiveTakeRate } from "@/lib/data/subscription-plans";
 import { effectiveMonthlyPriceWithOverrides, type ResolvedPlanCatalog } from "@/lib/data/plan-catalog-overrides";
 import { CATEGORIES } from "@/lib/data/categories";
+import type { FeeRuleSet } from "@/lib/data/fee-rules";
 import type { BillingPeriod, SubscriptionPlan } from "@/lib/data/types";
 
 interface Plan {
@@ -42,7 +43,15 @@ const TIER_BADGE: Record<string, string> = {
   high: "text-amber-700 dark:text-amber-400",
 };
 
-export function Plans({ catalog }: { /** The admin-editable catalog in force (overrides over the shipped defaults) — loaded server-side. */ catalog: ResolvedPlanCatalog }) {
+export function Plans({
+  catalog,
+  feeRules,
+}: {
+  /** The admin-editable catalog in force (overrides over the shipped defaults) — loaded server-side. */
+  catalog: ResolvedPlanCatalog;
+  /** The take-rate rules in force, so the calculator charges what accepts stamp. */
+  feeRules: FeeRuleSet;
+}) {
   const { locale, t } = useLocale();
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   // FINDING 15: the worker-pricing block (plans + calculator) is ~3,285px on
@@ -61,15 +70,18 @@ export function Plans({ catalog }: { /** The admin-editable catalog in force (ov
   // live here on the next render, no deploy needed.
   const priceFor = (plan: SubscriptionPlan) => effectiveMonthlyPriceWithOverrides(catalog, plan, trade);
 
-  // Recomputed per trade — effectiveTakeRate() prices the plan's subscription
-  // through the same category multiplier, so the calculator matches the cards.
+  // Recomputed per trade — the subscription is the same admin price the card
+  // shows, and each job is priced by the live fee rules (floor included).
   const rates = useMemo(
     () =>
       PLANS.map((p) => ({
         key: p.key,
-        rate: effectiveTakeRate(p.key, jobs, avgJob, trade),
+        rate: effectiveTakeRate(p.key, jobs, avgJob, trade, {
+          ruleSet: feeRules,
+          monthlyPriceUsd: effectiveMonthlyPriceWithOverrides(catalog, p.key, trade),
+        }),
       })),
-    [jobs, avgJob, trade]
+    [jobs, avgJob, trade, feeRules, catalog]
   );
   const bestKey = rates.reduce((a, b) => (b.rate < a.rate ? b : a)).key;
 

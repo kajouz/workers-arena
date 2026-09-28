@@ -85,7 +85,7 @@ Each site loads the active rule set **before** its transaction, prices the quote
 
 Accept **without** a quote stays fee-free and writes no snapshot.
 
-**Known gap (unchanged by this wave):** selecting a winner on a multi-candidate quote request (`QuoteRequest`) does not stamp a fee in either adapter — the winner becomes a slot-bound request and the fee is only stamped on a later quoted accept. Treat this as a follow-up; the engine makes it a two-line call.
+**Multi-candidate quote winners (fixed 2026-09-28):** selecting a winner on a `QuoteRequest` turns its bid into a slot-bound request that still carries the bid. The worker's accept now falls back to that bid when no new quote is typed (`input.quote ?? booking.quote`), so the fee is stamped on it instead of the accept wiping the bid and charging nothing. Covered in `tests/bookings.test.ts`.
 
 ---
 
