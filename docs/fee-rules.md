@@ -188,7 +188,7 @@ The lead marketplace configuration lives inside the versioned rule set (`FeeRule
 | `reveal.afterBooking` | revealed | What booked workers see |
 | `weights` | (see §8) | Matching signal weights |
 | `rebate.enabled` | true | Whether rebates are active |
-| `rebate.pctBps` | 10000 | Share of fee to rebate (basis points) |
+| `rebate.pctBps` | 5000 | Share of fee to rebate (basis points) — 50% since 2026-09-28 |
 | `rebate.maxMinor` | null | Per-job rebate ceiling |
 
 **Admin editing:** all lead marketplace settings are editable via `/admin/revenue-settings` → Lead marketplace. Publishing a change appends a new rule version.
@@ -203,7 +203,7 @@ The subscription plan catalog lives inside the versioned rule set (`FeeRuleSet.p
 |------|-----------|-----------|---------------|----------|------------|
 | basic | Starter | مبدأية | $15 | 3 | No |
 | professional | Growth | نمو | $39 | 10 | No |
-| premium | Pro | احترافي | $99 | 25 | No |
+| premium | Pro | احترافي | $59 | 25 | No |
 | enterprise | Business | أعمال | $199 | 60 | 4% reduced |
 
 **Category-adjusted pricing:**

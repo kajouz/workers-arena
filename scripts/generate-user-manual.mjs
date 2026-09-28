@@ -375,7 +375,7 @@ children.push(
   P("Workers grow their business with a paid plan plus a la carte trust and visibility upgrades. All purchases are payable via OMT / Whish and activated on admin confirmation."),
   ROLES("Worker (purchases) · Admin (confirms payments, changes plans, audits)"),
   H3("Functionality"),
-  B("Plans: Starter $15, Growth $39, Pro $99, Business $199 per month (annual billing = 9 paid months for 12, 25% discount). Category-adjusted pricing: low-value trades (cleaning, gardening) pay 0.5×, high-value trades (HVAC, mechanic) pay 1.5×. 30-day free trial on any plan."),
+  B("Plans: Starter $15, Growth $39, Pro $59, Business $199 per month (annual billing = 9 paid months for 12, 25% discount). Category-adjusted pricing: low-value trades (cleaning, gardening) pay 0.5×, high-value trades (HVAC, mechanic) pay 1.5×. 30-day free trial on any plan."),
   B("Expired subscriptions hide the worker from public search — the natural upsell trigger; renewal reminders fire at 7 / 3 / 1 days. All plan prices, quotas, and features are admin-editable via /admin/revenue-settings."),
   B("Upgrade dialog: verification tiers (Basic $9 ID check / Professional $19 license + background check, 12-month validity, Verified badge in search), the Featured slot ($49/category/month, homepage + search placement), and the Emergency marker ($9/month)."),
   B("Purchase flow: upgrade → pending manual payment (OMT/Whish instructions page) → admin confirms → the capability activates."),

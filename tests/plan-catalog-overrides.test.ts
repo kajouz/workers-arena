@@ -41,7 +41,7 @@ describe("normalizePlanCatalogOverrides", () => {
     const out = normalizePlanCatalogOverrides({
       plans: { premium: { monthlyPriceUsd: Number.NaN } },
     } as never);
-    expect(out.plans.premium.monthlyPriceUsd).toBe(99);
+    expect(out.plans.premium.monthlyPriceUsd).toBe(59);
   });
 });
 
@@ -70,7 +70,7 @@ describe("store carriage (demo mode)", () => {
     expect(saved.version).toBe(original.version + 1);
     const loaded = await loadPlanCatalog();
     expect(loaded.plans.basic.monthlyPriceUsd).toBe(9);
-    expect(loaded.plans.premium.monthlyPriceUsd).toBe(99); // untouched → carried
+    expect(loaded.plans.premium.monthlyPriceUsd).toBe(59); // untouched → carried
     expect(loaded.trialDays).toBe(30);
   });
 

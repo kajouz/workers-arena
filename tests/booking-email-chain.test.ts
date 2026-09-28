@@ -89,7 +89,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     expect(emailPayload!.recipient?.email).toBe("noor@example.com");
 
     // ChannelPayload.booking matches the booking: number, slot times, quote,
-    // and the M5 fee snapshot (premium worker, 7% of 8000 minor = 560).
+    // and the M5 fee snapshot (premium = Pro worker, 5% of 8000 = 400, floored to 500).
     expect(emailPayload!.booking).toMatchObject({
       number: booking!.number,
       startAt: slot.startAt,
@@ -97,7 +97,7 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
       quote: booking!.quote,
       currency: booking!.currency,
       jobTitle: booking!.jobTitle,
-      platformFee: 560,
+      platformFee: 500,
     });
 
     // And the confirmation email renders that same booking — including the
@@ -108,8 +108,8 @@ describe("booking email chain (demo adapter → dispatcher → renderer)", () =>
     expect(email.html).toContain(booking!.number);
     expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain("Platform fee");
-    expect(email.html).toContain("$6"); // 560 minor → 5.6, display-rounded
-    expect(email.text).toContain("Platform fee: $6");
+    expect(email.html).toContain("$5"); // 500 minor
+    expect(email.text).toContain("Platform fee: $5");
     expect(email.html).toContain("Leaking kitchen sink repair");
     expect(email.html).toContain(`/admin/bookings/${booking!.number}`);
   });

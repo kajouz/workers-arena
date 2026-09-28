@@ -177,11 +177,14 @@ describe("commission on cash jobs", () => {
     await grantCredits({ workerId: w.id, amount: 30, fund: "free", reason: "Allowance" });
     const job = async () => ({ bookingId: created.id, number: created.number, workerId: w.id, settlement: (await getBookingSettlement(created.id))! });
 
-    // The $5.60 claim: $5 from the wallet, $0.60 stays outstanding.
-    expect(await collectFeeClaims([await job()])).toEqual({ jobs: 1, collectedMinor: 500 });
+    // The claim is the fee at the worker's plan rate (earlier tests change the
+    // demo worker's plan); whole dollars come from the wallet, cents stay owed.
+    const claim = (await getBookingSettlement(created.id))!.feeClaimMinor;
+    const collected = Math.floor(claim / 100) * 100;
+    expect(await collectFeeClaims([await job()])).toEqual({ jobs: 1, collectedMinor: collected });
     const after = await getBookingSettlement(created.id);
-    expect(after).toMatchObject({ feeClaimCollectedMinor: 500, feeClaimOutstandingMinor: 60 });
-    expect(await getWorkerCreditBalance(w.id)).toMatchObject({ paidBalance: 25, freeBalance: 30 });
+    expect(after).toMatchObject({ feeClaimCollectedMinor: collected, feeClaimOutstandingMinor: claim - collected });
+    expect(await getWorkerCreditBalance(w.id)).toMatchObject({ paidBalance: 30 - collected / 100, freeBalance: 30 });
 
     // Running again collects nothing more (the remainder is under a dollar).
     expect(await collectFeeClaims([await job()])).toEqual({ jobs: 0, collectedMinor: 0 });

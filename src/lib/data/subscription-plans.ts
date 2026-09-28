@@ -151,7 +151,9 @@ export const PLAN_CATALOG: readonly PlanCatalogEntry[] = [
     labelEn: "Pro",
     labelAr: "احترافي",
     hue: 30,
-    monthlyPriceUsd: 99,
+    // Step 4: $59 (was $99) — closes the jump from Growth ($39); with the
+    // commission ladder Pro pays for itself above ~$1,000/month of jobs.
+    monthlyPriceUsd: 59,
     includedLeads: 25,
     extraLeadPriceUsd: 0.03,
     feeExempt: false,

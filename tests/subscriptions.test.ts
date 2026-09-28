@@ -40,7 +40,7 @@ describe("subscriptions engine", () => {
     expect(next.plan).toBe("premium");
     expect(next.status).toBe("active");
     expect(daysUntil(next.expiresAt)).toBeGreaterThanOrEqual(28); // ~1 month extension
-    expect(next.price).toBe(99);
+    expect(next.price).toBe(59);
   });
 
   it("renewSubscription extends to ~1 month and issues an invoice", () => {
@@ -85,7 +85,7 @@ describe("subscriptions engine", () => {
     expect(planPrice("basic", "monthly")).toBe(15);
     expect(planPrice("basic", "annual")).toBe(135); // 15 × 9
     expect(planPrice("professional", "annual")).toBe(351); // 39 × 9
-    expect(planPrice("premium", "annual")).toBe(891); // 99 × 9
+    expect(planPrice("premium", "annual")).toBe(531); // 59 × 9
     expect(planPrice("enterprise", "annual")).toBe(1791); // 199 × 9
   });
 

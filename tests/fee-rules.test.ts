@@ -337,8 +337,10 @@ describe("buildFeeSnapshot — the §6 record", () => {
   });
 
   it("pins the rule version, so a later price change cannot rewrite history", () => {
-    const v1 = priceJob(DEFAULT_FEE_RULE_SET, 8_000);
-    const newer: FeeRuleSet = { ...DEFAULT_FEE_RULE_SET, id: "fee-rules-v2", version: 2, defaults: { ...DEFAULT_FEE_RULE_SET.defaults, rateBps: 1200 } };
+    // A flat 7% rule set (no plan ladder), then a v2 that re-prices to 12%.
+    const flat: FeeRuleSet = { ...DEFAULT_FEE_RULE_SET, planTiers: {} };
+    const v1 = priceJob(flat, 8_000);
+    const newer: FeeRuleSet = { ...flat, id: "fee-rules-v2", version: 2, defaults: { ...flat.defaults, rateBps: 1200 } };
     const v2 = priceJob(newer, 8_000);
 
     const first = buildFeeSnapshot({
@@ -493,18 +495,20 @@ describe("demo store + adapter stamping", () => {
     await respondToBooking(created.id, { accept: true, quote: 8_000 });
 
     const booking = (await getWorkerBookings(khaled().id)).find((b) => b.id === created.id)!;
-    expect(booking.platformFee).toBe(560);
-    expect(booking.platformFeeRateBps).toBe(700);
+    // Pro → the ladder's 5%: $4 on $80, floored to $5.
+    expect(booking.platformFee).toBe(500);
+    expect(booking.platformFeeRateBps).toBe(500);
     expect(booking.feeSnapshot).toBeTruthy();
     expect(booking.feeSnapshot).toMatchObject({
       jobId: booking.id,
       quoteId: booking.id,
       workerId: khaled().id,
       subtotalMinor: 8_000,
-      feeMinor: 560,
-      netMinor: 7_440,
+      feeMinor: 500,
+      netMinor: 7_500,
       ruleVersion: 1,
-      rateBps: 700,
+      rateBps: 500,
+      minApplied: true,
       currency: "USD",
     });
 

@@ -143,12 +143,12 @@ describe("RespondDialog take-rate display", () => {
     renderDialog(premiumWorker);
     openDialog();
 
-    // Prefilled quote = priceMin 80 → fee max(round(8000×7%), 500) = 560 minor
-    // ($5.6, display-rounded like the rest of the app) → receive $74.
+    // Prefilled quote = priceMin 80; a premium (Pro) worker pays the ladder's
+    // 5% → max(round(8000×5%), 500) = 500 minor → receive $75.
     expect(screen.getByText("Platform fee")).toBeInTheDocument();
-    expect(screen.getByText("$6")).toBeInTheDocument();
+    expect(screen.getByText("$5")).toBeInTheDocument();
     expect(screen.getByText("You receive")).toBeInTheDocument();
-    expect(screen.getByText("$74")).toBeInTheDocument();
+    expect(screen.getByText("$75")).toBeInTheDocument();
     // No waiver banner.
     expect(screen.queryByText("Fee waived by your plan")).not.toBeInTheDocument();
   });
@@ -160,9 +160,9 @@ describe("RespondDialog take-rate display", () => {
     const quoteInput = screen.getByDisplayValue("80");
     fireEvent.change(quoteInput, { target: { value: "100" } });
 
-    // 100 → fee 700 minor → , receive 93.
-    expect(screen.getByText("$7")).toBeInTheDocument();
-    expect(screen.getByText("$93")).toBeInTheDocument();
+    // 100 → 5% = 500 minor → receive $95.
+    expect(screen.getByText("$5")).toBeInTheDocument();
+    expect(screen.getByText("$95")).toBeInTheDocument();
   });
 
   it("shows the reduced Business take-rate split instead of a waiver banner", () => {
