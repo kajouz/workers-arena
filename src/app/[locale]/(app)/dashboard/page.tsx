@@ -1,8 +1,6 @@
 import { getSession } from "@/lib/auth-demo";
 import {
   getAnalyticsOverview,
-  getWorkerBySlug,
-  getWorkers,
   getInvoices,
   getWorkerBookings,
   getBookingMessages,
@@ -21,6 +19,7 @@ import type { ResolvedPlanCatalog } from "@/lib/data/plan-catalog-overrides";
 import { WorkerDashboard } from "@/components/dashboard/worker-dashboard";
 import { getWorkerRoi } from "@/lib/data/repo";
 import { localeRedirect } from "@/lib/i18n/redirect";
+import { getSessionWorker } from "@/lib/data/authz";
 
 /** The worker-facing email a booking's state implies, rendered in BOTH locales
  * (workerEmailPreviewFor — the mirror of the customer rows' preview). */
@@ -39,15 +38,18 @@ export default async function DashboardPage() {
   if (!session) return await localeRedirect("/auth/login");
   if (session.role === "admin") return await localeRedirect("/admin");
   if (session.role === "company") return await localeRedirect("/company");
+  // There is no customer dashboard: a customer's account lives on /bookings.
+  // (This page used to fall back to the FIRST worker in the directory and
+  // show a customer that worker's bookings, balance and payouts.)
+  if (session.role === "customer") return await localeRedirect("/bookings");
 
-  const [analytics, worker, all, invoices] = await Promise.all([
-    getAnalyticsOverview(),
-    session.role === "worker" ? getWorkerBySlug("khaled-al-harbi-plumbing") : Promise.resolve(null),
-    getWorkers({}),
-    getInvoices(),
-  ]);
+  // Only ever the signed-in worker's own profile; none yet → onboarding.
+  const worker = await getSessionWorker(session);
+  if (!worker) return await localeRedirect("/dashboard/onboarding");
 
-  const demoWorker = worker ?? all.items[0];
+  const [analytics, invoices] = await Promise.all([getAnalyticsOverview(), getInvoices()]);
+
+  const demoWorker = worker;
   // Worker-facing invoices: subscription renewals only (advertising invoices
   // belong to the company dashboard).
   const subInvoices = invoices.filter((i) => i.scope === "subscription");

@@ -13,8 +13,8 @@
  */
 
 import { getSession } from "@/lib/auth-demo";
+import { getSessionWorker } from "@/lib/data/authz";
 import {
-  getWorkerBySlug,
   getWorkerById,
   createPurchaseCheckout as repoCreatePurchaseCheckout,
   confirmPurchase as repoConfirmPurchase,
@@ -58,8 +58,8 @@ export async function createCreditPurchaseAction(input: {
     return { ok: false, error: "Only worker accounts can buy credits." };
   }
 
-  // Resolve the worker — demo uses a hardcoded slug; real mode would use session.id.
-  const worker = await getWorkerBySlug("khaled-al-harbi-plumbing");
+  // The signed-in worker's own profile (never a fixed demo account).
+  const worker = await getSessionWorker(session);
   if (!worker) return { ok: false, error: "Worker account not found." };
 
   // Validate the package

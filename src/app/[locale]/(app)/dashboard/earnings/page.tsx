@@ -1,10 +1,11 @@
 import { getSession } from "@/lib/auth-demo";
-import { getWorkerBySlug, getWorkerBookings, getWorkerPayouts } from "@/lib/data/repo";
+import { getWorkerBookings, getWorkerPayouts } from "@/lib/data/repo";
 import { getWorkerLeadRebates } from "@/lib/data/lead-rebate";
 import { computeEarningsStatement, type EarningsMonth } from "@/lib/data/worker-earnings";
 import { EarningsStatementView } from "@/components/dashboard/earnings-statement";
 import { roiMonthWindow, roiMonthKeyOf } from "@/lib/data/worker-roi";
 import { localeRedirect } from "@/lib/i18n/redirect";
+import { getSessionWorker } from "@/lib/data/authz";
 
 export const metadata = { title: "Earnings Statement" };
 
@@ -31,7 +32,7 @@ export default async function EarningsPage({
   if (!session) return await localeRedirect("/auth/login");
   if (session.role !== "worker") return await localeRedirect("/dashboard");
 
-  const worker = await getWorkerBySlug("khaled-al-harbi-plumbing");
+  const worker = await getSessionWorker(session);
   if (!worker) return await localeRedirect("/dashboard");
 
   const params = await searchParams;

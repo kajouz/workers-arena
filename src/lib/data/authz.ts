@@ -280,6 +280,21 @@ export async function requireWorkerProfile(slug: string): Promise<WorkerProfileP
   return { ok: false, error: "unauthorized" };
 }
 
+/**
+ * The worker profile the signed-in session OWNS — the one identity every
+ * worker-facing page and action acts as. Real mode resolves the User→Worker
+ * FK; demo mode resolves the demo worker (`u-worker`), or a session seeded
+ * straight onto a worker row (the action tests). Null when signed out, not a
+ * worker, or the user has no worker profile yet — never another worker.
+ *
+ * Pass the session when the caller already read it (saves a cookie read).
+ */
+export async function getSessionWorker(session?: SessionUser | null): Promise<Worker | null> {
+  const s = session === undefined ? await getSession() : session;
+  if (!s || s.role !== "worker") return null;
+  return (await getWorkerByUserId(s.id)) ?? (await getWorkerById(s.id));
+}
+
 /** Require a signed-in session in one of `roles`. */
 export async function requireRole(
   ...roles: SessionUser["role"][]
