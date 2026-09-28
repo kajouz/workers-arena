@@ -25,6 +25,12 @@ name: Scheduled Jobs
 # safety net, not a precision timer: the retry sweep and the SLA nudge are both
 # idempotent, and any external scheduler can hit the same endpoints with the
 # same header. See docs/DEPLOYMENT.md §Cron.
+#
+# Idempotent jobs retry twice, 20 s apart: the database sleeps when idle and
+# the first query after that can outlast the request (the route itself also
+# retries once — src/lib/cron-route.ts). The two digests are POST (their GET
+# only answers "endpoint is ready", so they never sent) and are not retried,
+# so a slow run can't email twice.
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
@@ -55,7 +61,7 @@ jobs:
   hit:
     name: Call cron endpoints
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     env:
       BASE_URL: ${{ vars.APP_URL || 'https://workers-arena.vercel.app' }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -74,69 +80,69 @@ jobs:
       - name: WhatsApp retry sweep
         if: env.SCHEDULE == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 90 --retry 2 --retry-delay 20 -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/whatsapp-retries"
 
       - name: Booking-request SLA nudge
         if: env.SCHEDULE == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 90 --retry 2 --retry-delay 20 -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/requests"
 
       - name: Staged-completion auto-confirm
         if: env.SCHEDULE == '0 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 90 --retry 2 --retry-delay 20 -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/completions"
 
       - name: Masked-number expiry
         if: env.SCHEDULE == '5 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 90 --retry 2 --retry-delay 20 -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/masked-numbers-expire"
 
       - name: Recurring-job materialization
         if: env.SCHEDULE == '0 2 * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 90 --retry 2 --retry-delay 20 -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/recurring"
 
       - name: Daily digest
         if: env.SCHEDULE == '0 6 * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 120 -X POST \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/digest"
 
       - name: Booking and subscription reminders
         if: env.SCHEDULE == '0 7 * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 90 --retry 2 --retry-delay 20 -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/reminders"
 
       - name: Weekly admin digest
         if: env.SCHEDULE == '0 8 * * 1' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 120 -X POST \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/admin-digest"
 
       - name: Push-subscription prune
         if: env.SCHEDULE == '0 3 * * 0' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 90 --retry 2 --retry-delay 20 -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/push-prune"
 
       - name: Activity-log retention prune
         if: env.SCHEDULE == '30 3 * * 0' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -sS --fail-with-body -X GET \
+          curl -sS --fail-with-body --max-time 90 --retry 2 --retry-delay 20 -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/activity-prune"

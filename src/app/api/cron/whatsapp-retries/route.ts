@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { cronRoute } from "@/lib/cron-route";
 import { runWhatsAppRetrySweep } from "@/lib/data/whatsapp-delivery-store";
 
 export const revalidate = 0;
@@ -17,10 +18,12 @@ export const dynamic = "force-dynamic";
  * the outcome, and schedules the next attempt (or exhausts the row). The
  * admin audit view (/admin → WhatsApp deliveries) shows every attempt.
  */
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   const authError = verifyCronAuth(req);
   if (authError) return authError;
 
   const run = await runWhatsAppRetrySweep();
   return NextResponse.json({ ok: true, ...run });
 }
+
+export const GET = cronRoute("whatsapp-retries", handleGet);

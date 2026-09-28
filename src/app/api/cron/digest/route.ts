@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { cronRoute } from "@/lib/cron-route";
 import {
   generateWorkerDigestHTML,
   generateCustomerDigestHTML,
@@ -16,7 +17,7 @@ import {
  * Call this via: POST /api/cron/digest
  * Or schedule via: Vercel Cron (vercel.json) or external cron service
  */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const authError = verifyCronAuth(request);
   if (authError) return authError;
 
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 /**
  * GET handler — also cron-guarded (no open leak).
  */
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   const authError = verifyCronAuth(request);
   if (authError) return authError;
   return NextResponse.json({
@@ -63,3 +64,6 @@ export async function GET(request: Request) {
     usage: "POST /api/cron/digest with Authorization: Bearer <CRON_SECRET> or x-cron-secret",
   });
 }
+
+export const GET = cronRoute("digest", handleGet);
+export const POST = cronRoute("digest", handlePost);

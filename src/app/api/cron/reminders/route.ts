@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { cronRoute } from "@/lib/cron-route";
 import { runDueReminderEngine } from "@/lib/notifications/reminders";
 
 export const revalidate = 0;
@@ -17,10 +18,12 @@ export const dynamic = "force-dynamic";
  * null column) so overlapping cron invocations can never double-send. The
  * response includes `bookings: { dispatched, alreadySent, total }`.
  */
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   const authError = verifyCronAuth(req);
   if (authError) return authError;
 
   const run = await runDueReminderEngine();
   return NextResponse.json({ ok: true, ...run });
 }
+
+export const GET = cronRoute("reminders", handleGet);

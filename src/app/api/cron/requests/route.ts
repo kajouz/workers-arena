@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { cronRoute } from "@/lib/cron-route";
 import { runRequestSlaEngine } from "@/lib/data/request-sla";
 import { expireQuoteRequests } from "@/lib/data/repo";
 import { sweepExpiredOtpChallenges } from "@/lib/data/guest-otp";
@@ -26,7 +27,7 @@ export const dynamic = "force-dynamic";
  * Response:
  * `{ ok, nudged, expired, scanned, expiredNumbers, quotesExpired, otpChallengesDeleted }`.
  */
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   const authError = verifyCronAuth(req);
   if (authError) return authError;
 
@@ -35,3 +36,5 @@ export async function GET(req: Request) {
   const otpChallengesDeleted = await sweepExpiredOtpChallenges();
   return NextResponse.json({ ok: true, ...run, quotesExpired, otpChallengesDeleted });
 }
+
+export const GET = cronRoute("requests", handleGet);
