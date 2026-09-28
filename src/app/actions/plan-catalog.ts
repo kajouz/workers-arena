@@ -87,7 +87,7 @@ export async function getPlanCatalogAction(): Promise<PlanCatalogPayload> {
       plans: {
         basic: { monthlyPriceUsd: 15, includedLeads: 3, extraLeadPriceUsd: 0.05, searchBoost: 1 },
         professional: { monthlyPriceUsd: 39, includedLeads: 10, extraLeadPriceUsd: 0.04, searchBoost: 1.25 },
-        premium: { monthlyPriceUsd: 99, includedLeads: 25, extraLeadPriceUsd: 0.03, searchBoost: 1.5 },
+        premium: { monthlyPriceUsd: 59, includedLeads: 25, extraLeadPriceUsd: 0.03, searchBoost: 1.5 },
         enterprise: { monthlyPriceUsd: 199, includedLeads: 60, extraLeadPriceUsd: 0, searchBoost: 2 },
       },
       trialDays: 30,

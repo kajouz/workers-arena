@@ -30,7 +30,7 @@ Four tiers (USD/month, `PLAN_CATALOG` in `src/lib/data/subscription-plans.ts`; m
 |---|---|---|---|---|
 | **Starter** | $15 | $135 | 3 | Profile, search listing |
 | **Growth** | $39 | $351 | 10 | + Featured, verification |
-| **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
+| **Pro** | $59 | $531 | 25 | + Priority, analytics, emergency |
 | **Business** | $199 | $1,791 | 60 | + reduced 4% platform fee, team mgmt |
 
 **Monthly lead credits:** each plan's leads are paid out as credits once a month (included leads × the bronze lead price: 15 / 50 / 125 / 300 credits by default), by `GET /api/cron/lead-allowance` and at once when a plan payment is confirmed. Unused allowance credits expire when the next month's allowance is granted; purchased credits never expire (`src/lib/data/lead-allowance.ts`).
@@ -65,7 +65,7 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Pro | 5% | $5 | $300 |
 | Business | **4% reduced rate** | $5 | $300 |
 
-- The table is the **recommended ladder** (`FEE_LADDER_PRESET`); the shipped default rule set charges **7% on every plan and 4% for Business** until an admin publishes the ladder. Check `/admin/revenue-settings` for the rates actually in force.
+- The table is the plan ladder (`FEE_LADDER_PRESET`); the shipped default rule set **is this ladder** (since 2026-09-28); an admin-published rule set in `/admin/revenue-settings` overrides it.
 - Applied at **accept-with-quote** (immutable snapshot)
 - **Collected from money the platform actually holds** — a job's value arrives in two legs (the deposit before the work, the balance after it), and the ledger credits `collected − fee`, never more (`src/lib/data/booking-settlement.ts`)
 - Admin can set per-category, per-promotion overrides

@@ -411,7 +411,9 @@ export interface LeadRebateConfig {
   maxMinor: number | null;
 }
 
-export const DEFAULT_LEAD_REBATE: LeadRebateConfig = { enabled: true, pctBps: 10_000, maxMinor: null };
+/** Step 4 (2026-09-28): 50% of the lead's price comes back off the job's fee
+ * (was 100%, which left the platform only the larger of lead price or fee). */
+export const DEFAULT_LEAD_REBATE: LeadRebateConfig = { enabled: true, pctBps: 5_000, maxMinor: null };
 
 /** Why a rebate came out the size it did (shown to the worker + the admin). */
 export type LeadRebateLimit = "disabled" | "no-lead" | "fee" | "lead-cost" | "ceiling";

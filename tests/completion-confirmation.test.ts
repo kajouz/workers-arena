@@ -85,17 +85,17 @@ describe("customer-confirms-completion — demo lifecycle (§2.3)", () => {
   });
 
   it("customer confirm → completed: earnings credit + worker notified; re-confirm is a no-op", async () => {
-    const staged = await stagedBooking(8000); // fee 560 → net 7440
+    const staged = await stagedBooking(8000); // Pro 5%: $4 floored to $5 → net 7500
     const confirmed = await demoConfirmBookingCompletion(staged.id);
     expect(confirmed?.status).toBe("completed");
     expect(confirmed!.events.at(-1)).toMatchObject({ status: "completed", actorType: "customer" });
-    expect((await demoGetWorkerBalance(khaled().id)).availableMinor).toBe(7440);
+    expect((await demoGetWorkerBalance(khaled().id)).availableMinor).toBe(7500);
 
     const inbox = await getNotifications();
     expect(inbox.some((n) => n.type === "bookingCompletionConfirmed" && n.href === "/dashboard")).toBe(true);
     expect(await demoConfirmBookingCompletion(staged.id)).toBeNull(); // already completed
     // No double-credit.
-    expect((await demoGetWorkerBalance(khaled().id)).availableMinor).toBe(7440);
+    expect((await demoGetWorkerBalance(khaled().id)).availableMinor).toBe(7500);
   });
 
   it("confirming a non-staged booking is rejected", async () => {
@@ -124,7 +124,7 @@ describe("customer-confirms-completion — demo lifecycle (§2.3)", () => {
     expect(await demoAutoConfirmCompletions(NOW)).toBe(1);
     expect(staged.status).toBe("completed");
     expect(staged.events.at(-1)).toMatchObject({ status: "completed", actorType: "system" });
-    expect((await demoGetWorkerBalance(khaled().id)).availableMinor).toBe(7440);
+    expect((await demoGetWorkerBalance(khaled().id)).availableMinor).toBe(7500);
     const inbox = await getNotifications();
     expect(inbox.some((n) => n.type === "bookingCompleted" && n.href === "/bookings")).toBe(true);
   });

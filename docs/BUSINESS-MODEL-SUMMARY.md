@@ -40,7 +40,7 @@ Four tiers, USD/month (admin-editable via plan catalog):
 |------|---------|-------------|-----------|
 | **Starter** | $15 | $135 | Profile, search listing, 3 leads/mo |
 | **Growth** | $39 | $351 | + Featured placement, 10 leads/mo, verification |
-| **Pro** | $99 | $891 | + Priority matching, analytics, 25 leads/mo, emergency |
+| **Pro** | $59 | $531 | + Priority matching, analytics, 25 leads/mo, emergency |
 | **Business** | $199 | $1,791 | + reduced 4% transaction fee, 60 leads/mo as credits, team management |
 
 **Category-adjusted pricing** — trades are classified by average job value:
@@ -201,7 +201,7 @@ Customer books job → Worker accepts with quote → Job completes
 | Avg job value | $80 | $150 | $200 |
 | GMV | $400 | $1,800 | $5,000 |
 | Platform fee (9%/7%/5%) | $36 | $126 | $250 |
-| Subscription cost | $15 | $39 | $99 |
+| Subscription cost | $15 | $39 | $59 |
 | Leads purchased (5/mo) | $25 | $45 | $100 |
 | **Net earnings** | **$324** | **$1,590** | **$4,551** |
 | **ROI (earnings / spend)** | **6.0×** | **17.1×** | **23.0×** |
@@ -210,7 +210,7 @@ Customer books job → Worker accepts with quote → Job completes
 
 | Stream | Starter | Growth | Pro |
 |--------|---------|--------|-----|
-| Subscription | $15 | $39 | $99 |
+| Subscription | $15 | $39 | $59 |
 | Take rate | $36 | $126 | $250 |
 | Lead credits | $12.50 | $22.50 | $50 |
 | **Total platform revenue** | **$63.50** | **$187.50** | **$399** |

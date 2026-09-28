@@ -738,9 +738,10 @@ describe("§7–§9 the marketplace store", () => {
       leadCostMinor: mine.priceCredits * 100,
       feeMinor: fee,
       // Phase 2 smart pricing can move the locked gold price above its $20
-      // base. The rebate remains bounded by whichever is smaller: fee or lead.
-      rebateMinor: Math.min(fee, mine.priceCredits * 100),
-      effectiveFeeMinor: fee - Math.min(fee, mine.priceCredits * 100),
+      // base. The shipped policy gives back 50% of the fee, never more than
+      // the lead cost.
+      rebateMinor: Math.min(Math.round(fee / 2), mine.priceCredits * 100),
+      effectiveFeeMinor: fee - Math.min(Math.round(fee / 2), mine.priceCredits * 100),
       ruleId: expect.any(String),
       // The rule set in force (this suite publishes one to set the wallet minimum).
       ruleVersion: (await loadActiveFeeRuleSet()).version,
@@ -783,12 +784,15 @@ describe("§7–§9 the marketplace store", () => {
     const mine = created.find((o) => o.workerId === worker.id)!;
     expect(mine.grade).toBe("gold");
     await purchaseLeadOffer(mine.id, worker.id);
+    // A 100% share, so the FEE (not the share) is what limits the rebate.
+    await saveFeeRuleSet({ leadMarket: { rebate: { enabled: true, pctBps: 10_000, maxMinor: null } } });
 
-    // A modest job: 7% of $100 is $7 — BELOW the $20 lead — so the fee is the
-    // cap, the platform keeps nothing, and the worker is made whole on the lead.
+    // A modest job: the Pro rate (5%) of $100 is $5 — BELOW the $20 lead — so
+    // the fee is the cap, the platform keeps nothing, and the worker is made
+    // whole on the lead.
     const done = await completeLeadJob({ workerId: worker.id, leadId: mine.leadId, quoteMinor: 10_000, hourOffset: 41 });
     const fee = done.platformFee!;
-    expect(fee).toBe(700);
+    expect(fee).toBe(500);
     expect(fee).toBeLessThan(mine.priceCredits * 100);
 
     const rebate = (await listLeadRebates(10)).find((r) => r.leadId === mine.leadId)!;
@@ -832,8 +836,8 @@ describe("§7–§9 the marketplace store", () => {
 
   it("honours a share-of-fee policy and a per-job ceiling", async () => {
     const worker = workerBySlug(DEMO_WORKER)!;
-    // Half the fee, never more than $10.
-    await saveFeeRuleSet({ leadMarket: { rebate: { enabled: true, pctBps: 5_000, maxMinor: 1_000 } } });
+    // Half the fee, never more than $5.
+    await saveFeeRuleSet({ leadMarket: { rebate: { enabled: true, pctBps: 5_000, maxMinor: 500 } } });
     await grantCredits({ workerId: worker.id, amount: 100, reason: "seed" });
     const { created } = await offerQualifiedLead({
       lead: {
@@ -853,12 +857,12 @@ describe("§7–§9 the marketplace store", () => {
     const done = await completeLeadJob({ workerId: worker.id, leadId: mine.leadId, quoteMinor: 30_000, hourOffset: 44 });
     const fee = done.platformFee!;
 
-    // 50% of a $21 fee is $10.50, but the $10 ceiling wins.
+    // 50% of a $15 fee (Pro 5% of $300) is $7.50, but the $5 ceiling wins.
     const rebate = (await listLeadRebates(10)).find((r) => r.leadId === mine.leadId)!;
     expect(rebate.pctBps).toBe(5_000);
-    expect(rebate.maxMinor).toBe(1_000);
-    expect(rebate.rebateMinor).toBe(1_000);
-    expect(rebate.effectiveFeeMinor).toBe(fee - 1_000);
+    expect(rebate.maxMinor).toBe(500);
+    expect(rebate.rebateMinor).toBe(500);
+    expect(rebate.effectiveFeeMinor).toBe(fee - 500);
     expect(rebate.limitedBy).toBe("ceiling");
   });
 

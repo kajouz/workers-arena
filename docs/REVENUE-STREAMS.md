@@ -97,7 +97,7 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 |------|---------|-------------|----------|-----------|
 | **Starter** | $15 | $135 | 3 | Profile, search listing |
 | **Growth** | $39 | $351 | 10 | + Featured, verification |
-| **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
+| **Pro** | $59 | $531 | 25 | + Priority, analytics, emergency |
 | **Business** | $199 | $1,791 | 60 | + reduced 4% platform fee, team mgmt |
 
 **Category-Adjusted Pricing:**
@@ -212,7 +212,7 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 
 **How it works:**
 - `rebate = min(fee × pctBps/10000, lead cost, ceiling)`
-- Default: 100% of fee share, no ceiling
+- Default: 50% of the fee (since 2026-09-28; was 100%), no ceiling
 - Recorded in `LeadRebate` model (append-only)
 - Shown on worker booking row and lead board
 

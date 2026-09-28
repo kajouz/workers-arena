@@ -86,7 +86,7 @@ interface PaymentProvider {
 |------|---------|-------------|----------|
 | **Starter** | $15 | $135 | 3 |
 | **Growth** | $39 | $351 | 10 |
-| **Pro** | $99 | $891 | 25 |
+| **Pro** | $59 | $531 | 25 |
 | **Business** | $199 | $1,791 | 60 |
 
 - **Monthly lead credits**: the leads/mo column is paid as credits once a month (leads × bronze price; unused allowance expires at the next grant) — `src/lib/data/lead-allowance.ts`
@@ -266,7 +266,7 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Pro | 5% | $5 | $300 |
 | Business | 4% reduced | $5 | $300 |
 
-- The table is the **recommended ladder** (`FEE_LADDER_PRESET`). The shipped default rule set charges **7% on every plan and 4% for Business** until an admin publishes the ladder from `/admin/revenue-settings`.
+- The table is the plan ladder (`FEE_LADDER_PRESET`): the shipped default rule set **is this ladder** (since 2026-09-28); an admin-published rule set in `/admin/revenue-settings` overrides it.
 - Applied at **accept-with-quote** (immutable snapshot) — including a multi-candidate quote winner accepted without re-typing its bid
 - Collected at **booking completion**
 - Admin can set per-category, per-promotion overrides
@@ -280,15 +280,15 @@ When a bought lead converts to a completed job:
 rebate = min(fee × pctBps/10000, lead cost, ceiling)
 ```
 
-- Default: 100% of fee share, no ceiling
+- Default: 50% of the fee (since 2026-09-28; was 100%), no ceiling
 - Recorded in `LeadRebate` model (append-only)
 - Shown on worker booking row and lead board
 - Admin-configurable (on/off, share, ceiling)
 
 **Example:**
-- 7% of $300 = $21 fee
+- 7% of $300 = $21 fee (a Growth worker)
 - Gold lead cost $20
-- Rebate $20 → platform keeps $1, worker nets $299
+- Rebate 50% of $21 = $10.50 → platform keeps $10.50, worker nets $289.50
 
 ## Refunds & disputes
 
