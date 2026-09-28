@@ -963,9 +963,9 @@ async function main() {
   assert(accepted!.status === "confirmed", "accept → CONFIRMED");
   assert(accepted!.quote === 8000, "quote stored in minor units");
   // M5 take rate (docs/booking-take-rate.md) — the fee snapshot stamps inside
-  // the same tx, from the seeded Khaled (premium — not exempt): 7% of 8000 = 560.
+  // the same tx, from the seeded Khaled (premium — not exempt): the ladder's Pro rate, 5% of 8000 = 400, floored to 500.
   assert(
-    accepted!.platformFee === 560 && accepted!.platformFeeRateBps === 700,
+    accepted!.platformFee === 500 && accepted!.platformFeeRateBps === 500,
     "M5 platform fee + audit rate stamped at accept-with-quote"
   );
   // §5/§6 (docs/fee-rules.md) — the SAME accept writes the immutable
@@ -976,10 +976,10 @@ async function main() {
   });
   assert(feeSnapshot !== null, "§6 fee snapshot row written at accept-with-quote");
   assert(
-    feeSnapshot!.feeMinor === 560 &&
+    feeSnapshot!.feeMinor === 500 &&
       feeSnapshot!.subtotalMinor === 8000 &&
-      feeSnapshot!.netMinor === 7440 &&
-      feeSnapshot!.rateBps === 700 &&
+      feeSnapshot!.netMinor === 7500 &&
+      feeSnapshot!.rateBps === 500 &&
       feeSnapshot!.ruleVersion >= 1,
     "§6 snapshot carries the fee, the quote, the net, the rate and the rule version"
   );
@@ -1389,8 +1389,8 @@ async function main() {
   const ccFunded = await prismaSettlementFor(ccCreated.id);
   assert(ccFunded?.state === "funded", "confirming the balance funds the job");
   assert(
-    ccFunded!.collectedMinor === 8000 && ccFunded!.feeCollectedMinor === 560,
-    "collected 8000 with the 560 fee taken out of the money received"
+    ccFunded!.collectedMinor === 8000 && ccFunded!.feeCollectedMinor === 500,
+    "collected 8000 with the 500 fee taken out of the money received"
   );
   assert(
     (await prismaConfirmBookingSettlement(ccCreated.id, ccPending!.reference!)) === null,
@@ -1409,8 +1409,8 @@ async function main() {
   assert(ccEvents.some((e) => e.status === "COMPLETED" && e.actorType === "system"), "system-actor COMPLETED audit event");
   const ccLedger = await prisma.workerLedgerEntry.findMany({ where: { bookingId: ccCreated.id } });
   assert(
-    ccLedger.length === 1 && ccLedger[0]!.kind === "EARNING" && ccLedger[0]!.amount === 7440,
-    "exactly one EARNING of the net (8000 − 560 fee) — the collection credited it, the auto-confirm did not double it"
+    ccLedger.length === 1 && ccLedger[0]!.kind === "EARNING" && ccLedger[0]!.amount === 7500,
+    "exactly one EARNING of the net (8000 − 500 fee) — the collection credited it, the auto-confirm did not double it"
   );
   const ccReceipt = await prisma.notification.findMany({ where: { type: "BOOKING_COMPLETED" } });
   assert(ccReceipt.some((n) => n.bodyEn?.includes(ccCreated.number)), "customer completion receipt persisted");
@@ -1435,7 +1435,7 @@ async function main() {
   assert(outsideAfter?.state === "outside-platform", "a directly-settled job reads outside-platform");
   assert(outsideAfter!.collectedMinor === 0 && outsideAfter!.workerNetTargetMinor === 0, "the platform credits nothing it did not collect");
   assert(
-    outsideAfter!.feeClaimMinor === 560 && outsideAfter!.feeClaimOutstandingMinor === 560,
+    outsideAfter!.feeClaimMinor === 500 && outsideAfter!.feeClaimOutstandingMinor === 500,
     "the uncollected fee is recorded as a claim, not as revenue"
   );
   assert(
@@ -1460,7 +1460,7 @@ async function main() {
   const reconFunded = reconRows.find((r) => r.bookingId === ccCreated.id);
   assert(reconFunded !== undefined, "the reconciliation window finds the funded job too");
   assert(
-    reconFunded!.creditedMinor === 7440 && reconFunded!.settlement.collectedMinor === 8000,
+    reconFunded!.creditedMinor === 7500 && reconFunded!.settlement.collectedMinor === 8000,
     "a funded job's ledger credit is backed by collected money"
   );
   assert(
@@ -1815,7 +1815,7 @@ async function main() {
     jobTitle: "Smoke payout booking",
   });
   if ("error" in poCreated) throw new Error(`SMOKE ASSERT FAILED: payout create → ${poCreated.error}`);
-  await prismaRespondToBooking(poCreated.id, { accept: true, quote: 10000 }); // fee 700 → net 9300
+  await prismaRespondToBooking(poCreated.id, { accept: true, quote: 10000 }); // Pro 5% fee 500 → net 9500
   assert((await prismaTransitionBooking(poCreated.id, "inProgress")) !== null, "payout booking → inProgress");
   // §2.3 — the worker's flip stages; the customer's confirm credits the ledger.
   assert((await prismaTransitionBooking(poCreated.id, "completed"))?.status === "completionPending", "payout booking staged (COMPLETION_PENDING)");
@@ -1834,8 +1834,8 @@ async function main() {
 
   const poBalance = await prismaGetWorkerBalance(khaled!.id);
   assert(
-    poBalance.availableMinor === poBefore.availableMinor + 9300,
-    `completion credits net earnings (available +9300, got ${poBalance.availableMinor - poBefore.availableMinor})`
+    poBalance.availableMinor === poBefore.availableMinor + 9500,
+    `completion credits net earnings (available +9500, got ${poBalance.availableMinor - poBefore.availableMinor})`
   );
   assert(poBalance.pendingMinor === 0, "no pending before a withdrawal");
 
@@ -1852,7 +1852,7 @@ async function main() {
   assert(poDecided?.status === "processed", "approval settles the payout");
   const poAfter = await prismaGetWorkerBalance(khaled!.id);
   assert(poAfter.pendingMinor === 0, "settled payout no longer pending");
-  assert(poAfter.availableMinor === poBefore.availableMinor + 4300, "approval debits the balance (9300 − 5000)");
+  assert(poAfter.availableMinor === poBefore.availableMinor + 4500, "approval debits the balance (9500 − 5000)");
 
   // Cleanup — restore the seed: drop the smoke's ledger rows + booking + slot.
   await prisma.workerLedgerEntry.deleteMany({ where: { bookingId: poCreated.id } });
@@ -2603,10 +2603,10 @@ async function main() {
   const recAccepted = await prismaRespondToRecurring(recReq.recurring.id, { accept: true, quote: 10000 });
   assert(recAccepted !== null, "recurring accept returns the contract");
   assert(recAccepted!.occurrences[0]?.status === "confirmed", "anchor occurrence CONFIRMED");
-  // 7% take rate (PLATFORM_FEE_RATE_BPS = 700) on the 10000 quote → 700 minor.
+  // The ladder's Pro rate (5%) on the 10000 quote → 500 minor.
   assert(
-    recAccepted!.occurrences[0]?.quote === 10000 && recAccepted!.occurrences[0]?.platformFee === 700,
-    "quote + take-rate stamped (10000 × 7% = 700 minor)"
+    recAccepted!.occurrences[0]?.quote === 10000 && recAccepted!.occurrences[0]?.platformFee === 500,
+    "quote + take-rate stamped (10000 × 5% = 500 minor)"
   );
   const recAnchorAfter2 = await prisma.bookingSlot.findUnique({ where: { id: recSlot.id } });
   assert(recAnchorAfter2?.status === "BOOKED", "anchor slot BOOKED after accept");
