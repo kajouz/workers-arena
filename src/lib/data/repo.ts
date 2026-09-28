@@ -67,6 +67,7 @@ import {
   demoMarkBookingSettledOutside,
   demoSettlementFor,
   demoSettlementReconciliation,
+  demoRecordFeeClaimCollection,
   demoRequestPayout,
   demoDecidePayout,
   demoGetWorkerPayouts,
@@ -347,6 +348,15 @@ export async function getWorkerById(id: string): Promise<Worker | null> {
   if (realDataEnabled) return (await prismaRepo()).prismaGetWorkerById(id);
   const w = workerById(id);
   return w ? withDemoSignals([w])[0] : null;
+}
+
+/** Switch wallet auto-renew on/off for a worker's subscription. */
+export async function setSubscriptionAutoRenew(workerId: string, enabled: boolean): Promise<boolean> {
+  if (realDataEnabled) return (await prismaRepo()).prismaSetSubscriptionAutoRenew(workerId, enabled);
+  const w = workerById(workerId);
+  if (!w) return false;
+  w.subscription.autoRenew = enabled;
+  return true;
 }
 
 /** Resolve the worker profile owned by an authenticated user. */
@@ -1266,6 +1276,16 @@ export async function getSettlementReconciliation(days = 30): Promise<Settlement
   return demoSettlementReconciliation(days);
 }
 
+/** Record a fee-claim collection on an outside-platform job (CAS). */
+export async function recordFeeClaimCollection(
+  bookingId: string,
+  expectedCollectedMinor: number,
+  addMinor: number
+): Promise<boolean> {
+  if (realDataEnabled) return (await prismaRepo()).prismaRecordFeeClaimCollection(bookingId, expectedCollectedMinor, addMinor);
+  return demoRecordFeeClaimCollection(bookingId, expectedCollectedMinor, addMinor);
+}
+
 /**
  * Worker payouts (docs/payouts.md) — the worker's spendable balance from the
  * ledger: available = Σ posted earnings/adjustments − Σ processed withdrawals;
@@ -2136,8 +2156,8 @@ export async function createPurchaseCheckout(input: {
   /** A credit top-up's pack (validated by the caller): its price is the
    * charge, `credits` land in the PAID pot and `bonusCredits` in the FREE one. */
   creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
-  method: "OMT" | "WHISH";
-}): Promise<{ url: string } | null> {
+  method: "OMT" | "WHISH" | "WALLET";
+}): Promise<{ url: string; paymentId: string; amountMinor: number } | null> {
   if (realDataEnabled) return (await prismaRepo()).prismaCreatePurchaseCheckout(input);
   return demoCreatePurchaseCheckout(input);
 }

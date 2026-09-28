@@ -48,7 +48,9 @@ import {
   setSlotBlocked,
   submitQuote,
   transitionBooking,
+  getBookingSettlement,
 } from "@/lib/data/repo";
+import { collectFeeClaims } from "@/lib/data/wallet-payments";
 import { MAX_QUOTE_WORKERS } from "@/lib/data/types";
 import type { BookingTransitionTarget, RecurringFrequency, Worker } from "@/lib/data/types";
 import { renderBookingAuditPrint, renderBookingTrailsPrint } from "@/lib/data/booking-print";
@@ -792,6 +794,12 @@ export async function markBookingSettledOutsideAction(
     ...(reason ? { reason: sanitizeText(reason, 200) } : {}),
   });
   if (!updated) return { ok: false, error: "not-found" };
+  // The platform's commission on a cash job is a claim: collect what the
+  // worker's wallet covers right away (the daily wallet run retries the rest).
+  const settlement = await getBookingSettlement(bookingId);
+  if (settlement) {
+    await collectFeeClaims([{ bookingId, number: updated.number, workerId: updated.workerId, settlement }]);
+  }
   revalidatePath("/bookings");
   revalidatePath("/dashboard");
   revalidatePath("/admin");

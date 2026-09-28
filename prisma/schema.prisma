@@ -62,6 +62,7 @@ enum PaymentMethod {
   CASH
   OMT // Lebanon-first manual money-mover (docs/PAYMENTS.md) — agent/OMT Intra
   WHISH // Lebanon-first digital wallet + dual-currency Visa (manual, admin-confirmed)
+  WALLET // paid from the worker's prepaid wallet (the PAID credit pot) — not new cash
 }
 
 enum PaymentStatus {
