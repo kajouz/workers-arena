@@ -7,7 +7,9 @@ import {
   getCampaigns,
   getPendingManualPayments,
   getPlatformFeeStats,
+  getWeeklyNumbers,
 } from "@/lib/data/repo";
+import { pct, REVENUE_SCOPES } from "@/lib/data/weekly-numbers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,11 +25,12 @@ export default async function RevenueDashboardPage() {
 
   const { locale } = await getI18n();
 
-  const [workers, campaigns, manualPayments, feeStats] = await Promise.all([
+  const [workers, campaigns, manualPayments, feeStats, sheet] = await Promise.all([
     getAllWorkers(),
     getCampaigns(),
     getPendingManualPayments(),
     getPlatformFeeStats(90),
+    getWeeklyNumbers(8),
   ]);
 
   // Calculate revenue breakdown
@@ -49,20 +52,24 @@ export default async function RevenueDashboardPage() {
   // Total revenue
   const totalRevenue = subscriptionRevenue + campaignRevenue + platformFees;
 
-  // Monthly breakdown (simulated for demo)
-  const monthlyData = [
-    { month: "Jan", subscriptions: 12500, campaigns: 3200, fees: 1800 },
-    { month: "Feb", subscriptions: 14200, campaigns: 4100, fees: 2100 },
-    { month: "Mar", subscriptions: 15800, campaigns: 5600, fees: 2400 },
-    { month: "Apr", subscriptions: 16400, campaigns: 4800, fees: 2200 },
-    { month: "May", subscriptions: 18200, campaigns: 6200, fees: 2800 },
-    { month: "Jun", subscriptions: 19500, campaigns: 7100, fees: 3100 },
-  ];
+  // Weekly trend from confirmed payments and collected commission (oldest
+  // first for the bars). Worker purchases = every non-campaign revenue scope.
+  const weeklyTrend = [...sheet.weeks].reverse().map((w) => {
+    const campaigns = w.revenueMinor.campaign / 100;
+    const fees = w.commissionCollectedMinor / 100;
+    const purchases = w.totalRevenueMinor / 100 - campaigns - fees;
+    return { week: w, purchases, campaigns, fees, total: purchases + campaigns + fees };
+  });
 
-  const lastMonth = monthlyData[monthlyData.length - 1];
-  const prevMonth = monthlyData[monthlyData.length - 2];
-  const monthlyGrowth = ((lastMonth.subscriptions + lastMonth.campaigns + lastMonth.fees) /
-    (prevMonth.subscriptions + prevMonth.campaigns + prevMonth.fees) - 1) * 100;
+  // Growth = the last FULL week against the one before (the current week is
+  // still running, so comparing it would always read as a drop).
+  const lastFullWeek = sheet.weeks[1];
+  const weekBefore = sheet.weeks[2];
+  const weeklyGrowth =
+    lastFullWeek && weekBefore && weekBefore.totalRevenueMinor > 0
+      ? (lastFullWeek.totalRevenueMinor / weekBefore.totalRevenueMinor - 1) * 100
+      : null;
+  const showPct = (v: number | null) => (v === null ? "—" : `${v}%`);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -82,7 +89,14 @@ export default async function RevenueDashboardPage() {
             Track revenue by source, view trends, and export financial data
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/api/admin/revenue/weekly?format=csv&weeks=12"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-ink-200 px-3 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-50 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-800"
+          >
+            <Download className="size-4" />
+            Weekly numbers CSV
+          </Link>
           <Link
             href="/api/admin/revenue/reconciliation?format=csv"
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-ink-200 px-3 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-50 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-800"
@@ -117,8 +131,17 @@ export default async function RevenueDashboardPage() {
             </div>
             <div className="mt-2 flex items-center gap-1 text-xs">
               <TrendingUp className="size-3 text-emerald-500" />
-              <span className="text-emerald-600">+{monthlyGrowth.toFixed(1)}%</span>
-              <span className="text-ink-400">vs last month</span>
+              {weeklyGrowth === null ? (
+                <span className="text-ink-400">No revenue the week before to compare</span>
+              ) : (
+                <>
+                  <span className={weeklyGrowth >= 0 ? "text-emerald-600" : "text-red-600"}>
+                    {weeklyGrowth >= 0 ? "+" : ""}
+                    {weeklyGrowth.toFixed(1)}%
+                  </span>
+                  <span className="text-ink-400">last full week vs the week before</span>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -212,32 +235,33 @@ export default async function RevenueDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Monthly Trend */}
+        {/* Weekly Trend — confirmed money only */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Monthly Revenue Trend</CardTitle>
+            <CardTitle className="text-base">Weekly Revenue (confirmed)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {monthlyData.map((month) => {
-                const total = month.subscriptions + month.campaigns + month.fees;
+              {weeklyTrend.map(({ week, purchases, campaigns, fees, total }) => {
+                const peak = Math.max(...weeklyTrend.map((t) => t.total), 1);
                 return (
-                  <div key={month.month} className="flex items-center gap-3">
-                    <span className="w-10 text-xs font-medium text-ink-500">{month.month}</span>
+                  <div key={week.weekStart} className="flex items-center gap-3">
+                    <span className="w-20 text-xs font-medium text-ink-500">
+                      {formatDate(week.weekStart, locale)}
+                      {week.partial ? "*" : ""}
+                    </span>
                     <div className="flex-1">
-                      <div className="flex h-4 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800">
-                        <div
-                          className="bg-blue-500"
-                          style={{ width: `${(month.subscriptions / total) * 100}%` }}
-                        />
-                        <div
-                          className="bg-violet-500"
-                          style={{ width: `${(month.campaigns / total) * 100}%` }}
-                        />
-                        <div
-                          className="bg-brand-500"
-                          style={{ width: `${(month.fees / total) * 100}%` }}
-                        />
+                      <div
+                        className="flex h-4 overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800"
+                        style={{ width: `${Math.max((total / peak) * 100, 0)}%` }}
+                      >
+                        {total > 0 && (
+                          <>
+                            <div className="bg-blue-500" style={{ width: `${(Math.max(purchases, 0) / total) * 100}%` }} />
+                            <div className="bg-violet-500" style={{ width: `${(Math.max(campaigns, 0) / total) * 100}%` }} />
+                            <div className="bg-brand-500" style={{ width: `${(Math.max(fees, 0) / total) * 100}%` }} />
+                          </>
+                        )}
                       </div>
                     </div>
                     <span className="w-20 text-end text-xs font-bold text-ink-900 dark:text-ink-50">
@@ -247,10 +271,11 @@ export default async function RevenueDashboardPage() {
                 );
               })}
             </div>
+            <p className="mt-3 text-xs text-ink-400">* current week, still running. Weeks start Monday (UTC).</p>
             <div className="mt-4 flex items-center gap-4 text-xs text-ink-400">
               <div className="flex items-center gap-1">
                 <div className="size-2 rounded-full bg-blue-500" />
-                Subscriptions
+                Worker purchases
               </div>
               <div className="flex items-center gap-1">
                 <div className="size-2 rounded-full bg-violet-500" />
@@ -258,9 +283,77 @@ export default async function RevenueDashboardPage() {
               </div>
               <div className="flex items-center gap-1">
                 <div className="size-2 rounded-full bg-brand-500" />
-                Fees
+                Commission collected
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Weekly numbers sheet — the revenue plan's Step 1 scoreboard */}
+      <div className="mt-8">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Weekly Numbers</CardTitle>
+            <p className="text-xs text-ink-500 dark:text-ink-400">
+              {sheet.activePlans} workers on an active plan (trials included) · {sheet.pendingPayments} manual
+              payments waiting, {sheet.pendingOverTarget} of them for more than 2 hours
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[860px] text-sm">
+                <thead>
+                  <tr className="border-b border-ink-200 text-start text-xs text-ink-500 dark:border-ink-800 dark:text-ink-400">
+                    <th className="py-2 pe-3 text-start font-semibold">Week of</th>
+                    <th className="py-2 pe-3 text-end font-semibold">Revenue</th>
+                    <th className="py-2 pe-3 text-end font-semibold">Commission recorded</th>
+                    <th className="py-2 pe-3 text-end font-semibold">Collected</th>
+                    <th className="py-2 pe-3 text-end font-semibold">Jobs done</th>
+                    <th className="py-2 pe-3 text-end font-semibold">Paid in cash</th>
+                    <th className="py-2 pe-3 text-end font-semibold">Confirmed ≤ 2h</th>
+                    <th className="py-2 pe-3 text-end font-semibold">Median wait</th>
+                    <th className="py-2 pe-3 text-end font-semibold">Renewals / lapses</th>
+                    <th className="py-2 pe-3 text-end font-semibold">New trials</th>
+                    <th className="py-2 text-end font-semibold">Customer requests</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sheet.weeks.map((w) => (
+                    <tr key={w.weekStart} className="border-b border-ink-100 last:border-0 dark:border-ink-800/60">
+                      <td className="py-2 pe-3 font-medium text-ink-700 dark:text-ink-200">
+                        {formatDate(w.weekStart, locale)}
+                        {w.partial && <span className="ms-1 text-xs text-ink-400">(so far)</span>}
+                      </td>
+                      <td
+                        className="py-2 pe-3 text-end font-bold text-ink-900 dark:text-ink-50"
+                        title={REVENUE_SCOPES.map((s) => `${s}: ${formatPrice(w.revenueMinor[s] / 100)}`).join(" · ")}
+                      >
+                        {formatPrice(w.totalRevenueMinor / 100)}
+                      </td>
+                      <td className="py-2 pe-3 text-end">{formatPrice(w.commissionRecordedMinor / 100)}</td>
+                      <td className="py-2 pe-3 text-end">{showPct(pct(w.commissionCollectedMinor, w.commissionRecordedMinor))}</td>
+                      <td className="py-2 pe-3 text-end">{w.jobsCompleted}</td>
+                      <td className="py-2 pe-3 text-end">{showPct(pct(w.jobsPaidOutside, w.jobsCompleted))}</td>
+                      <td className="py-2 pe-3 text-end">{showPct(pct(w.confirmedWithinTarget, w.paymentsConfirmed))}</td>
+                      <td className="py-2 pe-3 text-end">
+                        {w.medianConfirmHours === null ? "—" : `${w.medianConfirmHours.toFixed(1)}h`}
+                      </td>
+                      <td className="py-2 pe-3 text-end">
+                        {w.renewals} / {w.lapses}
+                      </td>
+                      <td className="py-2 pe-3 text-end">{w.trialsStarted}</td>
+                      <td className="py-2 text-end">{w.customerRequests}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-ink-400">
+              Revenue = confirmed worker and company purchases, net of refunds, plus commission collected. Commission is
+              counted in the week the job finished; &ldquo;Collected&rdquo; is how much of it has been collected so far.
+              Hover a revenue figure for the split by stream.
+            </p>
           </CardContent>
         </Card>
       </div>

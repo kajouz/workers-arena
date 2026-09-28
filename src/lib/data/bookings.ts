@@ -549,6 +549,7 @@ export function demoSettlementReconciliation(days = 30): SettlementJob[] {
         workerNameEn: worker?.nameEn ?? "—",
         workerNameAr: worker?.nameAr ?? "—",
         status: b.status,
+        completedAt: b.events.findLast((e) => e.status === "completed")?.time,
         reference: STORE.settlements.get(b.id)?.status === "pending" ? STORE.settlements.get(b.id)!.providerRef ?? null : null,
         settlement,
         creditedMinor: credited,
