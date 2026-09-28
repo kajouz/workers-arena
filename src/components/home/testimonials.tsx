@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { Quote } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { SectionHeading } from "@/components/shared/section-heading";

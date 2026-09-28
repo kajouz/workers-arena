@@ -1,7 +1,7 @@
 "use client";
 
 import { QRCodeSVG } from "qrcode.react";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { Heart, Share2, QrCode, MapPin, CalendarDays, Link2, Check, MessageCircle, Zap, CalendarCheck2, ShieldCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { Worker } from "@/lib/data/types";

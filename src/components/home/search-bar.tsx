@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocaleRouter } from "@/components/i18n/link";
 import { Search, Mic, Sparkles, TrendingUp, UserRound, ShieldCheck } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m as motion } from "framer-motion";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useVoiceSearch } from "@/hooks/use-voice-search";

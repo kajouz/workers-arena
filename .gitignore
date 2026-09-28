@@ -75,3 +75,6 @@ playwright-report/
 # Vercel CLI writes a short-lived OIDC token here (`vercel env pull`, `vercel dev`).
 # It was committed once already — never again.
 .env.vercel
+
+# Lighthouse CI runs/reports (lhci autorun)
+.lighthouseci/

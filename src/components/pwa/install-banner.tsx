@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePromptSlot } from "@/components/providers/prompt-queue";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import { Download, X, Wifi, WifiOff, Zap, Smartphone, Share } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";

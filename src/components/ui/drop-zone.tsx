@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import { Upload, File, X, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "./button";
 import { cn } from "@/lib/utils";
