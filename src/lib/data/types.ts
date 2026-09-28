@@ -1307,6 +1307,8 @@ export interface PendingManualPayment {
   reference: string;
   /** Signed instructions URL, reused when the worker returns to renewal. */
   checkoutUrl?: string;
+  /** Step 3 — when the payer uploaded a photo of their receipt, if they did. */
+  receiptUploadedAt?: string;
   createdAt: string;
 }
 

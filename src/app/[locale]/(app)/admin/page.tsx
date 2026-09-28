@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth-demo";
+import { withReceiptTimes } from "@/lib/data/payment-receipts";
 import { getI18n } from "@/lib/i18n/server";
 import {
   getAnalyticsOverview,
@@ -170,7 +171,8 @@ export default async function AdminPage({
       verificationQueue={verificationQueue}
       platformFeeStats={platformFeeStats}
       pendingPayouts={pendingPayouts}
-      pendingManualPayments={await getPendingManualPayments()}
+      pendingManualPayments={await withReceiptTimes(await getPendingManualPayments())}
+      nowSeed={Date.now()}
       workers={await getAllWorkers()}
       workerManagementInit={workerManagementInit}
       subscriptionAnalytics={subscriptionAnalytics}

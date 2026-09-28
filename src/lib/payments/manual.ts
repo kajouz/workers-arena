@@ -47,15 +47,29 @@ export interface ManualCheckoutBody {
   provider?: string;
 }
 
+/** The reference a manual payment's payer quotes — derived from the method,
+ * the payment id and the amount, which are all covered by the signature. */
+export function manualReference(method: PaymentProviderMethod, paymentId: string, amountMinor: number): string {
+  return `${method}-${paymentId}-${(amountMinor % 1000).toString().padStart(3, "0")}`;
+}
+
 /** Verify a manual-instructions URL's signed params (the GET /payments/manual
  * page and tests round-trip through this — the same contract the simulated
  * provider's verifyWebhook keeps, minus entity resolution: manual payments
- * have no webhook to resolve an entity from). */
+ * have no webhook to resolve an entity from).
+ *
+ * The `ref` is not in the HMAC itself, so it is checked against the one the
+ * signed fields derive: a genuine link with someone else's reference pasted
+ * in must not verify (the page would show the payer the wrong reference to
+ * quote, and a receipt would attach to the wrong payment). */
 export function verifyManualBody(body: ManualCheckoutBody): boolean {
   const { bookingId, campaignId, paymentId, amount, sig } = body;
   if (!paymentId || !body.ref || !sig) return false;
   const expected = signManual(`${bookingId ?? ""}:${campaignId ?? ""}:${paymentId}:${amount ?? ""}`);
-  return safeEqual(expected, sig);
+  if (!safeEqual(expected, sig)) return false;
+  const amountMinor = Number(amount);
+  if (!Number.isFinite(amountMinor)) return false;
+  return body.ref === manualReference("OMT", paymentId, amountMinor) || body.ref === manualReference("WHISH", paymentId, amountMinor);
 }
 
 /** Build the signed /payments/manual URL for a manual method. */
@@ -69,7 +83,7 @@ export function buildManualUrl(
     description: string;
   }
 ): string {
-  const providerRef = `${method}-${req.paymentId}-${(req.amountMinor % 1000).toString().padStart(3, "0")}`;
+  const providerRef = manualReference(method, req.paymentId, req.amountMinor);
   const sig = signManual(`${req.bookingId ?? ""}:${req.campaignId ?? ""}:${req.paymentId}:${req.amountMinor}`);
   const params = new URLSearchParams({
     provider: method.toLowerCase(),

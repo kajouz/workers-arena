@@ -248,6 +248,10 @@ All OMT/Whish payments appear in the `/admin` pending-payments card while pendin
 4. Payment flips PAID, capability activates (subscription/credits/verification/etc.)
 5. Worker/company notified
 
+**Receipt photos and the 2-hour target (Step 3):** the instructions page lets the payer attach a photo of their OMT/Whish receipt (`uploadPaymentReceiptAction`). The browser shrinks it; the server accepts JPEG/PNG/WebP up to 600 KB whose bytes match the type, and stores it per payment reference in `PaymentReceipt` (migration `20260928140000_payment_receipts`). Authorization is the signed link itself, re-verified by the action, so a guest with no account can send one too. The `/admin` card lists payments **oldest first**, shows how long each has waited (amber past 1h, red past the 2-hour target, with an "over 2 hours" count), marks rows with a receipt, and shows the photo in the confirm dialog (`GET /api/admin/payments/receipt?ref=…`, admin only).
+
+**Signed link hardening:** the `ref` on a manual link was not covered by the HMAC, so a genuine link could be shown with another payment's reference. `verifyManualBody` now also requires the reference derived from the signed fields (`manualReference`), and the link's provider must match the reference prefix. Links already issued stay valid.
+
 **Reconciliation:** `GET /api/admin/revenue/reconciliation` returns JSON for the admin ledger; append `?format=csv` for an accounting export. The export is read-only and includes payment status, provider reference, paid/refunded timestamps, and the linked invoice number. The reminder cron also cancels unpaid subscription renewal payments older than seven days and records a `cancelled` subscription lifecycle event; workers can still cancel their own pending renewal immediately from the dashboard.
 
 ## Platform fee (take rate)

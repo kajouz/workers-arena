@@ -1663,3 +1663,19 @@ model WhatsAppDelivery {
   @@index([kind, createdAt])
   @@index([workerId])
 }
+
+// ───────────────────────── Payment receipts (Step 3) ─────────────────────────
+
+/// A photo of the payer's OMT/Whish receipt, uploaded on the signed manual
+/// instructions page so an admin can confirm the payment at a glance. One per
+/// payment reference (Payment.providerRef, the OMT-/WHISH- code); re-uploading
+/// replaces it. The image is a compressed data URL (src/lib/data/payment-receipts.ts).
+model PaymentReceipt {
+  id         String   @id @default(cuid())
+  reference  String   @unique
+  provider   String // "OMT" | "WHISH"
+  mimeType   String
+  sizeBytes  Int
+  dataUrl    String   @db.Text
+  uploadedAt DateTime @default(now())
+}
