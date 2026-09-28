@@ -5,13 +5,14 @@
  */
 
 import { getPrisma } from "@/lib/server/prisma";
-import { creditBalanceFrom, type CreditLedgerEntry, type CreditEntryKind, type GrantCreditsInput, type WorkerCreditBalance } from "./credit-ledger";
+import { creditBalanceFrom, defaultFund, type CreditFund, type CreditLedgerEntry, type CreditEntryKind, type GrantCreditsInput, type WorkerCreditBalance } from "./credit-ledger";
 
 /** Structural row shape (tests need no generated client for fixtures). */
 export interface CreditEntryRow {
   id: string;
   workerId: string;
   kind: string;
+  fund?: string | null;
   amount: number;
   balanceAfter: number;
   reason: string;
@@ -26,6 +27,7 @@ export function toDomainCreditEntry(row: CreditEntryRow): CreditLedgerEntry {
     id: row.id,
     workerId: row.workerId,
     kind: row.kind as CreditEntryKind,
+    fund: (row.fund as CreditFund | null | undefined) ?? defaultFund(row.kind as CreditEntryKind, row.amount),
     amount: row.amount,
     balanceAfter: row.balanceAfter,
     reason: row.reason,
@@ -73,6 +75,7 @@ export async function prismaGrantCredits(input: GrantCreditsInput): Promise<Cred
       data: {
         workerId: input.workerId,
         kind: input.kind ?? "grant",
+        fund: input.fund ?? defaultFund(input.kind ?? "grant", amount),
         amount,
         balanceAfter: balance.balance + amount,
         reason: input.reason,

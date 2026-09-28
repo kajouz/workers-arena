@@ -6,7 +6,7 @@
  * after a plan payment is confirmed so the credits land at once.
  */
 
-import { grantCredits, listCreditLedger, type CreditLedgerEntry } from "./credit-ledger";
+import { creditFundsFrom, grantCredits, listCreditLedger, type CreditLedgerEntry } from "./credit-ledger";
 import { loadActiveFeeRuleSet } from "./fee-rules-store";
 import { leadMarketConfig } from "./lead-market";
 import { normalizePlanCatalogOverrides } from "./plan-catalog-overrides";
@@ -29,7 +29,9 @@ export interface LeadAllowanceRun {
   creditsExpired: number;
 }
 
-/** Derive the allowance facts from one worker's ledger rows. */
+/** Derive the allowance facts from one worker's ledger rows. Balances are the
+ * FREE pot only: the allowance is given credit, so its expiry can never touch
+ * money the worker topped up (the paid pot). */
 export function allowanceFactsFrom(entries: CreditLedgerEntry[], month: string): AllowanceLedgerFacts {
   const previous = previousAllowanceMonth(month);
   const monthStart = `${month}-01T00:00:00.000Z`;
@@ -40,10 +42,10 @@ export function allowanceFactsFrom(entries: CreditLedgerEntry[], month: string):
     spentAfterPreviousGrant: grant
       ? -sum(entries.filter((e) => e.kind === "spend" && e.createdAt >= grant.createdAt && e.createdAt < monthStart))
       : 0,
-    balanceAtPreviousMonthEnd: sum(entries.filter((e) => e.createdAt < monthStart)),
+    balanceAtPreviousMonthEnd: creditFundsFrom(entries.filter((e) => e.createdAt < monthStart)).free,
     previousExpired: entries.some((e) => e.promotionId === `${ALLOWANCE_EXPIRY_PREFIX}${previous}`),
     currentGranted: entries.some((e) => e.promotionId === `${ALLOWANCE_GRANT_PREFIX}${month}`),
-    balance: sum(entries),
+    balance: creditFundsFrom(entries).free,
   };
 }
 
@@ -77,6 +79,7 @@ export async function runMonthlyLeadAllowance(workers: AllowanceWorker[], now = 
           workerId: worker.id,
           amount: -action.expire,
           kind: "expire",
+          fund: "free",
           reason: `Unused monthly lead credits from ${previous} expired`,
           promotionId: `${ALLOWANCE_EXPIRY_PREFIX}${previous}`,
           at,
@@ -91,6 +94,7 @@ export async function runMonthlyLeadAllowance(workers: AllowanceWorker[], now = 
           workerId: worker.id,
           amount: action.grant,
           kind: "grant",
+          fund: "free",
           reason: `Monthly lead credits — ${getPlanCatalog(action.plan).labelEn} plan (${month})`,
           promotionId: `${ALLOWANCE_GRANT_PREFIX}${month}`,
           at,

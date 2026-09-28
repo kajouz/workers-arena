@@ -1577,6 +1577,10 @@ model WorkerCreditEntry {
   workerId     String
   worker       Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
   kind         String // grant | spend | expire | adjustment
+  /// Which pot the row moves (prepaid wallet, Step 2): "paid" = topped-up
+  /// money (pays for anything), "free" = given credits (leads only), "any" =
+  /// a lead purchase, free first then paid. Balances are derived per pot.
+  fund         String   @default("free")
   amount       Int // signed whole credits
   balanceAfter Int
   reason       String

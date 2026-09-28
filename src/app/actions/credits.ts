@@ -73,6 +73,14 @@ export async function createCreditPurchaseAction(input: {
   const result = await repoCreatePurchaseCheckout({
     workerSlug: worker.slug,
     scope: "credit",
+    // The validated pack: its price is the charge; its credits land in the
+    // wallet (paid) and its bonus as free lead credits on confirm.
+    creditPackage: {
+      id: validation.package.id,
+      credits: validation.package.credits,
+      bonusCredits: validation.package.bonusCredits,
+      priceUsd: validation.priceUsd,
+    },
     method: input.method === "STRIPE" ? "OMT" : input.method, // Stripe goes through a hosted checkout; OMT/Whish use signed instructions
   });
 

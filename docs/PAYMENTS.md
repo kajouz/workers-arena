@@ -120,6 +120,15 @@ Workers buy platform credits to purchase qualified leads.
 4. Admin confirms receipt from `/admin` pending-payments card
 5. `confirmPurchase` → credits granted to worker's ledger balance, notification sent
 
+**Prepaid wallet (Step 2 of the revenue plan):** one balance in two pots. Each ledger row carries a `fund` (migration `20260928120000_credit_funds`):
+
+| Pot | Filled by | Pays for |
+|---|---|---|
+| **paid** (the wallet) | top-ups: the pack's base credits | anything on the platform (plans, badges, leads, commission) |
+| **free** | monthly lead allowance, promotions, referrals, pack bonuses | leads only |
+
+Lead purchases spend free credits first, then paid; the allowance expiry only ever removes free credits. A top-up is granted on confirm by `topUpGrantsFor` (paid base + free bonus, keyed `topup:<paymentId>` / `topup-bonus:<paymentId>`, so a re-confirm never grants twice). **Wallet money is platform credit — it cannot be withdrawn or refunded as cash**, and the top-up card says so. Before this change the credit checkout had no price for a pack, so no top-up could be minted.
+
 **Credit ledger:**
 - Append-only `WorkerCreditEntry` model (migration `20260914120000_worker_credit_ledger`)
 - Balance always derived from entries, never stored

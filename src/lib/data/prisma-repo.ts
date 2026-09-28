@@ -71,7 +71,7 @@ import {
   type GuestClaimPlans,
   type GuestClaimResult,
 } from "./guest-claim";
-import { applyPromotionCreditGrant } from "./credit-ledger";
+import { applyPromotionCreditGrant, grantCredits, topUpGrantsFor } from "./credit-ledger";
 import { grantLeadAllowanceNow } from "./lead-allowance-run";
 import { feeSnapshotCreateData } from "./fee-rules-prisma";
 import { categoryBySlug as demoCategoryBySlug } from "./categories";
@@ -6153,11 +6153,14 @@ export async function prismaCreatePurchaseCheckout(input: {
   plan?: SubscriptionPlan;
   period?: BillingPeriod;
   tier?: VerificationTier;
+  creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
   method: "OMT" | "WHISH";
 }): Promise<{ url: string } | null> {
   const prisma = getPrisma();
   let amount = purchaseAmountMinor(input.scope, input.plan, input.period, input.tier);
-  if (amount === null) return null;
+  // A wallet top-up is charged the validated pack's price.
+  if (input.scope === "credit" && input.creditPackage) amount = Math.round(input.creditPackage.priceUsd * 100);
+  if (amount === null || amount <= 0) return null;
   const worker = await prisma.worker.findUnique({
     where: { slug: input.workerSlug },
     include: { user: { select: { email: true } }, category: { select: { slug: true } } },
@@ -6177,6 +6180,9 @@ export async function prismaCreatePurchaseCheckout(input: {
     ...(input.plan ? { plan: input.plan } : {}),
     ...(input.period ? { period: input.period } : {}),
     ...(input.tier ? { tier: input.tier } : {}),
+    ...(input.creditPackage
+      ? { packageId: input.creditPackage.id, credits: input.creditPackage.credits, bonusCredits: input.creditPackage.bonusCredits }
+      : {}),
   };
   try {
     const payment = await prisma.payment.create({
@@ -6384,31 +6390,28 @@ export async function prismaConfirmPurchase(
       break;
     }
     case "credit": {
-      // Grant the purchased credits to the worker's ledger
-      const creditsToGrant = Math.floor(payment.amount / 100);
-      if (creditsToGrant > 0 && worker) {
-        const balance = await prisma.workerCreditEntry.aggregate({
-          where: { workerId: worker.id },
-          _sum: { amount: true },
-        });
-        const currentBalance = balance._sum.amount ?? 0;
-        await prisma.workerCreditEntry.create({
-          data: {
+      // The pack's credits land in the wallet (PAID pot), its bonus in the
+      // FREE pot — keyed on this payment (the ledger's unique index), so a
+      // re-confirm never grants twice.
+      const grants = worker
+        ? topUpGrantsFor({
             workerId: worker.id,
-            kind: "grant",
-            amount: creditsToGrant,
-            balanceAfter: currentBalance + creditsToGrant,
-            reason: `Credit top-up: $${creditsToGrant} purchased (${payment.method ?? "manual"})`,
-            createdBy: actor,
-          },
-        });
-      }
+            paymentId: payment.id,
+            amountMinor: payment.amount,
+            credits: typeof meta.credits === "number" ? meta.credits : undefined,
+            bonusCredits: typeof meta.bonusCredits === "number" ? meta.bonusCredits : undefined,
+            method: payment.method ?? "manual",
+            ...(actor ? { createdBy: actor } : {}),
+          })
+        : [];
+      for (const grant of grants) await grantCredits(grant);
+      const creditsToGrant = grants.reduce((sum, g) => sum + g.amount, 0);
       await notify(
         "system",
-        `Credits purchased — ${Math.floor(payment.amount / 100)}`,
-        `تم شراء الأرصدة — ${Math.floor(payment.amount / 100)}`,
-        `${worker?.nameEn ?? "Your profile"}: ${Math.floor(payment.amount / 100)} credits have been added to your balance.`,
-        `${worker?.nameAr ?? "ملفك"}: تمت إضافة ${Math.floor(payment.amount / 100)} أرصدة إلى رصيدك.`
+        `Credits purchased — ${creditsToGrant}`,
+        `تم شراء الأرصدة — ${creditsToGrant}`,
+        `${worker?.nameEn ?? "Your profile"}: ${creditsToGrant} credits have been added to your balance.`,
+        `${worker?.nameAr ?? "ملفك"}: تمت إضافة ${creditsToGrant} أرصدة إلى رصيدك.`
       );
       break;
     }

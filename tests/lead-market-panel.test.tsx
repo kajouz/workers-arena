@@ -270,7 +270,7 @@ function boardFrom(offers: LeadOffer[], planTier: "free" | "professional" = "pro
   );
   return {
     ...splitLeadBoard(items),
-    balance: { workerId: "khaled-plum", balance: 60, granted: 60, spent: 0, refunded: 0 },
+    balance: { workerId: "khaled-plum", balance: 60, paidBalance: 0, freeBalance: 60, granted: 60, spent: 0, refunded: 0 },
     config: DEFAULT_LEAD_MARKET_CONFIG,
     rebates: { totalMinor: 0, count: 0 },
   };
