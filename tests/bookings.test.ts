@@ -1592,6 +1592,22 @@ describe("multi-candidate quotes (demo adapter + seams)", () => {
     expect(again).toEqual({ error: "closed" });
   });
 
+  it("the winner's accept charges the platform fee on its bid without re-typing the price (fee-rules.md §4 gap)", async () => {
+    const created = quoteOf(await createQuoteRequest(quoteInput(), [khaled().id, ali().id]));
+    const [khaledBid] = created.bookings;
+    await submitQuote(khaledBid!.id, { quote: 30000 });
+    const slot = demoAddSlot(khaled().id, new Date(2027, 0, 8, 9).toISOString(), new Date(2027, 0, 8, 10).toISOString());
+    const winner = await selectQuote(created.id, khaledBid!.id, slot.id);
+    if ("error" in winner) throw new Error(`expected winner, got ${winner.error}`);
+
+    // The worker accepts without a quote — the bid is kept and priced.
+    const accepted = await respondToBooking(winner.id, { accept: true });
+    expect(accepted?.status).toBe("confirmed");
+    expect(accepted?.quote).toBe(30000);
+    expect(accepted?.platformFee).toBeGreaterThan(0);
+    expect(accepted?.platformFeeRateBps).toBeGreaterThan(0);
+  });
+
   it("selectQuote guards: not-quoted winner and slot-taken", async () => {
     const created = quoteOf(await createQuoteRequest(quoteInput(), [khaled().id, ali().id]));
     const [khaledBid, aliBid] = created.bookings;

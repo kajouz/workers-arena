@@ -246,7 +246,8 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Pro | 5% | $5 | $300 |
 | Business | 4% reduced | $5 | $300 |
 
-- Applied at **accept-with-quote** (immutable snapshot)
+- The table is the **recommended ladder** (`FEE_LADDER_PRESET`). The shipped default rule set charges **7% on every plan and 4% for Business** until an admin publishes the ladder from `/admin/revenue-settings`.
+- Applied at **accept-with-quote** (immutable snapshot) — including a multi-candidate quote winner accepted without re-typing its bid
 - Collected at **booking completion**
 - Admin can set per-category, per-promotion overrides
 - Fee snapshot is auditable (`PlatformFeeSnapshot` model)

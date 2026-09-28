@@ -63,6 +63,7 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Pro | 5% | $5 | $300 |
 | Business | **4% reduced rate** | $5 | $300 |
 
+- The table is the **recommended ladder** (`FEE_LADDER_PRESET`); the shipped default rule set charges **7% on every plan and 4% for Business** until an admin publishes the ladder. Check `/admin/revenue-settings` for the rates actually in force.
 - Applied at **accept-with-quote** (immutable snapshot)
 - **Collected from money the platform actually holds** — a job's value arrives in two legs (the deposit before the work, the balance after it), and the ledger credits `collected − fee`, never more (`src/lib/data/booking-settlement.ts`)
 - Admin can set per-category, per-promotion overrides

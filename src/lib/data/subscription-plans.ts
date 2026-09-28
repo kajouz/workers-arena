@@ -19,6 +19,7 @@
  */
 
 import type { SubscriptionPlan, BillingPeriod } from "./types";
+import { DEFAULT_FEE_RULE_SET, priceJob, type FeeRuleSet } from "./fee-rules";
 
 // ── Category tier classification ──────────────────────────────────────────
 // Trades are grouped by average job value. The tier multiplier adjusts
@@ -322,28 +323,31 @@ export function extraLeadPrice(plan: SubscriptionPlan): number {
  * @param jobsPerMonth - average jobs per month
  * * @param avgJobValueUsd - average job value in USD
  * @param categorySlug - optional category for adjusted pricing
+ * @param opts.ruleSet - the fee rule set in force (defaults to the shipped one)
+ * @param opts.monthlyPriceUsd - the admin-edited plan price, when overridden
  * @returns effective monthly cost (subscription + platform fees) as a percentage
  */
 export function effectiveTakeRate(
   plan: SubscriptionPlan,
   jobsPerMonth: number,
   avgJobValueUsd: number,
-  categorySlug?: string | null
+  categorySlug?: string | null,
+  opts: { ruleSet?: FeeRuleSet; monthlyPriceUsd?: number } = {}
 ): number {
-  const catalog = getPlanCatalog(plan);
-  const subscriptionCost = effectiveMonthlyPrice(plan, categorySlug);
+  const subscriptionCost = opts.monthlyPriceUsd ?? effectiveMonthlyPrice(plan, categorySlug);
 
-  // Default take rate tiers (from fee-rules.ts)
-  const feeRateBps: Record<SubscriptionPlan, number> = {
-    basic: 900,        // 9%
-    professional: 700, // 7%
-    premium: 500,      // 5%
-    enterprise: 400,   // Business: reduced 4%, not exempt
-  };
+  // Each job is priced through the SAME engine the accept stamps (floor, cap,
+  // plan tier, category), so the calculator never promises a rate the worker
+  // is not charged. Promotions are windowed and code-scoped — left out of a
+  // list-price estimate.
+  const { computation } = priceJob(
+    { ...(opts.ruleSet ?? DEFAULT_FEE_RULE_SET), promotions: [] },
+    Math.round(avgJobValueUsd * 100),
+    { plan, categorySlug: categorySlug ?? undefined }
+  );
 
-  const feeRate = (feeRateBps[plan] ?? 700) / 10_000;
   const monthlyGmv = jobsPerMonth * avgJobValueUsd;
-  const monthlyFees = monthlyGmv * feeRate;
+  const monthlyFees = (computation.feeMinor / 100) * jobsPerMonth;
   const totalCost = subscriptionCost + monthlyFees;
 
   return monthlyGmv > 0 ? (totalCost / monthlyGmv) * 100 : 0;

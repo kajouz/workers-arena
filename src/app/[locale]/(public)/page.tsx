@@ -11,7 +11,8 @@ import { Testimonials } from "@/components/home/testimonials";
 import { Plans } from "@/components/home/plans";
 import { CTA } from "@/components/home/cta";
 import { getCategories, getFeaturedWorkersList, getPopularSearches } from "@/lib/data/repo";
-import { loadPlanCatalog } from "@/lib/data/fee-rules-store";
+import { loadActiveFeeRuleSet } from "@/lib/data/fee-rules-store";
+import { normalizePlanCatalogOverrides } from "@/lib/data/plan-catalog-overrides";
 import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
 import { PushOnboarding } from "@/components/notifications/push-onboarding";
 import { MobileAppPromo } from "@/components/home/mobile-app-promo";
@@ -41,12 +42,22 @@ export async function generateMetadata({
 export const revalidate = 3600;
 
 export default async function HomePage() {
-  const [categories, featured, popular, planCatalog] = await Promise.all([
+  const [categories, featured, popular, ruleSet] = await Promise.all([
     getCategories(),
     getFeaturedWorkersList(4),
     getPopularSearches(),
-    loadPlanCatalog(),
+    loadActiveFeeRuleSet(),
   ]);
+  const planCatalog = normalizePlanCatalogOverrides(ruleSet.planCatalog);
+  // Only the take-rate layers reach the client — the lead-market policy
+  // (admin WhatsApp templates) and referral config stay on the server.
+  const feeRules = {
+    ...ruleSet,
+    promotions: [],
+    leadMarket: undefined,
+    planCatalog: undefined,
+    referralConfig: undefined,
+  };
 
   return (
     <>
@@ -56,7 +67,7 @@ export default async function HomePage() {
       <HowItWorks />
       <StatsBand citiesServed={DEFAULT_COUNTRY.cities.length} />
       <Testimonials />
-      <Plans catalog={planCatalog} />
+      <Plans catalog={planCatalog} feeRules={feeRules} />
       <CTA />
       <MobileAppPromo />
       <PushOnboarding />

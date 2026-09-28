@@ -1887,7 +1887,11 @@ export async function demoRespondToBooking(
   if (input.accept) {
     // Rule 4 — deposit required → PENDING_PAYMENT until the paymentId lands.
     booking.status = input.deposit ? "pendingPayment" : "confirmed";
-    booking.quote = input.quote;
+    // A multi-candidate quote winner already carries its bid: accepting it
+    // without re-typing the price keeps (and charges on) that bid instead of
+    // wiping it — the fee-rules.md §4 "known gap".
+    const quote = input.quote ?? booking.quote;
+    booking.quote = quote;
     booking.deposit = input.deposit;
     // M5 take rate (docs/booking-take-rate.md) upgraded to the versioned fee
     // engine (§5): the fee is resolved from the ACTIVE rule set — plan tier,
@@ -1897,7 +1901,7 @@ export async function demoRespondToBooking(
     // the worker sees is exactly what is stored. Accept-without-quote stays
     // fee-free. Accept-with-quote remains the single stamp point: nothing ever
     // recomputes a fee later.
-    if (input.quote) {
+    if (quote) {
       const acceptWorker = workerById(booking.workerId);
       const { snapshot } = await priceQuoteForSnapshot({
         jobId: booking.id,
@@ -1905,7 +1909,7 @@ export async function demoRespondToBooking(
         workerId: booking.workerId,
         customerId: booking.customerId,
         plan: acceptWorker?.subscription.plan,
-        subtotalMinor: input.quote,
+        subtotalMinor: quote,
         context: { categorySlug: acceptWorker?.categorySlug, emergency: booking.isEmergency },
       });
       booking.platformFee = snapshot.feeMinor;
