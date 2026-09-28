@@ -8,18 +8,12 @@ import { LocaleProvider } from "@/components/providers/locale-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toast";
-import { ServiceWorkerRegistrar } from "@/components/notifications/service-worker-registrar";
-import { InstallBanner } from "@/components/pwa/install-banner";
-import { UpdateBanner } from "@/components/pwa/update-banner";
 import { SkipNav } from "@/components/layout/skip-nav";
 import { initMonitoring } from "@/lib/monitoring";
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider";
-import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
-import { HelpButton } from "@/components/onboarding/help-button";
-import { MobileBannerAd } from "@/components/ads/mobile-banner-ad";
-import { RetargetingAd } from "@/components/ads/retargeting-ad";
 import { LayoutClients } from "@/components/layout/layout-clients";
-import { CapacitorProvider } from "@/components/layout/capacitor-provider";
+import { DeferredCapacitorProvider, DeferredClients } from "@/components/layout/deferred-clients";
+import { MotionProvider } from "@/components/providers/motion-provider";
 import { AnalyticsClients } from "@/components/layout/analytics-clients";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -210,6 +204,7 @@ export default async function RootLayout({
       <body className="min-h-dvh antialiased">
         <SkipNav />
         <LocaleProvider locale={locale} dir={dir}>
+          <MotionProvider>
           <CurrencyProvider>
           <OnboardingProvider>
           <ThemeProvider>
@@ -237,18 +232,13 @@ export default async function RootLayout({
           )}
           {/* One interruption at a time — see PromptQueueProvider. */}
           <PromptQueueProvider>
-          <InstallBanner />
-          <UpdateBanner />
-          <ServiceWorkerRegistrar />
-          <OnboardingOverlay />
-          <HelpButton />
-          <MobileBannerAd />
-          <RetargetingAd />
+          <DeferredClients />
           </PromptQueueProvider>
-          <CapacitorProvider />
+          <DeferredCapacitorProvider />
           </ThemeProvider>
           </OnboardingProvider>
           </CurrencyProvider>
+          </MotionProvider>
         </LocaleProvider>
       </body>
     </html>

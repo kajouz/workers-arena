@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/components/i18n/link";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { ArrowRight, Wrench, Star, Users, Download } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";

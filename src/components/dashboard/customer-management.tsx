@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { Link } from "@/components/i18n/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Users,

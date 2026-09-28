@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { ShieldCheck, Star, Clock3 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { SearchBar } from "./search-bar";

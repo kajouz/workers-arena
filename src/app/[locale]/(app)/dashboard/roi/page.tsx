@@ -1,7 +1,8 @@
 import { getSession } from "@/lib/auth-demo";
-import { getWorkerBySlug, getWorkerRoi } from "@/lib/data/repo";
+import { getWorkerRoi } from "@/lib/data/repo";
 import { WorkerRoiDashboard } from "@/components/dashboard/worker-roi-dashboard";
 import { localeRedirect } from "@/lib/i18n/redirect";
+import { getSessionWorker } from "@/lib/data/authz";
 
 export const metadata = { title: "ROI Dashboard" };
 
@@ -14,7 +15,7 @@ export default async function RoiPage({
   if (!session) return await localeRedirect("/auth/login");
   if (session.role !== "worker") return await localeRedirect("/dashboard");
 
-  const worker = await getWorkerBySlug("khaled-al-harbi-plumbing");
+  const worker = await getSessionWorker(session);
   if (!worker) return await localeRedirect("/dashboard");
 
   const params = await searchParams;

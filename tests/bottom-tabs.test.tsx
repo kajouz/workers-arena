@@ -28,15 +28,15 @@ vi.mock("next/navigation", () => ({
 
 // The bar animates the active indicator with framer-motion's `layoutId`, which
 // needs a real layout pass; the visibility contract under test does not.
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({
-      children,
-      layoutId: _layoutId,
-      ...rest
-    }: { children?: React.ReactNode; layoutId?: string }) => <div {...rest}>{children}</div>,
-  },
-}));
+vi.mock("framer-motion", () => {
+  const div = ({
+    children,
+    layoutId: _layoutId,
+    ...rest
+  }: { children?: React.ReactNode; layoutId?: string }) => <div {...rest}>{children}</div>;
+  // Components import the lightweight `m` (aliased to `motion`) under LazyMotion.
+  return { motion: { div }, m: { div } };
+});
 
 import { BottomTabs } from "@/components/layout/bottom-tabs";
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-demo";
 import { isStreamEnabled } from "@/lib/data/revenue-settings";
-import { getWorkerBySlug } from "@/lib/data/repo";
+import { getSessionWorker } from "@/lib/data/authz";
 import { getWorkerCreditBalance } from "@/lib/data/credit-ledger";
 
 /**
@@ -15,9 +15,6 @@ import { getWorkerCreditBalance } from "@/lib/data/credit-ledger";
  * Requires authentication as worker or admin.
  */
 
-/** The demo worker account — the same slug the dashboard and actions resolve. */
-const DEMO_WORKER_SLUG = "khaled-al-harbi-plumbing";
-
 export async function GET() {
   try {
     const session = await getSession();
@@ -29,14 +26,10 @@ export async function GET() {
       return NextResponse.json({ error: "Credits system is disabled" }, { status: 403 });
     }
 
-    const worker =
-      session.role === "admin"
-        ? await getWorkerBySlug(DEMO_WORKER_SLUG)
-        : session.role === "worker"
-          ? await getWorkerBySlug(DEMO_WORKER_SLUG)
-          : null;
-    // A customer/company session has no credit position — an empty one is
-    // honest, whereas a fake balance would not be.
+    // Only the signed-in worker's own position. Admins, customers and
+    // companies hold no credits — an empty position is honest, whereas someone
+    // else's balance would not be.
+    const worker = await getSessionWorker(session);
     const ledger = worker
       ? await getWorkerCreditBalance(worker.id)
       : { workerId: session.id, balance: 0, granted: 0, spent: 0, refunded: 0 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m as motion } from "framer-motion";
 import { CheckCircle2, Info, X, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,7 +50,6 @@ export function Toaster() {
         {toasts.map((t) => (
           <motion.div
             key={t.id}
-            layout
             initial={{ opacity: 0, y: 16, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 24, scale: 0.96 }}
