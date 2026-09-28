@@ -56,7 +56,7 @@ interface DemoPurchasePayment {
   amount: number; // minor units
   currency: string;
   status: "pending" | "paid" | "cancelled";
-  method: "omt" | "whish";
+  method: "omt" | "whish" | "wallet";
   providerRef?: string;
   checkoutUrl?: string;
   paidAt?: string;
@@ -146,15 +146,15 @@ export async function demoCreatePurchaseCheckout(
     /** A credit top-up's pack (validated by the caller): its price is the
      * charge, `credits` land in the PAID pot and `bonusCredits` in the FREE one. */
     creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
-    method: "OMT" | "WHISH";
+    method: "OMT" | "WHISH" | "WALLET";
   }
-): Promise<{ url: string } | null> {
+): Promise<{ url: string; paymentId: string; amountMinor: number } | null> {
   const w = workerBySlug(input.workerSlug);
   if (!w) return null;
   // A worker should never be asked to pay twice for the same unpaid renewal.
   // Reuse the existing signed instructions URL; changing OMT/Whish can be
   // done only after the pending payment is confirmed or expires.
-  if (input.scope === "subscription") {
+  if (input.scope === "subscription" && input.method !== "WALLET") {
     for (const existing of STORE.payments.values()) {
       if (
         existing.status === "pending" &&
@@ -162,7 +162,7 @@ export async function demoCreatePurchaseCheckout(
         existing.meta.workerSlug === input.workerSlug &&
         existing.checkoutUrl
       ) {
-        return { url: existing.checkoutUrl };
+        return { url: existing.checkoutUrl, paymentId: existing.id, amountMinor: existing.amount };
       }
     }
   }
@@ -180,6 +180,9 @@ export async function demoCreatePurchaseCheckout(
     amount = monthly * 100 * (input.period === "annual" ? ANNUAL_PAID_MONTHS : 1);
   }
   if (input.scope === "credit" && input.creditPackage) amount = Math.round(input.creditPackage.priceUsd * 100);
+  // The wallet holds whole credits ($1 each): a wallet charge is the price
+  // rounded DOWN to whole dollars (a $7.50 plan costs 7 credits).
+  if (input.method === "WALLET" && amount !== null) amount = Math.floor(amount / 100) * 100;
   if (amount === null || amount <= 0) return null;
 
   STORE.seq += 1;
@@ -190,7 +193,7 @@ export async function demoCreatePurchaseCheckout(
     amount,
     currency: "USD",
     status: "pending",
-    method: input.method === "OMT" ? "omt" : "whish",
+    method: input.method === "OMT" ? "omt" : input.method === "WHISH" ? "whish" : "wallet",
     createdAt: new Date().toISOString(),
     meta: {
       scope: input.scope,
@@ -204,6 +207,12 @@ export async function demoCreatePurchaseCheckout(
         : {}),
     },
   };
+  // A wallet payment is charged in-app (wallet-payments.ts) — no provider, no
+  // instructions page, and no providerRef until it is confirmed.
+  if (input.method === "WALLET") {
+    STORE.payments.set(id, payment);
+    return { url: "", paymentId: id, amountMinor: amount };
+  }
   const base = typeof window === "undefined" ? "" : window.location.origin;
   const result = await getPaymentProvider(input.method).createCheckout({
     paymentId: id,
@@ -217,7 +226,7 @@ export async function demoCreatePurchaseCheckout(
   payment.providerRef = result.providerRef;
   payment.checkoutUrl = result.url;
   STORE.payments.set(id, payment);
-  return { url: result.url };
+  return { url: result.url, paymentId: id, amountMinor: amount };
 }
 
 /**
@@ -391,7 +400,8 @@ export function demoPurchasePayment(paymentId: string): DemoPurchasePayment | nu
 export function demoReconciliationPurchases(): ReconciliationPayment[] {
   const out: ReconciliationPayment[] = [];
   for (const payment of STORE.payments.values()) {
-    if (!payment.providerRef) continue;
+    // Wallet payments were paid with a top-up already counted here.
+    if (!payment.providerRef || payment.method === "wallet") continue;
     const w = workerBySlug(payment.meta.workerSlug);
     if (!w) continue;
     const desc = purchaseDescription(payment.meta.scope, w, payment.meta);
@@ -417,7 +427,7 @@ export function demoReconciliationPurchases(): ReconciliationPayment[] {
 export function demoPendingManualPurchases(): PendingManualPayment[] {
   const out: PendingManualPayment[] = [];
   for (const payment of STORE.payments.values()) {
-    if (payment.status !== "pending" || !payment.providerRef) continue;
+    if (payment.status !== "pending" || !payment.providerRef || payment.method === "wallet") continue;
     const w = workerBySlug(payment.meta.workerSlug);
     if (!w) continue;
     const desc = purchaseDescription(payment.meta.scope, w, payment.meta);

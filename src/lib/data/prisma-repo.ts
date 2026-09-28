@@ -218,8 +218,16 @@ function toDomainSubscription(sub: NonNullable<WorkerRow["subscription"]>): Subs
     // No invoice-number column on Subscription; the row id is stable & unique.
     // (The UI never renders invoiceNo — it only round-trips through renewals.)
     invoiceNo: sub.id,
+    period: (sub.periodDays >= 365 ? "annual" : "monthly") as Subscription["period"],
+    autoRenew: sub.autoRenew,
   };
   return { ...base, status: subscriptionStatus(base) };
+}
+
+/** Switch wallet auto-renew on/off for a worker's subscription. */
+export async function prismaSetSubscriptionAutoRenew(workerId: string, enabled: boolean): Promise<boolean> {
+  const updated = await getPrisma().subscription.updateMany({ where: { workerId }, data: { autoRenew: enabled } });
+  return updated.count === 1;
 }
 
 /** Map a Prisma Worker row (with relations) to the domain Worker type. */
@@ -2835,6 +2843,7 @@ function settlementFromRow(row: {
   platformFee: number | null;
   currency: string;
   settledOutside: boolean;
+  feeClaimCollectedMinor?: number | null;
   payment: SettlementPaymentLeg;
   settlementPayment: SettlementPaymentLeg;
 }): Settlement {
@@ -2847,6 +2856,7 @@ function settlementFromRow(row: {
     settlementRefundedMinor: row.settlementPayment?.status === "REFUNDED" ? row.settlementPayment.amount : 0,
     settlementPendingMinor: row.settlementPayment?.status === "PENDING" ? row.settlementPayment.amount : 0,
     settledOutside: row.settledOutside,
+    feeClaimCollectedMinor: row.feeClaimCollectedMinor ?? 0,
     currency: row.currency,
   });
 }
@@ -2860,6 +2870,7 @@ const SETTLEMENT_FACT_SELECT = {
   platformFee: true,
   currency: true,
   settledOutside: true,
+  feeClaimCollectedMinor: true,
 } as const;
 
 export async function prismaSettlementFor(bookingId: string): Promise<Settlement | null> {
@@ -2887,6 +2898,23 @@ export async function prismaSettlementFor(bookingId: string): Promise<Settlement
  * completion timestamp of its own), falling back to "still open in a money
  * state" so a job that is blocked on collection never ages out of the view.
  */
+/**
+ * Record a fee-claim collection on an outside-platform job. CAS on the amount
+ * already collected (updateMany WHERE feeClaimCollectedMinor = expected), so
+ * two collectors can never both add the same tranche.
+ */
+export async function prismaRecordFeeClaimCollection(
+  bookingId: string,
+  expectedCollectedMinor: number,
+  addMinor: number
+): Promise<boolean> {
+  const updated = await getPrisma().booking.updateMany({
+    where: { id: bookingId, settledOutside: true, feeClaimCollectedMinor: expectedCollectedMinor },
+    data: { feeClaimCollectedMinor: expectedCollectedMinor + addMinor, feeClaimCollectedAt: new Date() },
+  });
+  return updated.count === 1;
+}
+
 export async function prismaSettlementReconciliation(days = 30): Promise<SettlementJob[]> {
   const prisma = getPrisma();
   const since = new Date(Date.now() - Math.max(days, 1) * 24 * 60 * 60 * 1000);
@@ -6106,7 +6134,7 @@ function purchaseLabel(
 export async function prismaCancelPendingPurchase(paymentId: string): Promise<boolean> {
   const prisma = getPrisma();
   const result = await prisma.payment.updateMany({
-    where: { id: paymentId, status: "PENDING", method: { in: ["OMT", "WHISH"] } },
+    where: { id: paymentId, status: "PENDING", method: { in: ["OMT", "WHISH", "WALLET"] } },
     data: { status: "CANCELLED" },
   });
   return result.count > 0;
@@ -6154,8 +6182,8 @@ export async function prismaCreatePurchaseCheckout(input: {
   period?: BillingPeriod;
   tier?: VerificationTier;
   creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
-  method: "OMT" | "WHISH";
-}): Promise<{ url: string } | null> {
+  method: "OMT" | "WHISH" | "WALLET";
+}): Promise<{ url: string; paymentId: string; amountMinor: number } | null> {
   const prisma = getPrisma();
   let amount = purchaseAmountMinor(input.scope, input.plan, input.period, input.tier);
   // A wallet top-up is charged the validated pack's price.
@@ -6171,6 +6199,10 @@ export async function prismaCreatePurchaseCheckout(input: {
     const monthly = effectiveMonthlyPriceWithOverrides(catalog, input.plan, worker.category.slug);
     amount = Math.round(monthly * 100 * (input.period === "annual" ? 9 : 1));
   }
+  // The wallet holds whole credits ($1 each): a wallet charge is the price
+  // rounded DOWN to whole dollars (a $7.50 plan costs 7 credits).
+  if (input.method === "WALLET") amount = Math.floor(amount / 100) * 100;
+  if (amount <= 0) return null;
 
   // No undefined values — Prisma's InputJsonValue rejects them, and the JSON
   // column should only carry the options the purchase actually has.
@@ -6196,6 +6228,9 @@ export async function prismaCreatePurchaseCheckout(input: {
         metadata: meta,
       },
     });
+    // A wallet payment is charged in-app (wallet-payments.ts): no provider,
+    // no instructions page, no providerRef until it is confirmed.
+    if (input.method === "WALLET") return { url: "", paymentId: payment.id, amountMinor: amount };
     const provider = getPaymentProvider(input.method);
     const result = await provider.createCheckout({
       paymentId: payment.id,
@@ -6211,7 +6246,7 @@ export async function prismaCreatePurchaseCheckout(input: {
       data: { providerRef: result.providerRef, metadata: { ...meta, checkoutUrl: result.url } },
     });
     if (claimed.count === 0) return null;
-    return { url: result.url };
+    return { url: result.url, paymentId: payment.id, amountMinor: amount };
   } catch (err) {
     console.error("[prisma-repo] createPurchaseCheckout failed:", err);
     return null;

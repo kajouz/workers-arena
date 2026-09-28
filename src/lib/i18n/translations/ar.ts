@@ -1274,6 +1274,13 @@ export const ar: Dictionary = {
     methodStripeHint: "ادفع عبر الإنترنت ببطاقتك",
     methodOmtHint: "ادفع عبر وكيل OMT أو تطبيق OMT Intra",
     methodWhishHint: "ادفع عبر محفظة Whish",
+    methodWallet: "محفظتي",
+    methodWalletHint: "ادفع الآن من محفظتك في WorkersArena",
+    walletInsufficient: "رصيد محفظتك لا يكفي. اشحنها من «المحفظة ورصيد الطلبات»، أو ادفع عبر OMT أو Whish.",
+    walletPaid: "تم الدفع من محفظتك.",
+    walletBalance: "رصيد المحفظة: ${amount}",
+    autoRenewLabel: "جدّد تلقائياً من محفظتي",
+    autoRenewHint: "عند انتهاء خطتك تُجدَّد من محفظتك إذا كان الرصيد كافياً، وإلا نذكّرك.",
     manualTitle: "ادفع عبر {method}",
     manualIntro:
       "اتبع الخطوات أدناه لإتمام الدفع. استخدم الرقم المرجعي كما هو تمامًا حتى تتمكن المنصة من مطابقة تحويلك.",

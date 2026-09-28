@@ -129,6 +129,12 @@ Workers buy platform credits to purchase qualified leads.
 
 Lead purchases spend free credits first, then paid; the allowance expiry only ever removes free credits. A top-up is granted on confirm by `topUpGrantsFor` (paid base + free bonus, keyed `topup:<paymentId>` / `topup-bonus:<paymentId>`, so a re-confirm never grants twice). **Wallet money is platform credit — it cannot be withdrawn or refunded as cash**, and the top-up card says so. Before this change the credit checkout had no price for a pack, so no top-up could be minted.
 
+**Paying from the wallet** (`src/lib/data/wallet-payments.ts`): renewals, verification, the featured slot and the emergency marker can be paid in-app with method `WALLET` (migration `20260928130000_wallet_payment_method`). The charge is the checkout price rounded **down** to whole dollars, debited from the paid pot only, then confirmed through the same `confirmPurchase` an admin runs for OMT/Whish, so the capability and invoice activate at once. A WALLET payment is not new cash (the top-up was), so the manual queue and reconciliation never list it. A charge whose purchase fails to activate is refunded; a wallet renewal cancels any unpaid OMT/Whish renewal for the same worker.
+
+**Auto-renew and commission** (`GET /api/cron/wallet`, daily 06:30 UTC): first, outstanding commission on cash-settled jobs is collected from the paid pot, rounded down to whole dollars so a worker is never charged more than the claim (it is also collected the moment a job is marked paid in cash); then plans ending within a day, or up to three days ago, renew from the wallet at the same plan and period unless the worker switched auto-renew off (`Subscription.autoRenew`, on by default). Each charge is keyed in the ledger, so re-runs never charge twice.
+
+**"Card" renewal:** the renew dialog's Card option renewed a plan on the spot without charging anything. It is now offered and accepted only in demo mode; real mode refuses it.
+
 **Credit ledger:**
 - Append-only `WorkerCreditEntry` model (migration `20260914120000_worker_credit_ledger`)
 - Balance always derived from entries, never stored

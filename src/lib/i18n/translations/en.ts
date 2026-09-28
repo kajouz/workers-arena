@@ -1291,6 +1291,13 @@ export const en = {
     methodStripeHint: "Pay online with your card",
     methodOmtHint: "Pay via an OMT agent or the OMT Intra app",
     methodWhishHint: "Pay via the Whish wallet",
+    methodWallet: "My wallet",
+    methodWalletHint: "Pay now from your WorkersArena wallet",
+    walletInsufficient: "Your wallet doesn't cover this. Top it up from Wallet & lead credits, or pay with OMT or Whish.",
+    walletPaid: "Paid from your wallet.",
+    walletBalance: "Wallet balance: ${amount}",
+    autoRenewLabel: "Renew automatically from my wallet",
+    autoRenewHint: "When your plan ends, it renews from your wallet if the balance covers it. Otherwise we remind you.",
     manualTitle: "Pay via {method}",
     manualIntro:
       "Follow the steps below to complete your payment. Use the reference exactly as shown so the platform can match your transfer.",

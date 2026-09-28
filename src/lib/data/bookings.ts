@@ -503,8 +503,21 @@ export function settlementFactsFor(booking: Booking): SettlementFacts {
     settlementRefundedMinor: settlement?.status === "refunded" ? settlement.amount : 0,
     settlementPendingMinor: settlement?.status === "pending" ? settlement.amount : 0,
     settledOutside: booking.settledOutside ?? false,
+    feeClaimCollectedMinor: booking.feeClaimCollectedMinor ?? 0,
     currency: booking.currency,
   };
+}
+
+/**
+ * Record a fee-claim collection on an outside-platform job (demo). CAS on the
+ * amount already collected, so two collectors can never both add a tranche.
+ */
+export function demoRecordFeeClaimCollection(bookingId: string, expectedCollectedMinor: number, addMinor: number): boolean {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  if (!booking || (booking.feeClaimCollectedMinor ?? 0) !== expectedCollectedMinor) return false;
+  booking.feeClaimCollectedMinor = expectedCollectedMinor + addMinor;
+  booking.feeClaimCollectedAt = new Date().toISOString();
+  return true;
 }
 
 /** The settlement verdict for a booking (demo). */

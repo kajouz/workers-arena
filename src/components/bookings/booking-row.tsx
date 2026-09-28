@@ -26,7 +26,7 @@ import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
 import { settlementFor, settlementNeedsCollection } from "@/lib/data/booking-settlement";
 import { BookingSettlementNote } from "./booking-settlement-note";
 import { BookingSlaCountdown } from "./booking-sla-countdown";
-import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
+import { PaymentMethodPicker, type ExternalCheckoutMethod } from "@/components/payments/payment-method-picker";
 import type { CustomerBookingRow } from "@/app/[locale]/(app)/bookings/page";
 
 /**
@@ -40,7 +40,7 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
   const router = useRouter();
   const [paying, setPaying] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [payMethod, setPayMethod] = useState<CheckoutMethod>("stripe");
+  const [payMethod, setPayMethod] = useState<ExternalCheckoutMethod>("stripe");
   const [, startTransition] = useTransition();
   const withGuestProof = useGuestProof();
   const { booking, worker } = row;

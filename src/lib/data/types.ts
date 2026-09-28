@@ -336,6 +336,9 @@ export interface Subscription {
   invoiceNo: string;
   /** Billing period in force — undefined on seeded rows (treated as monthly). */
   period?: BillingPeriod;
+  /** Renew from the prepaid wallet when the plan ends (default on; the worker
+   * can switch it off). Undefined on seeded rows = on. */
+  autoRenew?: boolean;
 }
 
 export type VerificationStatus = "verified" | "pending" | "rejected";

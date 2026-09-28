@@ -10,7 +10,9 @@ import {
   getWorkerBalance,
   getWorkerPayouts,
   getPendingManualPayments,
+  realDataEnabled,
 } from "@/lib/data/repo";
+import { getWorkerCreditBalance } from "@/lib/data/credit-ledger";
 import { offerIsLive } from "@/lib/data/lead-market";
 import type { BookingMessage, Notification } from "@/lib/data/types";
 import { workerEmailPreviewFor } from "@/lib/data/booking-notifications";
@@ -98,6 +100,10 @@ export default async function DashboardPage() {
   const nowSeed = Date.now();
   const liveLeadCount = leadOffers.filter((offer) => offerIsLive(offer, nowSeed)).length;
   const roiReport = await getWorkerRoi(demoWorker.id);
+  // The prepaid wallet (Step 2): its paid balance for the pay-from-wallet
+  // option, and the demo-only instant "Card" renewal (real mode refuses it).
+  const credits = await getWorkerCreditBalance(demoWorker.id);
+  const wallet = { paidBalance: credits.paidBalance, cardAvailable: !realDataEnabled };
   const pendingRenewal = (await getPendingManualPayments()).find(
     (payment) => payment.scope === "subscription" && payment.workerSlug === demoWorker.slug
   ) ?? null;
@@ -121,6 +127,7 @@ export default async function DashboardPage() {
       liveLeadCount={liveLeadCount}
       roiReport={roiReport}
       pendingRenewal={pendingRenewal}
+      wallet={wallet}
     />
   );
 }

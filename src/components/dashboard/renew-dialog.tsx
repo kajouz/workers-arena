@@ -15,12 +15,26 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 
-export function RenewDialog({ worker, trial = false, planCatalog, pendingRenewal }: { worker: Worker; /** §Trial — the worker is on a free trial: the CTA reads "Keep your plan" and the dialog shows the trial banner. */ trial?: boolean; planCatalog?: ResolvedPlanCatalog; pendingRenewal?: PendingManualPayment | null }) {
+/** The prepaid wallet as the dialog sees it: the paid balance (whole dollars)
+ * and whether the demo-only instant "Card" renewal may be offered. */
+export interface RenewWallet {
+  paidBalance: number;
+  cardAvailable: boolean;
+}
+
+export function RenewDialog({ worker, trial = false, planCatalog, pendingRenewal, wallet }: { worker: Worker; /** §Trial — the worker is on a free trial: the CTA reads "Keep your plan" and the dialog shows the trial banner. */ trial?: boolean; planCatalog?: ResolvedPlanCatalog; pendingRenewal?: PendingManualPayment | null; wallet?: RenewWallet }) {
   const { locale, t } = useLocale();
   const router = useRouter();
   const [plan, setPlan] = useState<SubscriptionPlan>(worker.subscription.plan);
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
-  const [method, setMethod] = useState<CheckoutMethod>("stripe");
+  // Card renews without charging (no gateway is live), so it is offered only
+  // where the server says so (demo mode). Otherwise the wallet leads when it
+  // has money in it, then OMT.
+  const cardAvailable = wallet?.cardAvailable ?? false;
+  const methods: CheckoutMethod[] = [...(cardAvailable ? (["stripe"] as const) : []), "wallet", "omt", "whish"];
+  const [method, setMethod] = useState<CheckoutMethod>(
+    cardAvailable ? "stripe" : (wallet?.paidBalance ?? 0) > 0 ? "wallet" : "omt"
+  );
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -64,6 +78,8 @@ export function RenewDialog({ worker, trial = false, planCatalog, pendingRenewal
       toast("success", t("subscription.renewed").replace("{days}", String(res.days ?? 30)));
       setOpen(false);
       router.refresh();
+    } else if (res.error === "wallet-insufficient") {
+      toast("error", t("payments.walletInsufficient"));
     } else {
       toast("error", t("common.noResults"));
     }
@@ -195,7 +211,12 @@ export function RenewDialog({ worker, trial = false, planCatalog, pendingRenewal
         </div>
         <div className="space-y-1.5">
           <p className="text-xs font-bold text-ink-500 dark:text-ink-400">{t("payments.purchaseChooseMethod")}</p>
-          <PaymentMethodPicker value={method} onChange={setMethod} disabled={busy} />
+          <PaymentMethodPicker value={method} onChange={setMethod} disabled={busy} methods={methods} />
+          {method === "wallet" && (
+            <p className="text-[11px] leading-relaxed text-ink-400">
+              {t("payments.walletBalance").replace("{amount}", String(wallet?.paidBalance ?? 0))}
+            </p>
+          )}
           {(method === "omt" || method === "whish") && (
             <p className="text-[11px] leading-relaxed text-ink-400">{t("payments.purchaseNote")}</p>
           )}
