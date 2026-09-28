@@ -98,7 +98,7 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 | **Starter** | $15 | $135 | 3 | Profile, search listing |
 | **Growth** | $39 | $351 | 10 | + Featured, verification |
 | **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
-| **Business** | $199 | $1,791 | Unlimited | + reduced 4% platform fee, team mgmt |
+| **Business** | $199 | $1,791 | 60 | + reduced 4% platform fee, team mgmt |
 
 **Category-Adjusted Pricing:**
 - Low-value trades (cleaning, gardening): 0.5× → Starter $7.50/mo

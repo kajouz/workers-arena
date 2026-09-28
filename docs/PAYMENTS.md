@@ -87,8 +87,9 @@ interface PaymentProvider {
 | **Starter** | $15 | $135 | 3 |
 | **Growth** | $39 | $351 | 10 |
 | **Pro** | $99 | $891 | 25 |
-| **Business** | $199 | $1,791 | Unlimited |
+| **Business** | $199 | $1,791 | 60 |
 
+- **Monthly lead credits**: the leads/mo column is paid as credits once a month (leads × bronze price; unused allowance expires at the next grant) — `src/lib/data/lead-allowance.ts`
 - **Category-adjusted pricing**: low-value trades (cleaning, gardening) pay 0.5×, high-value trades (HVAC, mechanic) pay 1.5×
 - **Plan-specific free trial**: Starter/Growth 30 days, Pro 14 days, and Business assisted by default (auto-applied at onboarding)
 - **Annual billing**: pay for 9 months, get 12 (25% discount)

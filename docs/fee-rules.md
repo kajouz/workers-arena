@@ -204,7 +204,7 @@ The subscription plan catalog lives inside the versioned rule set (`FeeRuleSet.p
 | basic | Starter | مبدأية | $15 | 3 | No |
 | professional | Growth | نمو | $39 | 10 | No |
 | premium | Pro | احترافي | $99 | 25 | No |
-| enterprise | Business | أعمال | $199 | Unlimited | 4% reduced |
+| enterprise | Business | أعمال | $199 | 60 | 4% reduced |
 
 **Category-adjusted pricing:**
 - Low-value (cleaning, gardening): 0.5×

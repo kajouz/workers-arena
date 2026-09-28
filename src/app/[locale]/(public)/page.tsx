@@ -13,6 +13,8 @@ import { CTA } from "@/components/home/cta";
 import { getCategories, getFeaturedWorkersList, getPopularSearches } from "@/lib/data/repo";
 import { loadActiveFeeRuleSet } from "@/lib/data/fee-rules-store";
 import { normalizePlanCatalogOverrides } from "@/lib/data/plan-catalog-overrides";
+import { leadMarketConfig } from "@/lib/data/lead-market";
+import { monthlyAllowanceCredits } from "@/lib/data/lead-allowance";
 import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
 import { PushOnboarding } from "@/components/notifications/push-onboarding";
 import { MobileAppPromo } from "@/components/home/mobile-app-promo";
@@ -49,6 +51,14 @@ export default async function HomePage() {
     loadActiveFeeRuleSet(),
   ]);
   const planCatalog = normalizePlanCatalogOverrides(ruleSet.planCatalog);
+  // Each plan's "free leads" are paid as monthly credits at the bronze price.
+  const leadPrice = leadMarketConfig(ruleSet).prices.bronze;
+  const leadCredits = {
+    basic: monthlyAllowanceCredits(planCatalog.plans.basic.includedLeads, leadPrice),
+    professional: monthlyAllowanceCredits(planCatalog.plans.professional.includedLeads, leadPrice),
+    premium: monthlyAllowanceCredits(planCatalog.plans.premium.includedLeads, leadPrice),
+    enterprise: monthlyAllowanceCredits(planCatalog.plans.enterprise.includedLeads, leadPrice),
+  };
   // Only the take-rate layers reach the client — the lead-market policy
   // (admin WhatsApp templates) and referral config stay on the server.
   const feeRules = {
@@ -67,7 +77,7 @@ export default async function HomePage() {
       <HowItWorks />
       <StatsBand citiesServed={DEFAULT_COUNTRY.cities.length} />
       <Testimonials />
-      <Plans catalog={planCatalog} feeRules={feeRules} />
+      <Plans catalog={planCatalog} feeRules={feeRules} leadCredits={leadCredits} />
       <CTA />
       <MobileAppPromo />
       <PushOnboarding />

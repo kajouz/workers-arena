@@ -72,6 +72,7 @@ import {
   type GuestClaimResult,
 } from "./guest-claim";
 import { applyPromotionCreditGrant } from "./credit-ledger";
+import { grantLeadAllowanceNow } from "./lead-allowance-run";
 import { feeSnapshotCreateData } from "./fee-rules-prisma";
 import { categoryBySlug as demoCategoryBySlug } from "./categories";
 import { CITIES, cityBySlug } from "./cities";
@@ -6336,6 +6337,8 @@ export async function prismaConfirmPurchase(
       // worker per promotion (enforced by the ledger's unique index), the
       // real-mode twin of demoConfirmPurchase's grant.
       await applyPromotionCreditGrant({ workerId: worker.id, plan: p, createdBy: actor });
+      // The plan's monthly lead credits land now (same ledger key as the cron).
+      await grantLeadAllowanceNow({ id: worker.id, subscription: { plan: p, status: "active", expiresAt } });
       await notify(
         "subscription",
         `Subscription renewed — ${p}`,

@@ -64,6 +64,7 @@ The final status must say **Database schema is up to date**. Never use `prisma d
   | `/api/cron/recurring` | `0 2 * * *` | materializes maintenance-contract occurrences (idempotent) |
   | `/api/cron/digest` | `0 6 * * *` | daily digest |
   | `/api/cron/reminders` | `0 7 * * *` | booking + subscription reminders |
+  | `/api/cron/lead-allowance` | `10 0 * * *` | monthly lead credits (once per worker per month) |
   | `/api/cron/admin-digest` | `0 8 * * 1` | weekly admin digest (Mondays) — needs `ADMIN_WHATSAPP_NUMBERS` plus WhatsApp credentials |
   | `/api/cron/push-prune` | `0 3 * * 0` | push-subscription cleanup (Sundays) |
   | `/api/cron/activity-prune` | `30 3 * * 0` | audit-table retention, bounded by `ACTIVITY_LOG_RETENTION_DAYS` (default 90) |

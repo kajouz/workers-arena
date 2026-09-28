@@ -20,7 +20,8 @@ import { CATEGORY_TIER_MAP, PLAN_CATALOG, getPlanCatalog, type PlanCatalogEntry 
 export interface PlanCatalogOverride {
   /** Monthly price in USD (0 allowed — a genuinely free tier). */
   monthlyPriceUsd?: number;
-  /** Included lead credits per month (-1 = unlimited). */
+  /** Leads included per month, paid out as credits (lead-allowance.ts). A
+   * legacy stored -1 ("unlimited") falls back to the shipped default. */
   includedLeads?: number;
   /** Price per extra lead (USD). */
   extraLeadPriceUsd?: number;
@@ -99,7 +100,9 @@ export function normalizePlanCatalogOverrides(input?: PlanCatalogOverrides | nul
     const def = shipped[key];
     plans[key] = {
       monthlyPriceUsd: clampNum(o?.monthlyPriceUsd ?? def.monthlyPriceUsd, 0, 10_000, def.monthlyPriceUsd),
-      includedLeads: Math.round(clampNum(o?.includedLeads ?? def.includedLeads, -1, 10_000, def.includedLeads)),
+      includedLeads: Math.round(
+        clampNum(o?.includedLeads === -1 ? def.includedLeads : (o?.includedLeads ?? def.includedLeads), 0, 10_000, def.includedLeads)
+      ),
       extraLeadPriceUsd: clampNum(o?.extraLeadPriceUsd ?? def.extraLeadPriceUsd, 0, 1_000, def.extraLeadPriceUsd),
       searchBoost: clampNum(o?.searchBoost ?? def.searchBoost, 0.5, 5, def.searchBoost),
     };

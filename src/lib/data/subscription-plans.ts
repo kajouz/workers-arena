@@ -171,7 +171,9 @@ export const PLAN_CATALOG: readonly PlanCatalogEntry[] = [
     labelAr: "أعمال",
     hue: 265,
     monthlyPriceUsd: 199,
-    includedLeads: -1, // unlimited
+    // Paid out as monthly lead credits (lead-allowance.ts), so the allowance
+    // is a finite number: "unlimited" cannot be granted as credits.
+    includedLeads: 60,
     extraLeadPriceUsd: 0,
     // Business receives a reduced transaction fee, not a full exemption.
     // This preserves platform revenue while making the plan's economics easy

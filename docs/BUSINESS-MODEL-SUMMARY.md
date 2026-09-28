@@ -41,7 +41,7 @@ Four tiers, USD/month (admin-editable via plan catalog):
 | **Starter** | $15 | $135 | Profile, search listing, 3 leads/mo |
 | **Growth** | $39 | $351 | + Featured placement, 10 leads/mo, verification |
 | **Pro** | $99 | $891 | + Priority matching, analytics, 25 leads/mo, emergency |
-| **Business** | $199 | $1,791 | + reduced 4% transaction fee, unlimited leads, team management |
+| **Business** | $199 | $1,791 | + reduced 4% transaction fee, 60 leads/mo as credits, team management |
 
 **Category-adjusted pricing** — trades are classified by average job value:
 - **Low-value** (cleaning, gardening, pest control): 0.5× multiplier → Starter $7.50/mo
