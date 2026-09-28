@@ -31,7 +31,9 @@ Four tiers (USD/month, `PLAN_CATALOG` in `src/lib/data/subscription-plans.ts`; m
 | **Starter** | $15 | $135 | 3 | Profile, search listing |
 | **Growth** | $39 | $351 | 10 | + Featured, verification |
 | **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
-| **Business** | $199 | $1,791 | Unlimited | + reduced 4% platform fee, team mgmt |
+| **Business** | $199 | $1,791 | 60 | + reduced 4% platform fee, team mgmt |
+
+**Monthly lead credits:** each plan's leads are paid out as credits once a month (included leads × the bronze lead price: 15 / 50 / 125 / 300 credits by default), by `GET /api/cron/lead-allowance` and at once when a plan payment is confirmed. Unused allowance credits expire when the next month's allowance is granted; purchased credits never expire (`src/lib/data/lead-allowance.ts`).
 
 **Category-adjusted pricing** — trades are classified by average job value:
 - **Low-value** (cleaning, gardening, pest control): 0.5× multiplier → Starter $7.50/mo

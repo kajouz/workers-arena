@@ -20,6 +20,7 @@
  */
 import { formatDate } from "@/lib/utils";
 import { applyPromotionCreditGrant, demoGrantCredits } from "./credit-ledger";
+import { grantLeadAllowanceNow } from "./lead-allowance-run";
 import { workerBySlug } from "./workers";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { pushNotification } from "./notifications";
@@ -268,6 +269,9 @@ export async function demoConfirmPurchase(
       // per worker per promotion (the ledger enforces it). Silent no-op when no
       // campaign matches; a bonus can never break the purchase it rides on.
       await applyPromotionCreditGrant({ workerId: w.id, plan, createdBy: actor });
+      // The plan's monthly lead credits land now rather than at the next daily
+      // run (once per month — the cron's grant is the same ledger key).
+      await grantLeadAllowanceNow({ id: w.id, subscription });
       await pushNotification(
         {
           type: "subscription",

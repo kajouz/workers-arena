@@ -188,12 +188,15 @@ describe("purchase confirmation grants the bonus end-to-end", () => {
     expect(pending).toBeTruthy();
     expect(await confirmPurchase(pending!.id, "OMT-REF-1", { by: "Platform Admin" })).toBe(true);
 
+    // The campaign bonus (30) plus the Growth plan's monthly lead credits
+    // (10 leads × 5 credits — lead-allowance.ts) granted on the same confirm.
     const balance = await getWorkerCreditBalance(worker.id);
-    expect(balance.balance).toBe(30);
+    expect(balance.balance).toBe(30 + 50);
 
     const ledger = await listCreditLedger(10, worker.id);
-    expect(ledger).toHaveLength(1);
-    expect(ledger[0]).toMatchObject({ kind: "grant", amount: 30, promotionId: "welcome-credit", createdBy: "Platform Admin" });
+    expect(ledger).toHaveLength(2);
+    expect(ledger.find((e) => e.promotionId === "welcome-credit")).toMatchObject({ kind: "grant", amount: 30, createdBy: "Platform Admin" });
+    expect(ledger.find((e) => e.promotionId?.startsWith("lead-allowance:"))).toMatchObject({ kind: "grant", amount: 50 });
   });
 
   it("grants nothing for a non-subscription purchase, even while a campaign runs", async () => {
@@ -232,6 +235,7 @@ describe("purchase confirmation grants the bonus end-to-end", () => {
     const pending = demoPendingManualPurchases().find((p) => p.scope === "subscription");
     await confirmPurchase(pending!.id, "OMT-REF-2");
 
-    expect((await getWorkerCreditBalance(worker.id)).balance).toBe(12);
+    // The Basic-only bonus (12) plus Starter's monthly lead credits (3 × 5).
+    expect((await getWorkerCreditBalance(worker.id)).balance).toBe(12 + 15);
   });
 });
