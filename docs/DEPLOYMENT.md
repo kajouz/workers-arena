@@ -42,6 +42,8 @@ is worse than no check, because the pipeline reports success and nobody looks.
 
 ### Database migration release gate
 
+**Automatic since 2026-09-28:** every Vercel **production** build runs `scripts/migrate-on-deploy.mjs` first (`vercel.json` → `buildCommand`), which applies pending migrations with `prisma migrate deploy` using the build-time `DATABASE_URL` (a Vercel Sensitive variable, readable only there). It skips preview builds and a production without a postgres URL (demo mode), uses the direct endpoint for a Neon `-pooler` host (or `DIRECT_URL` / `DATABASE_URL_UNPOOLED` when set), and a failed migration fails the build so the previous deploy stays live. The manual steps below remain the way to inspect or recover a database by hand.
+
 Run this checklist against the exact production `DATABASE_URL` before starting the new application build:
 
 ```bash
