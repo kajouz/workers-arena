@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { cronRoute } from "@/lib/cron-route";
 import { pruneActivityLog } from "@/lib/data/activity";
 
 export const revalidate = 0;
@@ -25,7 +26,7 @@ export const dynamic = "force-dynamic";
  * endpoint says so in the scheduler's log (`persisted: false`) instead of
  * answering 500 — or, worse, claiming a retention policy that never ran.
  */
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   const authError = verifyCronAuth(req);
   if (authError) return authError;
 
@@ -33,3 +34,5 @@ export async function GET(req: Request) {
   const { removed, remaining, persisted, store } = await pruneActivityLog(retentionDays);
   return NextResponse.json({ ok: true, retentionDays, removed, remaining, store, persisted });
 }
+
+export const GET = cronRoute("activity-prune", handleGet);

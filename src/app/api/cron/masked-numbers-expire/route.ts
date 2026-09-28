@@ -10,9 +10,10 @@
 
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { cronRoute } from "@/lib/cron-route";
 import { expireOldMaskedNumbers } from "@/lib/calling/masked-number-service";
 
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   try {
     const authError = verifyCronAuth(request);
     if (authError) return authError;
@@ -34,3 +35,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const GET = cronRoute("masked-numbers-expire", handleGet);

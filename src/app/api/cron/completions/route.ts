@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { cronRoute } from "@/lib/cron-route";
 import { runCompletionAutoConfirmEngine } from "@/lib/data/completion-auto-confirm";
 
 export const revalidate = 0;
@@ -18,10 +19,12 @@ export const dynamic = "force-dynamic";
  * Idempotent: each confirm is a CAS on the COMPLETION_PENDING status.
  * Response: `{ ok, autoConfirmed }`.
  */
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   const authError = verifyCronAuth(req);
   if (authError) return authError;
 
   const run = await runCompletionAutoConfirmEngine();
   return NextResponse.json({ ok: true, ...run });
 }
+
+export const GET = cronRoute("completions", handleGet);

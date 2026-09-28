@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { cronRoute } from "@/lib/cron-route";
 import { appBaseUrl } from "@/lib/notifications/config";
 import { dispatchWhatsApp } from "@/lib/notifications/dispatcher";
 import { ALL_COUNTRIES } from "@/lib/tenant/countries";
@@ -35,7 +36,7 @@ export const dynamic = "force-dynamic";
  * Call weekly from a scheduler:
  *   curl -x POST -H "x-cron-secret: $CRON_SECRET" https://…/api/cron/admin-digest
  */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const authError = verifyCronAuth(request);
   if (authError) return authError;
 
@@ -178,7 +179,7 @@ export async function POST(request: Request) {
 }
 
 /** GET handler — cron-guarded, describes usage (no open leak). */
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   const authError = verifyCronAuth(request);
   if (authError) return authError;
   return NextResponse.json({
@@ -190,3 +191,6 @@ export async function GET(request: Request) {
     ],
   });
 }
+
+export const GET = cronRoute("admin-digest", handleGet);
+export const POST = cronRoute("admin-digest", handlePost);

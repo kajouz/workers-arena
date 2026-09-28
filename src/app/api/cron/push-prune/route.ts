@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { cronRoute } from "@/lib/cron-route";
 import { pruneDeadPushSubscriptions } from "@/lib/notifications/providers/push";
 
 export const revalidate = 0;
@@ -19,10 +20,12 @@ export const dynamic = "force-dynamic";
  * removed once, healthy ones are left untouched) and a no-op when no VAPID
  * keys are configured or no subscriptions exist.
  */
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   const authError = verifyCronAuth(req);
   if (authError) return authError;
 
   const { pruned, kept } = await pruneDeadPushSubscriptions();
   return NextResponse.json({ ok: true, pruned, kept });
 }
+
+export const GET = cronRoute("push-prune", handleGet);
