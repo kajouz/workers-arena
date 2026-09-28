@@ -2133,6 +2133,9 @@ export async function createPurchaseCheckout(input: {
   plan?: SubscriptionPlan;
   period?: BillingPeriod;
   tier?: VerificationTier;
+  /** A credit top-up's pack (validated by the caller): its price is the
+   * charge, `credits` land in the PAID pot and `bonusCredits` in the FREE one. */
+  creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
   method: "OMT" | "WHISH";
 }): Promise<{ url: string } | null> {
   if (realDataEnabled) return (await prismaRepo()).prismaCreatePurchaseCheckout(input);

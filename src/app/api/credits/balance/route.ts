@@ -32,12 +32,16 @@ export async function GET() {
     const worker = await getSessionWorker(session);
     const ledger = worker
       ? await getWorkerCreditBalance(worker.id)
-      : { workerId: session.id, balance: 0, granted: 0, spent: 0, refunded: 0 };
+      : { workerId: session.id, balance: 0, paidBalance: 0, freeBalance: 0, granted: 0, spent: 0, refunded: 0, lastActivityAt: undefined };
 
     return NextResponse.json({
       balance: {
         workerId: ledger.workerId,
         balance: ledger.balance,
+        // The prepaid wallet's two pots: paid (topped-up money, pays for
+        // anything, not withdrawable) and free (given credits, leads only).
+        paidBalance: ledger.paidBalance,
+        freeBalance: ledger.freeBalance,
         // The card's labels predate the ledger; map them onto real rows so no
         // number on the dashboard is invented (granted = credits added).
         totalPurchased: ledger.granted,

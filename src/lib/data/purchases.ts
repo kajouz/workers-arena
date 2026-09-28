@@ -19,7 +19,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 import { formatDate } from "@/lib/utils";
-import { applyPromotionCreditGrant, demoGrantCredits } from "./credit-ledger";
+import { applyPromotionCreditGrant, demoGrantCredits, topUpGrantsFor } from "./credit-ledger";
 import { grantLeadAllowanceNow } from "./lead-allowance-run";
 import { workerBySlug } from "./workers";
 import { ACTION_CODES, logAdminActivity } from "./activity";
@@ -68,6 +68,9 @@ interface DemoPurchasePayment {
     period?: BillingPeriod;
     tier?: VerificationTier;
     kind?: "featured" | "emergency";
+    /** Credit top-up: paid credits + free bonus credits to grant on confirm. */
+    credits?: number;
+    bonusCredits?: number;
   };
 }
 
@@ -140,6 +143,9 @@ export async function demoCreatePurchaseCheckout(
     plan?: SubscriptionPlan;
     period?: BillingPeriod;
     tier?: VerificationTier;
+    /** A credit top-up's pack (validated by the caller): its price is the
+     * charge, `credits` land in the PAID pot and `bonusCredits` in the FREE one. */
+    creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
     method: "OMT" | "WHISH";
   }
 ): Promise<{ url: string } | null> {
@@ -173,7 +179,8 @@ export async function demoCreatePurchaseCheckout(
     const monthly = effectiveMonthlyPriceWithOverrides(catalog, input.plan, w.categorySlug);
     amount = monthly * 100 * (input.period === "annual" ? ANNUAL_PAID_MONTHS : 1);
   }
-  if (amount === null) return null;
+  if (input.scope === "credit" && input.creditPackage) amount = Math.round(input.creditPackage.priceUsd * 100);
+  if (amount === null || amount <= 0) return null;
 
   STORE.seq += 1;
   const id = `pay-pur-${STORE.seq}`;
@@ -192,6 +199,9 @@ export async function demoCreatePurchaseCheckout(
       period: input.period,
       tier: input.tier,
       kind: input.scope === "featured" || input.scope === "emergency" ? input.scope : undefined,
+      ...(input.creditPackage
+        ? { credits: input.creditPackage.credits, bonusCredits: input.creditPackage.bonusCredits }
+        : {}),
     },
   };
   const base = typeof window === "undefined" ? "" : window.location.origin;
@@ -334,16 +344,19 @@ export async function demoConfirmPurchase(
       break;
     }
     case "credit": {
-      // Grant the purchased credits — credits = payment amount / 100 (whole credits)
-      const creditsToGrant = Math.floor(payment.amount / 100);
-      if (creditsToGrant > 0) {
-        demoGrantCredits({
-          workerId: w.id,
-          amount: creditsToGrant,
-          reason: `Credit top-up: $${creditsToGrant} purchased (${payment.method})`,
-          createdBy: actor,
-        });
-      }
+      // The pack's credits land in the wallet (PAID pot), its bonus in the
+      // FREE pot — keyed on this payment, so a re-confirm never grants twice.
+      const grants = topUpGrantsFor({
+        workerId: w.id,
+        paymentId: payment.id,
+        amountMinor: payment.amount,
+        credits: payment.meta.credits,
+        bonusCredits: payment.meta.bonusCredits,
+        method: payment.method,
+        createdBy: actor,
+      });
+      for (const grant of grants) demoGrantCredits(grant);
+      const creditsToGrant = grants.reduce((sum, g) => sum + g.amount, 0);
       await pushNotification(
         {
           type: "system",
