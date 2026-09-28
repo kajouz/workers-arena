@@ -143,6 +143,7 @@ export function LeadMarketPanel({
       prices: { ...draft.prices },
       maxWorkersPerLead: draft.maxWorkersPerLead,
       offerTtlMinutes: draft.offerTtlMinutes,
+      minWalletCredits: draft.minWalletCredits,
       exclusive: draft.exclusive,
       reveal: draft.reveal,
       weights: { ...draft.weights },
@@ -287,6 +288,18 @@ export function LeadMarketPanel({
                 className="tabular-nums"
               />
               <span className="block text-[11px] text-ink-500 dark:text-ink-400">{t("leadMarket.adminTtlHint")}</span>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("leadMarket.adminMinWallet")}</span>
+              <Input
+                type="number"
+                min={0}
+                max={1000}
+                value={draft.minWalletCredits}
+                onChange={(e) => setDraft((d) => ({ ...d, minWalletCredits: Number(e.target.value) }))}
+                className="tabular-nums"
+              />
+              <span className="block text-[11px] text-ink-500 dark:text-ink-400">{t("leadMarket.adminMinWalletHint")}</span>
             </label>
             <label className="space-y-1">
               <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("leadMarket.adminExclusive")}</span>

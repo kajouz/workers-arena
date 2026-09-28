@@ -1,5 +1,7 @@
 import { Link2 } from "lucide-react";
-import { getPaymentProvider } from "@/lib/payments/registry";
+import { verifyManualLink } from "@/lib/payments/manual-link";
+import { getPaymentReceipt } from "@/lib/data/payment-receipts";
+import { ReceiptUpload } from "@/components/payments/receipt-upload";
 import { getI18n } from "@/lib/i18n/server";
 import { formatPrice } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,29 +31,21 @@ export default async function ManualPaymentPage({
   const raw = await searchParams;
   const one = (k: string) => (Array.isArray(raw[k]) ? raw[k]![0] : raw[k]);
 
-  const provider = one("provider")?.toUpperCase() === "WHISH" ? "WHISH" : one("provider")?.toUpperCase() === "OMT" ? "OMT" : null;
-  const body = JSON.stringify({
-    bookingId: one("bookingId") ?? undefined,
-    campaignId: one("campaignId") ?? undefined,
-    paymentId: one("paymentId") ?? undefined,
-    ref: one("ref") ?? undefined,
-    amount: Number(one("amount") ?? "0"),
-    sig: one("sig") ?? undefined,
-  });
-
-  let verified = false;
-  if (provider) {
-    try {
-      verified = (await getPaymentProvider(provider).verifyWebhook(new Headers(), body)) !== null;
-    } catch {
-      verified = false;
-    }
-  }
-  const ref = one("ref");
-  const amount = Number(one("amount") ?? "0");
+  // The signed link's own fields — passed back verbatim by the receipt upload,
+  // which re-verifies them (the page is not the authority, the signature is).
+  const link = {
+    provider: one("provider") ?? null,
+    bookingId: one("bookingId") ?? null,
+    campaignId: one("campaignId") ?? null,
+    paymentId: one("paymentId") ?? null,
+    ref: one("ref") ?? null,
+    amount: one("amount") ?? null,
+    sig: one("sig") ?? null,
+  };
+  const verified = await verifyManualLink(link);
   const description = one("desc") ?? "";
 
-  if (!provider || !verified || !ref) {
+  if (!verified.ok) {
     return (
       <main className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center px-4 py-16 text-center">
         <div className="flex size-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
@@ -63,6 +57,8 @@ export default async function ManualPaymentPage({
     );
   }
 
+  const { provider, ref, amountMinor: amount } = verified;
+  const receipt = await getPaymentReceipt(ref);
   const methodName = provider === "OMT" ? t("payments.methodOmt") : t("payments.methodWhish");
   const steps =
     provider === "OMT"
@@ -116,6 +112,9 @@ export default async function ManualPaymentPage({
               ))}
             </ol>
           </div>
+
+          {/* Step 3 — a photo of the receipt lets an admin confirm at a glance. */}
+          <ReceiptUpload link={link} uploadedAt={receipt?.uploadedAt ?? null} />
 
           <Badge variant="outline" className="w-full justify-center py-2 text-xs">
             {t("payments.manualConfirming")}

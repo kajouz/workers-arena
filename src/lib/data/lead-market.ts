@@ -455,6 +455,14 @@ export interface LeadMarketConfig {
   /** How long an offer stays buyable before it expires. */
   offerTtlMinutes: number;
   /**
+   * Prepaid wallet minimum (revenue plan Step 2): a worker is offered a lead
+   * only while their wallet (PAID credits) holds at least this many credits
+   * ($1 each) — so commission on a cash job can be collected — OR their free
+   * credits alone cover the lead's price (the monthly free leads stay usable).
+   * 0 turns the rule off.
+   */
+  minWalletCredits: number;
+  /**
    * §9 exclusivity: when true, buying the lead revokes every other pending
    * offer on it — the buyer gets the customer to themselves. When false the
    * lead is shared (up to maxWorkersPerLead buyers).
@@ -597,10 +605,25 @@ export const DEFAULT_WHATSAPP_TEMPLATES: WhatsAppTemplates = {
   },
 };
 
+/**
+ * Whether a worker may be offered a lead priced `priceCredits` (Step 2): their
+ * wallet holds at least `minWalletCredits` paid credits, or their free credits
+ * alone cover the price. Pure.
+ */
+export function leadOfferEligible(
+  balance: { paidBalance: number; freeBalance: number },
+  minWalletCredits: number,
+  priceCredits: number
+): boolean {
+  if (minWalletCredits <= 0) return true;
+  return balance.paidBalance >= minWalletCredits || balance.freeBalance >= priceCredits;
+}
+
 export const DEFAULT_LEAD_MARKET_CONFIG: LeadMarketConfig = {
   prices: { bronze: 5, silver: 9, gold: 20, emergency: 35 },
   maxWorkersPerLead: 3,
   offerTtlMinutes: 120,
+  minWalletCredits: 10,
   exclusive: true,
   reveal: {
     beforePurchase: "masked",
@@ -775,6 +798,7 @@ export function normalizeLeadMarketConfig(input: Partial<LeadMarketConfig> | und
     prices,
     maxWorkersPerLead: clampNumber(input?.maxWorkersPerLead, base.maxWorkersPerLead, 1, 20),
     offerTtlMinutes: clampNumber(input?.offerTtlMinutes, base.offerTtlMinutes, 5, 10_080),
+    minWalletCredits: clampNumber(input?.minWalletCredits, base.minWalletCredits, 0, 1_000),
     exclusive: input?.exclusive === undefined ? base.exclusive : Boolean(input.exclusive),
     rebate: {
       enabled: rebate.enabled === undefined ? base.rebate.enabled : Boolean(rebate.enabled),

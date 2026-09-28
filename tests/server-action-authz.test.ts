@@ -72,6 +72,8 @@ const PUBLIC_ACTIONS: Record<string, string> = {
     "Public read of a worker's future AVAILABLE slots — the same list the signed-out booking dialog renders on the public profile page.",
   "bookings.ts:requestRecurringBookingAction":
     "Guest booking entry point: a signed-out visitor starts a maintenance contract from the public profile. Reads the session only to stamp the owner.",
+  "payment-receipts.ts:uploadPaymentReceiptAction":
+    "The payer (possibly a guest with no account) attaches a receipt photo from the signed OMT/Whish instructions link. The link's HMAC is re-verified in the action and the photo is stored for that link's reference only.",
   "auth.ts:loginAction": "Sign-in — reached without a session by definition.",
   "auth.ts:registerAction": "Sign-up — reached without a session by definition.",
   "auth.ts:logoutAction": "Sign-out — safe and idempotent for an anonymous caller.",

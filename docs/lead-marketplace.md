@@ -125,6 +125,7 @@ A **lapsed subscription earns no tier weight** (an expired plan is invisible in 
 | `offerTtlMinutes` | 120 | How long a matched worker has to buy it. |
 | `exclusive` | true | Buying withdraws the competing offers. |
 
+- **Wallet minimum** (`minWalletCredits`, default 10, admin-editable, 0 = off): a worker is offered a lead only while their prepaid wallet (PAID credits) holds at least that many credits, **or** their free credits alone cover the lead's price (`leadOfferEligible`). The first keeps commission on cash jobs collectable; the second keeps the plans' free monthly leads usable. Workers below it keep their profile and bookings; the lead board tells them to top up.
 - **Exclusivity** is checked at purchase time (`offersToRevoke`), not at creation, so flipping the setting only affects sales that happen after the change.
 - **Expiry is time-based**, computed from `expiresAt` — not a flag that only a cron can flip. `expireLeadOffers()` is the cron twin of the quote SLA sweep (idempotent).
 - Workers the customer **invited directly are excluded** from the offer pool on purpose: they already hold a free invite to the same job, so selling them the lead would be charging for something they already have. What the marketplace sells is the match the customer never made.

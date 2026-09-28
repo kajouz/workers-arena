@@ -69,6 +69,8 @@ const leadMarketSchema = z.object({
   prices: z.record(z.string(), z.coerce.number().min(0).max(100_000)),
   maxWorkersPerLead: z.coerce.number().int().min(1).max(20),
   offerTtlMinutes: z.coerce.number().int().min(5).max(10_080),
+  // Optional: a client that does not send it gets the default ($10).
+  minWalletCredits: z.coerce.number().int().min(0).max(1_000).optional(),
   exclusive: z.coerce.boolean(),
   reveal: z.object({
     beforePurchase: revealSchema,
@@ -132,6 +134,7 @@ export async function saveLeadMarketConfigAction(
     prices: prices as LeadMarketConfig["prices"],
     maxWorkersPerLead: parsed.data.maxWorkersPerLead,
     offerTtlMinutes: parsed.data.offerTtlMinutes,
+    ...(parsed.data.minWalletCredits !== undefined ? { minWalletCredits: parsed.data.minWalletCredits } : {}),
     exclusive: parsed.data.exclusive,
     reveal: parsed.data.reveal,
     weights: parsed.data.weights as unknown as LeadMarketConfig["weights"],
