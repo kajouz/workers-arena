@@ -29,6 +29,7 @@ import type { Campaign } from "@/lib/data/types";
 import { dispatchWhatsApp } from "@/lib/notifications/dispatcher";
 import { appBaseUrl } from "@/lib/notifications/config";
 import { getWorkerById, getWorkerByUserId } from "@/lib/data/repo";
+import { getSessionWorker } from "@/lib/data/authz";
 import { recordSubscriptionEvent } from "@/lib/data/subscription-lifecycle-store";
 
 const AD_TYPES = ["banner", "slider", "featuredCard", "sponsoredSearch", "sponsoredCategory", "popup", "native", "video"] as const;
@@ -216,7 +217,7 @@ export async function renewSubscriptionAction(
   formData: FormData
 ): Promise<{ ok?: boolean; error?: string; days?: number; url?: string }> {
   const session = await getSession();
-  // Only the demo worker account may renew its own subscription.
+  // A worker may renew only its own subscription.
   if (!session || session.role !== "worker") return { error: "unauthorized" };
   const plan = z.enum(["basic", "professional", "premium", "enterprise"]).safeParse(formData.get("plan"));
   if (!plan.success) return { error: "plan" };
@@ -226,8 +227,11 @@ export async function renewSubscriptionAction(
     .enum(["monthly", "annual"])
     .safeParse(formData.get("period") ?? "monthly");
   if (!period.success) return { error: "period" };
-  const workerSlug = String(formData.get("workerSlug") ?? "khaled-al-harbi-plumbing");
-  if (workerSlug !== "khaled-al-harbi-plumbing") return { error: "unauthorized" };
+  // The signed-in worker's OWN profile; a form naming another worker is refused.
+  const own = await getSessionWorker(session);
+  if (!own) return { error: "unauthorized" };
+  const workerSlug = String(formData.get("workerSlug") ?? own.slug);
+  if (workerSlug !== own.slug) return { error: "unauthorized" };
 
   // §Lebanon — the OMT/Whish MANUAL renewal: the purchase mints the signed
   // instructions URL, the worker pays offline with the reference, and an
@@ -267,7 +271,9 @@ export async function renewSubscriptionAction(
 export async function submitVerificationAction(): Promise<{ ok?: boolean; error?: string }> {
   const session = await getSession();
   if (!session || session.role !== "worker") return { error: "unauthorized" };
-  await submitVerificationRequest("khaled-al-harbi-plumbing");
+  const own = await getSessionWorker(session);
+  if (!own) return { error: "unauthorized" };
+  await submitVerificationRequest(own.slug);
   revalidatePath("/dashboard");
   return { ok: true };
 }
@@ -409,9 +415,8 @@ export async function confirmManualPaymentAction(
  * §Lebanon — a worker buys a paid upgrade (verification tier / featured slot
  * / emergency marker) via the OMT/Whish MANUAL methods (docs/BUSINESS-MODEL.md
  * §5.1, revenue first, no Stripe): the purchase mints the signed instructions
- * URL and the capability flips once an admin confirms receipt. Worker-only
- * (the demo worker account is khaled-al-harbi-plumbing — same gate as the
- * renew action).
+ * URL and the capability flips once an admin confirms receipt. Worker-only,
+ * and only for the signed-in worker's own profile (same gate as renew).
  */
 export async function purchaseUpgradeAction(
   formData: FormData
@@ -424,8 +429,11 @@ export async function purchaseUpgradeAction(
   if (!scope.success) return { error: "scope" };
   const method = z.enum(["omt", "whish"]).safeParse(formData.get("method"));
   if (!method.success) return { error: "method" };
-  const workerSlug = String(formData.get("workerSlug") ?? "khaled-al-harbi-plumbing");
-  if (workerSlug !== "khaled-al-harbi-plumbing") return { error: "unauthorized" };
+  // The signed-in worker's OWN profile; a form naming another worker is refused.
+  const own = await getSessionWorker(session);
+  if (!own) return { error: "unauthorized" };
+  const workerSlug = String(formData.get("workerSlug") ?? own.slug);
+  if (workerSlug !== own.slug) return { error: "unauthorized" };
   const tier = scope.data === "verification"
     ? z.enum(["basic", "professional"]).safeParse(formData.get("tier") ?? "basic")
     : { success: true as const, data: undefined };
