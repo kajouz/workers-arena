@@ -90,6 +90,11 @@ function queryScore(w: Worker, queryTokens: string[], originalQuery: string): nu
   return score;
 }
 
+/** 0 for a worker with an active plan, 1 for the free listing (ranked last). */
+export function freeListingRank(w: Pick<Worker, "subscription">): number {
+  return subscriptionStatus(w.subscription) === "expired" ? 1 : 0;
+}
+
 /** Ranking bonus independent of the query (kept out of the match test). */
 function rankBonus(w: Worker): number {
   let bonus = 0;
@@ -187,8 +192,8 @@ export function searchWorkers(filters: SearchFilters): SearchResult {
   const radiusKm = center ? filters.radiusKm! : undefined;
 
   let results: Scored[] = WORKERS.filter((w) => {
-    // Hidden from search while the subscription is expired (reactivates on renew).
-    if (!filters.includeExpired && subscriptionStatus(w.subscription) === "expired") return false;
+    // Free listing (revenue plan Step 4): a worker without an active plan is
+    // still listed — ranked after every paying worker (see the sort below).
     if (filters.category && w.categorySlug !== filters.category) return false;
     if (filters.city && w.citySlug !== filters.city) return false;
     if (filters.area && w.areaSlug !== filters.area) return false;
@@ -231,6 +236,9 @@ export function searchWorkers(filters: SearchFilters): SearchResult {
   const city = filters.city ? cityBySlug(filters.city) : undefined;
   const sort: SearchSort = filters.sort ?? "relevance";
   const sorted = [...results].sort((a, b) => {
+    // Paying workers first, whatever the chosen sort; the free listing after.
+    const tier = freeListingRank(a) - freeListingRank(b);
+    if (tier !== 0) return tier;
     switch (sort) {
       case "rating":
         return b.rating - a.rating;

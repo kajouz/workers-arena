@@ -104,13 +104,17 @@ describe("subscriptions engine", () => {
     }
   });
 
-  it("expired-subscription workers are hidden from public search", () => {
+  it("expired-subscription workers stay listed, ranked after every paying worker (free listing)", () => {
     const expired = WORKERS.find((w) => subscriptionStatus(w.subscription) === "expired");
     expect(expired).toBeTruthy(); // demo dataset includes at least one expired worker
-    const result = searchWorkers({ query: expired!.nameEn });
-    expect(result.items.some((w) => w.id === expired!.id)).toBe(false);
-    // Admin can include expired workers explicitly.
-    const adminView = searchWorkers({ query: expired!.nameEn, includeExpired: true });
-    expect(adminView.items.some((w) => w.id === expired!.id)).toBe(true);
+    // Findable by name…
+    expect(searchWorkers({ query: expired!.nameEn }).items.some((w) => w.id === expired!.id)).toBe(true);
+    // …and on every sort, after all paying workers in the same results.
+    for (const sort of ["relevance", "rating", "priceLow", "experience"] as const) {
+      const all = searchWorkers({ sort, category: expired!.categorySlug }).items;
+      const firstFree = all.findIndex((w) => subscriptionStatus(w.subscription) === "expired");
+      const lastPaid = all.map((w) => subscriptionStatus(w.subscription) !== "expired").lastIndexOf(true);
+      if (firstFree >= 0 && lastPaid >= 0) expect(firstFree).toBeGreaterThan(lastPaid);
+    }
   });
 });

@@ -52,7 +52,7 @@ Four tiers, USD/month (admin-editable via plan catalog):
 
 **Annual billing** — pay for 9 months, get 12 (25% discount, 3 months free).
 
-- **Visibility gating**: expired subscription → worker removed from public search
+- **Free listing (since 2026-09-28, Step 4):** a worker without an active plan stays listed in search but is ranked after every paying worker (`sqlOrderBy` / `freeListingRank`), pays the Free tier commission (12%, via `feePlanOf`), and gets no lead offers. Visibility is no longer the paywall; ranking, commission and leads are.
 - **Payment methods**: OMT/Whish manual (admin-confirmed) + Stripe (planned)
 - **Renewal reminders**: 7d, 3d, 1d before expiry
 - **Admin-editable**: plan prices, lead quotas, features, and category multipliers are all configurable via `/admin/revenue-settings`

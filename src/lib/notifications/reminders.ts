@@ -41,8 +41,8 @@ function buildReminder(
       type: REMINDER_TYPE,
       titleEn: "Subscription expired",
       titleAr: "انتهى الاشتراك",
-      bodyEn: `${w.nameEn} — your profile is hidden from search results until you renew.`,
-      bodyAr: `${w.nameAr} — ملفك مخفي من نتائج البحث حتى التجديد.`,
+      bodyEn: `${w.nameEn} — your profile moved to the free listing: still in search but ranked last, 12% commission, no lead offers. Renew to move back up.`,
+      bodyAr: `${w.nameAr} — انتقل ملفك إلى القائمة المجانية: يظهر في البحث بترتيب أخير، بعمولة 12٪ ومن دون عروض طلبات. جدّد لتعود إلى الأعلى.`,
       href: "/dashboard",
     };
   }
@@ -51,8 +51,8 @@ function buildReminder(
     type: REMINDER_TYPE,
     titleEn: `Subscription renews in ${d} day${d === 1 ? "" : "s"}`,
     titleAr: `الاشتراك يتجدد خلال ${d} ${d === 1 ? "يوم" : "أيام"}`,
-    bodyEn: `${w.nameEn} — renew to stay visible in search results.`,
-    bodyAr: `${w.nameAr} — جدّد لتبقى ظاهراً في نتائج البحث.`,
+    bodyEn: `${w.nameEn} — renew to keep your place in search, your plan's commission rate and your lead offers.`,
+    bodyAr: `${w.nameAr} — جدّد لتحافظ على ترتيبك في البحث ونسبة عمولة خطتك وعروض الطلبات.`,
     href: "/dashboard",
   };
 }

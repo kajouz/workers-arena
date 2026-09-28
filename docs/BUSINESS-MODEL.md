@@ -46,7 +46,7 @@ Four tiers (USD/month, `PLAN_CATALOG` in `src/lib/data/subscription-plans.ts`; m
 
 Mechanics that make this model work:
 
-- **Visibility gating (the "paywall"):** expired subscription → worker removed from public search (`filtersToWhere` excludes `EXPIRED` subs; demo `isSubscriptionActive`). Search visibility is the workers' #1 KPI, so expiry is a natural, high-converting upsell trigger.
+- **Free listing (since 2026-09-28, Step 4):** a worker without an active plan stays listed in search but is ranked after every paying worker (`sqlOrderBy` / `freeListingRank`), pays the Free tier commission (12%, via `feePlanOf`), and gets no lead offers. Visibility is no longer the paywall; ranking, commission and leads are.
 - **Renewal nudges:** 7/3/1-day reminder notifications + cron engine (`src/lib/notifications/reminders.ts`), "expiring" status banner on the dashboard, and a renewal dialog (`renew-dialog.tsx`) that supports plan switching.
 - **Invoicing:** every renewal mints an `INV-*` invoice shown on the worker dashboard.
 - **Admin-editable:** all prices, quotas, and features configurable via `/admin/revenue-settings`.

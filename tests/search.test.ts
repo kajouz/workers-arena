@@ -18,14 +18,9 @@ describe("normalize", () => {
 });
 
 describe("searchWorkers — filters", () => {
-  it("returns all workers without filters (expired subscriptions hidden)", () => {
+  it("returns every public worker without filters — the free listing included (Step 4)", () => {
     const { total } = searchWorkers({});
-    const hidden = WORKERS.filter((w) => {
-      const days = Math.ceil((new Date(w.subscription.expiresAt).getTime() - Date.now()) / 86400000);
-      return days < 0;
-    }).length;
-    expect(total).toBe(WORKERS.length - hidden);
-    expect(total).toBeGreaterThan(0);
+    expect(total).toBe(WORKERS.length);
   });
 
   it("filters by category", () => {

@@ -57,6 +57,23 @@ export const PLAN_TIER_BY_PLAN: Readonly<Record<string, FeePlanTier>> = {
   enterprise: "business",
 };
 
+/**
+ * The plan that counts for FEES: the subscription's plan while it is active,
+ * nothing once it has lapsed (status expired, or past its end date). A lapsed
+ * worker stays listed on the free listing (revenue plan Step 4) and pays the
+ * Free tier's rate — a plan they no longer pay for must not keep its discount.
+ */
+export function feePlanOf(
+  subscription: { plan?: string | null; status?: string | null; expiresAt?: string | Date | null } | null | undefined,
+  nowMs = Date.now()
+): string | undefined {
+  if (!subscription?.plan) return undefined;
+  if (String(subscription.status ?? "").toLowerCase() === "expired") return undefined;
+  const ends = subscription.expiresAt instanceof Date ? subscription.expiresAt.getTime() : Date.parse(subscription.expiresAt ?? "");
+  if (Number.isFinite(ends) && ends <= nowMs) return undefined;
+  return subscription.plan;
+}
+
 /** The tier for a subscription plan (case-insensitive; unknown/absent → free). */
 export function planTierFor(plan?: string | null): FeePlanTier {
   if (!plan) return "free";
