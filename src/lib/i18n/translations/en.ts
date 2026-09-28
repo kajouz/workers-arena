@@ -1803,6 +1803,9 @@ export const en = {
     adminMaxWorkersHint: "How many matched professionals see one request.",
     adminTtl: "Offer window (minutes)",
     adminTtlHint: "How long a matched worker has to buy the lead.",
+    adminMinWallet: "Wallet minimum for offers ($)",
+    adminMinWalletHint: "Workers are offered leads only with at least this much in their wallet, or enough free credits for the lead. 0 turns it off.",
+    walletMinimumBanner: "Top up your wallet to at least ${amount} to keep getting new lead offers. Free lead credits still work while they cover a lead.",
     adminExclusive: "Exclusive leads",
     adminExclusiveHint:
       "When on, buying a lead withdraws every competing offer on it. When off, the lead is shared with the other matched workers.",

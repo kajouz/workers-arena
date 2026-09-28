@@ -23,6 +23,7 @@ import {
   revealedContact,
   scoreLeadCandidate,
   splitLeadBoard,
+  leadOfferEligible,
   type LeadCandidate,
   type LeadOffer,
   type LeadSignals,
@@ -467,6 +468,12 @@ function offerFixture(): LeadOffer {
 describe("§7–§9 the marketplace store", () => {
   const lead = { id: "qr-100", number: "QR-2026-00100" };
 
+  // These tests are about grading, matching and purchase; the prepaid-wallet
+  // minimum for receiving offers has its own suite below.
+  beforeEach(async () => {
+    await saveFeeRuleSet({ leadMarket: { minWalletCredits: 0 } });
+  });
+
   it("offers a graded lead only to the few best-matched workers", async () => {
     const pool = [
       candidate({ workerId: "w1", reviewCount: 300, rating: 5 }),
@@ -735,7 +742,8 @@ describe("§7–§9 the marketplace store", () => {
       rebateMinor: Math.min(fee, mine.priceCredits * 100),
       effectiveFeeMinor: fee - Math.min(fee, mine.priceCredits * 100),
       ruleId: expect.any(String),
-      ruleVersion: 1,
+      // The rule set in force (this suite publishes one to set the wallet minimum).
+      ruleVersion: (await loadActiveFeeRuleSet()).version,
     });
     expect(rebates[0]!.limitedBy).toBe(fee <= mine.priceCredits * 100 ? "fee" : "lead-cost");
 
@@ -863,5 +871,42 @@ describe("§7–§9 the marketplace store", () => {
     await purchaseLeadOffer(created[0]!.id, "w1");
     const feed = await getAdminActivityFeed();
     expect(feed.some((e) => e.code === "LEAD_PURCHASED")).toBe(true);
+  });
+});
+
+// Prepaid wallet minimum (revenue plan Step 2): a worker is offered a lead
+// only with $10 in their wallet (paid credits) OR free credits that cover the
+// lead's price — so commission on cash jobs can be collected, while the plans'
+// free monthly leads stay usable.
+describe("wallet minimum for lead offers", () => {
+  const lead = { id: "qr-200", number: "QR-2026-00200", jobTitle: "Leak", categorySlug: "plumbing", citySlug: "beirut" };
+
+  it("eligible with the wallet minimum, or with free credits covering the price", () => {
+    expect(leadOfferEligible({ paidBalance: 10, freeBalance: 0 }, 10, 20)).toBe(true);
+    expect(leadOfferEligible({ paidBalance: 0, freeBalance: 20 }, 10, 20)).toBe(true);
+    expect(leadOfferEligible({ paidBalance: 9, freeBalance: 19 }, 10, 20)).toBe(false);
+    expect(leadOfferEligible({ paidBalance: 0, freeBalance: 0 }, 0, 20)).toBe(true);
+  });
+
+  it("offers the lead only to eligible workers; the rest keep their profile but get no offer", async () => {
+    await grantCredits({ workerId: "w-wallet", amount: 10, fund: "paid", reason: "Top-up" });
+    await grantCredits({ workerId: "w-free", amount: 15, fund: "free", reason: "Allowance" });
+    await grantCredits({ workerId: "w-short", amount: 9, fund: "paid", reason: "Top-up" });
+    const result = await offerQualifiedLead({
+      lead,
+      candidates: [
+        candidate({ workerId: "w-wallet" }),
+        candidate({ workerId: "w-free" }),
+        candidate({ workerId: "w-short" }),
+        candidate({ workerId: "w-empty" }),
+      ],
+    });
+    expect(result.created.map((o) => o.workerId).sort()).toEqual(["w-free", "w-wallet"]);
+  });
+
+  it("an admin can turn the minimum off", async () => {
+    await saveFeeRuleSet({ leadMarket: { minWalletCredits: 0 } });
+    const result = await offerQualifiedLead({ lead, candidates: [candidate({ workerId: "w-empty" })] });
+    expect(result.created.map((o) => o.workerId)).toEqual(["w-empty"]);
   });
 });

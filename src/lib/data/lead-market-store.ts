@@ -19,7 +19,7 @@
  */
 
 import { logAdminActivity, ACTION_CODES } from "./activity";
-import { spendCredits, type CreditLedgerEntry } from "./credit-ledger";
+import { getWorkerCreditBalance, spendCredits, type CreditLedgerEntry } from "./credit-ledger";
 import {
   contactRevealFor,
   gradeLeadRequest,
@@ -35,6 +35,7 @@ import {
   type LeadGradeResult,
   type LeadOffer,
   type LeadOfferStatus,
+  leadOfferEligible,
 } from "./lead-market";
 import { loadActiveFeeRuleSet } from "./fee-rules-store";
 import {
@@ -134,6 +135,24 @@ export async function createLeadOffers(
   const gradeAdjustment = weightAdjustments[input.lead.grade] ?? 0;
   const adjustedWeights = { ...config.weights, category: Math.max(0, config.weights.category + gradeAdjustment) };
 
+  // §12 — apply the rating-based price multiplier for this grade
+  const multipliers = getRatingPriceMultipliers();
+  const ratingMultiplier = multipliers[input.lead.grade] ?? 1.0;
+  const smartPriceMultiplier = Math.max(0.7, Math.min(2.0, input.smartPriceMultiplier ?? 1.0));
+  const price = leadPrice(ruleSet, input.lead.grade, ratingMultiplier * smartPriceMultiplier);
+
+  // Prepaid wallet minimum (Step 2): a worker is offered the lead only while
+  // their wallet holds the minimum OR their free credits cover this price.
+  // Everyone else keeps their profile and bookings; they just are not offered
+  // paid leads until they top up.
+  if (config.minWalletCredits > 0) {
+    for (const candidate of input.candidates) {
+      if (exclude.has(candidate.workerId)) continue;
+      const balance = await getWorkerCreditBalance(candidate.workerId);
+      if (!leadOfferEligible(balance, config.minWalletCredits, price.credits)) exclude.add(candidate.workerId);
+    }
+  }
+
   const matched = matchLeadCandidates(
     input.candidates,
     { categorySlug: input.lead.categorySlug, citySlug: input.lead.citySlug, isEmergency: input.lead.isEmergency },
@@ -141,11 +160,6 @@ export async function createLeadOffers(
   );
   if (matched.length === 0) return { offers: existing, created: [] };
 
-  // §12 — apply the rating-based price multiplier for this grade
-  const multipliers = getRatingPriceMultipliers();
-  const ratingMultiplier = multipliers[input.lead.grade] ?? 1.0;
-  const smartPriceMultiplier = Math.max(0.7, Math.min(2.0, input.smartPriceMultiplier ?? 1.0));
-  const price = leadPrice(ruleSet, input.lead.grade, ratingMultiplier * smartPriceMultiplier);
   const expiresAt = new Date(atMs + config.offerTtlMinutes * 60_000).toISOString();
   const fresh: LeadOffer[] = matched.map((row) => ({
     id: `offer-${(STORE.seq += 1)}`,

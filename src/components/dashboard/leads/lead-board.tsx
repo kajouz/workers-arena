@@ -112,6 +112,15 @@ export function LeadBoard({
         </Card>
         <div className="self-center space-y-1 sm:col-span-2">
           <p className="text-sm text-ink-500 dark:text-ink-400">{t("leadMarket.balanceHint")}</p>
+          {/* Prepaid wallet minimum (Step 2): below it, and with no free
+              credits for even the cheapest lead, no new offers arrive. */}
+          {board.config.minWalletCredits > 0 &&
+            board.balance.paidBalance < board.config.minWalletCredits &&
+            board.balance.freeBalance < Math.min(...Object.values(board.config.prices)) && (
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-800 dark:text-amber-300">
+                {t("leadMarket.walletMinimumBanner", { amount: String(board.config.minWalletCredits) })}
+              </p>
+            )}
           {/* §11 — what the leads have given back. This is the number that
               decides whether a worker keeps buying leads, so it sits with the
               balance rather than buried in a booking. */}
