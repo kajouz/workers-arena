@@ -307,9 +307,13 @@ describe("Install banner (src/components/pwa/install-banner.tsx)", () => {
     expect(ar).toContain('تصفح العمال بدون إنترنت');
   });
 
-  it("InstallBanner is integrated into root layout", () => {
-    expect(layout).toContain('InstallBanner');
-    expect(layout).toContain('from "@/components/pwa/install-banner"');
+  it("InstallBanner is integrated into root layout (loaded after hydration)", () => {
+    // The layout renders <DeferredClients />, which lazy-loads the banner so
+    // it stays out of every page's first JavaScript bundle.
+    const deferred = readFileSync(src("components/layout/deferred-clients.tsx"), "utf8");
+    expect(layout).toContain("<DeferredClients />");
+    expect(deferred).toContain("InstallBanner");
+    expect(deferred).toContain('import("@/components/pwa/install-banner")');
   });
 });
 

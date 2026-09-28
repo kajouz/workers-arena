@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import { Users, Eye, TrendingUp, AlertCircle, RefreshCw } from "lucide-react";
 import { getRealtimeRoom } from "@/lib/realtime/room";
 import { MetricCard, RealtimeChart } from "./realtime-chart";

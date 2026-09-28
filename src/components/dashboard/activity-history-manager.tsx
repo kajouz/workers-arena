@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Link } from "@/components/i18n/link";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Filter, Loader2, Search } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Card, CardContent } from "@/components/ui/card";

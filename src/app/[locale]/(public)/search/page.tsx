@@ -39,14 +39,19 @@ export default async function SearchPage({
 }) {
   const { locale, t } = await getI18n();
   const raw = await searchParams;
-  const initialFilters = searchParamsToFilters(raw);
+  // Same default city as SearchClient's initial state. When the two disagreed,
+  // the client saw a "drifted" URL on mount, called router.replace and
+  // refetched identical results — a navigation that could suspend the list
+  // (Suspense fallback={null}) and shift the page (CI Lighthouse CLS 0.48).
+  const parsed = searchParamsToFilters(raw);
+  const initialFilters = { ...parsed, city: parsed.city ?? "beirut" };
   // The sponsored ad is picked here (city default mirrors SearchClient's) so it
   // renders with the page instead of shifting the results down after load.
   const [categories, cities, initial, initialAd] = await Promise.all([
     getCategories(),
     getCities(),
     getWorkers(initialFilters),
-    pickAd("search", { category: initialFilters.category, city: initialFilters.city ?? "beirut" }).catch(() => null),
+    pickAd("search", { category: initialFilters.category, city: initialFilters.city }).catch(() => null),
   ]);
 
   return (
