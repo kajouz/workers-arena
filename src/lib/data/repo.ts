@@ -23,6 +23,7 @@ import {
 } from "./notifications";
 import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCode } from "./activity";
 import { payoutGuard, type Settlement, type SettlementJob } from "./booking-settlement";
+import { weeklyNumbers, type WeeklySheet } from "./weekly-numbers";
 import { benchmarkFor, computePriceBenchmarks, type PriceBenchmark } from "./price-benchmarks";
 import { planGuestClaim, summarizeGuestClaim, type GuestClaimPlans, type GuestClaimResult } from "./guest-claim";
 import { reviewBody, scanReviewText, visibleReviews } from "./review-moderation";
@@ -1284,6 +1285,24 @@ export async function recordFeeClaimCollection(
 ): Promise<boolean> {
   if (realDataEnabled) return (await prismaRepo()).prismaRecordFeeClaimCollection(bookingId, expectedCollectedMinor, addMinor);
   return demoRecordFeeClaimCollection(bookingId, expectedCollectedMinor, addMinor);
+}
+
+/**
+ * The weekly numbers sheet (src/lib/data/weekly-numbers.ts) — revenue by
+ * stream, commission recorded vs collected, cash share, confirmation speed,
+ * renewals and customer requests for the last `weeks` weeks. Reads the same
+ * seams the other admin revenue surfaces use, so both adapters agree.
+ */
+export async function getWeeklyNumbers(weeks = 8, now = Date.now()): Promise<WeeklySheet> {
+  const days = Math.min(Math.max(Math.trunc(weeks) || 8, 1), 52) * 7 + 7;
+  const [payments, jobs, subscriptionEvents, workers, bookings] = await Promise.all([
+    getManualPaymentReconciliation(),
+    getSettlementReconciliation(days),
+    listSubscriptionEvents({ since: new Date(now - days * 86_400_000), limit: 5000 }),
+    getAllWorkers(),
+    getAllBookings(),
+  ]);
+  return weeklyNumbers({ payments, jobs, subscriptionEvents, workers, bookings }, now, weeks);
 }
 
 /**
