@@ -25,6 +25,15 @@ import { cn } from "@/lib/utils";
  * a UA-driven null was hiding the whole section from desktop visitors,
  * leaving every install affordance dark in exactly the browsers where
  * beforeinstallprompt never fires.
+ *
+ * Layout stability: the section's box is rendered from the very first (server)
+ * paint. Platform detection runs in an effect, so the three install cards are
+ * stacked in one grid cell — the cell is always as tall as the tallest card —
+ * and detection only flips which card is visible. Returning null until the
+ * platform was known used to push the footer down after first paint (CLS 0.28
+ * on /en in Lighthouse). Installed PWAs are hidden by CSS (display-mode:
+ * standalone) before paint; the JS isInstalled check stays as the fallback
+ * for browsers that remember an install via localStorage.
  */
 export function MobileAppPromo() {
   const { t } = useLocale();
@@ -42,7 +51,6 @@ export function MobileAppPromo() {
   // that vanishes by user-agent made the whole install path invisible on
   // desktop Chromium, where beforeinstallprompt also does not fire.
   if (isInstalled) return null;
-  if (platform === "unknown") return null;
 
   const handleInstall = async () => {
     if (platform === "android" && canInstall) {
@@ -60,12 +68,22 @@ export function MobileAppPromo() {
     { icon: CheckCircle2, key: "benefit4" },
   ];
 
+  const cardClass = (card: Platform) =>
+    cn(
+      "col-start-1 row-start-1 rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft dark:border-ink-800 dark:bg-ink-900",
+      // visibility:hidden keeps the box but drops it from focus and the a11y tree.
+      platform !== card && "invisible",
+    );
+
   const iosSteps = ["iosStep1", "iosStep2", "iosStep3", "iosStep4"];
   const androidSteps = ["androidStep1", "androidStep2", "androidStep3"];
   const desktopSteps = ["desktopStep1", "desktopStep2"];
 
   return (
-    <section id="app" className="relative scroll-mt-24 overflow-hidden py-12 sm:py-16 lg:hidden">
+    <section
+      id="app"
+      className="relative scroll-mt-24 overflow-hidden py-12 sm:py-16 lg:hidden [@media(display-mode:standalone)]:hidden"
+    >
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-brand-50/50 via-transparent to-transparent dark:from-brand-950/30" />
 
@@ -89,99 +107,95 @@ export function MobileAppPromo() {
             </p>
           </div>
 
-          {/* Platform-specific install card */}
-          <div className="mx-auto mt-8 max-w-lg">
-            {platform === "ios" && (
-              <div className="rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft dark:border-ink-800 dark:bg-ink-900">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-sky-100 dark:bg-sky-900/30">
-                    <Share className="size-5 text-sky-600 dark:text-sky-400" />
-                  </div>
-                  <h3 className="text-base font-bold text-ink-900 dark:text-ink-50">
-                    {t("mobileAppPromo.iosTitle")}
-                  </h3>
+          {/* Platform-specific install card. All three share one grid cell so
+              the box keeps the tallest card's height whichever is shown (and
+              before detection, when none is) — swapping never reflows. */}
+          <div className="mx-auto mt-8 grid max-w-lg">
+            <div className={cardClass("ios")}>
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-sky-100 dark:bg-sky-900/30">
+                  <Share className="size-5 text-sky-600 dark:text-sky-400" />
                 </div>
-                <ol className="space-y-3">
-                  {iosSteps.map((step, i) => (
-                    <li key={step} className="flex items-start gap-3">
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
-                        {i + 1}
-                      </span>
-                      <span className="text-base text-ink-600 dark:text-ink-300">
-                        {t(`mobileAppPromo.${step}`)}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
+                <h3 className="text-base font-bold text-ink-900 dark:text-ink-50">
+                  {t("mobileAppPromo.iosTitle")}
+                </h3>
               </div>
-            )}
+              <ol className="space-y-3">
+                {iosSteps.map((step, i) => (
+                  <li key={step} className="flex items-start gap-3">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+                      {i + 1}
+                    </span>
+                    <span className="text-base text-ink-600 dark:text-ink-300">
+                      {t(`mobileAppPromo.${step}`)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
 
-            {platform === "desktop" && (
-              <div className="rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft dark:border-ink-800 dark:bg-ink-900">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-brand-100 dark:bg-brand-900/30">
-                    <Download className="size-5 text-brand-600 dark:text-brand-400" />
-                  </div>
-                  <h3 className="text-base font-bold text-ink-900 dark:text-ink-50">
-                    {t("mobileAppPromo.desktopTitle")}
-                  </h3>
+            <div className={cardClass("desktop")}>
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-brand-100 dark:bg-brand-900/30">
+                  <Download className="size-5 text-brand-600 dark:text-brand-400" />
                 </div>
-                <ol className="space-y-3">
-                  {desktopSteps.map((step, i) => (
-                    <li key={step} className="flex items-start gap-3">
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
-                        {i + 1}
-                      </span>
-                      <span className="text-base text-ink-600 dark:text-ink-300">
-                        {t(`mobileAppPromo.${step}`)}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
+                <h3 className="text-base font-bold text-ink-900 dark:text-ink-50">
+                  {t("mobileAppPromo.desktopTitle")}
+                </h3>
               </div>
-            )}
+              <ol className="space-y-3">
+                {desktopSteps.map((step, i) => (
+                  <li key={step} className="flex items-start gap-3">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+                      {i + 1}
+                    </span>
+                    <span className="text-base text-ink-600 dark:text-ink-300">
+                      {t(`mobileAppPromo.${step}`)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
 
-            {platform === "android" && (
-              <div className="rounded-2xl border border-ink-200/80 bg-white p-6 shadow-soft dark:border-ink-800 dark:bg-ink-900">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
-                    <ArrowDownToLine className="size-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <h3 className="text-base font-bold text-ink-900 dark:text-ink-50">
-                    {t("mobileAppPromo.androidTitle")}
-                  </h3>
+            <div className={cardClass("android")}>
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
+                  <ArrowDownToLine className="size-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <ol className="space-y-3">
-                  {androidSteps.map((step, i) => (
-                    <li key={step} className="flex items-start gap-3">
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
-                        {i + 1}
-                      </span>
-                      <span className="text-base text-ink-600 dark:text-ink-300">
-                        {t(`mobileAppPromo.${step}`)}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-                {canInstall && (
-                  <Button
-                    onClick={handleInstall}
-                    disabled={isInstalling}
-                    className="mt-5 w-full"
-                    size="lg"
-                  >
-                    {isInstalling ? (
-                      <span className="flex items-center gap-2">
-                        <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        {t("common.loading")}
-                      </span>
-                    ) : (
-                      t("mobileAppPromo.installButton")
-                    )}
-                  </Button>
+                <h3 className="text-base font-bold text-ink-900 dark:text-ink-50">
+                  {t("mobileAppPromo.androidTitle")}
+                </h3>
+              </div>
+              <ol className="space-y-3">
+                {androidSteps.map((step, i) => (
+                  <li key={step} className="flex items-start gap-3">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+                      {i + 1}
+                    </span>
+                    <span className="text-base text-ink-600 dark:text-ink-300">
+                      {t(`mobileAppPromo.${step}`)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              {/* Kept in the layout (invisible) until the browser offers the
+                  install prompt, so its arrival doesn't grow the card. */}
+              <Button
+                onClick={handleInstall}
+                disabled={isInstalling || !canInstall}
+                className={cn("mt-5 w-full", !canInstall && "invisible")}
+                size="lg"
+              >
+                {isInstalling ? (
+                  <span className="flex items-center gap-2">
+                    <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    {t("common.loading")}
+                  </span>
+                ) : (
+                  t("mobileAppPromo.installButton")
                 )}
-              </div>
-            )}
+              </Button>
+            </div>
           </div>
 
           {/* Benefits row */}

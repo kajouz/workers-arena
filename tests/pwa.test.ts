@@ -338,11 +338,23 @@ describe("Install affordances for browsers that never fire beforeinstallprompt",
 
   it("MobileAppPromo renders desktop install steps instead of returning null", () => {
     // The desktop card must exist, driven by the shared translations.
-    expect(promo).toContain('platform === "desktop"');
+    expect(promo).toContain('cardClass("desktop")');
     expect(promo).toContain('mobileAppPromo.desktopTitle');
     expect(promo).toContain('desktopStep1');
     expect(en).toContain('desktopTitle: "Install for Desktop"');
     expect(ar).toContain('desktopTitle');
+  });
+
+  it("MobileAppPromo reserves its box from first paint (no CLS)", () => {
+    // Returning null until the platform effect ran pushed the footer down
+    // after first paint (Lighthouse CLS 0.28 on /en). The section must render
+    // on the server, with the cards stacked in one grid cell so detection
+    // only toggles visibility.
+    expect(promo).not.toContain('platform === "unknown") return null');
+    expect(promo).toContain("col-start-1 row-start-1");
+    expect(promo).toContain('platform !== card && "invisible"');
+    // Installed PWAs are hidden by CSS before paint, not by a late unmount.
+    expect(promo).toContain("[@media(display-mode:standalone)]:hidden");
   });
 
   it("header offers an install-help fallback when canInstall is false", () => {
