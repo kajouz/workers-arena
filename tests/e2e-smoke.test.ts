@@ -631,9 +631,10 @@ function assertCleanWorkspace(
     // Emitted for EVERY autoclean run — even when freed is 0.000 (e.g. a
     // tiny leftover below the 3-decimal GiB granularity, or a tsconfig-only
     // fix) — so CI dashboards always see a record per run and can tell
-    // "cleaned nothing" from "no autoclean ran".
+    // "cleaned nothing" from "no autoclean ran". Clamped at 0: other disk use
+    // during the run can make after < before, which printed "-0.000".
     console.warn(
-      `E2E_AUTOCLEAN_RESULT=${(after - before).toFixed(3)}|${before.toFixed(2)}|${after.toFixed(2)}|${dirsRemoved}|${tsconfigLinesRemoved}`
+      `E2E_AUTOCLEAN_RESULT=${Math.max(0, after - before).toFixed(3)}|${before.toFixed(2)}|${after.toFixed(2)}|${dirsRemoved}|${tsconfigLinesRemoved}`
     );
     // Re-check: the removals ARE the fix (clearing leftover dist dirs may even
     // lift the disk floor); anything that survives → reject.
