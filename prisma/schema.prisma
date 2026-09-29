@@ -1679,3 +1679,25 @@ model PaymentReceipt {
   dataUrl    String   @db.Text
   uploadedAt DateTime @default(now())
 }
+
+/// WorkersArena Guarantee claims (revenue plan Step 5). One per booking.
+/// See src/lib/data/guarantee.ts for the terms and the eligibility rule.
+model GuaranteeClaim {
+  id             String    @id @default(cuid())
+  bookingId      String    @unique
+  bookingNumber  String
+  workerId       String
+  customerName   String
+  description    String    @db.Text
+  /// The most the platform will refund: min(cap, what it collected), minor units.
+  coverMinor     Int
+  currency       String    @default("USD")
+  status         String    @default("open") // open | redo | refunded | rejected
+  refundMinor    Int?
+  resolutionNote String?
+  resolvedBy     String?
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+
+  @@index([status, createdAt])
+}

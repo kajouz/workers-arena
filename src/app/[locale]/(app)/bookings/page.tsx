@@ -14,6 +14,8 @@ import { formatDate } from "@/lib/utils";
 import { BookingsClient } from "@/components/bookings/bookings-client";
 import { ReviewSolicitation } from "@/components/bookings/review-solicitation";
 import { pendingSolicitations } from "@/lib/data/review-solicitation";
+import { guaranteeClaimsForBookings } from "@/lib/data/guarantee";
+import type { GuaranteeClaim } from "@/lib/data/guarantee-terms";
 import type { QuoteWorker } from "@/components/bookings/quote-request-card";
 import type { Booking, BookingMessage, QuoteRequest, RecurringBooking, Notification } from "@/lib/data/types";
 
@@ -49,6 +51,8 @@ export interface CustomerBookingRow {
     htmlEn: string;
     htmlAr: string;
   } | null;
+  /** WorkersArena Guarantee — the claim filed on this booking, if any. */
+  guaranteeClaim?: GuaranteeClaim | null;
 }
 
 /** A recurring contract plus its worker display data (M1 §7 #1). */
@@ -110,11 +114,15 @@ export default async function BookingsPage({
   // "Preview email" — each row carries the bilingual render of the email the
   // customer received for that booking (same helper the admin dispute view
   // uses), so the customer sees exactly what was sent without leaving the page.
+  const claims = await guaranteeClaimsForBookings(
+    bookings.filter((b) => b.status === "completed").map((b) => b.id)
+  );
   const rows: CustomerBookingRow[] = bookings.map((booking, i) => ({
     booking,
     worker: workers[i] ?? null,
     messages: messageLists[i] ?? [],
     emailPreview: bookingEmailPreviewFor(booking),
+    guaranteeClaim: claims.get(booking.id) ?? null,
   }));
 
   // M1 recurring contracts (§7 #1) — same identifier as the bookings lookup.

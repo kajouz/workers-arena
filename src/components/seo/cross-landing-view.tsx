@@ -1,5 +1,6 @@
 import { Link } from "@/components/i18n/link";
-import { ArrowRight, MapPin, CheckCircle } from "lucide-react";
+import { ArrowRight, MapPin, CheckCircle, ShieldCheck } from "lucide-react";
+import { GUARANTEE_TERMS } from "@/lib/data/guarantee-terms";
 import { CATEGORIES } from "@/lib/data/categories";
 import { CITIES } from "@/lib/data/cities";
 import type { CountryConfig } from "@/lib/tenant/countries";
@@ -349,6 +350,17 @@ export async function CrossLandingView({
             </div>
           ))}
         </section>
+
+        {/* WorkersArena Guarantee — the reason to book and pay here. */}
+        <div className="mb-16 flex items-start gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5">
+          <ShieldCheck className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <p className="text-sm text-ink-700 dark:text-ink-200">
+            <span className="font-bold">{t("guarantee.name")}</span>{" "}
+            {t("guarantee.terms")
+              .replace("{days}", String(GUARANTEE_TERMS.windowDays))
+              .replace("{cap}", String(GUARANTEE_TERMS.capMinor / 100))}
+          </p>
+        </div>
 
         <div className="rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 p-8 text-center text-white sm:p-12">
           <h2 className="text-2xl font-bold sm:text-3xl">{copy.heading}</h2>

@@ -27,6 +27,7 @@
  */
 
 import type { Area, Category, City } from "./types";
+import { GUARANTEE_TERMS } from "./guarantee-terms";
 
 /** The languages the landing pages are written in. */
 export type LandingLocale = "en" | "ar";
@@ -181,7 +182,7 @@ export function crossLandingCopy(input: CrossLandingInput): CrossLandingCopy {
         },
         {
           q: "ما الذي يضمن أن العامل موثوق؟",
-          a: "التقييمات مكتوبة فقط من عملاء أكملوا حجزاً على المنصة، والتحقق من الهوية يمنح شارة موثّق. لا يمكن حذف تقييم سلبي.",
+          a: `التقييمات مكتوبة فقط من عملاء أكملوا حجزاً على المنصة، والتحقق من الهوية يمنح شارة موثّق. لا يمكن حذف تقييم سلبي. والأعمال المحجوزة والمدفوعة عبر وركرز أرينا مشمولة بضمان وركرز أرينا: إذا كان العمل معيباً وأبلغتنا خلال ${GUARANTEE_TERMS.windowDays} أيام، نصلحه أو نسترد لك حتى ${GUARANTEE_TERMS.capMinor / 100}$.`,
         },
       ],
       areasHeading: input.area ? `مناطق أخرى في ${cityName.ar}` : `مناطق ${cityName.ar} التي نغطيها`,
@@ -205,7 +206,7 @@ export function crossLandingCopy(input: CrossLandingInput): CrossLandingCopy {
       },
       {
         q: "What makes these workers trustworthy?",
-        a: "Reviews can only be left by customers who completed a booking on the platform, and identity verification earns a verified badge. A negative review cannot be removed.",
+        a: `Reviews can only be left by customers who completed a booking on the platform, and identity verification earns a verified badge. A negative review cannot be removed. Jobs booked and paid through WorkersArena are also covered by the WorkersArena Guarantee: if the work is faulty and you tell us within ${GUARANTEE_TERMS.windowDays} days, we fix it or refund up to $${GUARANTEE_TERMS.capMinor / 100}.`,
       },
     ],
     areasHeading: input.area ? `Other areas of ${cityName.en}` : `Areas of ${cityName.en} we cover`,
