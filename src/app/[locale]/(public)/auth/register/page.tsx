@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@/components/i18n/link";
-import { useActionState, useState } from "react";
+import { Suspense, useActionState, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,10 +29,18 @@ const schema = z
 
 type Values = z.infer<typeof schema>;
 
+/**
+ * The ?ref= referral code, read in its own Suspense boundary. useSearchParams()
+ * needs one to prerender; wrapping only this hidden input (not the page) keeps
+ * the whole form in the static HTML and adds no layout when it resolves.
+ */
+function ReferralCodeInput() {
+  const referralCode = useSearchParams().get("ref") ?? "";
+  return referralCode ? <input type="hidden" name="referralCode" value={referralCode} /> : null;
+}
+
 export default function RegisterPage() {
   const { t } = useLocale();
-  const searchParams = useSearchParams();
-  const referralCode = searchParams.get("ref") ?? "";
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(registerAction, {});
 
@@ -69,7 +77,9 @@ export default function RegisterPage() {
           )}
 
           <form action={formAction} className="mt-6 space-y-4">
-            {referralCode && <input type="hidden" name="referralCode" value={referralCode} />}
+            <Suspense fallback={null}>
+              <ReferralCodeInput />
+            </Suspense>
             <div className="space-y-1.5">
               <Label htmlFor="name">{t("auth.name")}</Label>
               <Input id="name" autoComplete="name" enterKeyHint="next" placeholder="Ahmed Ali" {...register("name")} />

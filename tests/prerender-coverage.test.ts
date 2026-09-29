@@ -202,3 +202,16 @@ describe.skipIf(!built)("the build actually prerenders the public surface", () =
     expect(names.length).toBeGreaterThan(50);
   });
 });
+
+describe("public pages ship their HTML in document order (no layout shift)", () => {
+  it("no loading.tsx wraps the whole [locale] segment", () => {
+    // A [locale]-level loading.tsx put every prerendered public page inside a
+    // Suspense boundary: the static HTML carried the skeleton + footer first
+    // and the real page in a hidden segment swapped in by a late script. A
+    // slow first paint showed the footer mid-viewport, then the swap shoved it
+    // ~7,400px down (Lighthouse CLS 0.283 on /en and /ar, 2 of 3 runs). The
+    // signed-in app's fallback lives at (app)/loading.tsx instead.
+    expect(existsSync(join(LOCALE_DIR, "loading.tsx"))).toBe(false);
+    expect(existsSync(join(LOCALE_DIR, "(app)", "loading.tsx"))).toBe(true);
+  });
+});

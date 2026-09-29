@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { getPrisma } from "@/lib/server/prisma";
 import { getSession } from "@/lib/auth-demo";
 
-const prisma = new PrismaClient();
+// Shared client — a route-local PrismaClient opened a second pool per instance.
+const prisma = getPrisma();
 
 /**
  * GET /api/forum/[id] - Get a forum post with answers
