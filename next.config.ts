@@ -63,9 +63,12 @@ const nextConfig: NextConfig = {
 
 // Wrap with Sentry if DSN is configured.
 // Uses dynamic import to avoid type-resolution issues with the optional dep.
+// `withSentryConfig` lives in "@sentry/nextjs/config": Sentry 11 removed it
+// from the package root, and reading it from there silently skipped the wrap
+// (no tunnel route, no source maps) while the build still passed.
 function withSentry(nextCfg: NextConfig): NextConfig {
   try {
-    const mod = require("@sentry/nextjs") as {
+    const mod = require("@sentry/nextjs/config") as {
       withSentryConfig: (cfg: NextConfig, opts?: Record<string, unknown>) => NextConfig;
     };
     if (mod.withSentryConfig) {
