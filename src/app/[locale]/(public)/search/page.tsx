@@ -66,7 +66,12 @@ export default async function SearchPage({
         <p className="mt-2 text-ink-500 dark:text-ink-400">{t("search.subtitle")}</p>
       </div>
       <SearchErrorBoundary>
-      <Suspense fallback={null}>
+      {/* The client can stream in after the first paint (a lazily loaded child
+          suspends on a cold server). A null fallback put the footer at the top
+          of the phone viewport and then pushed it off-screen: CLS 0.48 in CI
+          Lighthouse. Holding a screen of space keeps the footer below the
+          fold, so the results fill in without moving anything visible. */}
+      <Suspense fallback={<div aria-hidden className="min-h-[100svh]" />}>
         <SearchClient
           locale={locale}
           categories={categories}
