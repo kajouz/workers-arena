@@ -25,6 +25,7 @@ import Google from "next-auth/providers/google";
 import { getPrisma } from "@/lib/server/prisma";
 import { hashPassword, needsPasswordRehash, verifyPassword } from "@/lib/security";
 import type { SessionRole } from "@/lib/auth-demo";
+import { linkOAuthUser, type OAuthProfile } from "@/lib/server/oauth-link";
 
 const providers: NextAuthConfig["providers"] = [
   Credentials({
@@ -69,12 +70,38 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
+/** The provider profile as linkOAuthUser needs it (Google: `email_verified`). */
+function oauthProfile(profile: Record<string, unknown> | undefined): OAuthProfile {
+  return {
+    email: typeof profile?.email === "string" ? profile.email : null,
+    name: typeof profile?.name === "string" ? profile.name : null,
+    image: typeof profile?.picture === "string" ? profile.picture : null,
+    emailVerified: profile?.email_verified === true,
+  };
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   providers,
   callbacks: {
+    // OAuth sign-ins must resolve to a real User row (src/lib/server/oauth-link.ts);
+    // an unverified email or a deactivated account is refused here.
+    async signIn({ account, profile }) {
+      if (account?.provider !== "google") return true;
+      return (await linkOAuthUser(getPrisma(), oauthProfile(profile))) !== null;
+    },
     // Persist role + hue onto the JWT on sign-in (user is only present then).
-    jwt({ token, user }) {
+    async jwt({ token, user, account, profile }) {
+      if (account?.provider === "google") {
+        // The session id is the User row's id, not Google's account id.
+        const linked = await linkOAuthUser(getPrisma(), oauthProfile(profile));
+        if (linked) {
+          token.sub = linked.id;
+          token.role = linked.role;
+          token.hue = linked.hue;
+        }
+        return token;
+      }
       if (user) {
         token.role = (user as { role?: string }).role ?? token.role;
         token.hue = (user as { hue?: number }).hue ?? token.hue;
