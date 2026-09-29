@@ -42,6 +42,8 @@ is worse than no check, because the pipeline reports success and nobody looks.
 
 ### Database migration release gate
 
+**Automatic since 2026-09-28:** every Vercel **production** build runs `scripts/migrate-on-deploy.mjs` first (`vercel.json` → `buildCommand`), which applies pending migrations with `prisma migrate deploy` using the build-time `DATABASE_URL` (a Vercel Sensitive variable, readable only there). It skips preview builds and a production without a postgres URL (demo mode), uses the direct endpoint for a Neon `-pooler` host (or `DIRECT_URL` / `DATABASE_URL_UNPOOLED` when set), and a failed migration fails the build so the previous deploy stays live. The manual steps below remain the way to inspect or recover a database by hand.
+
 Run this checklist against the exact production `DATABASE_URL` before starting the new application build:
 
 ```bash
@@ -64,6 +66,8 @@ The final status must say **Database schema is up to date**. Never use `prisma d
   | `/api/cron/recurring` | `0 2 * * *` | materializes maintenance-contract occurrences (idempotent) |
   | `/api/cron/digest` | `0 6 * * *` | daily digest |
   | `/api/cron/reminders` | `0 7 * * *` | booking + subscription reminders |
+  | `/api/cron/lead-allowance` | `10 0 * * *` | monthly lead credits (once per worker per month) |
+  | `/api/cron/wallet` | `30 6 * * *` | prepaid wallet: collect cash-job commission, auto-renew plans the wallet covers |
   | `/api/cron/admin-digest` | `0 8 * * 1` | weekly admin digest (Mondays) — needs `ADMIN_WHATSAPP_NUMBERS` plus WhatsApp credentials |
   | `/api/cron/push-prune` | `0 3 * * 0` | push-subscription cleanup (Sundays) |
   | `/api/cron/activity-prune` | `30 3 * * 0` | audit-table retention, bounded by `ACTIVITY_LOG_RETENTION_DAYS` (default 90) |
@@ -90,6 +94,7 @@ Multi-stage Dockerfile: deps → build (`prisma generate`, `next build`) → sli
 | `DEMO_MODE` | dev | `"true"` = embedded dataset, no DB. **The live deployment deliberately runs `true`** — it is a demo showcase serving the embedded dataset, not the seeded Postgres rows. See “Demo-mode deployments” below before changing it. |
 | `AUTH_SECRET` | prod | long random string |
 | `NEXT_PUBLIC_APP_URL` | both | canonical URL for SEO/manifest |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | production | WorkersArena business WhatsApp (e.g. `+96170000000`); every "Request on WhatsApp" button goes here. Build-time: redeploy after changing. Unset = buttons hidden |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | prod push | Generate once with `npx web-push generate-vapid-keys`; store both keys and the subject in the deployment secret manager. Never commit the private key. |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | prod WhatsApp | Meta WhatsApp Cloud API credentials (system-user token + phone number id). With `NOTIFY_WHATSAPP_PROVIDER=whatsapp-cloud`, every automated send lands in the delivery ledger (`WhatsAppDelivery` table) shown on `/admin`. |
 | `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_APP_SECRET` | prod WhatsApp webhook | Webhook handshake token and app secret for `https://<domain>/api/webhooks/whatsapp` (subscribe to the `messages` field in Meta's webhook config; the app verifies `X-Hub-Signature-256` when the app secret is set). |

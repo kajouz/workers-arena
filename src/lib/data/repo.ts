@@ -23,6 +23,7 @@ import {
 } from "./notifications";
 import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCode } from "./activity";
 import { payoutGuard, type Settlement, type SettlementJob } from "./booking-settlement";
+import { weeklyNumbers, type WeeklySheet } from "./weekly-numbers";
 import { benchmarkFor, computePriceBenchmarks, type PriceBenchmark } from "./price-benchmarks";
 import { planGuestClaim, summarizeGuestClaim, type GuestClaimPlans, type GuestClaimResult } from "./guest-claim";
 import { reviewBody, scanReviewText, visibleReviews } from "./review-moderation";
@@ -67,6 +68,7 @@ import {
   demoMarkBookingSettledOutside,
   demoSettlementFor,
   demoSettlementReconciliation,
+  demoRecordFeeClaimCollection,
   demoRequestPayout,
   demoDecidePayout,
   demoGetWorkerPayouts,
@@ -347,6 +349,15 @@ export async function getWorkerById(id: string): Promise<Worker | null> {
   if (realDataEnabled) return (await prismaRepo()).prismaGetWorkerById(id);
   const w = workerById(id);
   return w ? withDemoSignals([w])[0] : null;
+}
+
+/** Switch wallet auto-renew on/off for a worker's subscription. */
+export async function setSubscriptionAutoRenew(workerId: string, enabled: boolean): Promise<boolean> {
+  if (realDataEnabled) return (await prismaRepo()).prismaSetSubscriptionAutoRenew(workerId, enabled);
+  const w = workerById(workerId);
+  if (!w) return false;
+  w.subscription.autoRenew = enabled;
+  return true;
 }
 
 /** Resolve the worker profile owned by an authenticated user. */
@@ -1266,6 +1277,34 @@ export async function getSettlementReconciliation(days = 30): Promise<Settlement
   return demoSettlementReconciliation(days);
 }
 
+/** Record a fee-claim collection on an outside-platform job (CAS). */
+export async function recordFeeClaimCollection(
+  bookingId: string,
+  expectedCollectedMinor: number,
+  addMinor: number
+): Promise<boolean> {
+  if (realDataEnabled) return (await prismaRepo()).prismaRecordFeeClaimCollection(bookingId, expectedCollectedMinor, addMinor);
+  return demoRecordFeeClaimCollection(bookingId, expectedCollectedMinor, addMinor);
+}
+
+/**
+ * The weekly numbers sheet (src/lib/data/weekly-numbers.ts) — revenue by
+ * stream, commission recorded vs collected, cash share, confirmation speed,
+ * renewals and customer requests for the last `weeks` weeks. Reads the same
+ * seams the other admin revenue surfaces use, so both adapters agree.
+ */
+export async function getWeeklyNumbers(weeks = 8, now = Date.now()): Promise<WeeklySheet> {
+  const days = Math.min(Math.max(Math.trunc(weeks) || 8, 1), 52) * 7 + 7;
+  const [payments, jobs, subscriptionEvents, workers, bookings] = await Promise.all([
+    getManualPaymentReconciliation(),
+    getSettlementReconciliation(days),
+    listSubscriptionEvents({ since: new Date(now - days * 86_400_000), limit: 5000 }),
+    getAllWorkers(),
+    getAllBookings(),
+  ]);
+  return weeklyNumbers({ payments, jobs, subscriptionEvents, workers, bookings }, now, weeks);
+}
+
 /**
  * Worker payouts (docs/payouts.md) — the worker's spendable balance from the
  * ledger: available = Σ posted earnings/adjustments − Σ processed withdrawals;
@@ -2133,8 +2172,11 @@ export async function createPurchaseCheckout(input: {
   plan?: SubscriptionPlan;
   period?: BillingPeriod;
   tier?: VerificationTier;
-  method: "OMT" | "WHISH";
-}): Promise<{ url: string } | null> {
+  /** A credit top-up's pack (validated by the caller): its price is the
+   * charge, `credits` land in the PAID pot and `bonusCredits` in the FREE one. */
+  creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
+  method: "OMT" | "WHISH" | "WALLET";
+}): Promise<{ url: string; paymentId: string; amountMinor: number } | null> {
   if (realDataEnabled) return (await prismaRepo()).prismaCreatePurchaseCheckout(input);
   return demoCreatePurchaseCheckout(input);
 }

@@ -66,12 +66,14 @@ describe("FeeRulesPanel", () => {
     for (const label of ["Free", "Starter", "Professional", "Growth", "Business"]) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
-    // 7% of $80 = $5.60, worker receives $74.40 — the documented worked example.
-    // Four tiers inherit the baseline; Business uses 4% but the shared $5 floor applies.
-    expect(screen.getAllByText(/fee \$5\.60/).length).toBe(4);
-    expect(screen.getAllByText(/worker receives \$74\.40/).length).toBe(4);
-    expect(screen.getByText(/fee \$5\.00/)).toBeInTheDocument();
-    expect(screen.getByText(/worker receives \$75\.00/)).toBeInTheDocument();
+    // The shipped ladder on a sample $80 job: Free 12% = $9.60, Starter 9% =
+    // $7.20, Professional 7% = $5.60; Growth 5% and Business 4% both hit the $5 floor.
+    expect(screen.getByText(/fee \$9\.60/)).toBeInTheDocument();
+    expect(screen.getByText(/fee \$7\.20/)).toBeInTheDocument();
+    expect(screen.getAllByText(/fee \$5\.60/).length).toBe(1);
+    expect(screen.getAllByText(/worker receives \$74\.40/).length).toBe(1);
+    expect(screen.getAllByText(/fee \$5\.00/).length).toBe(2);
+    expect(screen.getAllByText(/worker receives \$75\.00/).length).toBe(2);
     // The snapshot audit list shows what was actually charged under v1.
     expect(screen.getByText(/Quote \$80\.00 · worker \$74\.40 · 2026-09-14/)).toBeInTheDocument();
     expect(screen.getByText("Active v1")).toBeInTheDocument();

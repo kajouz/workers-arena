@@ -13,9 +13,35 @@ import { PrismaClient } from "@prisma/client";
  */
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+/**
+ * On Vercel every function instance holds its own Prisma pool, and Prisma's
+ * default pool is num_cpus * 2 + 1 connections. A deploy spins up many fresh
+ * instances while the old ones are still connected, which exhausted the
+ * pooler ("FATAL: no more connections allowed (max_client_conn)") and took
+ * down every DB-backed page. Cap each instance at one connection unless
+ * DATABASE_URL sets connection_limit itself. Returns undefined (Prisma reads
+ * DATABASE_URL as usual) off Vercel or when the URL can't be parsed.
+ */
+export function resolveDatasourceUrl(
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const raw = env.DATABASE_URL;
+  if (!raw || !env.VERCEL) return undefined;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return undefined;
+  }
+  if (url.searchParams.has("connection_limit")) return undefined;
+  url.searchParams.set("connection_limit", "1");
+  return url.toString();
+}
+
 export function getPrisma(): PrismaClient {
   if (!globalForPrisma.prisma) {
     globalForPrisma.prisma = new PrismaClient({
+      datasourceUrl: resolveDatasourceUrl(),
       log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
     });
   }

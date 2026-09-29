@@ -59,6 +59,7 @@ const AUTHZ_MARKERS = [
   // Module-local gates that predate the authz seam and resolve the caller
   // themselves (leads.ts derives the acting worker from the session).
   "sessionWorkerId(",
+  "getSessionWorker(",
   "getSession(",
 ];
 
@@ -71,6 +72,8 @@ const PUBLIC_ACTIONS: Record<string, string> = {
     "Public read of a worker's future AVAILABLE slots — the same list the signed-out booking dialog renders on the public profile page.",
   "bookings.ts:requestRecurringBookingAction":
     "Guest booking entry point: a signed-out visitor starts a maintenance contract from the public profile. Reads the session only to stamp the owner.",
+  "payment-receipts.ts:uploadPaymentReceiptAction":
+    "The payer (possibly a guest with no account) attaches a receipt photo from the signed OMT/Whish instructions link. The link's HMAC is re-verified in the action and the photo is stored for that link's reference only.",
   "auth.ts:loginAction": "Sign-in — reached without a session by definition.",
   "auth.ts:registerAction": "Sign-up — reached without a session by definition.",
   "auth.ts:logoutAction": "Sign-out — safe and idempotent for an anonymous caller.",
@@ -292,5 +295,35 @@ describe("booking actions — anonymous and stranger callers are refused", () =>
       ok: false,
       error: "unauthorized",
     });
+  });
+});
+
+// A worker-facing page or action must act as the signed-in worker's OWN
+// profile. These used to be pinned to the demo worker's slug, so in real mode
+// every worker who signed in acted as that one account.
+describe("getSessionWorker — the signed-in worker's own profile, never another", () => {
+  it("resolves the demo worker for the demo worker session", async () => {
+    const { getSessionWorker } = await import("@/lib/data/authz");
+    expect((await getSessionWorker(ACTING.worker))?.slug).toBe("khaled-al-harbi-plumbing");
+  });
+
+  it("returns null for customers, companies, admins and the signed-out", async () => {
+    const { getSessionWorker } = await import("@/lib/data/authz");
+    expect(await getSessionWorker(ACTING.customer)).toBeNull();
+    expect(await getSessionWorker(ACTING.company)).toBeNull();
+    expect(await getSessionWorker(ACTING.admin)).toBeNull();
+    expect(await getSessionWorker(null)).toBeNull();
+  });
+
+  it("returns null for a worker account with no profile — not the demo worker", async () => {
+    const { getSessionWorker } = await import("@/lib/data/authz");
+    const newcomer = { ...ACTING.worker, id: "u-new-worker", email: "new@example.com" };
+    expect(await getSessionWorker(newcomer)).toBeNull();
+  });
+
+  it("buying a lead as a profile-less worker is refused, not charged to someone else", async () => {
+    getSessionMock.mockResolvedValue({ ...ACTING.worker, id: "u-new-worker", email: "new@example.com" });
+    const { buyLeadOfferAction } = await import("@/app/actions/leads");
+    expect(await buyLeadOfferAction("offer-anything")).toEqual({ ok: false, error: "unauthorized" });
   });
 });

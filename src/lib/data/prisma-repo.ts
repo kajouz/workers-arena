@@ -50,6 +50,7 @@
  *     before real traffic lands.
  * ────────────────────────────────────────────────────────────────────────────
  */
+import { feePlanOf } from "./fee-rules";
 import { getPrisma } from "@/lib/server/prisma";
 import { responseRateFromCounts } from "./booking-ui";
 import { Prisma, type $Enums } from "@prisma/client";
@@ -71,7 +72,8 @@ import {
   type GuestClaimPlans,
   type GuestClaimResult,
 } from "./guest-claim";
-import { applyPromotionCreditGrant } from "./credit-ledger";
+import { applyPromotionCreditGrant, grantCredits, topUpGrantsFor } from "./credit-ledger";
+import { grantLeadAllowanceNow } from "./lead-allowance-run";
 import { feeSnapshotCreateData } from "./fee-rules-prisma";
 import { categoryBySlug as demoCategoryBySlug } from "./categories";
 import { CITIES, cityBySlug } from "./cities";
@@ -97,7 +99,7 @@ function origin(): string {
   return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
 }
 import { distanceKm, isOpenNow, type CurrencyCode } from "@/lib/utils";
-import { normalize as searchNormalize, distanceBoostKm, radiusCenter, scoreWorkerQuery } from "./search";
+import { normalize as searchNormalize, distanceBoostKm, freeListingRank, radiusCenter, scoreWorkerQuery } from "./search";
 import {
   BOOKING_COMPLETION_CONFIRM_GRACE_HOURS,
   BOOKING_REMINDER_WINDOW_MS,
@@ -217,8 +219,16 @@ function toDomainSubscription(sub: NonNullable<WorkerRow["subscription"]>): Subs
     // No invoice-number column on Subscription; the row id is stable & unique.
     // (The UI never renders invoiceNo — it only round-trips through renewals.)
     invoiceNo: sub.id,
+    period: (sub.periodDays >= 365 ? "annual" : "monthly") as Subscription["period"],
+    autoRenew: sub.autoRenew,
   };
   return { ...base, status: subscriptionStatus(base) };
+}
+
+/** Switch wallet auto-renew on/off for a worker's subscription. */
+export async function prismaSetSubscriptionAutoRenew(workerId: string, enabled: boolean): Promise<boolean> {
+  const updated = await getPrisma().subscription.updateMany({ where: { workerId }, data: { autoRenew: enabled } });
+  return updated.count === 1;
 }
 
 /** Map a Prisma Worker row (with relations) to the domain Worker type. */
@@ -588,8 +598,9 @@ export function filtersToWhere(
   // and — M5 — narrowed to fee-waived plans (Enterprise). FEE_EXEMPT_PLANS is
   // the same source the demo filter and the card badge use, uppercased for
   // the DB enum, so listing and filter can never disagree.
+  // Free listing (revenue plan Step 4): workers without an active plan (or
+  // with no subscription row) stay listed; sqlOrderBy ranks them last.
   const subWhere: Prisma.SubscriptionWhereInput = {};
-  if (!filters.includeExpired) subWhere.status = { not: "EXPIRED" };
   if (filters.feeWaivedOnly) {
     subWhere.plan = {
       in: FEE_EXEMPT_PLANS.map((p) => p.toUpperCase()) as $Enums.SubscriptionPlan[],
@@ -632,6 +643,13 @@ export function filtersToWhere(
 
 /** SQL orderBy for sorts the database can express directly. */
 export function sqlOrderBy(sort: SearchFilters["sort"]): Prisma.WorkerOrderByWithRelationInput[] {
+  // Paying workers first whatever the sort: the SubscriptionStatus enum orders
+  // ACTIVE, EXPIRING_SOON, EXPIRED, CANCELED, and a worker with no
+  // subscription row sorts after them (NULL last in ascending order).
+  return [{ subscription: { status: "asc" } }, ...sqlSortKeys(sort)];
+}
+
+function sqlSortKeys(sort: SearchFilters["sort"]): Prisma.WorkerOrderByWithRelationInput[] {
   switch (sort) {
     case "rating":
       return [{ rating: "desc" }];
@@ -773,8 +791,9 @@ export async function prismaSearchWorkers(filters: SearchFilters): Promise<Searc
   if (jsSort && nearestCity) {
     items = [...items].sort(
       (a, b) =>
+        freeListingRank(a) - freeListingRank(b) ||
         distanceKm(a.lat, a.lng, nearestCity.lat, nearestCity.lng) -
-        distanceKm(b.lat, b.lng, nearestCity.lat, nearestCity.lng)
+          distanceKm(b.lat, b.lng, nearestCity.lat, nearestCity.lng)
     );
   } else if (q && sort === "relevance") {
     // Shared scoring with the demo engine: rank bonus + query terms + the
@@ -785,7 +804,9 @@ export async function prismaSearchWorkers(filters: SearchFilters): Promise<Searc
         : 0;
     items = [...items].sort(
       (a, b) =>
-        scoreWorkerQuery(b, q) + boost(b) - (scoreWorkerQuery(a, q) + boost(a)) || b.rating - a.rating
+        freeListingRank(a) - freeListingRank(b) ||
+        scoreWorkerQuery(b, q) + boost(b) - (scoreWorkerQuery(a, q) + boost(a)) ||
+        b.rating - a.rating
     );
   }
   if (jsPostFilter) items = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -1548,7 +1569,7 @@ export async function prismaAcceptChatQuote(
         quoteId: message.id,
         workerId: row.workerId,
         customerId: row.customerId ?? undefined,
-        plan: row.worker.subscription?.plan,
+        plan: feePlanOf(row.worker.subscription),
         subtotalMinor: message.quote,
         ruleSet,
         context: { categorySlug: row.worker.category?.slug, emergency: row.isEmergency },
@@ -2256,15 +2277,17 @@ export async function prismaRespondToBooking(
         // immutable snapshot in the same tx — the RespondDialog previews the
         // same numbers through the same module, so there is no drift, and no
         // later pricing change can rewrite this fee. Accept-without-quote
-        // stays fee-free (no snapshot row).
-        const quoteMinor = input.quote ?? null;
+        // stays fee-free (no snapshot row). A multi-candidate quote winner
+        // already carries its bid, so accepting it without re-typing the price
+        // keeps (and charges on) that bid — the fee-rules.md §4 "known gap".
+        const quoteMinor = input.quote ?? row.quote ?? null;
         const priced = quoteMinor
           ? await priceQuoteForSnapshot({
               jobId: bookingId,
               quoteId: bookingId,
               workerId: row.workerId,
               customerId: row.customerId ?? undefined,
-              plan: row.worker.subscription?.plan,
+              plan: feePlanOf(row.worker.subscription),
               subtotalMinor: quoteMinor,
               ruleSet,
               context: { categorySlug: row.worker.category?.slug, emergency: row.isEmergency },
@@ -2832,6 +2855,7 @@ function settlementFromRow(row: {
   platformFee: number | null;
   currency: string;
   settledOutside: boolean;
+  feeClaimCollectedMinor?: number | null;
   payment: SettlementPaymentLeg;
   settlementPayment: SettlementPaymentLeg;
 }): Settlement {
@@ -2844,6 +2868,7 @@ function settlementFromRow(row: {
     settlementRefundedMinor: row.settlementPayment?.status === "REFUNDED" ? row.settlementPayment.amount : 0,
     settlementPendingMinor: row.settlementPayment?.status === "PENDING" ? row.settlementPayment.amount : 0,
     settledOutside: row.settledOutside,
+    feeClaimCollectedMinor: row.feeClaimCollectedMinor ?? 0,
     currency: row.currency,
   });
 }
@@ -2857,6 +2882,7 @@ const SETTLEMENT_FACT_SELECT = {
   platformFee: true,
   currency: true,
   settledOutside: true,
+  feeClaimCollectedMinor: true,
 } as const;
 
 export async function prismaSettlementFor(bookingId: string): Promise<Settlement | null> {
@@ -2884,6 +2910,23 @@ export async function prismaSettlementFor(bookingId: string): Promise<Settlement
  * completion timestamp of its own), falling back to "still open in a money
  * state" so a job that is blocked on collection never ages out of the view.
  */
+/**
+ * Record a fee-claim collection on an outside-platform job. CAS on the amount
+ * already collected (updateMany WHERE feeClaimCollectedMinor = expected), so
+ * two collectors can never both add the same tranche.
+ */
+export async function prismaRecordFeeClaimCollection(
+  bookingId: string,
+  expectedCollectedMinor: number,
+  addMinor: number
+): Promise<boolean> {
+  const updated = await getPrisma().booking.updateMany({
+    where: { id: bookingId, settledOutside: true, feeClaimCollectedMinor: expectedCollectedMinor },
+    data: { feeClaimCollectedMinor: expectedCollectedMinor + addMinor, feeClaimCollectedAt: new Date() },
+  });
+  return updated.count === 1;
+}
+
 export async function prismaSettlementReconciliation(days = 30): Promise<SettlementJob[]> {
   const prisma = getPrisma();
   const since = new Date(Date.now() - Math.max(days, 1) * 24 * 60 * 60 * 1000);
@@ -2901,6 +2944,7 @@ export async function prismaSettlementReconciliation(days = 30): Promise<Settlem
       workerId: true,
       status: true,
       ...SETTLEMENT_FACT_SELECT,
+      events: { where: { status: "COMPLETED" }, select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
       worker: { select: { nameEn: true, nameAr: true } },
       payment: { select: SETTLEMENT_LEG_SELECT },
       settlementPayment: { select: { ...SETTLEMENT_LEG_SELECT, providerRef: true } },
@@ -2926,6 +2970,7 @@ export async function prismaSettlementReconciliation(days = 30): Promise<Settlem
       workerNameEn: row.worker?.nameEn ?? "—",
       workerNameAr: row.worker?.nameAr ?? "—",
       status: row.status,
+      completedAt: row.events[0]?.createdAt.toISOString(),
       reference: row.settlementPayment?.status === "PENDING" ? row.settlementPayment.providerRef ?? null : null,
       settlement: settlementFromRow(row),
       creditedMinor: creditedBy.get(row.id) ?? 0,
@@ -5315,7 +5360,7 @@ export async function prismaRespondToRecurring(
                 quoteId: first.id,
                 workerId: first.workerId,
                 customerId: first.customerId ?? undefined,
-                plan: first.worker.subscription?.plan,
+                plan: feePlanOf(first.worker.subscription),
                 subtotalMinor: quoteMinor,
                 ruleSet,
                 context: { categorySlug: first.worker.category?.slug, emergency: first.isEmergency },
@@ -6103,7 +6148,7 @@ function purchaseLabel(
 export async function prismaCancelPendingPurchase(paymentId: string): Promise<boolean> {
   const prisma = getPrisma();
   const result = await prisma.payment.updateMany({
-    where: { id: paymentId, status: "PENDING", method: { in: ["OMT", "WHISH"] } },
+    where: { id: paymentId, status: "PENDING", method: { in: ["OMT", "WHISH", "WALLET"] } },
     data: { status: "CANCELLED" },
   });
   return result.count > 0;
@@ -6150,11 +6195,14 @@ export async function prismaCreatePurchaseCheckout(input: {
   plan?: SubscriptionPlan;
   period?: BillingPeriod;
   tier?: VerificationTier;
-  method: "OMT" | "WHISH";
-}): Promise<{ url: string } | null> {
+  creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
+  method: "OMT" | "WHISH" | "WALLET";
+}): Promise<{ url: string; paymentId: string; amountMinor: number } | null> {
   const prisma = getPrisma();
   let amount = purchaseAmountMinor(input.scope, input.plan, input.period, input.tier);
-  if (amount === null) return null;
+  // A wallet top-up is charged the validated pack's price.
+  if (input.scope === "credit" && input.creditPackage) amount = Math.round(input.creditPackage.priceUsd * 100);
+  if (amount === null || amount <= 0) return null;
   const worker = await prisma.worker.findUnique({
     where: { slug: input.workerSlug },
     include: { user: { select: { email: true } }, category: { select: { slug: true } } },
@@ -6165,6 +6213,10 @@ export async function prismaCreatePurchaseCheckout(input: {
     const monthly = effectiveMonthlyPriceWithOverrides(catalog, input.plan, worker.category.slug);
     amount = Math.round(monthly * 100 * (input.period === "annual" ? 9 : 1));
   }
+  // The wallet holds whole credits ($1 each): a wallet charge is the price
+  // rounded DOWN to whole dollars (a $7.50 plan costs 7 credits).
+  if (input.method === "WALLET") amount = Math.floor(amount / 100) * 100;
+  if (amount <= 0) return null;
 
   // No undefined values — Prisma's InputJsonValue rejects them, and the JSON
   // column should only carry the options the purchase actually has.
@@ -6174,6 +6226,9 @@ export async function prismaCreatePurchaseCheckout(input: {
     ...(input.plan ? { plan: input.plan } : {}),
     ...(input.period ? { period: input.period } : {}),
     ...(input.tier ? { tier: input.tier } : {}),
+    ...(input.creditPackage
+      ? { packageId: input.creditPackage.id, credits: input.creditPackage.credits, bonusCredits: input.creditPackage.bonusCredits }
+      : {}),
   };
   try {
     const payment = await prisma.payment.create({
@@ -6187,6 +6242,9 @@ export async function prismaCreatePurchaseCheckout(input: {
         metadata: meta,
       },
     });
+    // A wallet payment is charged in-app (wallet-payments.ts): no provider,
+    // no instructions page, no providerRef until it is confirmed.
+    if (input.method === "WALLET") return { url: "", paymentId: payment.id, amountMinor: amount };
     const provider = getPaymentProvider(input.method);
     const result = await provider.createCheckout({
       paymentId: payment.id,
@@ -6202,7 +6260,7 @@ export async function prismaCreatePurchaseCheckout(input: {
       data: { providerRef: result.providerRef, metadata: { ...meta, checkoutUrl: result.url } },
     });
     if (claimed.count === 0) return null;
-    return { url: result.url };
+    return { url: result.url, paymentId: payment.id, amountMinor: amount };
   } catch (err) {
     console.error("[prisma-repo] createPurchaseCheckout failed:", err);
     return null;
@@ -6334,6 +6392,8 @@ export async function prismaConfirmPurchase(
       // worker per promotion (enforced by the ledger's unique index), the
       // real-mode twin of demoConfirmPurchase's grant.
       await applyPromotionCreditGrant({ workerId: worker.id, plan: p, createdBy: actor });
+      // The plan's monthly lead credits land now (same ledger key as the cron).
+      await grantLeadAllowanceNow({ id: worker.id, subscription: { plan: p, status: "active", expiresAt } });
       await notify(
         "subscription",
         `Subscription renewed — ${p}`,
@@ -6379,31 +6439,28 @@ export async function prismaConfirmPurchase(
       break;
     }
     case "credit": {
-      // Grant the purchased credits to the worker's ledger
-      const creditsToGrant = Math.floor(payment.amount / 100);
-      if (creditsToGrant > 0 && worker) {
-        const balance = await prisma.workerCreditEntry.aggregate({
-          where: { workerId: worker.id },
-          _sum: { amount: true },
-        });
-        const currentBalance = balance._sum.amount ?? 0;
-        await prisma.workerCreditEntry.create({
-          data: {
+      // The pack's credits land in the wallet (PAID pot), its bonus in the
+      // FREE pot — keyed on this payment (the ledger's unique index), so a
+      // re-confirm never grants twice.
+      const grants = worker
+        ? topUpGrantsFor({
             workerId: worker.id,
-            kind: "grant",
-            amount: creditsToGrant,
-            balanceAfter: currentBalance + creditsToGrant,
-            reason: `Credit top-up: $${creditsToGrant} purchased (${payment.method ?? "manual"})`,
-            createdBy: actor,
-          },
-        });
-      }
+            paymentId: payment.id,
+            amountMinor: payment.amount,
+            credits: typeof meta.credits === "number" ? meta.credits : undefined,
+            bonusCredits: typeof meta.bonusCredits === "number" ? meta.bonusCredits : undefined,
+            method: payment.method ?? "manual",
+            ...(actor ? { createdBy: actor } : {}),
+          })
+        : [];
+      for (const grant of grants) await grantCredits(grant);
+      const creditsToGrant = grants.reduce((sum, g) => sum + g.amount, 0);
       await notify(
         "system",
-        `Credits purchased — ${Math.floor(payment.amount / 100)}`,
-        `تم شراء الأرصدة — ${Math.floor(payment.amount / 100)}`,
-        `${worker?.nameEn ?? "Your profile"}: ${Math.floor(payment.amount / 100)} credits have been added to your balance.`,
-        `${worker?.nameAr ?? "ملفك"}: تمت إضافة ${Math.floor(payment.amount / 100)} أرصدة إلى رصيدك.`
+        `Credits purchased — ${creditsToGrant}`,
+        `تم شراء الأرصدة — ${creditsToGrant}`,
+        `${worker?.nameEn ?? "Your profile"}: ${creditsToGrant} credits have been added to your balance.`,
+        `${worker?.nameAr ?? "ملفك"}: تمت إضافة ${creditsToGrant} أرصدة إلى رصيدك.`
       );
       break;
     }

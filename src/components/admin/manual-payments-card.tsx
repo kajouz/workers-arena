@@ -9,10 +9,15 @@
  * a webhook would have run (confirmBookingPayment / confirmCampaignPayment /
  * confirmPurchase), which activates the booking / purchase. The reference the
  * customer was told to include is shown so the admin can match the transfer.
+ *
+ * Step 3 (faster confirmation): oldest first, each row shows how long it has
+ * waited against the 2-hour target, and the payer's receipt photo (uploaded on
+ * the instructions page) is shown in the confirm dialog.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Banknote } from "lucide-react";
+import { Banknote, Clock, ImageIcon } from "lucide-react";
+import { useSsrSafeNow } from "@/hooks/use-ssr-safe-now";
 import { OMTIconCompact } from "@/components/payments/icons/omt-icon";
 import { WishIconCompact } from "@/components/payments/icons/wish-icon";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -30,8 +35,25 @@ const METHOD_STYLE: Record<"omt" | "whish", string> = {
   whish: "bg-violet-500/10 text-violet-700 dark:text-violet-400",
 };
 
-export function ManualPaymentsCard({ payments }: { payments: PendingManualPayment[] }) {
+/** The confirmation target (revenue plan Step 3). */
+const TARGET_MS = 2 * 60 * 60 * 1000;
+
+/** "45m", "3h 12m", "2d 4h". */
+function waited(ms: number): string {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+}
+
+export function ManualPaymentsCard({ payments: unsorted, nowSeed }: { payments: PendingManualPayment[]; nowSeed: number }) {
   const { locale, t } = useLocale();
+  // Oldest first: the longest wait is the next one to clear.
+  const payments = [...unsorted].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const now = useSsrSafeNow(nowSeed, { tick: true, intervalMs: 60_000 });
+  const waitOf = (p: PendingManualPayment) => now - Date.parse(p.createdAt);
+  const overTarget = payments.filter((p) => waitOf(p) > TARGET_MS).length;
   const router = useRouter();
   const [confirming, setConfirming] = useState<PendingManualPayment | null>(null);
   const [busy, setBusy] = useState(false);
@@ -55,7 +77,14 @@ export function ManualPaymentsCard({ payments }: { payments: PendingManualPaymen
       <CardHeader className="flex-row items-center gap-2">
         <Banknote className="size-4 shrink-0 text-brand-500" />
         <CardTitle className="min-w-0 text-base">{t("payments.adminPendingTitle")}</CardTitle>
-        {payments.length > 0 && <Badge variant="danger">{payments.length}</Badge>}
+        {payments.length > 0 && (
+          <span className="ms-auto flex shrink-0 items-center gap-1.5">
+            <Badge variant="outline">{t("payments.adminPendingWaiting").replace("{count}", String(payments.length))}</Badge>
+            {overTarget > 0 && (
+              <Badge variant="danger">{t("payments.adminPendingOverTarget").replace("{count}", String(overTarget))}</Badge>
+            )}
+          </span>
+        )}
       </CardHeader>
       <CardContent>
         {payments.length === 0 ? (
@@ -76,6 +105,25 @@ export function ManualPaymentsCard({ payments }: { payments: PendingManualPaymen
                       {t(`payments.method${p.method[0].toUpperCase()}${p.method.slice(1)}`)}
                     </Badge>
                     <span className="font-mono">{p.reference}</span>
+                  </p>
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                    <span
+                      className={
+                        waitOf(p) > TARGET_MS
+                          ? "flex items-center gap-1 font-bold text-red-600 dark:text-red-400"
+                          : waitOf(p) > TARGET_MS / 2
+                            ? "flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400"
+                            : "flex items-center gap-1 text-ink-400"
+                      }
+                    >
+                      <Clock className="size-3" />
+                      {t("payments.adminPendingWaited").replace("{time}", waited(waitOf(p)))}
+                    </span>
+                    {p.receiptUploadedAt && (
+                      <Badge variant="success" className="gap-1">
+                        <ImageIcon className="size-3" /> {t("payments.adminPendingReceipt")}
+                      </Badge>
+                    )}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -111,6 +159,24 @@ export function ManualPaymentsCard({ payments }: { payments: PendingManualPaymen
               {t("payments.adminPendingRef").replace("{ref}", confirming.reference)}
             </p>
           )}
+          {confirming &&
+            (confirming.receiptUploadedAt ? (
+              <a
+                href={`/api/admin/payments/receipt?ref=${encodeURIComponent(confirming.reference)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="block"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- an admin-only, uncached image route */}
+                <img
+                  src={`/api/admin/payments/receipt?ref=${encodeURIComponent(confirming.reference)}`}
+                  alt={t("payments.adminPendingReceiptAlt")}
+                  className="max-h-72 w-full rounded-xl border border-ink-200 object-contain dark:border-ink-700"
+                />
+              </a>
+            ) : (
+              <p className="text-center text-[11px] text-ink-400">{t("payments.adminPendingNoReceipt")}</p>
+            ))}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setConfirming(null)} disabled={busy}>
               {t("common.cancel")}

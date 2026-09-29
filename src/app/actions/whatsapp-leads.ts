@@ -26,8 +26,6 @@ import { dispatchLeadNotification, type LeadDispatchInput } from "@/lib/data/lea
 import { loadActiveFeeRuleSet } from "@/lib/data/fee-rules-store";
 import { leadMarketConfig, type LeadGrade, type LeadOffer, type NotificationChannelConfig } from "@/lib/data/lead-market";
 
-const DEMO_WORKER_SLUG = "khaled-al-harbi-plumbing";
-
 export interface WhatsAppSendResult {
   ok: true;
   /** The wa.me links, one per worker. */

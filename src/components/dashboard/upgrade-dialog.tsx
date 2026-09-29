@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
 
 type Scope = "verification" | "featured" | "emergency";
@@ -31,11 +32,12 @@ const OPTIONS: { scope: Scope; icon: typeof Crown; titleKey: string; descKey: st
   { scope: "emergency", icon: Siren, titleKey: "payments.purchaseEmergency", descKey: "payments.purchaseEmergency" },
 ];
 
-export function UpgradeDialog({ worker }: { worker: Worker }) {
+export function UpgradeDialog({ worker, walletBalance = 0 }: { worker: Worker; /** The prepaid wallet's paid balance (whole dollars). */ walletBalance?: number }) {
   const { t } = useLocale();
+  const router = useRouter();
   const [scope, setScope] = useState<Scope>("verification");
   const [tier, setTier] = useState<"basic" | "professional">("basic");
-  const [method, setMethod] = useState<CheckoutMethod>("omt");
+  const [method, setMethod] = useState<CheckoutMethod>(walletBalance > 0 ? "wallet" : "omt");
   const [busy, setBusy] = useState(false);
 
   const buy = async () => {
@@ -50,6 +52,12 @@ export function UpgradeDialog({ worker }: { worker: Worker }) {
     setBusy(false);
     if (res.ok && res.url) {
       window.location.href = res.url;
+    } else if (res.ok) {
+      // Paid from the wallet: active at once, no admin confirmation.
+      toast("success", t("payments.walletPaid"));
+      router.refresh();
+    } else if (res.error === "wallet-insufficient") {
+      toast("error", t("payments.walletInsufficient"));
     } else {
       toast("error", t("common.noResults"));
     }
@@ -131,8 +139,12 @@ export function UpgradeDialog({ worker }: { worker: Worker }) {
 
         <div className="space-y-1.5">
           <p className="text-xs font-bold text-ink-500 dark:text-ink-400">{t("payments.purchaseChooseMethod")}</p>
-          <PaymentMethodPicker value={method} onChange={setMethod} disabled={busy} methods={["omt", "whish"]} />
-          <p className="text-[11px] leading-relaxed text-ink-400">{t("payments.purchaseNote")}</p>
+          <PaymentMethodPicker value={method} onChange={setMethod} disabled={busy} methods={["wallet", "omt", "whish"]} />
+          <p className="text-[11px] leading-relaxed text-ink-400">
+            {method === "wallet"
+              ? t("payments.walletBalance").replace("{amount}", String(walletBalance))
+              : t("payments.purchaseNote")}
+          </p>
         </div>
 
         <Button onClick={buy} disabled={busy} size="lg" className="w-full">

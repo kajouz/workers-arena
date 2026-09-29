@@ -26,7 +26,8 @@
  * data reads, this owns the words and the indexability rule.
  */
 
-import type { Category, City } from "./types";
+import type { Area, Category, City } from "./types";
+import { GUARANTEE_TERMS } from "./guarantee-terms";
 
 /** The languages the landing pages are written in. */
 export type LandingLocale = "en" | "ar";
@@ -63,15 +64,29 @@ export function indexVerdict(supply: number): IndexVerdict {
     : { indexable: false, reason: "no-supply" };
 }
 
-/** The canonical path for a pair (locale-prefixed, no trailing slash). */
-export function crossLandingPath(locale: LandingLocale, categorySlug: string, citySlug: string): string {
-  return `/${locale}/trades/${categorySlug}/${citySlug}`;
+/**
+ * The canonical path for a pair, or for a trade × area triple when `areaSlug`
+ * is given (locale-prefixed, no trailing slash).
+ */
+export function crossLandingPath(
+  locale: LandingLocale,
+  categorySlug: string,
+  citySlug: string,
+  areaSlug?: string
+): string {
+  return `/${locale}/trades/${categorySlug}/${citySlug}${areaSlug ? `/${areaSlug}` : ""}`;
 }
 
 /** What a city says about itself in each language, without a repo read. */
 export interface CrossLandingInput {
   category: Pick<Category, "slug" | "nameEn" | "nameAr" | "professionEn" | "professionAr" | "taglineEn" | "taglineAr">;
   city: Pick<City, "slug" | "nameEn" | "nameAr">;
+  /**
+   * Narrows the page to one area of the city ("plumber in Achrafieh") — the
+   * query people type for the neighbourhood rather than the city. The copy
+   * names the area and keeps the city as context.
+   */
+  area?: Pick<Area, "slug" | "nameEn" | "nameAr">;
   country: { nameEn: string; nameAr: string };
   /** The count the page is about to render — see indexVerdict. */
   supply: number;
@@ -104,8 +119,24 @@ function subject(category: CrossLandingInput["category"], locale: LandingLocale)
   return locale === "ar" ? category.professionAr : category.professionEn;
 }
 
+/** The place the page is about: the area when there is one, else the city. */
+function placeName(input: Pick<CrossLandingInput, "city" | "area">, locale: LandingLocale): string {
+  const place = input.area ?? input.city;
+  return locale === "ar" ? place.nameAr : place.nameEn;
+}
+
+/** "Achrafieh, Beirut, Lebanon" / "Beirut, Lebanon" — the full address line. */
+function placeLine(input: Pick<CrossLandingInput, "city" | "area" | "country">, locale: LandingLocale): string {
+  const parts =
+    locale === "ar"
+      ? [input.area?.nameAr, input.city.nameAr, input.country.nameAr]
+      : [input.area?.nameEn, input.city.nameEn, input.country.nameEn];
+  return parts.filter(Boolean).join(locale === "ar" ? "، " : ", ");
+}
+
 function countPhrase(input: CrossLandingInput): string {
-  const { category, city, supply, locale } = input;
+  const { category, supply, locale } = input;
+  const city = { nameEn: placeName(input, "en"), nameAr: placeName(input, "ar") };
   const n = Math.max(0, Math.floor(supply));
   if (locale === "ar") {
     return n === 0
@@ -125,14 +156,19 @@ function countPhrase(input: CrossLandingInput): string {
  * and the real supply count — no per-pair copy table to fall out of date.
  */
 export function crossLandingCopy(input: CrossLandingInput): CrossLandingCopy {
-  const { category, city, country, locale, supply } = input;
+  const { category, locale, supply } = input;
   const n = Math.max(0, Math.floor(Number.isFinite(supply) ? supply : 0));
   const heads = countPhrase({ ...input, supply: n });
+  // Every sentence below names the page's place; for an area page that is the
+  // area, with the city kept in the description's address line.
+  const city = { nameEn: placeName(input, "en"), nameAr: placeName(input, "ar") };
+  const where = { en: placeLine(input, "en"), ar: placeLine(input, "ar") };
+  const cityName = { en: input.city.nameEn, ar: input.city.nameAr };
 
   if (locale === "ar") {
     return {
       title: `${subject(category, "ar")} في ${city.nameAr} — ${heads}`,
-      description: `اعثر على ${subject(category, "ar")} موثوق في ${city.nameAr}، ${country.nameAr}. ${heads}. ${category.taglineAr}. تقييمات حقيقية، أسعار واضحة، وحجز مباشر.`,
+      description: `اعثر على ${subject(category, "ar")} موثوق في ${where.ar}. ${heads}. ${category.taglineAr}. تقييمات حقيقية، أسعار واضحة، وحجز مباشر.`,
       heading: `${subject(category, "ar")} في ${city.nameAr}`,
       intro: `${heads} على وركرز أرينا — ${category.taglineAr}. كل ملف يعرض سنوات الخبرة والتقييمات ونطاق السعر قبل أن تتواصل، ويمكنك الحجز مباشرة أو طلب عرض سعر من أكثر من ${subject(category, "ar")} واختيار الأنسب.`,
       faq: [
@@ -146,17 +182,17 @@ export function crossLandingCopy(input: CrossLandingInput): CrossLandingCopy {
         },
         {
           q: "ما الذي يضمن أن العامل موثوق؟",
-          a: "التقييمات مكتوبة فقط من عملاء أكملوا حجزاً على المنصة، والتحقق من الهوية يمنح شارة موثّق. لا يمكن حذف تقييم سلبي.",
+          a: `التقييمات مكتوبة فقط من عملاء أكملوا حجزاً على المنصة، والتحقق من الهوية يمنح شارة موثّق. لا يمكن حذف تقييم سلبي. والأعمال المحجوزة والمدفوعة عبر وركرز أرينا مشمولة بضمان وركرز أرينا: إذا كان العمل معيباً وأبلغتنا خلال ${GUARANTEE_TERMS.windowDays} أيام، نصلحه أو نسترد لك حتى ${GUARANTEE_TERMS.capMinor / 100}$.`,
         },
       ],
-      areasHeading: `مناطق ${city.nameAr} التي نغطيها`,
+      areasHeading: input.area ? `مناطق أخرى في ${cityName.ar}` : `مناطق ${cityName.ar} التي نغطيها`,
       workersHeading: n === 0 ? `${subject(category, "ar")} — قريباً` : `أفضل ${subject(category, "ar")} في ${city.nameAr}`,
     };
   }
 
   return {
     title: `${subject(category, "en")} in ${city.nameEn} — ${heads}`,
-    description: `Hire a verified ${subject(category, "en")} in ${city.nameEn}, ${country.nameEn}. ${heads}. ${category.taglineEn}. Real reviews, transparent pricing, and direct booking.`,
+    description: `Hire a verified ${subject(category, "en")} in ${where.en}. ${heads}. ${category.taglineEn}. Real reviews, transparent pricing, and direct booking.`,
     heading: `${subject(category, "en")} in ${city.nameEn}`,
     intro: `${heads} on WorkersArena — ${category.taglineEn.charAt(0).toLowerCase()}${category.taglineEn.slice(1)}. Every profile shows experience, reviews and a price range before you make contact, and you can book directly or ask up to three ${subject(category, "en")}s to quote and pick the best.`,
     faq: [
@@ -170,10 +206,10 @@ export function crossLandingCopy(input: CrossLandingInput): CrossLandingCopy {
       },
       {
         q: "What makes these workers trustworthy?",
-        a: "Reviews can only be left by customers who completed a booking on the platform, and identity verification earns a verified badge. A negative review cannot be removed.",
+        a: `Reviews can only be left by customers who completed a booking on the platform, and identity verification earns a verified badge. A negative review cannot be removed. Jobs booked and paid through WorkersArena are also covered by the WorkersArena Guarantee: if the work is faulty and you tell us within ${GUARANTEE_TERMS.windowDays} days, we fix it or refund up to $${GUARANTEE_TERMS.capMinor / 100}.`,
       },
     ],
-    areasHeading: `Areas of ${city.nameEn} we cover`,
+    areasHeading: input.area ? `Other areas of ${cityName.en}` : `Areas of ${cityName.en} we cover`,
     workersHeading: n === 0 ? `${subject(category, "en")} — coming soon` : `Top-rated ${subject(category, "en")}s in ${city.nameEn}`,
   };
 }
@@ -208,4 +244,34 @@ export function crossLandingSearchHref(input: {
   const params = new URLSearchParams({ category: input.categorySlug, city: input.citySlug });
   if (input.areaSlug) params.set("area", input.areaSlug);
   return `/search?${params.toString()}`;
+}
+
+/** How many listed workers each trade × city pair and trade × area triple has. */
+export interface ServedLandings {
+  /** `trade/city` → workers. */
+  pairs: Map<string, number>;
+  /** `trade/city/area` → workers. */
+  triples: Map<string, number>;
+}
+
+/**
+ * Count supply per landing page from one full worker read — what the sitemap,
+ * the prerender list and the cross-links all use, so they agree on which pages
+ * are served. Takes the whole list rather than a search page: a search result
+ * is one page of nine, and counting from it silently drops everything after.
+ */
+export function servedLandings(
+  workers: readonly { categorySlug: string; citySlug: string; areaSlug?: string | null }[]
+): ServedLandings {
+  const pairs = new Map<string, number>();
+  const triples = new Map<string, number>();
+  for (const w of workers) {
+    const pair = `${w.categorySlug}/${w.citySlug}`;
+    pairs.set(pair, (pairs.get(pair) ?? 0) + 1);
+    if (w.areaSlug) {
+      const triple = `${pair}/${w.areaSlug}`;
+      triples.set(triple, (triples.get(triple) ?? 0) + 1);
+    }
+  }
+  return { pairs, triples };
 }

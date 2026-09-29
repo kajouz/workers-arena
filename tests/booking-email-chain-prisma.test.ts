@@ -133,8 +133,9 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     expect(emailPayload!.recipient?.email).toBe(TEST_EMAIL);
 
     // ChannelPayload.booking matches the booking: number, slot times, quote,
-    // and the M5 fee snapshot (khaled is premium in the seed → 7% of 8000
-    // minor = 560) — identical shape to the demo chain test.
+    // and the M5 fee snapshot (khaled is premium = Pro in the seed → the
+    // ladder's 5% of 8000 = 400, floored to 500) — identical shape to the demo
+    // chain test.
     expect(emailPayload!.booking).toMatchObject({
       number: created.number,
       startAt: slot.startAt.toISOString(),
@@ -142,7 +143,7 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
       quote: 8000, // minor units, as-is
       currency: "USD",
       jobTitle: "Chain test plumbing job",
-      platformFee: 560,
+      platformFee: 500,
     });
 
     // And the confirmation email renders that same booking — including the
@@ -152,8 +153,8 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     expect(email.html).toContain("Booking details");
     expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain("Platform fee");
-    expect(email.html).toContain("$6"); // 560 minor → 5.6, display-rounded
-    expect(email.text).toContain("Platform fee: $6");
+    expect(email.html).toContain("$5"); // 500 minor
+    expect(email.text).toContain("Platform fee: $5");
     expect(email.html).toContain(`/admin/bookings/${created.number}`);
   });
 

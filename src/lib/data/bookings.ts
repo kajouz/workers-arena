@@ -1,4 +1,5 @@
 import { workerById, workerBySlug } from "./workers";
+import { feePlanOf } from "./fee-rules";
 import {
   bookingNotification,
   type BookingNotificationOptions,
@@ -503,8 +504,21 @@ export function settlementFactsFor(booking: Booking): SettlementFacts {
     settlementRefundedMinor: settlement?.status === "refunded" ? settlement.amount : 0,
     settlementPendingMinor: settlement?.status === "pending" ? settlement.amount : 0,
     settledOutside: booking.settledOutside ?? false,
+    feeClaimCollectedMinor: booking.feeClaimCollectedMinor ?? 0,
     currency: booking.currency,
   };
+}
+
+/**
+ * Record a fee-claim collection on an outside-platform job (demo). CAS on the
+ * amount already collected, so two collectors can never both add a tranche.
+ */
+export function demoRecordFeeClaimCollection(bookingId: string, expectedCollectedMinor: number, addMinor: number): boolean {
+  const booking = STORE.bookings.find((b) => b.id === bookingId);
+  if (!booking || (booking.feeClaimCollectedMinor ?? 0) !== expectedCollectedMinor) return false;
+  booking.feeClaimCollectedMinor = expectedCollectedMinor + addMinor;
+  booking.feeClaimCollectedAt = new Date().toISOString();
+  return true;
 }
 
 /** The settlement verdict for a booking (demo). */
@@ -549,6 +563,7 @@ export function demoSettlementReconciliation(days = 30): SettlementJob[] {
         workerNameEn: worker?.nameEn ?? "—",
         workerNameAr: worker?.nameAr ?? "—",
         status: b.status,
+        completedAt: b.events.findLast((e) => e.status === "completed")?.time,
         reference: STORE.settlements.get(b.id)?.status === "pending" ? STORE.settlements.get(b.id)!.providerRef ?? null : null,
         settlement,
         creditedMinor: credited,
@@ -896,7 +911,7 @@ export async function demoAcceptChatQuote(
     quoteId: message.id,
     workerId: booking.workerId,
     customerId: booking.customerId,
-    plan: chatWorker?.subscription.plan,
+    plan: feePlanOf(chatWorker?.subscription),
     subtotalMinor: message.quote,
     context: { categorySlug: chatWorker?.categorySlug, emergency: booking.isEmergency },
   });
@@ -1887,7 +1902,11 @@ export async function demoRespondToBooking(
   if (input.accept) {
     // Rule 4 — deposit required → PENDING_PAYMENT until the paymentId lands.
     booking.status = input.deposit ? "pendingPayment" : "confirmed";
-    booking.quote = input.quote;
+    // A multi-candidate quote winner already carries its bid: accepting it
+    // without re-typing the price keeps (and charges on) that bid instead of
+    // wiping it — the fee-rules.md §4 "known gap".
+    const quote = input.quote ?? booking.quote;
+    booking.quote = quote;
     booking.deposit = input.deposit;
     // M5 take rate (docs/booking-take-rate.md) upgraded to the versioned fee
     // engine (§5): the fee is resolved from the ACTIVE rule set — plan tier,
@@ -1897,15 +1916,15 @@ export async function demoRespondToBooking(
     // the worker sees is exactly what is stored. Accept-without-quote stays
     // fee-free. Accept-with-quote remains the single stamp point: nothing ever
     // recomputes a fee later.
-    if (input.quote) {
+    if (quote) {
       const acceptWorker = workerById(booking.workerId);
       const { snapshot } = await priceQuoteForSnapshot({
         jobId: booking.id,
         quoteId: booking.id,
         workerId: booking.workerId,
         customerId: booking.customerId,
-        plan: acceptWorker?.subscription.plan,
-        subtotalMinor: input.quote,
+        plan: feePlanOf(acceptWorker?.subscription),
+        subtotalMinor: quote,
         context: { categorySlug: acceptWorker?.categorySlug, emergency: booking.isEmergency },
       });
       booking.platformFee = snapshot.feeMinor;

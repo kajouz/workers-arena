@@ -62,6 +62,7 @@ enum PaymentMethod {
   CASH
   OMT // Lebanon-first manual money-mover (docs/PAYMENTS.md) — agent/OMT Intra
   WHISH // Lebanon-first digital wallet + dual-currency Visa (manual, admin-confirmed)
+  WALLET // paid from the worker's prepaid wallet (the PAID credit pot) — not new cash
 }
 
 enum PaymentStatus {
@@ -1577,6 +1578,10 @@ model WorkerCreditEntry {
   workerId     String
   worker       Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
   kind         String // grant | spend | expire | adjustment
+  /// Which pot the row moves (prepaid wallet, Step 2): "paid" = topped-up
+  /// money (pays for anything), "free" = given credits (leads only), "any" =
+  /// a lead purchase, free first then paid. Balances are derived per pot.
+  fund         String   @default("free")
   amount       Int // signed whole credits
   balanceAfter Int
   reason       String
@@ -1657,4 +1662,42 @@ model WhatsAppDelivery {
   @@index([status, nextRetryAt])
   @@index([kind, createdAt])
   @@index([workerId])
+}
+
+// ───────────────────────── Payment receipts (Step 3) ─────────────────────────
+
+/// A photo of the payer's OMT/Whish receipt, uploaded on the signed manual
+/// instructions page so an admin can confirm the payment at a glance. One per
+/// payment reference (Payment.providerRef, the OMT-/WHISH- code); re-uploading
+/// replaces it. The image is a compressed data URL (src/lib/data/payment-receipts.ts).
+model PaymentReceipt {
+  id         String   @id @default(cuid())
+  reference  String   @unique
+  provider   String // "OMT" | "WHISH"
+  mimeType   String
+  sizeBytes  Int
+  dataUrl    String   @db.Text
+  uploadedAt DateTime @default(now())
+}
+
+/// WorkersArena Guarantee claims (revenue plan Step 5). One per booking.
+/// See src/lib/data/guarantee.ts for the terms and the eligibility rule.
+model GuaranteeClaim {
+  id             String    @id @default(cuid())
+  bookingId      String    @unique
+  bookingNumber  String
+  workerId       String
+  customerName   String
+  description    String    @db.Text
+  /// The most the platform will refund: min(cap, what it collected), minor units.
+  coverMinor     Int
+  currency       String    @default("USD")
+  status         String    @default("open") // open | redo | refunded | rejected
+  refundMinor    Int?
+  resolutionNote String?
+  resolvedBy     String?
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+
+  @@index([status, createdAt])
 }

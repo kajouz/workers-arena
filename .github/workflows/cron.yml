@@ -41,7 +41,9 @@ on:
     - cron: "5 * * * *" # masked-number expiry
     - cron: "0 2 * * *" # recurring-job materialization
     - cron: "0 6 * * *" # daily digest
+    - cron: "30 6 * * *" # prepaid wallet: cash-job commission + auto-renew (before reminders)
     - cron: "0 7 * * *" # booking + subscription reminders
+    - cron: "10 0 * * *" # monthly lead credits (grants once per month; daily catches new plans)
     - cron: "0 8 * * 1" # weekly admin digest (Mondays)
     - cron: "0 3 * * 0" # push-subscription prune (Sundays)
     - cron: "30 3 * * 0" # activity-log retention prune (Sundays)
@@ -119,12 +121,26 @@ jobs:
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/digest"
 
+      - name: Prepaid wallet (commission + auto-renew)
+        if: env.SCHEDULE == '30 6 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -sS --fail-with-body --max-time 120 --retry 2 --retry-delay 20 -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/wallet"
+
       - name: Booking and subscription reminders
         if: env.SCHEDULE == '0 7 * * *' || github.event_name == 'workflow_dispatch'
         run: |
           curl -sS --fail-with-body --max-time 90 --retry 2 --retry-delay 20 -X GET \
             -H "x-cron-secret: $CRON_SECRET" \
             "$BASE_URL/api/cron/reminders"
+
+      - name: Monthly lead credits
+        if: env.SCHEDULE == '10 0 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -sS --fail-with-body --max-time 120 --retry 2 --retry-delay 20 -X GET \
+            -H "x-cron-secret: $CRON_SECRET" \
+            "$BASE_URL/api/cron/lead-allowance"
 
       - name: Weekly admin digest
         if: env.SCHEDULE == '0 8 * * 1' || github.event_name == 'workflow_dispatch'

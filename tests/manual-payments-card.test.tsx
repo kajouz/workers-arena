@@ -45,7 +45,7 @@ describe("ManualPaymentsCard — confirm receipt (manual webhook twin)", () => {
     confirmManualPaymentActionMock.mockResolvedValue({ ok: true });
     render(
       <LocaleProvider locale="en" dir="ltr">
-        <ManualPaymentsCard payments={[payment]} />
+        <ManualPaymentsCard payments={[payment]} nowSeed={Date.now()} />
       </LocaleProvider>
     );
 
@@ -72,7 +72,7 @@ describe("ManualPaymentsCard — confirm receipt (manual webhook twin)", () => {
     confirmManualPaymentActionMock.mockResolvedValue({ ok: true });
     render(
       <LocaleProvider locale="en" dir="ltr">
-        <ManualPaymentsCard payments={[payment]} />
+        <ManualPaymentsCard payments={[payment]} nowSeed={Date.now()} />
       </LocaleProvider>
     );
 
@@ -83,10 +83,53 @@ describe("ManualPaymentsCard — confirm receipt (manual webhook twin)", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("puts the oldest first, flags waits past 2 hours, and shows the receipt photo", async () => {
+    const now = Date.now();
+    const recent: PendingManualPayment = { ...payment, id: "pay-new", labelEn: "Recent payment", reference: "OMT-NEW", createdAt: new Date(now - 30 * 60_000).toISOString() };
+    const old: PendingManualPayment = {
+      ...payment,
+      id: "pay-old",
+      labelEn: "Old payment",
+      reference: "OMT-OLD",
+      createdAt: new Date(now - 3 * 60 * 60_000 - 5 * 60_000).toISOString(),
+      receiptUploadedAt: new Date(now - 60 * 60_000).toISOString(),
+    };
+    render(
+      <LocaleProvider locale="en" dir="ltr">
+        <ManualPaymentsCard payments={[recent, old]} nowSeed={now} />
+      </LocaleProvider>
+    );
+
+    expect(screen.getByText("2 waiting")).toBeInTheDocument();
+    expect(screen.getByText("1 over 2 hours")).toBeInTheDocument();
+    const labels = screen.getAllByText(/Recent payment|Old payment/).map((el) => el.textContent);
+    expect(labels).toEqual(["Old payment", "Recent payment"]);
+    expect(screen.getByText("waiting 3h 5m")).toBeInTheDocument();
+    expect(screen.getByText("waiting 30m")).toBeInTheDocument();
+
+    // The old one has a receipt: its confirm dialog shows the photo.
+    fireEvent.click(screen.getAllByRole("button", { name: "Confirm payment" })[0]!);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByAltText("Payment receipt photo")).toHaveAttribute(
+      "src",
+      "/api/admin/payments/receipt?ref=OMT-OLD"
+    );
+  });
+
+  it("says when a payment has no receipt photo yet", async () => {
+    render(
+      <LocaleProvider locale="en" dir="ltr">
+        <ManualPaymentsCard payments={[payment]} nowSeed={Date.now()} />
+      </LocaleProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirm payment" }));
+    expect(await screen.findByText(/No receipt photo yet/)).toBeInTheDocument();
+  });
+
   it("shows the empty state when there is nothing to confirm", () => {
     render(
       <LocaleProvider locale="en" dir="ltr">
-        <ManualPaymentsCard payments={[]} />
+        <ManualPaymentsCard payments={[]} nowSeed={Date.now()} />
       </LocaleProvider>
     );
     expect(screen.getByText("No manual payments awaiting confirmation.")).toBeInTheDocument();

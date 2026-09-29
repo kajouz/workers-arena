@@ -332,7 +332,7 @@ describe("WorkerManagementTable", () => {
     expect(dialog).toHaveTextContent("Change plan?");
     expect(dialog).toHaveTextContent("Bilal Mansour");
     expect(dialog).toHaveTextContent("from Business to Pro");
-    expect(dialog).toHaveTextContent("The Pro plan is $99/month");
+    expect(dialog).toHaveTextContent("The Pro plan is $59/month");
 
     // Apply commits the staged change.
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));

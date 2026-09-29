@@ -49,7 +49,7 @@ export {
 export const PLANS: Record<SubscriptionPlan, { price: number; labelEn: string; labelAr: string; hue: number }> = {
   basic: { price: 15, labelEn: "Starter", labelAr: "مبدأية", hue: 205 },
   professional: { price: 39, labelEn: "Growth", labelAr: "نمو", hue: 150 },
-  premium: { price: 99, labelEn: "Pro", labelAr: "احترافي", hue: 30 },
+  premium: { price: 59, labelEn: "Pro", labelAr: "احترافي", hue: 30 },
   enterprise: { price: 199, labelEn: "Business", labelAr: "أعمال", hue: 265 },
 };
 

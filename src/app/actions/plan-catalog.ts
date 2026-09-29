@@ -18,7 +18,7 @@ import { saveFeeRuleSet, loadPlanCatalog } from "@/lib/data/fee-rules-store";
 /** The four plans' editable rows, in the units the admin types. */
 const planRowSchema = z.object({
   monthlyPriceUsd: z.coerce.number().min(0).max(10_000),
-  includedLeads: z.coerce.number().int().min(-1).max(10_000),
+  includedLeads: z.coerce.number().int().min(0).max(10_000),
   extraLeadPriceUsd: z.coerce.number().min(0).max(1_000),
   searchBoost: z.coerce.number().min(0.5).max(5),
 });
@@ -87,8 +87,8 @@ export async function getPlanCatalogAction(): Promise<PlanCatalogPayload> {
       plans: {
         basic: { monthlyPriceUsd: 15, includedLeads: 3, extraLeadPriceUsd: 0.05, searchBoost: 1 },
         professional: { monthlyPriceUsd: 39, includedLeads: 10, extraLeadPriceUsd: 0.04, searchBoost: 1.25 },
-        premium: { monthlyPriceUsd: 99, includedLeads: 25, extraLeadPriceUsd: 0.03, searchBoost: 1.5 },
-        enterprise: { monthlyPriceUsd: 199, includedLeads: -1, extraLeadPriceUsd: 0, searchBoost: 2 },
+        premium: { monthlyPriceUsd: 59, includedLeads: 25, extraLeadPriceUsd: 0.03, searchBoost: 1.5 },
+        enterprise: { monthlyPriceUsd: 199, includedLeads: 60, extraLeadPriceUsd: 0, searchBoost: 2 },
       },
       trialDays: 30,
       trialDaysByPlan: { basic: 30, professional: 30, premium: 14, enterprise: 0 },

@@ -227,6 +227,7 @@ export function AdminDashboard({
   platformFeeStats,
   pendingPayouts,
   pendingManualPayments,
+  nowSeed,
   workers,
   workerManagementInit,
   subscriptionAnalytics,
@@ -282,6 +283,9 @@ export function AdminDashboard({
   /** §Lebanon — PENDING OMT/Whish manual payments awaiting the admin's confirm
    * (booking deposits, campaign purchases, paid upgrades). */
   pendingManualPayments: PendingManualPayment[];
+  /** The server's render clock — the pending card's wait times start from it
+   * so the first client render matches the server's (useSsrSafeNow). */
+  nowSeed?: number;
 }) {
   const { locale, t } = useLocale();
   const retention = retentionSnapshot(workers);
@@ -1107,7 +1111,7 @@ export function AdminDashboard({
 
           {/* §Lebanon — PENDING OMT/Whish manual payments: the admin's confirm
               is the manual twin of a provider webhook (no webhook exists). */}
-          <ManualPaymentsCard payments={pendingManualPayments} />
+          <ManualPaymentsCard payments={pendingManualPayments} nowSeed={nowSeed ?? 0} />
 
           {/* §Settlement — fees stamped vs. actually collected (docs/booking-take-rate.md §6) */}
           {settlementJobs && <SettlementReconciliationCard jobs={settlementJobs} />}

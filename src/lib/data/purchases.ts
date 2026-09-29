@@ -19,7 +19,8 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 import { formatDate } from "@/lib/utils";
-import { applyPromotionCreditGrant, demoGrantCredits } from "./credit-ledger";
+import { applyPromotionCreditGrant, demoGrantCredits, topUpGrantsFor } from "./credit-ledger";
+import { grantLeadAllowanceNow } from "./lead-allowance-run";
 import { workerBySlug } from "./workers";
 import { ACTION_CODES, logAdminActivity } from "./activity";
 import { pushNotification } from "./notifications";
@@ -55,7 +56,7 @@ interface DemoPurchasePayment {
   amount: number; // minor units
   currency: string;
   status: "pending" | "paid" | "cancelled";
-  method: "omt" | "whish";
+  method: "omt" | "whish" | "wallet";
   providerRef?: string;
   checkoutUrl?: string;
   paidAt?: string;
@@ -67,6 +68,9 @@ interface DemoPurchasePayment {
     period?: BillingPeriod;
     tier?: VerificationTier;
     kind?: "featured" | "emergency";
+    /** Credit top-up: paid credits + free bonus credits to grant on confirm. */
+    credits?: number;
+    bonusCredits?: number;
   };
 }
 
@@ -139,15 +143,18 @@ export async function demoCreatePurchaseCheckout(
     plan?: SubscriptionPlan;
     period?: BillingPeriod;
     tier?: VerificationTier;
-    method: "OMT" | "WHISH";
+    /** A credit top-up's pack (validated by the caller): its price is the
+     * charge, `credits` land in the PAID pot and `bonusCredits` in the FREE one. */
+    creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
+    method: "OMT" | "WHISH" | "WALLET";
   }
-): Promise<{ url: string } | null> {
+): Promise<{ url: string; paymentId: string; amountMinor: number } | null> {
   const w = workerBySlug(input.workerSlug);
   if (!w) return null;
   // A worker should never be asked to pay twice for the same unpaid renewal.
   // Reuse the existing signed instructions URL; changing OMT/Whish can be
   // done only after the pending payment is confirmed or expires.
-  if (input.scope === "subscription") {
+  if (input.scope === "subscription" && input.method !== "WALLET") {
     for (const existing of STORE.payments.values()) {
       if (
         existing.status === "pending" &&
@@ -155,7 +162,7 @@ export async function demoCreatePurchaseCheckout(
         existing.meta.workerSlug === input.workerSlug &&
         existing.checkoutUrl
       ) {
-        return { url: existing.checkoutUrl };
+        return { url: existing.checkoutUrl, paymentId: existing.id, amountMinor: existing.amount };
       }
     }
   }
@@ -172,7 +179,11 @@ export async function demoCreatePurchaseCheckout(
     const monthly = effectiveMonthlyPriceWithOverrides(catalog, input.plan, w.categorySlug);
     amount = monthly * 100 * (input.period === "annual" ? ANNUAL_PAID_MONTHS : 1);
   }
-  if (amount === null) return null;
+  if (input.scope === "credit" && input.creditPackage) amount = Math.round(input.creditPackage.priceUsd * 100);
+  // The wallet holds whole credits ($1 each): a wallet charge is the price
+  // rounded DOWN to whole dollars (a $7.50 plan costs 7 credits).
+  if (input.method === "WALLET" && amount !== null) amount = Math.floor(amount / 100) * 100;
+  if (amount === null || amount <= 0) return null;
 
   STORE.seq += 1;
   const id = `pay-pur-${STORE.seq}`;
@@ -182,7 +193,7 @@ export async function demoCreatePurchaseCheckout(
     amount,
     currency: "USD",
     status: "pending",
-    method: input.method === "OMT" ? "omt" : "whish",
+    method: input.method === "OMT" ? "omt" : input.method === "WHISH" ? "whish" : "wallet",
     createdAt: new Date().toISOString(),
     meta: {
       scope: input.scope,
@@ -191,8 +202,17 @@ export async function demoCreatePurchaseCheckout(
       period: input.period,
       tier: input.tier,
       kind: input.scope === "featured" || input.scope === "emergency" ? input.scope : undefined,
+      ...(input.creditPackage
+        ? { credits: input.creditPackage.credits, bonusCredits: input.creditPackage.bonusCredits }
+        : {}),
     },
   };
+  // A wallet payment is charged in-app (wallet-payments.ts) — no provider, no
+  // instructions page, and no providerRef until it is confirmed.
+  if (input.method === "WALLET") {
+    STORE.payments.set(id, payment);
+    return { url: "", paymentId: id, amountMinor: amount };
+  }
   const base = typeof window === "undefined" ? "" : window.location.origin;
   const result = await getPaymentProvider(input.method).createCheckout({
     paymentId: id,
@@ -206,7 +226,7 @@ export async function demoCreatePurchaseCheckout(
   payment.providerRef = result.providerRef;
   payment.checkoutUrl = result.url;
   STORE.payments.set(id, payment);
-  return { url: result.url };
+  return { url: result.url, paymentId: id, amountMinor: amount };
 }
 
 /**
@@ -268,6 +288,9 @@ export async function demoConfirmPurchase(
       // per worker per promotion (the ledger enforces it). Silent no-op when no
       // campaign matches; a bonus can never break the purchase it rides on.
       await applyPromotionCreditGrant({ workerId: w.id, plan, createdBy: actor });
+      // The plan's monthly lead credits land now rather than at the next daily
+      // run (once per month — the cron's grant is the same ledger key).
+      await grantLeadAllowanceNow({ id: w.id, subscription });
       await pushNotification(
         {
           type: "subscription",
@@ -330,16 +353,19 @@ export async function demoConfirmPurchase(
       break;
     }
     case "credit": {
-      // Grant the purchased credits — credits = payment amount / 100 (whole credits)
-      const creditsToGrant = Math.floor(payment.amount / 100);
-      if (creditsToGrant > 0) {
-        demoGrantCredits({
-          workerId: w.id,
-          amount: creditsToGrant,
-          reason: `Credit top-up: $${creditsToGrant} purchased (${payment.method})`,
-          createdBy: actor,
-        });
-      }
+      // The pack's credits land in the wallet (PAID pot), its bonus in the
+      // FREE pot — keyed on this payment, so a re-confirm never grants twice.
+      const grants = topUpGrantsFor({
+        workerId: w.id,
+        paymentId: payment.id,
+        amountMinor: payment.amount,
+        credits: payment.meta.credits,
+        bonusCredits: payment.meta.bonusCredits,
+        method: payment.method,
+        createdBy: actor,
+      });
+      for (const grant of grants) demoGrantCredits(grant);
+      const creditsToGrant = grants.reduce((sum, g) => sum + g.amount, 0);
       await pushNotification(
         {
           type: "system",
@@ -374,7 +400,8 @@ export function demoPurchasePayment(paymentId: string): DemoPurchasePayment | nu
 export function demoReconciliationPurchases(): ReconciliationPayment[] {
   const out: ReconciliationPayment[] = [];
   for (const payment of STORE.payments.values()) {
-    if (!payment.providerRef) continue;
+    // Wallet payments were paid with a top-up already counted here.
+    if (!payment.providerRef || payment.method === "wallet") continue;
     const w = workerBySlug(payment.meta.workerSlug);
     if (!w) continue;
     const desc = purchaseDescription(payment.meta.scope, w, payment.meta);
@@ -400,7 +427,7 @@ export function demoReconciliationPurchases(): ReconciliationPayment[] {
 export function demoPendingManualPurchases(): PendingManualPayment[] {
   const out: PendingManualPayment[] = [];
   for (const payment of STORE.payments.values()) {
-    if (payment.status !== "pending" || !payment.providerRef) continue;
+    if (payment.status !== "pending" || !payment.providerRef || payment.method === "wallet") continue;
     const w = workerBySlug(payment.meta.workerSlug);
     if (!w) continue;
     const desc = purchaseDescription(payment.meta.scope, w, payment.meta);

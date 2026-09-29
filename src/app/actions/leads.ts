@@ -18,6 +18,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getSession } from "@/lib/auth-demo";
 import { buyLeadOffer, getWorkerById, getWorkerBySlug, submitLeadRating } from "@/lib/data/repo";
+import { getSessionWorker } from "@/lib/data/authz";
 import { saveFeeRuleSet } from "@/lib/data/fee-rules-store";
 import { grantCredits } from "@/lib/data/credit-ledger";
 import { requestLeadRefund, decideLeadRefund } from "@/lib/data/lead-refund-store";
@@ -34,22 +35,9 @@ export type LeadActionResult =
 
 type LeadPurchaseFailure = "not-found" | "not-live" | "already-owned" | "insufficient-credits" | "already-charged";
 
-/**
- * The demo worker account (the same gate `actions/business.ts` uses). Real mode
- * resolves the caller's own worker row by session email, so this is a demo
- * convenience rather than the authorization itself.
- */
-const DEMO_WORKER_SLUG = "khaled-al-harbi-plumbing";
-
-/** The worker the session acts as, or null when the caller is not a worker. */
+/** The worker the session acts as — its OWN profile — or null otherwise. */
 async function sessionWorkerId(): Promise<string | null> {
-  const session = await getSession();
-  if (!session) return null;
-  if (session.role === "worker") {
-    const worker = await getWorkerBySlug(DEMO_WORKER_SLUG);
-    return worker?.id ?? null;
-  }
-  return null;
+  return (await getSessionWorker())?.id ?? null;
 }
 
 /** §9 — buy one lead offer with platform credits. */
@@ -81,6 +69,8 @@ const leadMarketSchema = z.object({
   prices: z.record(z.string(), z.coerce.number().min(0).max(100_000)),
   maxWorkersPerLead: z.coerce.number().int().min(1).max(20),
   offerTtlMinutes: z.coerce.number().int().min(5).max(10_080),
+  // Optional: a client that does not send it gets the default ($10).
+  minWalletCredits: z.coerce.number().int().min(0).max(1_000).optional(),
   exclusive: z.coerce.boolean(),
   reveal: z.object({
     beforePurchase: revealSchema,
@@ -144,6 +134,7 @@ export async function saveLeadMarketConfigAction(
     prices: prices as LeadMarketConfig["prices"],
     maxWorkersPerLead: parsed.data.maxWorkersPerLead,
     offerTtlMinutes: parsed.data.offerTtlMinutes,
+    ...(parsed.data.minWalletCredits !== undefined ? { minWalletCredits: parsed.data.minWalletCredits } : {}),
     exclusive: parsed.data.exclusive,
     reveal: parsed.data.reveal,
     weights: parsed.data.weights as unknown as LeadMarketConfig["weights"],
@@ -251,7 +242,7 @@ export async function submitLeadRatingAction(input: {
     return { error: "Only workers can rate leads." };
   }
 
-  const worker = await getWorkerBySlug("khaled-al-harbi-plumbing");
+  const worker = await getSessionWorker(session);
   if (!worker) return { error: "Worker not found." };
 
   try {

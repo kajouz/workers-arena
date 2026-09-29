@@ -86,9 +86,10 @@ interface PaymentProvider {
 |------|---------|-------------|----------|
 | **Starter** | $15 | $135 | 3 |
 | **Growth** | $39 | $351 | 10 |
-| **Pro** | $99 | $891 | 25 |
-| **Business** | $199 | $1,791 | Unlimited |
+| **Pro** | $59 | $531 | 25 |
+| **Business** | $199 | $1,791 | 60 |
 
+- **Monthly lead credits**: the leads/mo column is paid as credits once a month (leads × bronze price; unused allowance expires at the next grant) — `src/lib/data/lead-allowance.ts`
 - **Category-adjusted pricing**: low-value trades (cleaning, gardening) pay 0.5×, high-value trades (HVAC, mechanic) pay 1.5×
 - **Plan-specific free trial**: Starter/Growth 30 days, Pro 14 days, and Business assisted by default (auto-applied at onboarding)
 - **Annual billing**: pay for 9 months, get 12 (25% discount)
@@ -118,6 +119,21 @@ Workers buy platform credits to purchase qualified leads.
 3. Worker pays at OMT agent / Whish app with the reference
 4. Admin confirms receipt from `/admin` pending-payments card
 5. `confirmPurchase` → credits granted to worker's ledger balance, notification sent
+
+**Prepaid wallet (Step 2 of the revenue plan):** one balance in two pots. Each ledger row carries a `fund` (migration `20260928120000_credit_funds`):
+
+| Pot | Filled by | Pays for |
+|---|---|---|
+| **paid** (the wallet) | top-ups: the pack's base credits | anything on the platform (plans, badges, leads, commission) |
+| **free** | monthly lead allowance, promotions, referrals, pack bonuses | leads only |
+
+Lead purchases spend free credits first, then paid; the allowance expiry only ever removes free credits. A top-up is granted on confirm by `topUpGrantsFor` (paid base + free bonus, keyed `topup:<paymentId>` / `topup-bonus:<paymentId>`, so a re-confirm never grants twice). **Wallet money is platform credit — it cannot be withdrawn or refunded as cash**, and the top-up card says so. Before this change the credit checkout had no price for a pack, so no top-up could be minted.
+
+**Paying from the wallet** (`src/lib/data/wallet-payments.ts`): renewals, verification, the featured slot and the emergency marker can be paid in-app with method `WALLET` (migration `20260928130000_wallet_payment_method`). The charge is the checkout price rounded **down** to whole dollars, debited from the paid pot only, then confirmed through the same `confirmPurchase` an admin runs for OMT/Whish, so the capability and invoice activate at once. A WALLET payment is not new cash (the top-up was), so the manual queue and reconciliation never list it. A charge whose purchase fails to activate is refunded; a wallet renewal cancels any unpaid OMT/Whish renewal for the same worker.
+
+**Auto-renew and commission** (`GET /api/cron/wallet`, daily 06:30 UTC): first, outstanding commission on cash-settled jobs is collected from the paid pot, rounded down to whole dollars so a worker is never charged more than the claim (it is also collected the moment a job is marked paid in cash); then plans ending within a day, or up to three days ago, renew from the wallet at the same plan and period unless the worker switched auto-renew off (`Subscription.autoRenew`, on by default). Each charge is keyed in the ledger, so re-runs never charge twice.
+
+**"Card" renewal:** the renew dialog's Card option renewed a plan on the spot without charging anything. It is now offered and accepted only in demo mode; real mode refuses it.
 
 **Credit ledger:**
 - Append-only `WorkerCreditEntry` model (migration `20260914120000_worker_credit_ledger`)
@@ -232,6 +248,10 @@ All OMT/Whish payments appear in the `/admin` pending-payments card while pendin
 4. Payment flips PAID, capability activates (subscription/credits/verification/etc.)
 5. Worker/company notified
 
+**Receipt photos and the 2-hour target (Step 3):** the instructions page lets the payer attach a photo of their OMT/Whish receipt (`uploadPaymentReceiptAction`). The browser shrinks it; the server accepts JPEG/PNG/WebP up to 600 KB whose bytes match the type, and stores it per payment reference in `PaymentReceipt` (migration `20260928140000_payment_receipts`). Authorization is the signed link itself, re-verified by the action, so a guest with no account can send one too. The `/admin` card lists payments **oldest first**, shows how long each has waited (amber past 1h, red past the 2-hour target, with an "over 2 hours" count), marks rows with a receipt, and shows the photo in the confirm dialog (`GET /api/admin/payments/receipt?ref=…`, admin only).
+
+**Signed link hardening:** the `ref` on a manual link was not covered by the HMAC, so a genuine link could be shown with another payment's reference. `verifyManualBody` now also requires the reference derived from the signed fields (`manualReference`), and the link's provider must match the reference prefix. Links already issued stay valid.
+
 **Reconciliation:** `GET /api/admin/revenue/reconciliation` returns JSON for the admin ledger; append `?format=csv` for an accounting export. The export is read-only and includes payment status, provider reference, paid/refunded timestamps, and the linked invoice number. The reminder cron also cancels unpaid subscription renewal payments older than seven days and records a `cancelled` subscription lifecycle event; workers can still cancel their own pending renewal immediately from the dashboard.
 
 ## Platform fee (take rate)
@@ -246,7 +266,8 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Pro | 5% | $5 | $300 |
 | Business | 4% reduced | $5 | $300 |
 
-- Applied at **accept-with-quote** (immutable snapshot)
+- The table is the plan ladder (`FEE_LADDER_PRESET`): the shipped default rule set **is this ladder** (since 2026-09-28); an admin-published rule set in `/admin/revenue-settings` overrides it.
+- Applied at **accept-with-quote** (immutable snapshot) — including a multi-candidate quote winner accepted without re-typing its bid
 - Collected at **booking completion**
 - Admin can set per-category, per-promotion overrides
 - Fee snapshot is auditable (`PlatformFeeSnapshot` model)
@@ -259,15 +280,15 @@ When a bought lead converts to a completed job:
 rebate = min(fee × pctBps/10000, lead cost, ceiling)
 ```
 
-- Default: 100% of fee share, no ceiling
+- Default: 50% of the fee (since 2026-09-28; was 100%), no ceiling
 - Recorded in `LeadRebate` model (append-only)
 - Shown on worker booking row and lead board
 - Admin-configurable (on/off, share, ceiling)
 
 **Example:**
-- 7% of $300 = $21 fee
+- 7% of $300 = $21 fee (a Growth worker)
 - Gold lead cost $20
-- Rebate $20 → platform keeps $1, worker nets $299
+- Rebate 50% of $21 = $10.50 → platform keeps $10.50, worker nets $289.50
 
 ## Refunds & disputes
 

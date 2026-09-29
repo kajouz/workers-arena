@@ -9,8 +9,6 @@ export const metadata: Metadata = {
   title: "Platform Credits",
 };
 
-const DEMO_WORKER_SLUG = "khaled-al-harbi-plumbing";
-
 export default async function CreditsPage() {
   const session = await getSession();
   if (!session) return await localeRedirect("/");

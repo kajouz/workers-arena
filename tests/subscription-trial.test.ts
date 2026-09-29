@@ -66,7 +66,7 @@ describe("first plan = trial (renewWorkerSubscriptionBySlug gate)", () => {
     // Second call — trial used — is a real paid renewal: invoice + price.
     const res = await renewWorkerSubscriptionBySlug(SLUG, "premium");
     const w = workerBySlug(SLUG)!;
-    expect(w.subscription?.price).toBe(99); // paid, not $0
+    expect(w.subscription?.price).toBe(59); // paid, not $0
     expect(w.subscription?.invoiceNo).not.toMatch(/^TRIAL-/);
     expect(res.invoice).not.toBeNull();
     expect(res.days).toBeGreaterThanOrEqual(28);
@@ -84,7 +84,7 @@ describe("first plan = trial (renewWorkerSubscriptionBySlug gate)", () => {
       period: "monthly",
     };
     const res = await renewWorkerSubscriptionBySlug(SLUG, "premium");
-    expect(w.subscription?.price).toBe(99);
+    expect(w.subscription?.price).toBe(59);
     expect(w.subscription?.invoiceNo).not.toMatch(/^TRIAL-/);
     expect(res.invoice).not.toBeNull();
   });

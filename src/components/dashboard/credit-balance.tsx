@@ -7,6 +7,10 @@ import { Coins, ShoppingCart, History, AlertCircle, ArrowUpRight } from "lucide-
 
 interface CreditBalance {
   balance: number;
+  /** The wallet: topped-up money — pays for anything, not withdrawable. */
+  paidBalance: number;
+  /** Given credits (allowance, promotions, bonuses) — leads only. */
+  freeBalance: number;
   /** Credits added (promotions + top-ups), from the append-only ledger. */
   totalPurchased: number;
   totalSpent: number;
@@ -73,7 +77,7 @@ export function CreditBalanceCard() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Coins className="w-5 h-5" />
-            <span className="font-medium">Lead Credits</span>
+            <span className="font-medium">Wallet &amp; lead credits</span>
           </div>
           <button
             onClick={() => setShowPackages(!showPackages)}
@@ -83,9 +87,17 @@ export function CreditBalanceCard() {
             Buy More
           </button>
         </div>
-        <div className="mt-3">
-          <p className="text-3xl font-bold">{balance.balance}</p>
-          <p className="text-sm opacity-90">credits available</p>
+        {/* Two pots: the wallet is money the worker paid in; free credits
+            were given and only buy leads (which spend free credits first). */}
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-3xl font-bold">${balance.paidBalance}</p>
+            <p className="text-sm opacity-90">wallet · pays for anything</p>
+          </div>
+          <div>
+            <p className="text-3xl font-bold">{balance.freeBalance}</p>
+            <p className="text-sm opacity-90">free lead credits</p>
+          </div>
         </div>
       </div>
 
@@ -196,13 +208,17 @@ export function CreditBalanceCard() {
                 </p>
                 {pkg.bonusCredits > 0 && (
                   <p className="text-xs text-green-600 mt-1">
-                    +{pkg.bonusCredits} bonus credits!
+                    +{pkg.bonusCredits} free lead credits
                   </p>
                 )}
               </button>
             ))}
           </div>
           <p className="text-[11px] text-ink-400 dark:text-ink-500 mt-2 text-center">Pay via OMT or Whish · admin confirms, credits granted instantly</p>
+          <p className="text-[11px] text-ink-500 dark:text-ink-400 mt-1 text-center">
+            Top-ups go into your wallet ($1 = 1 credit) and pay for plans, badges, leads and commission. Wallet money is
+            platform credit: it can&apos;t be withdrawn or refunded as cash. Bonus credits buy leads only.
+          </p>
         </div>
       )}
     </div>

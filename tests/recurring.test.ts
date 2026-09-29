@@ -110,9 +110,10 @@ describe("demo recurring adapter (M1)", () => {
     const [first, ...future] = accepted!.occurrences;
     expect(first.status).toBe("confirmed");
     expect(first.quote).toBe(10000);
-    // Take-rate stamped on the first occurrence (7% of 10000 = 700 minor).
-    expect(first.platformFee).toBe(700);
-    expect(first.platformFeeRateBps).toBe(700);
+    // Take-rate stamped on the first occurrence (the Pro ladder rate, 5% of
+    // 10000 = 500 minor).
+    expect(first.platformFee).toBe(500);
+    expect(first.platformFeeRateBps).toBe(500);
 
     // The future occurrences keep the cadence, the quote and the contract link.
     expect(future).toHaveLength(RECURRING_OCCURRENCE_COUNT);
@@ -120,7 +121,7 @@ describe("demo recurring adapter (M1)", () => {
       expect(occ.recurringId).toBe(recurring.id);
       expect(occ.status).toBe("confirmed");
       expect(occ.quote).toBe(10000);
-      expect(occ.platformFee).toBe(700);
+      expect(occ.platformFee).toBe(500);
       const expected = generateRecurringOccurrences(first.startAt!, "weekly", RECURRING_OCCURRENCE_COUNT);
       expect(occ.startAt).toBe(expected[i]);
     });

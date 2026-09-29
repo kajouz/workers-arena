@@ -30,8 +30,10 @@ Four tiers (USD/month, `PLAN_CATALOG` in `src/lib/data/subscription-plans.ts`; m
 |---|---|---|---|---|
 | **Starter** | $15 | $135 | 3 | Profile, search listing |
 | **Growth** | $39 | $351 | 10 | + Featured, verification |
-| **Pro** | $99 | $891 | 25 | + Priority, analytics, emergency |
-| **Business** | $199 | $1,791 | Unlimited | + reduced 4% platform fee, team mgmt |
+| **Pro** | $59 | $531 | 25 | + Priority, analytics, emergency |
+| **Business** | $199 | $1,791 | 60 | + reduced 4% platform fee, team mgmt |
+
+**Monthly lead credits:** each plan's leads are paid out as credits once a month (included leads × the bronze lead price: 15 / 50 / 125 / 300 credits by default), by `GET /api/cron/lead-allowance` and at once when a plan payment is confirmed. Unused allowance credits expire when the next month's allowance is granted; purchased credits never expire (`src/lib/data/lead-allowance.ts`).
 
 **Category-adjusted pricing** — trades are classified by average job value:
 - **Low-value** (cleaning, gardening, pest control): 0.5× multiplier → Starter $7.50/mo
@@ -44,7 +46,7 @@ Four tiers (USD/month, `PLAN_CATALOG` in `src/lib/data/subscription-plans.ts`; m
 
 Mechanics that make this model work:
 
-- **Visibility gating (the "paywall"):** expired subscription → worker removed from public search (`filtersToWhere` excludes `EXPIRED` subs; demo `isSubscriptionActive`). Search visibility is the workers' #1 KPI, so expiry is a natural, high-converting upsell trigger.
+- **Free listing (since 2026-09-28, Step 4):** a worker without an active plan stays listed in search but is ranked after every paying worker (`sqlOrderBy` / `freeListingRank`), pays the Free tier commission (12%, via `feePlanOf`), and gets no lead offers. Visibility is no longer the paywall; ranking, commission and leads are.
 - **Renewal nudges:** 7/3/1-day reminder notifications + cron engine (`src/lib/notifications/reminders.ts`), "expiring" status banner on the dashboard, and a renewal dialog (`renew-dialog.tsx`) that supports plan switching.
 - **Invoicing:** every renewal mints an `INV-*` invoice shown on the worker dashboard.
 - **Admin-editable:** all prices, quotas, and features configurable via `/admin/revenue-settings`.
@@ -63,6 +65,7 @@ The fee engine stamps an **immutable snapshot** at accept-with-quote:
 | Pro | 5% | $5 | $300 |
 | Business | **4% reduced rate** | $5 | $300 |
 
+- The table is the plan ladder (`FEE_LADDER_PRESET`); the shipped default rule set **is this ladder** (since 2026-09-28); an admin-published rule set in `/admin/revenue-settings` overrides it.
 - Applied at **accept-with-quote** (immutable snapshot)
 - **Collected from money the platform actually holds** — a job's value arrives in two legs (the deposit before the work, the balance after it), and the ledger credits `collected − fee`, never more (`src/lib/data/booking-settlement.ts`)
 - Admin can set per-category, per-promotion overrides

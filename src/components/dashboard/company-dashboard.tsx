@@ -24,7 +24,7 @@ import { formatCompact, formatDate } from "@/lib/utils";
 import { payCampaignAction } from "@/app/actions/business";
 import { CampaignBuilder } from "./campaign-builder";
 import { Link } from "@/components/i18n/link";
-import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
+import { PaymentMethodPicker, type ExternalCheckoutMethod } from "@/components/payments/payment-method-picker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const AD_TYPES = [
@@ -59,7 +59,7 @@ export function CompanyDashboard({
 }) {
   const { locale, t } = useLocale();
   const [payFor, setPayFor] = useState<string | null>(null);
-  const [payMethod, setPayMethod] = useState<CheckoutMethod>("stripe");
+  const [payMethod, setPayMethod] = useState<ExternalCheckoutMethod>("stripe");
   const [paying, setPaying] = useState(false);
   const totalImpressions = campaigns.reduce((s, c) => s + c.impressions, 0);
   const totalClicks = campaigns.reduce((s, c) => s + c.clicks, 0);

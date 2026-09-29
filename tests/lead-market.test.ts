@@ -23,6 +23,7 @@ import {
   revealedContact,
   scoreLeadCandidate,
   splitLeadBoard,
+  leadOfferEligible,
   type LeadCandidate,
   type LeadOffer,
   type LeadSignals,
@@ -467,6 +468,12 @@ function offerFixture(): LeadOffer {
 describe("§7–§9 the marketplace store", () => {
   const lead = { id: "qr-100", number: "QR-2026-00100" };
 
+  // These tests are about grading, matching and purchase; the prepaid-wallet
+  // minimum for receiving offers has its own suite below.
+  beforeEach(async () => {
+    await saveFeeRuleSet({ leadMarket: { minWalletCredits: 0 } });
+  });
+
   it("offers a graded lead only to the few best-matched workers", async () => {
     const pool = [
       candidate({ workerId: "w1", reviewCount: 300, rating: 5 }),
@@ -731,11 +738,13 @@ describe("§7–§9 the marketplace store", () => {
       leadCostMinor: mine.priceCredits * 100,
       feeMinor: fee,
       // Phase 2 smart pricing can move the locked gold price above its $20
-      // base. The rebate remains bounded by whichever is smaller: fee or lead.
-      rebateMinor: Math.min(fee, mine.priceCredits * 100),
-      effectiveFeeMinor: fee - Math.min(fee, mine.priceCredits * 100),
+      // base. The shipped policy gives back 50% of the fee, never more than
+      // the lead cost.
+      rebateMinor: Math.min(Math.round(fee / 2), mine.priceCredits * 100),
+      effectiveFeeMinor: fee - Math.min(Math.round(fee / 2), mine.priceCredits * 100),
       ruleId: expect.any(String),
-      ruleVersion: 1,
+      // The rule set in force (this suite publishes one to set the wallet minimum).
+      ruleVersion: (await loadActiveFeeRuleSet()).version,
     });
     expect(rebates[0]!.limitedBy).toBe(fee <= mine.priceCredits * 100 ? "fee" : "lead-cost");
 
@@ -775,12 +784,15 @@ describe("§7–§9 the marketplace store", () => {
     const mine = created.find((o) => o.workerId === worker.id)!;
     expect(mine.grade).toBe("gold");
     await purchaseLeadOffer(mine.id, worker.id);
+    // A 100% share, so the FEE (not the share) is what limits the rebate.
+    await saveFeeRuleSet({ leadMarket: { rebate: { enabled: true, pctBps: 10_000, maxMinor: null } } });
 
-    // A modest job: 7% of $100 is $7 — BELOW the $20 lead — so the fee is the
-    // cap, the platform keeps nothing, and the worker is made whole on the lead.
+    // A modest job: the Pro rate (5%) of $100 is $5 — BELOW the $20 lead — so
+    // the fee is the cap, the platform keeps nothing, and the worker is made
+    // whole on the lead.
     const done = await completeLeadJob({ workerId: worker.id, leadId: mine.leadId, quoteMinor: 10_000, hourOffset: 41 });
     const fee = done.platformFee!;
-    expect(fee).toBe(700);
+    expect(fee).toBe(500);
     expect(fee).toBeLessThan(mine.priceCredits * 100);
 
     const rebate = (await listLeadRebates(10)).find((r) => r.leadId === mine.leadId)!;
@@ -824,8 +836,8 @@ describe("§7–§9 the marketplace store", () => {
 
   it("honours a share-of-fee policy and a per-job ceiling", async () => {
     const worker = workerBySlug(DEMO_WORKER)!;
-    // Half the fee, never more than $10.
-    await saveFeeRuleSet({ leadMarket: { rebate: { enabled: true, pctBps: 5_000, maxMinor: 1_000 } } });
+    // Half the fee, never more than $5.
+    await saveFeeRuleSet({ leadMarket: { rebate: { enabled: true, pctBps: 5_000, maxMinor: 500 } } });
     await grantCredits({ workerId: worker.id, amount: 100, reason: "seed" });
     const { created } = await offerQualifiedLead({
       lead: {
@@ -845,12 +857,12 @@ describe("§7–§9 the marketplace store", () => {
     const done = await completeLeadJob({ workerId: worker.id, leadId: mine.leadId, quoteMinor: 30_000, hourOffset: 44 });
     const fee = done.platformFee!;
 
-    // 50% of a $21 fee is $10.50, but the $10 ceiling wins.
+    // 50% of a $15 fee (Pro 5% of $300) is $7.50, but the $5 ceiling wins.
     const rebate = (await listLeadRebates(10)).find((r) => r.leadId === mine.leadId)!;
     expect(rebate.pctBps).toBe(5_000);
-    expect(rebate.maxMinor).toBe(1_000);
-    expect(rebate.rebateMinor).toBe(1_000);
-    expect(rebate.effectiveFeeMinor).toBe(fee - 1_000);
+    expect(rebate.maxMinor).toBe(500);
+    expect(rebate.rebateMinor).toBe(500);
+    expect(rebate.effectiveFeeMinor).toBe(fee - 500);
     expect(rebate.limitedBy).toBe("ceiling");
   });
 
@@ -863,5 +875,42 @@ describe("§7–§9 the marketplace store", () => {
     await purchaseLeadOffer(created[0]!.id, "w1");
     const feed = await getAdminActivityFeed();
     expect(feed.some((e) => e.code === "LEAD_PURCHASED")).toBe(true);
+  });
+});
+
+// Prepaid wallet minimum (revenue plan Step 2): a worker is offered a lead
+// only with $10 in their wallet (paid credits) OR free credits that cover the
+// lead's price — so commission on cash jobs can be collected, while the plans'
+// free monthly leads stay usable.
+describe("wallet minimum for lead offers", () => {
+  const lead = { id: "qr-200", number: "QR-2026-00200", jobTitle: "Leak", categorySlug: "plumbing", citySlug: "beirut" };
+
+  it("eligible with the wallet minimum, or with free credits covering the price", () => {
+    expect(leadOfferEligible({ paidBalance: 10, freeBalance: 0 }, 10, 20)).toBe(true);
+    expect(leadOfferEligible({ paidBalance: 0, freeBalance: 20 }, 10, 20)).toBe(true);
+    expect(leadOfferEligible({ paidBalance: 9, freeBalance: 19 }, 10, 20)).toBe(false);
+    expect(leadOfferEligible({ paidBalance: 0, freeBalance: 0 }, 0, 20)).toBe(true);
+  });
+
+  it("offers the lead only to eligible workers; the rest keep their profile but get no offer", async () => {
+    await grantCredits({ workerId: "w-wallet", amount: 10, fund: "paid", reason: "Top-up" });
+    await grantCredits({ workerId: "w-free", amount: 15, fund: "free", reason: "Allowance" });
+    await grantCredits({ workerId: "w-short", amount: 9, fund: "paid", reason: "Top-up" });
+    const result = await offerQualifiedLead({
+      lead,
+      candidates: [
+        candidate({ workerId: "w-wallet" }),
+        candidate({ workerId: "w-free" }),
+        candidate({ workerId: "w-short" }),
+        candidate({ workerId: "w-empty" }),
+      ],
+    });
+    expect(result.created.map((o) => o.workerId).sort()).toEqual(["w-free", "w-wallet"]);
+  });
+
+  it("an admin can turn the minimum off", async () => {
+    await saveFeeRuleSet({ leadMarket: { minWalletCredits: 0 } });
+    const result = await offerQualifiedLead({ lead, candidates: [candidate({ workerId: "w-empty" })] });
+    expect(result.created.map((o) => o.workerId)).toEqual(["w-empty"]);
   });
 });

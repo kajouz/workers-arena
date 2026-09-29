@@ -40,8 +40,8 @@ Four tiers, USD/month (admin-editable via plan catalog):
 |------|---------|-------------|-----------|
 | **Starter** | $15 | $135 | Profile, search listing, 3 leads/mo |
 | **Growth** | $39 | $351 | + Featured placement, 10 leads/mo, verification |
-| **Pro** | $99 | $891 | + Priority matching, analytics, 25 leads/mo, emergency |
-| **Business** | $199 | $1,791 | + reduced 4% transaction fee, unlimited leads, team management |
+| **Pro** | $59 | $531 | + Priority matching, analytics, 25 leads/mo, emergency |
+| **Business** | $199 | $1,791 | + reduced 4% transaction fee, 60 leads/mo as credits, team management |
 
 **Category-adjusted pricing** — trades are classified by average job value:
 - **Low-value** (cleaning, gardening, pest control): 0.5× multiplier → Starter $7.50/mo
@@ -52,7 +52,7 @@ Four tiers, USD/month (admin-editable via plan catalog):
 
 **Annual billing** — pay for 9 months, get 12 (25% discount, 3 months free).
 
-- **Visibility gating**: expired subscription → worker removed from public search
+- **Free listing (since 2026-09-28, Step 4):** a worker without an active plan stays listed in search but is ranked after every paying worker (`sqlOrderBy` / `freeListingRank`), pays the Free tier commission (12%, via `feePlanOf`), and gets no lead offers. Visibility is no longer the paywall; ranking, commission and leads are.
 - **Payment methods**: OMT/Whish manual (admin-confirmed) + Stripe (planned)
 - **Renewal reminders**: 7d, 3d, 1d before expiry
 - **Admin-editable**: plan prices, lead quotas, features, and category multipliers are all configurable via `/admin/revenue-settings`
@@ -201,7 +201,7 @@ Customer books job → Worker accepts with quote → Job completes
 | Avg job value | $80 | $150 | $200 |
 | GMV | $400 | $1,800 | $5,000 |
 | Platform fee (9%/7%/5%) | $36 | $126 | $250 |
-| Subscription cost | $15 | $39 | $99 |
+| Subscription cost | $15 | $39 | $59 |
 | Leads purchased (5/mo) | $25 | $45 | $100 |
 | **Net earnings** | **$324** | **$1,590** | **$4,551** |
 | **ROI (earnings / spend)** | **6.0×** | **17.1×** | **23.0×** |
@@ -210,7 +210,7 @@ Customer books job → Worker accepts with quote → Job completes
 
 | Stream | Starter | Growth | Pro |
 |--------|---------|--------|-----|
-| Subscription | $15 | $39 | $99 |
+| Subscription | $15 | $39 | $59 |
 | Take rate | $36 | $126 | $250 |
 | Lead credits | $12.50 | $22.50 | $50 |
 | **Total platform revenue** | **$63.50** | **$187.50** | **$399** |

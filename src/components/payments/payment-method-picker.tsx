@@ -1,12 +1,14 @@
 "use client";
 
-import { CreditCard } from "lucide-react";
+import { CreditCard, Wallet } from "lucide-react";
 import { OMTIconCompact } from "@/components/payments/icons/omt-icon";
 import { WishIconCompact } from "@/components/payments/icons/wish-icon";
 import { useLocale } from "@/components/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
-export type CheckoutMethod = "stripe" | "omt" | "whish";
+export type CheckoutMethod = "stripe" | "omt" | "whish" | "wallet";
+/** The methods a third party pays with — everything but a worker's own wallet. */
+export type ExternalCheckoutMethod = Exclude<CheckoutMethod, "wallet">;
 
 type MethodConfig = {
   key: CheckoutMethod;
@@ -18,6 +20,8 @@ const ALL_METHODS: MethodConfig[] = [
   { key: "stripe", icon: CreditCard, accent: "text-sky-600 dark:text-sky-400" },
   { key: "omt", icon: OMTIconCompact, accent: "text-orange-600 dark:text-orange-400" },
   { key: "whish", icon: WishIconCompact, accent: "text-violet-600 dark:text-violet-400" },
+  // The worker's prepaid wallet (Step 2) — offered only where a caller lists it.
+  { key: "wallet", icon: Wallet, accent: "text-emerald-600 dark:text-emerald-400" },
 ];
 
 /**
@@ -28,23 +32,23 @@ const ALL_METHODS: MethodConfig[] = [
  * surface (booking pay card, campaign pay dialog, renew dialog, paid-upgrade
  * dialogs) so the methods can never drift between surfaces.
  */
-export function PaymentMethodPicker({
+export function PaymentMethodPicker<M extends CheckoutMethod = ExternalCheckoutMethod>({
   value,
   onChange,
   disabled = false,
   compact = false,
   methods,
 }: {
-  value: CheckoutMethod;
-  onChange: (m: CheckoutMethod) => void;
+  value: M;
+  onChange: (m: M) => void;
   disabled?: boolean;
   compact?: boolean;
-  /** Restrict the offered methods (default: all three). Paid upgrades are
-   * manual-only, so they pass ["omt", "whish"]. */
-  methods?: CheckoutMethod[];
+  /** Restrict the offered methods (default: card, OMT, Whish). The wallet is
+   * offered only where a worker pays for themselves, so callers opt in. */
+  methods?: M[];
 }) {
   const { t } = useLocale();
-  const shown = methods ?? ALL_METHODS.map((m) => m.key);
+  const shown: CheckoutMethod[] = methods ?? ALL_METHODS.filter((m) => m.key !== "wallet").map((m) => m.key);
   return (
     <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))` }}>
       {ALL_METHODS.filter((m) => shown.includes(m.key)).map(({ key, icon: Icon, accent }) => {
@@ -53,7 +57,7 @@ export function PaymentMethodPicker({
           <button
             key={key}
             type="button"
-            onClick={() => onChange(key)}
+            onClick={() => onChange(key as M)}
             disabled={disabled}
             className={cn(
               "flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-center transition-all disabled:opacity-50",

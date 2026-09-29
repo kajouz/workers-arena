@@ -4,7 +4,7 @@ import { localeAlternates } from "@/lib/i18n/routing";
 import { Suspense } from "react";
 import { Link } from "@/components/i18n/link";
 import { MapPin, Star, ArrowRight } from "lucide-react";
-import { getCategories, getCities, getWorkers } from "@/lib/data/repo";
+import { getAllWorkers, getCategories, getCities } from "@/lib/data/repo";
 import { CITY_COORDINATES } from "@/lib/geolocation/geo-service";
 import { cityBySlug, countryOfCity } from "@/lib/data/cities";
 import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
@@ -87,7 +87,8 @@ export default async function CityPage({ params }: CityPageProps) {
    */
   let servedTrades = new Set<string>();
   try {
-    const { items } = await getWorkers({ city });
+    // Every worker, not one search page (capped at nine).
+    const items = (await getAllWorkers()).filter((w) => w.citySlug === city);
     servedTrades = new Set(items.map((w) => w.categorySlug));
   } catch {
     /* search links remain the fallback */

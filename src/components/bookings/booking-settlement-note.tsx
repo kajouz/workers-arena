@@ -27,7 +27,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { toast } from "@/components/ui/toast";
 import { formatPrice } from "@/lib/utils";
 import { payBookingBalanceAction } from "@/app/actions/bookings";
-import { PaymentMethodPicker, type CheckoutMethod } from "@/components/payments/payment-method-picker";
+import { PaymentMethodPicker, type ExternalCheckoutMethod } from "@/components/payments/payment-method-picker";
 import { useGuestProof } from "./guest-proof";
 import type { CurrencyCode } from "@/lib/currency";
 
@@ -55,7 +55,7 @@ export function BookingSettlementNote({
   const router = useRouter();
   const withGuestProof = useGuestProof();
   const [paying, setPaying] = useState(false);
-  const [method, setMethod] = useState<CheckoutMethod>("omt");
+  const [method, setMethod] = useState<ExternalCheckoutMethod>("omt");
   const [, startTransition] = useTransition();
   const amount = formatPrice(outstandingMinor / 100, currency, locale);
   const net = formatPrice(workerNetMinor / 100, currency, locale);

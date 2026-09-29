@@ -13,8 +13,8 @@
  */
 
 import { getSession } from "@/lib/auth-demo";
+import { getSessionWorker } from "@/lib/data/authz";
 import {
-  getWorkerBySlug,
   getWorkerById,
   createPurchaseCheckout as repoCreatePurchaseCheckout,
   confirmPurchase as repoConfirmPurchase,
@@ -58,8 +58,8 @@ export async function createCreditPurchaseAction(input: {
     return { ok: false, error: "Only worker accounts can buy credits." };
   }
 
-  // Resolve the worker — demo uses a hardcoded slug; real mode would use session.id.
-  const worker = await getWorkerBySlug("khaled-al-harbi-plumbing");
+  // The signed-in worker's own profile (never a fixed demo account).
+  const worker = await getSessionWorker(session);
   if (!worker) return { ok: false, error: "Worker account not found." };
 
   // Validate the package
@@ -73,6 +73,14 @@ export async function createCreditPurchaseAction(input: {
   const result = await repoCreatePurchaseCheckout({
     workerSlug: worker.slug,
     scope: "credit",
+    // The validated pack: its price is the charge; its credits land in the
+    // wallet (paid) and its bonus as free lead credits on confirm.
+    creditPackage: {
+      id: validation.package.id,
+      credits: validation.package.credits,
+      bonusCredits: validation.package.bonusCredits,
+      priceUsd: validation.priceUsd,
+    },
     method: input.method === "STRIPE" ? "OMT" : input.method, // Stripe goes through a hosted checkout; OMT/Whish use signed instructions
   });
 

@@ -1,7 +1,8 @@
 import { getSession } from "@/lib/auth-demo";
-import { getWorkerBySlug, getWorkerLeadBoard, getWorkers } from "@/lib/data/repo";
+import { getWorkerLeadBoard } from "@/lib/data/repo";
 import { LeadBoard } from "@/components/dashboard/leads/lead-board";
 import { localeRedirect } from "@/lib/i18n/redirect";
+import { getSessionWorker } from "@/lib/data/authz";
 
 /**
  * §7–§10 — the worker's lead marketplace board (docs/lead-marketplace.md).
@@ -14,20 +15,17 @@ import { localeRedirect } from "@/lib/i18n/redirect";
 
 export const metadata = { title: "Lead marketplace" };
 
-/** The demo worker account — the same slug the dashboard and actions use. */
-const DEMO_WORKER_SLUG = "khaled-al-harbi-plumbing";
-
 export default async function WorkerLeadsPage() {
   const session = await getSession();
   if (!session) return await localeRedirect("/auth/login");
   if (session.role === "admin") return await localeRedirect("/admin");
   if (session.role === "company") return await localeRedirect("/company");
 
-  const worker =
-    session.role === "worker"
-      ? ((await getWorkerBySlug(DEMO_WORKER_SLUG)) ?? (await getWorkers({})).items[0])
-      : (await getWorkers({})).items[0];
-  if (!worker) return await localeRedirect("/dashboard");
+  if (session.role === "customer") return await localeRedirect("/bookings");
+
+  // Only the signed-in worker's own board; never another worker's leads.
+  const worker = await getSessionWorker(session);
+  if (!worker) return await localeRedirect("/dashboard/onboarding");
 
   // Hydration safety: the row countdowns derive from Date.now(), so the server
   // passes its render-time clock down as the seed (useCountdownTick).

@@ -359,8 +359,9 @@ describe("M5 platform fee (take rate — docs/booking-take-rate.md)", () => {
 
   it("accept-with-quote stamps platformFee + the audit rate", async () => {
     const booking = bookingOf((await respondToBooking("bk-1001", { accept: true, quote: 8000 })) ?? { error: "not-found" });
-    expect(booking.platformFee).toBe(560);
-    expect(booking.platformFeeRateBps).toBe(700);
+    // The demo worker is on Pro → the ladder's 5%: $4 on $80, floored to $5.
+    expect(booking.platformFee).toBe(500);
+    expect(booking.platformFeeRateBps).toBe(500);
   });
 
   it("accept without a quote leaves the fee unset (free tier stays free)", async () => {
@@ -409,7 +410,7 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
 
   it("gross/net/avg from quoted accepts, and a refunded deposit returns its fee", async () => {
     const w = khaled();
-    // One plain confirmed accept (fee 560) + one deposit accept that later refunds.
+    // One plain confirmed accept (fee 500) + one deposit accept that later refunds.
     const slot1 = demoAddSlot(w.id, "2027-06-10T09:00:00.000Z", "2027-06-10T10:00:00.000Z", "available");
     const b1 = bookingOf(await createBookingRequest(request(slot1.id, { customerEmail: "stats-a@test.lb" })));
     await respondToBooking(b1.id, { accept: true, quote: 8000 });
@@ -422,21 +423,21 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
     await confirmBookingPayment(b2.id, `sim_pay-${b2.id}`);
 
     let s = await getPlatformFeeStats(30);
-    expect(s.grossMinor).toBe(1120); // two × 560
+    expect(s.grossMinor).toBe(1000); // two × 500
     expect(s.refundedMinor).toBe(0);
-    expect(s.netMinor).toBe(1120);
+    expect(s.netMinor).toBe(1000);
     expect(s.count).toBe(2);
-    expect(s.avgFeeMinor).toBe(560);
+    expect(s.avgFeeMinor).toBe(500);
     expect(s.currency).toBe("USD"); // khaled is Beirut-based
 
     // Customer cancels the deposit booking → the paid deposit (and its fee) refunds.
     await cancelBooking(b2.id, { by: "customer", reason: "Changed my mind" });
     s = await getPlatformFeeStats(30);
-    expect(s.grossMinor).toBe(1120); // the fee snapshot stays on the row
-    expect(s.refundedMinor).toBe(560);
-    expect(s.netMinor).toBe(560);
+    expect(s.grossMinor).toBe(1000); // the fee snapshot stays on the row
+    expect(s.refundedMinor).toBe(500);
+    expect(s.netMinor).toBe(500);
     expect(s.count).toBe(2);
-    expect(s.avgFeeMinor).toBe(560);
+    expect(s.avgFeeMinor).toBe(500);
   });
 
   it("a KEPT deposit (worker cancel inside the window) does not refund its fee", async () => {
@@ -452,9 +453,9 @@ describe("getPlatformFeeStats — M5 admin take-rate revenue (demo adapter)", ()
     await cancelBooking(b.id, { by: "worker", reason: "Emergency" });
 
     const s = await getPlatformFeeStats(30);
-    expect(s.grossMinor).toBe(560);
+    expect(s.grossMinor).toBe(500);
     expect(s.refundedMinor).toBe(0); // no refund happened → fee kept
-    expect(s.netMinor).toBe(560);
+    expect(s.netMinor).toBe(500);
   });
 
   it("quote-less accepts and declines never appear (no fee is set)", async () => {
@@ -1309,9 +1310,9 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
   });
 
   it("credits net earnings (quote − platform fee) when a job completes", async () => {
-    const created = await completeBooking(8000); // fee 560 → net 7440
+    const created = await completeBooking(8000); // fee 500 → net 7500
     const b = await getWorkerBalance(khaled().id);
-    expect(b.availableMinor).toBe(7440);
+    expect(b.availableMinor).toBe(7500);
     expect(b.pendingMinor).toBe(0);
     expect(b.currency).toBe("USD");
 
@@ -1319,7 +1320,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     // ledger's one-entry-per-booking guard mirrors the prisma @@unique).
     await transitionBooking(created.id, "completed"); // illegal (terminal) → null
     expect(await confirmBookingCompletion(created.id)).toBeNull(); // already completed
-    expect((await getWorkerBalance(khaled().id)).availableMinor).toBe(7440);
+    expect((await getWorkerBalance(khaled().id)).availableMinor).toBe(7500);
   });
 
   it("an UNFUNDED quote-only job credits nothing — the platform holds no money to pay from", async () => {
@@ -1338,19 +1339,19 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     const settlement = await getBookingSettlement(created.id);
     expect(settlement?.state).toBe("awaiting-customer");
     expect(settlement?.outstandingMinor).toBe(8000);
-    expect(settlement?.feeMinor).toBe(560);
+    expect(settlement?.feeMinor).toBe(500);
 
     // Collecting the balance through the platform is what releases the payout.
     const checkout = await createBookingSettlementCheckout(created.id, "OMT");
     expect(checkout?.url).toContain("omt");
     const paid = await confirmBookingSettlement(created.id, "OMT-SET-1");
     expect(paid).not.toBeNull();
-    expect((await getWorkerBalance(w.id)).availableMinor).toBe(7440);
+    expect((await getWorkerBalance(w.id)).availableMinor).toBe(7500);
     expect((await getBookingSettlement(created.id))?.state).toBe("funded");
 
     // Idempotent: a redelivered confirmation cannot pay twice.
     await confirmBookingSettlement(created.id, "OMT-SET-1");
-    expect((await getWorkerBalance(w.id)).availableMinor).toBe(7440);
+    expect((await getWorkerBalance(w.id)).availableMinor).toBe(7500);
   });
 
   it("a job settled outside the platform credits nothing and claims the fee", async () => {
@@ -1369,7 +1370,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     expect((await getWorkerBalance(w.id)).availableMinor).toBe(0);
     const settlement = await getBookingSettlement(created.id);
     expect(settlement?.state).toBe("outside-platform");
-    expect(settlement?.feeClaimMinor).toBe(560);
+    expect(settlement?.feeClaimMinor).toBe(500);
     expect(settlement?.workerNetTargetMinor).toBe(0);
     // Declaring it twice is a no-op, and funding it now is impossible.
     expect(await markBookingSettledOutside(created.id)).toBeNull();
@@ -1389,7 +1390,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
 
   it("requestPayout validates against available − pending (pending reserves)", async () => {
     const w = khaled();
-    await completeBooking(8000); // 7440 available
+    await completeBooking(8000); // 7500 available
 
     expect(await requestPayout(w.id, -100)).toMatchObject({ error: "invalid" });
     expect(await requestPayout(w.id, 99999)).toMatchObject({ error: "insufficient" });
@@ -1400,17 +1401,17 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     expect(payout.amount).toBe(-5000); // signed minor units
 
     const b = await getWorkerBalance(w.id);
-    expect(b.availableMinor).toBe(7440); // balance unchanged while pending
+    expect(b.availableMinor).toBe(7500); // balance unchanged while pending
     expect(b.pendingMinor).toBe(5000); // reserved
 
     // The pending 5000 is reserved — requesting beyond the remainder is refused.
     expect(await requestPayout(w.id, 3000)).toMatchObject({ error: "insufficient" });
-    expect(await requestPayout(w.id, 2440)).not.toHaveProperty("error"); // exactly the remainder
+    expect(await requestPayout(w.id, 2500)).not.toHaveProperty("error"); // exactly the remainder
   });
 
   it("admin approval settles the withdrawal (debit), rejection voids it", async () => {
     const w = khaled();
-    await completeBooking(8000); // 7440
+    await completeBooking(8000); // 7500
     const payout = await requestPayout(w.id, 5000);
     if ("error" in payout) throw new Error("payout should succeed");
 
@@ -1418,7 +1419,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     const decided = await decidePayout(payout.id, true);
     expect(decided?.status).toBe("processed");
     let b = await getWorkerBalance(w.id);
-    expect(b.availableMinor).toBe(2440);
+    expect(b.availableMinor).toBe(2500);
     expect(b.pendingMinor).toBe(0);
 
     // A second decision on the same payout is refused (CAS on PENDING).
@@ -1429,7 +1430,7 @@ describe("worker payouts — docs/payouts.md (demo adapter)", () => {
     if ("error" in second) throw new Error("payout should succeed");
     expect((await decidePayout(second.id, false))?.status).toBe("rejected");
     b = await getWorkerBalance(w.id);
-    expect(b.availableMinor).toBe(2440);
+    expect(b.availableMinor).toBe(2500);
     expect(b.pendingMinor).toBe(0);
   });
 
@@ -1590,6 +1591,22 @@ describe("multi-candidate quotes (demo adapter + seams)", () => {
     // Re-selecting the closed job is refused; a fresh slot is NOT claimed.
     const again = await selectQuote(created.id, khaledBid!.id, slot.id);
     expect(again).toEqual({ error: "closed" });
+  });
+
+  it("the winner's accept charges the platform fee on its bid without re-typing the price (fee-rules.md §4 gap)", async () => {
+    const created = quoteOf(await createQuoteRequest(quoteInput(), [khaled().id, ali().id]));
+    const [khaledBid] = created.bookings;
+    await submitQuote(khaledBid!.id, { quote: 30000 });
+    const slot = demoAddSlot(khaled().id, new Date(2027, 0, 8, 9).toISOString(), new Date(2027, 0, 8, 10).toISOString());
+    const winner = await selectQuote(created.id, khaledBid!.id, slot.id);
+    if ("error" in winner) throw new Error(`expected winner, got ${winner.error}`);
+
+    // The worker accepts without a quote — the bid is kept and priced.
+    const accepted = await respondToBooking(winner.id, { accept: true });
+    expect(accepted?.status).toBe("confirmed");
+    expect(accepted?.quote).toBe(30000);
+    expect(accepted?.platformFee).toBeGreaterThan(0);
+    expect(accepted?.platformFeeRateBps).toBeGreaterThan(0);
   });
 
   it("selectQuote guards: not-quoted winner and slot-taken", async () => {

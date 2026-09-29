@@ -350,6 +350,8 @@ export interface SettlementJob {
   workerNameAr: string;
   /** The booking's lifecycle state, verbatim ("COMPLETED"). */
   status: string;
+  /** When the job was completed (its latest COMPLETED event), if it has been. */
+  completedAt?: string;
   /** The manual reference the customer holds, when one is outstanding. */
   reference: string | null;
   settlement: Settlement;

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Hourglass, XCircle, Loader2 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useCountdownTick } from "@/hooks/use-countdown-tick";
-import { DEFAULT_FEE_RULE_SET, priceJob, type FeeRuleSet } from "@/lib/data/fee-rules";
+import { feePlanOf, DEFAULT_FEE_RULE_SET, priceJob, type FeeRuleSet } from "@/lib/data/fee-rules";
 import { Price } from "@/components/shared/price";
 import { respondBookingAction } from "@/app/actions/bookings";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -212,7 +212,7 @@ export function RespondDialog({
                 // resolves them at accept time (fee-rules.ts is pure, so this
                 // is the same answer the snapshot will carry).
                 const { resolved, computation } = priceJob(feeRuleSet ?? DEFAULT_FEE_RULE_SET, qMinor, {
-                  plan: worker.subscription.plan,
+                  plan: feePlanOf(worker.subscription),
                   categorySlug: worker.categorySlug,
                   emergency: booking.isEmergency,
                 });

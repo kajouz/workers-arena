@@ -19,6 +19,8 @@ import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
   renewWorkerSubscriptionBySlug,
+  realDataEnabled,
+  setSubscriptionAutoRenew,
   setWorkerInstantBook,
   setWorkerServicePackage,
   submitVerificationRequest,
@@ -29,6 +31,8 @@ import type { Campaign } from "@/lib/data/types";
 import { dispatchWhatsApp } from "@/lib/notifications/dispatcher";
 import { appBaseUrl } from "@/lib/notifications/config";
 import { getWorkerById, getWorkerByUserId } from "@/lib/data/repo";
+import { getSessionWorker } from "@/lib/data/authz";
+import { payPurchaseFromWallet } from "@/lib/data/wallet-payments";
 import { recordSubscriptionEvent } from "@/lib/data/subscription-lifecycle-store";
 
 const AD_TYPES = ["banner", "slider", "featuredCard", "sponsoredSearch", "sponsoredCategory", "popup", "native", "video"] as const;
@@ -216,7 +220,7 @@ export async function renewSubscriptionAction(
   formData: FormData
 ): Promise<{ ok?: boolean; error?: string; days?: number; url?: string }> {
   const session = await getSession();
-  // Only the demo worker account may renew its own subscription.
+  // A worker may renew only its own subscription.
   if (!session || session.role !== "worker") return { error: "unauthorized" };
   const plan = z.enum(["basic", "professional", "premium", "enterprise"]).safeParse(formData.get("plan"));
   if (!plan.success) return { error: "plan" };
@@ -226,16 +230,27 @@ export async function renewSubscriptionAction(
     .enum(["monthly", "annual"])
     .safeParse(formData.get("period") ?? "monthly");
   if (!period.success) return { error: "period" };
-  const workerSlug = String(formData.get("workerSlug") ?? "khaled-al-harbi-plumbing");
-  if (workerSlug !== "khaled-al-harbi-plumbing") return { error: "unauthorized" };
+  // The signed-in worker's OWN profile; a form naming another worker is refused.
+  const own = await getSessionWorker(session);
+  if (!own) return { error: "unauthorized" };
+  const workerSlug = String(formData.get("workerSlug") ?? own.slug);
+  if (workerSlug !== own.slug) return { error: "unauthorized" };
 
   // §Lebanon — the OMT/Whish MANUAL renewal: the purchase mints the signed
   // instructions URL, the worker pays offline with the reference, and an
   // admin confirms receipt (confirmManualPaymentAction → confirmPurchase),
   // which is when the subscription actually extends. Card/Stripe keeps the
   // instant simulated path below.
-  const method = z.enum(["stripe", "omt", "whish"]).safeParse(formData.get("method") ?? "stripe");
+  const method = z.enum(["stripe", "omt", "whish", "wallet"]).safeParse(formData.get("method") ?? "stripe");
   if (!method.success) return { error: "method" };
+  // Prepaid wallet (Step 2): paid in-app from the worker's topped-up credits;
+  // the plan extends at once, no admin confirmation needed.
+  if (method.data === "wallet") {
+    const paid = await payPurchaseFromWallet({ worker: own, scope: "subscription", plan: plan.data, period: period.data });
+    if (!paid.ok) return { error: paid.error === "insufficient" ? "wallet-insufficient" : "checkout" };
+    revalidatePath("/dashboard");
+    return { ok: true, days: period.data === "annual" ? 365 : 30 };
+  }
   if (method.data === "omt" || method.data === "whish") {
     // Do not create a second unpaid renewal when the worker returns to the
     // dialog. The existing signed instructions remain the source of truth for
@@ -259,15 +274,35 @@ export async function renewSubscriptionAction(
     return { ok: true, url: res.url };
   }
 
+  // "Card" renews on the spot WITHOUT charging anything — a demo stand-in
+  // for a card gateway that is not live. Real mode refuses it; otherwise any
+  // worker could extend their plan for free, forever.
+  if (realDataEnabled) return { error: "method" };
   const res = await renewWorkerSubscriptionBySlug(workerSlug, plan.data, period.data);
   revalidatePath("/dashboard");
   return { ok: !!res.worker, days: res.days };
 }
 
+/**
+ * Switch wallet auto-renew on or off for the signed-in worker's own plan
+ * (Step 2: on by default — the plan renews from the wallet when it covers it).
+ */
+export async function setAutoRenewAction(enabled: boolean): Promise<{ ok?: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "worker") return { error: "unauthorized" };
+  const own = await getSessionWorker(session);
+  if (!own) return { error: "unauthorized" };
+  const ok = await setSubscriptionAutoRenew(own.id, Boolean(enabled));
+  revalidatePath("/dashboard");
+  return ok ? { ok: true } : { error: "failed" };
+}
+
 export async function submitVerificationAction(): Promise<{ ok?: boolean; error?: string }> {
   const session = await getSession();
   if (!session || session.role !== "worker") return { error: "unauthorized" };
-  await submitVerificationRequest("khaled-al-harbi-plumbing");
+  const own = await getSessionWorker(session);
+  if (!own) return { error: "unauthorized" };
+  await submitVerificationRequest(own.slug);
   revalidatePath("/dashboard");
   return { ok: true };
 }
@@ -409,9 +444,8 @@ export async function confirmManualPaymentAction(
  * §Lebanon — a worker buys a paid upgrade (verification tier / featured slot
  * / emergency marker) via the OMT/Whish MANUAL methods (docs/BUSINESS-MODEL.md
  * §5.1, revenue first, no Stripe): the purchase mints the signed instructions
- * URL and the capability flips once an admin confirms receipt. Worker-only
- * (the demo worker account is khaled-al-harbi-plumbing — same gate as the
- * renew action).
+ * URL and the capability flips once an admin confirms receipt. Worker-only,
+ * and only for the signed-in worker's own profile (same gate as renew).
  */
 export async function purchaseUpgradeAction(
   formData: FormData
@@ -422,14 +456,25 @@ export async function purchaseUpgradeAction(
     .enum(["verification", "featured", "emergency"])
     .safeParse(formData.get("scope"));
   if (!scope.success) return { error: "scope" };
-  const method = z.enum(["omt", "whish"]).safeParse(formData.get("method"));
+  const method = z.enum(["omt", "whish", "wallet"]).safeParse(formData.get("method"));
   if (!method.success) return { error: "method" };
-  const workerSlug = String(formData.get("workerSlug") ?? "khaled-al-harbi-plumbing");
-  if (workerSlug !== "khaled-al-harbi-plumbing") return { error: "unauthorized" };
+  // The signed-in worker's OWN profile; a form naming another worker is refused.
+  const own = await getSessionWorker(session);
+  if (!own) return { error: "unauthorized" };
+  const workerSlug = String(formData.get("workerSlug") ?? own.slug);
+  if (workerSlug !== own.slug) return { error: "unauthorized" };
   const tier = scope.data === "verification"
     ? z.enum(["basic", "professional"]).safeParse(formData.get("tier") ?? "basic")
     : { success: true as const, data: undefined };
   if (!tier.success) return { error: "tier" };
+
+  // Prepaid wallet: the badge/slot activates at once, no admin confirmation.
+  if (method.data === "wallet") {
+    const paid = await payPurchaseFromWallet({ worker: own, scope: scope.data, tier: tier.data });
+    if (!paid.ok) return { error: paid.error === "insufficient" ? "wallet-insufficient" : "checkout" };
+    revalidatePath("/dashboard");
+    return { ok: true };
+  }
 
   const res = await createPurchaseCheckout({
     workerSlug,

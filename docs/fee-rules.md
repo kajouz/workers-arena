@@ -85,7 +85,7 @@ Each site loads the active rule set **before** its transaction, prices the quote
 
 Accept **without** a quote stays fee-free and writes no snapshot.
 
-**Known gap (unchanged by this wave):** selecting a winner on a multi-candidate quote request (`QuoteRequest`) does not stamp a fee in either adapter — the winner becomes a slot-bound request and the fee is only stamped on a later quoted accept. Treat this as a follow-up; the engine makes it a two-line call.
+**Multi-candidate quote winners (fixed 2026-09-28):** selecting a winner on a `QuoteRequest` turns its bid into a slot-bound request that still carries the bid. The worker's accept now falls back to that bid when no new quote is typed (`input.quote ?? booking.quote`), so the fee is stamped on it instead of the accept wiping the bid and charging nothing. Covered in `tests/bookings.test.ts`.
 
 ---
 
@@ -188,7 +188,7 @@ The lead marketplace configuration lives inside the versioned rule set (`FeeRule
 | `reveal.afterBooking` | revealed | What booked workers see |
 | `weights` | (see §8) | Matching signal weights |
 | `rebate.enabled` | true | Whether rebates are active |
-| `rebate.pctBps` | 10000 | Share of fee to rebate (basis points) |
+| `rebate.pctBps` | 5000 | Share of fee to rebate (basis points) — 50% since 2026-09-28 |
 | `rebate.maxMinor` | null | Per-job rebate ceiling |
 
 **Admin editing:** all lead marketplace settings are editable via `/admin/revenue-settings` → Lead marketplace. Publishing a change appends a new rule version.
@@ -203,8 +203,8 @@ The subscription plan catalog lives inside the versioned rule set (`FeeRuleSet.p
 |------|-----------|-----------|---------------|----------|------------|
 | basic | Starter | مبدأية | $15 | 3 | No |
 | professional | Growth | نمو | $39 | 10 | No |
-| premium | Pro | احترافي | $99 | 25 | No |
-| enterprise | Business | أعمال | $199 | Unlimited | 4% reduced |
+| premium | Pro | احترافي | $59 | 25 | No |
+| enterprise | Business | أعمال | $199 | 60 | 4% reduced |
 
 **Category-adjusted pricing:**
 - Low-value (cleaning, gardening): 0.5×
