@@ -62,14 +62,14 @@ Phase 1 made the money collectable. Phase 2 goes after the scarce side of the ma
 
 ### M0 — close out the Mobile UX audit
 
-Status re-checked against the code on 2026-09-27 (code read, not a device pass).
+Status re-checked against the code on 2026-09-29 (code read plus a 390×844 headless-browser pass in EN and AR; still not a device pass).
 
-- ✅ **Fixed (15 of 20):** route matching / tab highlight (1), profile tab overflow (2), floating elements vs. tab bar (3, `--bottom-chrome`), 16px inputs (4), sticky booking bar (5), customer-facing sponsored card (6), search layout shift (7, CLS 0 after the Phase-3 first-paint work), scrollable dialogs (9), mobile logout (10), iOS safe-area top (11 — **code only, never run on a device**), bottom padding (12), second-visit install prompt (13), category tiles + `Intl.PluralRules` (16), unused `components/mobile/*` removed (19), tab bar details (20, plus labels centred under icons).
-- 🟡 **Compact result cards (8):** the cover shrinks to `h-28` on phones, but the card is still the tall vertical layout. The fix is the one-row card (avatar · name · rating · price) below `sm`.
-- 🟡 **Arabic / logical properties (14):** strings, breadcrumb and badge collisions are fixed, but ~65 physical `ml/mr/pl/pr/left/right/text-left/right` classes remain, and there is still no lint rule to stop new ones.
-- 🟡 **Keyboard hints (17):** login and search are done. Other forms still lack `autoComplete` / `inputMode` / `enterKeyHint` (11 files set them).
-- 🟡 **Wide tables (18):** most sit inside an `overflow-x-auto` wrapper, and roughly 11 still need one (or a stacked-card layout below `sm` on customer-facing screens).
-- 🔜 **Homepage length (15):** not re-measured. The audit found ~15 phone screens; trim or collapse sections on phones and move worker pricing behind a link.
+- ✅ **Fixed (20 of 20):** route matching / tab highlight (1), profile tab overflow (2), floating elements vs. tab bar (3, `--bottom-chrome`), 16px inputs (4), sticky booking bar (5), customer-facing sponsored card (6), search layout shift (7, CLS 0 after the Phase-3 first-paint work), scrollable dialogs (9), mobile logout (10), iOS safe-area top (11 — **code only, never run on a device**), bottom padding (12), second-visit install prompt (13), category tiles + `Intl.PluralRules` (16), unused `components/mobile/*` removed (19), tab bar details (20, plus labels centred under icons).
+- ✅ **Compact result cards (8):** `WorkerCard compact` (search results and the homepage featured grid) is a 130px row below `sm` — avatar, name with an open-now dot, rating, city, price, favourite — instead of a ~340px cover card. Unchanged from `sm` up; the loading skeleton matches.
+- ✅ **Arabic / logical properties (14):** the physical classes are gone (search icons sat on the wrong side of their inputs in Arabic, toggles slid backwards, chat tails and close buttons were mirrored wrong). ESLint now rejects physical `ml/mr/pl/pr/left/right/text-left/right/rounded-l/r/border-l/r` classes in `src/**/*.tsx`; the few that are genuinely physical (map grid, before/after split) carry a disable comment saying why.
+- ✅ **Keyboard hints (17):** phone fields use `type="tel"` + tel autocomplete, email fields email autocomplete, and every number input `inputMode="decimal"`.
+- ✅ **Wide tables (18):** re-checked — every `<table>` sits inside an `overflow-x-auto` wrapper, and none are on customer-facing screens.
+- ✅ **Homepage length (15):** measured at 390×844: 10.8 → 8.7 phone screens. Featured workers use the compact row, testimonials are a swipeable row, and How it works puts the icon beside the text on phones. Worker pricing was already a short section (~400px).
 
 ### M1 — PWA polish
 - 🔜 Universal deep links: publish `apple-app-site-association` and `assetlinks.json`, and map `/workers/:slug`, `/bookings` and `/dashboard` into the app ([mobile-architecture.md §4](mobile-architecture.md)).
