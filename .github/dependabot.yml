@@ -18,6 +18,15 @@ updates:
     ignore:
       - dependency-name: "@capacitor/*"
         update-types: [version-update:semver-major]
+      # Prisma 7 changes how the client is generated and configured, and
+      # ESLint 10 is not yet supported by eslint-config-next. Both are planned
+      # upgrades, not routine bumps (they failed CI as PRs #31 / #32).
+      - dependency-name: "prisma"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@prisma/client"
+        update-types: [version-update:semver-major]
+      - dependency-name: "eslint"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
