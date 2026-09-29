@@ -1,9 +1,15 @@
 import { LogoMark } from "@/components/shared/logo";
 
 /**
- * Root loading fallback — shown while a route's RSC payload streams in
- * (Next.js Suspense fallback for the segment). Mirrors the app's warm,
+ * Signed-in app loading fallback — shown while a route's RSC payload streams
+ * in (Next.js Suspense fallback for the segment). Mirrors the app's warm,
  * card-based look so navigations never flash a blank page.
+ *
+ * Deliberately NOT at src/app/[locale]/: there it wrapped the prerendered
+ * public pages too, so their static HTML shipped this skeleton + the footer
+ * first and the real page in a hidden segment swapped in by a script ~160 KB
+ * later. A slow first paint showed the footer mid-viewport and the swap
+ * shoved it ~7,400px down — the intermittent CLS 0.283 on /en and /ar.
  */
 export default function Loading() {
   return (
