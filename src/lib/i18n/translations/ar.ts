@@ -346,7 +346,10 @@ export const ar: Dictionary = {
     serviceAreasTitle: "المناطق التي نخدمها",
     showOnMap: "افتح الخريطة",
     directions: "الاتجاهات",
-    phoneNote: "اضغط للاتصال",
+    phoneNote: "أكّد السعر عند الحجز",
+    whatsappRequest: "اطلب عبر واتساب",
+    contactAfterBooking:
+      "نشارك رقم هاتف {name} وواتساب بعد تأكيد الحجز، ليبقى العمل والسعر والتقييم موثّقاً.",
     whatsappNote: "دردشة عبر واتساب",
     copyPhone: "نسخ الرقم",
     priceRange: "نطاق الأسعار",

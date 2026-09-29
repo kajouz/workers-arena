@@ -7,7 +7,8 @@ import { ProfileTabs } from "@/components/worker/profile-tabs";
 import { ReviewsSection } from "@/components/worker/reviews-section";
 import { MapEmbed } from "@/components/worker/map-embed";
 import { RelatedWorkers } from "@/components/worker/related-workers";
-import { FloatingWhatsApp } from "@/components/worker/whatsapp-contact";
+import { WhatsAppRequestButton } from "@/components/shared/whatsapp-request-button";
+import { publicWorker, publicWorkers } from "@/lib/data/contact-guard";
 import { StickyBookingBar } from "@/components/worker/sticky-booking-bar";
 import { WorkerPortfolio } from "@/components/worker/worker-portfolio";
 import { WorkerSponsor } from "@/components/worker/worker-sponsor";
@@ -93,14 +94,17 @@ export default async function WorkerPage({
   const { locale: raw, slug } = await params;
   const locale = isLocale(raw) ? raw : defaultLocale;
   const dict = dictionaries[locale];
-  const worker = await getWorkerBySlug(slug);
-  if (!worker) notFound();
+  // Direct contact details never reach the page (contact-guard.ts): the whole
+  // worker object is serialised for the client components.
+  const found = await getWorkerBySlug(slug);
+  if (!found) notFound();
+  const worker = publicWorker(found);
 
   const from = new Date();
   from.setHours(0, 0, 0, 0);
   const to = new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
   const [related, slots, benchmark] = await Promise.all([
-    getRelated(worker, 4),
+    getRelated(found, 4).then(publicWorkers),
     getWorkerSlots(worker.id, { from: from.toISOString(), to: to.toISOString() }),
     // §Price benchmarks (Phase 2) — null when the trade has too few completed
     // jobs to state a range; the note then renders nothing.
@@ -195,16 +199,14 @@ export default async function WorkerPage({
 
       <RelatedWorkers workers={related} />
 
-      {/* Desktop-only floating WhatsApp — on phones the StickyBookingBar below
-          replaces it (finding 5): the FAB covered the tab bar and pushed the
-          Book action out of reach. */}
-      {worker.phone && (
-        <FloatingWhatsApp
-          whatsapp={worker.phone}
-          workerName={locale === "ar" ? worker.nameAr : worker.nameEn}
-          className="hidden lg:inline-flex"
-        />
-      )}
+      {/* Desktop-only floating WhatsApp (to WorkersArena) — on phones the
+          StickyBookingBar below replaces it (finding 5): the FAB covered the
+          tab bar and pushed the Book action out of reach. */}
+      <WhatsAppRequestButton
+        variant="floating"
+        className="hidden lg:inline-flex"
+        request={{ workerName: locale === "ar" ? worker.nameAr : worker.nameEn }}
+      />
 
       {/* Mobile sticky booking bar: price + Book + Call/WhatsApp always in
           thumb reach (finding 5). */}

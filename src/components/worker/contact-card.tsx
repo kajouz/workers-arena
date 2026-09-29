@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Phone, MessageCircle, Mail, Globe, Send, ShieldAlert, BadgeCheck, CalendarClock, ShieldCheck, Users, Link2, Share2 } from "lucide-react";
+import { Send, ShieldAlert, BadgeCheck, CalendarClock, ShieldCheck, Users, Link2, Share2, Lock } from "lucide-react";
 import type { BookingSlot, Worker } from "@/lib/data/types";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   buildBookingEntryUrl,
   whatsappShareHref,
 } from "@/lib/data/booking-entry";
+import { WhatsAppRequestButton } from "@/components/shared/whatsapp-request-button";
 import { BookingDialog } from "./booking-dialog";
 import { QuoteRequestDialog } from "./quote-request-dialog";
 
@@ -200,30 +201,15 @@ export function ContactCard({
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Button asChild variant="success">
-            <a href={`tel:${worker.phone}`}>
-              <Phone className="size-4" /> {t("common.call")}
-            </a>
-          </Button>
-          <Button asChild variant="outline">
-            <a href={`https://wa.me/${worker.whatsapp}`} target="_blank" rel="noopener noreferrer">
-              <MessageCircle className="size-4" /> {t("common.whatsapp")}
-            </a>
-          </Button>
-          <Button asChild variant="outline" className="col-span-2">
-            <a href={`mailto:${worker.email}`}>
-              <Mail className="size-4" /> {worker.email}
-            </a>
-          </Button>
-          {worker.website && (
-            <Button asChild variant="outline" className="col-span-2">
-              <a href={`https://${worker.website}`} target="_blank" rel="noopener noreferrer">
-                <Globe className="size-4" /> {worker.website}
-              </a>
-            </Button>
-          )}
-        </div>
+        {/* WhatsApp-first (revenue plan Step 5): the request goes to
+            WorkersArena's number, which books it on the platform. The worker's
+            own phone and WhatsApp are shared once a booking is confirmed
+            (src/lib/data/contact-guard.ts) — they are not in this page at all. */}
+        <WhatsAppRequestButton className="w-full" request={{ workerName: name, profileUrl: origin ? `${origin}${sharePath}` : undefined }} />
+        <p className="flex items-start gap-2 text-xs text-ink-500 dark:text-ink-400">
+          <Lock className="mt-0.5 size-3.5 shrink-0" />
+          {t("worker.contactAfterBooking").replace("{name}", name)}
+        </p>
 
         {/* badges */}
         <div className="flex flex-wrap gap-2 pt-1">

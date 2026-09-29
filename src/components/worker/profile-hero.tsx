@@ -2,7 +2,7 @@
 
 import { QRCodeSVG } from "qrcode.react";
 import { m as motion } from "framer-motion";
-import { Heart, Share2, QrCode, MapPin, CalendarDays, Link2, Check, MessageCircle, Zap, CalendarCheck2, ShieldCheck } from "lucide-react";
+import { Heart, Share2, QrCode, MapPin, CalendarDays, Link2, Check, Zap, CalendarCheck2, ShieldCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { Worker } from "@/lib/data/types";
 import { categoryBySlug } from "@/lib/data/categories";
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmergencyBadge, PremiumBadge, VerifiedBadge } from "@/components/shared/badges";
 import { toast } from "@/components/ui/toast";
+import { WhatsAppRequestButton } from "@/components/shared/whatsapp-request-button";
 
 export function ProfileHero({ worker }: { worker: Worker }) {
   const { locale, t } = useLocale();
@@ -41,6 +42,9 @@ export function ProfileHero({ worker }: { worker: Worker }) {
   const [qrOpen, setQrOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const name = locale === "ar" ? worker.nameAr : worker.nameEn;
+  // The same on server and client — `profileUrl` below reads the window and
+  // would mismatch on hydration inside an href.
+  const stableProfileUrl = `${(process.env.NEXT_PUBLIC_APP_URL || "https://workers-arena.vercel.app").replace(/\/+$/, "")}/${locale}/workers/${worker.slug}`;
   const profileUrl = typeof window !== "undefined" ? window.location.href : `https://workers-arena.vercel.app/workers/${worker.slug}`;
 
   const copyLink = async () => {
@@ -54,10 +58,6 @@ export function ProfileHero({ worker }: { worker: Worker }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const whatsappGreeting = locale === "ar"
-    ? `مرحباً ${worker.nameAr}، وجدتك على وركرز أرينا.`
-    : `Hello ${worker.nameEn}, I found you on WorkersArena.`;
-  const whatsappUrl = `https://wa.me/${worker.whatsapp}?text=${encodeURIComponent(whatsappGreeting)}`;
 
   return (
     <section className="overflow-hidden rounded-[1.75rem] border border-ink-200/80 bg-white shadow-soft dark:border-ink-800 dark:bg-ink-900">
@@ -108,12 +108,8 @@ export function ProfileHero({ worker }: { worker: Worker }) {
             <Button variant="outline" size="icon" title={t("common.scanToView")} aria-label={t("common.scanToView")} onClick={() => setQrOpen(true)}>
               <QrCode className="size-4" />
             </Button>
-            <Button asChild variant="success" className="hidden sm:inline-flex">
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-                <MessageCircle className="size-4" />
-                {t("common.whatsapp")}
-              </a>
-            </Button>
+            {/* To WorkersArena's WhatsApp, not the worker's (contact-guard.ts). */}
+            <WhatsAppRequestButton className="hidden sm:inline-flex" request={{ workerName: name, profileUrl: stableProfileUrl }} />
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWorkers } from "@/lib/data/repo";
 import type { SearchFilters } from "@/lib/data/types";
+import { publicWorkers } from "@/lib/data/contact-guard";
 
 export const revalidate = 60;
 
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
   };
 
   const result = await getWorkers(filters);
-  return NextResponse.json(result, {
+  return NextResponse.json({ ...result, items: publicWorkers(result.items) }, {
     headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
   });
 }

@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 import { getAllWorkers, getWorkers } from "@/lib/data/repo";
 import { crossLandingCopy, crossLandingPath, indexVerdict, servedLandings } from "@/lib/data/cross-landing";
 import { CrossLandingView } from "@/components/seo/cross-landing-view";
+import { publicWorkers } from "@/lib/data/contact-guard";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -110,7 +111,7 @@ export default async function CrossLandingPage({ params }: CrossLandingProps) {
       category={category}
       city={cityData}
       country={countryOfCity(cityData) ?? DEFAULT_COUNTRY}
-      workers={workers}
+      workers={publicWorkers(workers)}
       supply={total}
       served={servedLandings(all)}
     />

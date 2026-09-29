@@ -1,10 +1,11 @@
 "use client";
 
-import { Phone, MessageCircle, CalendarClock } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 import type { BookingSlot, Worker } from "@/lib/data/types";
 import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Price } from "@/components/shared/price";
+import { WhatsAppRequestButton } from "@/components/shared/whatsapp-request-button";
 import { BookingDialog } from "./booking-dialog";
 
 /**
@@ -16,7 +17,7 @@ import { BookingDialog } from "./booking-dialog";
  * action above the fold was WhatsApp, so a customer who wanted to book had to
  * scroll a marathon to find the button (or just left).
  *
- * This bar pins price + Book + Call/WhatsApp to the bottom of the viewport on
+ * This bar pins price + Book + WhatsApp (to WorkersArena) to the bottom of the viewport on
  * phones (below `lg`) and lifts above the tab bar via `--bottom-chrome`, so the
  * primary action is always one thumb-tap away. It REPLACES the floating
  * WhatsApp button on mobile (the FAB is hidden below `lg` on the profile).
@@ -51,33 +52,8 @@ export function StickyBookingBar({
           />
         </div>
 
-        {/* Call — the fastest path on a phone. */}
-        {worker.phone && (
-          <Button asChild variant="outline" size="icon" className="size-11 shrink-0" aria-label={t("common.call")}>
-            <a href={`tel:${worker.phone}`}>
-              <Phone className="size-4" />
-            </a>
-          </Button>
-        )}
-
-        {/* WhatsApp. */}
-        {worker.whatsapp && (
-          <Button
-            asChild
-            variant="outline"
-            size="icon"
-            className="size-11 shrink-0 border-[#25D366]/40 text-[#25D366]"
-            aria-label={t("common.whatsapp")}
-          >
-            <a
-              href={`https://wa.me/${String(worker.whatsapp).replace(/[^\d+]/g, "").replace("+", "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <MessageCircle className="size-4" />
-            </a>
-          </Button>
-        )}
+        {/* WhatsApp to WorkersArena (not the worker — contact-guard.ts). */}
+        <WhatsAppRequestButton variant="icon" request={{ workerName: name }} />
 
         {/* Book — the primary action, fills the remaining space. */}
         <BookingDialog worker={worker} slots={slots}>

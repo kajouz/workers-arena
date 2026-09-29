@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWorkerBySlug } from "@/lib/data/repo";
+import { publicWorker } from "@/lib/data/contact-guard";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -7,5 +8,5 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
   if (!worker) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  return NextResponse.json(worker);
+  return NextResponse.json(publicWorker(worker));
 }

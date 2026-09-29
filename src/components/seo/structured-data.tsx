@@ -30,7 +30,7 @@ export function WorkerStructuredData({
     description,
     url: `${baseUrl}/workers/${worker.slug}`,
     image: `${baseUrl}/icons/icon-512.png`,
-    telephone: worker.phone,
+    telephone: worker.phone || undefined,
     address: {
       "@type": "PostalAddress",
       addressLocality: worker.citySlug,
