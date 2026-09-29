@@ -138,8 +138,11 @@ Run `npm run check:vapid` in the production environment before enabling `NOTIFY_
 
 ## 7. Security hardening checklist
 
-- [ ] CSP + `poweredByHeader: false` (done) + HSTS at the edge
-- [ ] Rate limits on auth, contact, review endpoints
-- [ ] `.env` never committed; secrets rotated
-- [ ] `AUTH_SECRET` set; HTTPS enforced
-- [ ] Webhook signature verification enabled for all payment providers
+Code-side items are done; the unchecked ones are deploy-time tasks for whoever runs production.
+
+- [x] CSP + `poweredByHeader: false` + HSTS — CSP and `Strict-Transport-Security` (2 years, `includeSubDomains; preload`) are set on every response in `src/proxy.ts`.
+- [x] Rate limits on auth, contact, review endpoints — `src/proxy.ts` limits `/api/*` per IP (auth 10 per 15 min, contact 5/min, reviews 10/min). Login, sign-up and review submit are server actions, so they carry their own limits in `src/app/actions/auth.ts` (login 10 per 15 min per IP **and** per account, sign-up 5/hour per IP, reviews 10/hour per IP). Set `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` in production so the limits hold across instances; without them each instance counts on its own.
+- [x] `.env` never committed — `.env` is git-ignored; only `.env.example` is tracked.
+- [ ] Secrets rotated before launch (`AUTH_SECRET`, `PAYMENT_SIM_SECRET`, `STRIPE_WEBHOOK_SECRET`, `CRON_SECRET`, VAPID keys).
+- [ ] `AUTH_SECRET` set (16+ chars; real-mode production refuses the placeholder) and HTTPS enforced at the edge.
+- [x] Webhook signature verification — Stripe checks `stripe-signature` against `STRIPE_WEBHOOK_SECRET` (and rejects when it's unset); the simulated provider is refused in production; OMT/Whish links are HMAC-signed; the WhatsApp status webhook is HMAC-verified.

@@ -447,6 +447,7 @@ export const en = {
     passwordMin: "Password must be at least 8 characters",
     emailInvalid: "Please enter a valid email",
     emailTaken: "An account with this email already exists",
+    rateLimited: "Too many attempts. Please wait a few minutes and try again.",
     required: "This field is required",
     nameMin: "Name must be at least 2 characters",
     match: "Passwords must match",

@@ -1,13 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { z } from "zod";
 import { DEMO_USERS, SESSION_COOKIE, getSession, realAuthEnabled, type SessionRole } from "@/lib/auth-demo";
 import { addLead, addReview, getCustomerBookings, registerView } from "@/lib/data/repo";
 import { getLocale } from "@/lib/i18n/server";
 import { hashPassword, sanitizeText, signSessionPayload } from "@/lib/security";
 import { localeRedirect } from "@/lib/i18n/redirect";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -27,6 +28,31 @@ const registerSchema = z
   .refine((d) => d.password === d.confirmPassword, { path: ["confirmPassword"] });
 
 export type AuthActionState = { error?: string; success?: string };
+
+/**
+ * Per-action throttle for sign-in, sign-up and reviews. These are server
+ * actions, which the proxy counts in its loose 120-per-minute action bucket
+ * (it can't tell a login POST from a slot toggle), so the strict limits live
+ * here. Every bucket must allow the request. Outside a request scope (unit
+ * tests) there is no client to throttle, and RATE_LIMIT_DISABLED=1 (e2e)
+ * turns it off like the proxy's limiter.
+ */
+async function withinLimits(buckets: Array<{ key: string; limit: number; windowMs: number }>): Promise<boolean> {
+  if (process.env.RATE_LIMIT_DISABLED === "1") return true;
+  let ip: string;
+  try {
+    ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
+  } catch {
+    return true;
+  }
+  for (const b of buckets) {
+    if (!(await checkRateLimit(b.key.replace("{ip}", ip), b.limit, b.windowMs))) return false;
+  }
+  return true;
+}
+
+const FIFTEEN_MINUTES = 15 * 60_000;
+const ONE_HOUR = 60 * 60_000;
 
 async function setSession(user: (typeof DEMO_USERS)[SessionRole]) {
   const store = await cookies();
@@ -90,6 +116,13 @@ export async function loginAction(_prev: AuthActionState, formData: FormData): P
   });
   if (!parsed.success) return { error: "invalid" };
 
+  // Per IP, and per account so guessing one password from many IPs is capped too.
+  const allowed = await withinLimits([
+    { key: "login:ip:{ip}", limit: 10, windowMs: FIFTEEN_MINUTES },
+    { key: `login:email:${parsed.data.email.toLowerCase()}`, limit: 10, windowMs: FIFTEEN_MINUTES },
+  ]);
+  if (!allowed) return { error: "rateLimited" };
+
   if (realAuthEnabled()) {
     const error = await realSignIn(parsed.data.email, parsed.data.password);
     if (error) return { error };
@@ -136,6 +169,9 @@ export async function registerAction(_prev: AuthActionState, formData: FormData)
   // server, so a hidden or stale form can't get around it.
   const { isRegistrationOpen } = await import("@/lib/data/platform-settings");
   if (!(await isRegistrationOpen())) return { error: "registrationClosed" };
+  if (!(await withinLimits([{ key: "register:ip:{ip}", limit: 5, windowMs: ONE_HOUR }]))) {
+    return { error: "rateLimited" };
+  }
 
   const parsed = registerSchema.safeParse({
     name: formData.get("name"),
@@ -245,6 +281,7 @@ export async function submitReviewAction(workerId: string, formData: FormData): 
   const name = sanitizeText(rawName, 100) || "Anonymous";
   const text = sanitizeText(rawText, 4000);
   if (!rating || rating < 1 || rating > 5 || !text.trim()) return { ok: false };
+  if (!(await withinLimits([{ key: "review:ip:{ip}", limit: 10, windowMs: ONE_HOUR }]))) return { ok: false };
   // Real mode needs a real author: Review.authorId is a User FK, so the session
   // id is threaded through — without it the repo refuses rather than dropping a
   // review into the wrong store.
