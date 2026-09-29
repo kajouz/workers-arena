@@ -50,6 +50,7 @@
  *     before real traffic lands.
  * ────────────────────────────────────────────────────────────────────────────
  */
+import { feePlanOf } from "./fee-rules";
 import { getPrisma } from "@/lib/server/prisma";
 import { responseRateFromCounts } from "./booking-ui";
 import { Prisma, type $Enums } from "@prisma/client";
@@ -98,7 +99,7 @@ function origin(): string {
   return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
 }
 import { distanceKm, isOpenNow, type CurrencyCode } from "@/lib/utils";
-import { normalize as searchNormalize, distanceBoostKm, radiusCenter, scoreWorkerQuery } from "./search";
+import { normalize as searchNormalize, distanceBoostKm, freeListingRank, radiusCenter, scoreWorkerQuery } from "./search";
 import {
   BOOKING_COMPLETION_CONFIRM_GRACE_HOURS,
   BOOKING_REMINDER_WINDOW_MS,
@@ -597,8 +598,9 @@ export function filtersToWhere(
   // and — M5 — narrowed to fee-waived plans (Enterprise). FEE_EXEMPT_PLANS is
   // the same source the demo filter and the card badge use, uppercased for
   // the DB enum, so listing and filter can never disagree.
+  // Free listing (revenue plan Step 4): workers without an active plan (or
+  // with no subscription row) stay listed; sqlOrderBy ranks them last.
   const subWhere: Prisma.SubscriptionWhereInput = {};
-  if (!filters.includeExpired) subWhere.status = { not: "EXPIRED" };
   if (filters.feeWaivedOnly) {
     subWhere.plan = {
       in: FEE_EXEMPT_PLANS.map((p) => p.toUpperCase()) as $Enums.SubscriptionPlan[],
@@ -641,6 +643,13 @@ export function filtersToWhere(
 
 /** SQL orderBy for sorts the database can express directly. */
 export function sqlOrderBy(sort: SearchFilters["sort"]): Prisma.WorkerOrderByWithRelationInput[] {
+  // Paying workers first whatever the sort: the SubscriptionStatus enum orders
+  // ACTIVE, EXPIRING_SOON, EXPIRED, CANCELED, and a worker with no
+  // subscription row sorts after them (NULL last in ascending order).
+  return [{ subscription: { status: "asc" } }, ...sqlSortKeys(sort)];
+}
+
+function sqlSortKeys(sort: SearchFilters["sort"]): Prisma.WorkerOrderByWithRelationInput[] {
   switch (sort) {
     case "rating":
       return [{ rating: "desc" }];
@@ -782,8 +791,9 @@ export async function prismaSearchWorkers(filters: SearchFilters): Promise<Searc
   if (jsSort && nearestCity) {
     items = [...items].sort(
       (a, b) =>
+        freeListingRank(a) - freeListingRank(b) ||
         distanceKm(a.lat, a.lng, nearestCity.lat, nearestCity.lng) -
-        distanceKm(b.lat, b.lng, nearestCity.lat, nearestCity.lng)
+          distanceKm(b.lat, b.lng, nearestCity.lat, nearestCity.lng)
     );
   } else if (q && sort === "relevance") {
     // Shared scoring with the demo engine: rank bonus + query terms + the
@@ -794,7 +804,9 @@ export async function prismaSearchWorkers(filters: SearchFilters): Promise<Searc
         : 0;
     items = [...items].sort(
       (a, b) =>
-        scoreWorkerQuery(b, q) + boost(b) - (scoreWorkerQuery(a, q) + boost(a)) || b.rating - a.rating
+        freeListingRank(a) - freeListingRank(b) ||
+        scoreWorkerQuery(b, q) + boost(b) - (scoreWorkerQuery(a, q) + boost(a)) ||
+        b.rating - a.rating
     );
   }
   if (jsPostFilter) items = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -1557,7 +1569,7 @@ export async function prismaAcceptChatQuote(
         quoteId: message.id,
         workerId: row.workerId,
         customerId: row.customerId ?? undefined,
-        plan: row.worker.subscription?.plan,
+        plan: feePlanOf(row.worker.subscription),
         subtotalMinor: message.quote,
         ruleSet,
         context: { categorySlug: row.worker.category?.slug, emergency: row.isEmergency },
@@ -2275,7 +2287,7 @@ export async function prismaRespondToBooking(
               quoteId: bookingId,
               workerId: row.workerId,
               customerId: row.customerId ?? undefined,
-              plan: row.worker.subscription?.plan,
+              plan: feePlanOf(row.worker.subscription),
               subtotalMinor: quoteMinor,
               ruleSet,
               context: { categorySlug: row.worker.category?.slug, emergency: row.isEmergency },
@@ -5348,7 +5360,7 @@ export async function prismaRespondToRecurring(
                 quoteId: first.id,
                 workerId: first.workerId,
                 customerId: first.customerId ?? undefined,
-                plan: first.worker.subscription?.plan,
+                plan: feePlanOf(first.worker.subscription),
                 subtotalMinor: quoteMinor,
                 ruleSet,
                 context: { categorySlug: first.worker.category?.slug, emergency: first.isEmergency },

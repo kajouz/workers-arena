@@ -141,6 +141,12 @@ export async function createLeadOffers(
   const smartPriceMultiplier = Math.max(0.7, Math.min(2.0, input.smartPriceMultiplier ?? 1.0));
   const price = leadPrice(ruleSet, input.lead.grade, ratingMultiplier * smartPriceMultiplier);
 
+  // Free listing (Step 4): a worker without an active plan is listed in search
+  // but is never offered paid leads (leadCandidateFromWorker nulls a lapsed plan).
+  for (const candidate of input.candidates) {
+    if (!candidate.plan) exclude.add(candidate.workerId);
+  }
+
   // Prepaid wallet minimum (Step 2): a worker is offered the lead only while
   // their wallet holds the minimum OR their free credits cover this price.
   // Everyone else keeps their profile and bookings; they just are not offered

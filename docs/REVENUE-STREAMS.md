@@ -110,7 +110,7 @@ src/components/dashboard/analytics-dashboard.tsx ← Worker analytics
 **Retention analytics:** the admin retention dashboard and `/api/admin/retention` export now derive trial-to-paid conversion, churn, upgrades/downgrades, average lifetime, renewal revenue/LTV, and WhatsApp outreach sent/failed counts from the append-only `SubscriptionEvent` ledger. Current worker subscription rows remain useful for at-risk operational outreach, but historical metrics never use fabricated estimates or current-state snapshots.
 
 **Key Mechanics:**
-- **Visibility gating**: expired subscription → worker removed from public search
+- **Free listing (since 2026-09-28, Step 4):** a worker without an active plan stays listed in search but is ranked after every paying worker (`sqlOrderBy` / `freeListingRank`), pays the Free tier commission (12%, via `feePlanOf`), and gets no lead offers. Visibility is no longer the paywall; ranking, commission and leads are.
 - **Renewal reminders**: 7d, 3d, 1d before expiry
 - **Upgrade/downgrade preview**: the renewal dialog shows the monthly difference before the worker commits; it labels the selection as an upgrade, downgrade, or unchanged plan
 - **Category-consistent charging**: manual OMT/Whish instructions, renewal invoices, and subscription records use the same admin-edited plan price × trade multiplier in both demo and Prisma paths

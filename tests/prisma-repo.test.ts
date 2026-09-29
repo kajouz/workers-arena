@@ -337,19 +337,19 @@ describe("toDomainWorker (Prisma row → domain)", () => {
 });
 
 describe("filtersToWhere (SearchFilters → Prisma where)", () => {
-  it("excludes expired subscriptions unless includeExpired is set", () => {
-    expect(filtersToWhere({}).subscription).toEqual({ is: { status: { not: "EXPIRED" } } });
+  it("keeps workers without an active plan listed (the free listing — Step 4)", () => {
+    expect(filtersToWhere({}).subscription).toBeUndefined();
     expect(filtersToWhere({ includeExpired: true }).subscription).toBeUndefined();
   });
 
   it("returns no default fee-waived plans after Business moves to a reduced take rate", () => {
     expect(filtersToWhere({ feeWaivedOnly: true }).subscription).toEqual({
-      is: { status: { not: "EXPIRED" }, plan: { in: [] } },
+      is: { plan: { in: [] } },
     });
     expect(filtersToWhere({ includeExpired: true, feeWaivedOnly: true }).subscription).toEqual({
       is: { plan: { in: [] } },
     });
-    expect(filtersToWhere({}).subscription).not.toHaveProperty("is.plan");
+    expect(filtersToWhere({}).subscription).toBeUndefined();
   });
 
   it("translates the SQL-filterable filters", () => {
@@ -399,15 +399,17 @@ describe("filtersToWhere (SearchFilters → Prisma where)", () => {
 });
 
 describe("sqlOrderBy (sort → Prisma orderBy)", () => {
-  it("maps each sort to its column", () => {
-    expect(sqlOrderBy("rating")).toEqual([{ rating: "desc" }]);
-    expect(sqlOrderBy("reviews")).toEqual([{ reviewCount: "desc" }]);
-    expect(sqlOrderBy("priceLow")).toEqual([{ priceMin: "asc" }]);
-    expect(sqlOrderBy("priceHigh")).toEqual([{ priceMin: "desc" }]);
-    expect(sqlOrderBy("experience")).toEqual([{ yearsExp: "desc" }]);
+  it("puts paying workers first, then maps each sort to its column", () => {
+    // Free listing (Step 4): active plans before lapsed ones, whatever the sort.
+    const paidFirst = { subscription: { status: "asc" } };
+    expect(sqlOrderBy("rating")).toEqual([paidFirst, { rating: "desc" }]);
+    expect(sqlOrderBy("reviews")).toEqual([paidFirst, { reviewCount: "desc" }]);
+    expect(sqlOrderBy("priceLow")).toEqual([paidFirst, { priceMin: "asc" }]);
+    expect(sqlOrderBy("priceHigh")).toEqual([paidFirst, { priceMin: "desc" }]);
+    expect(sqlOrderBy("experience")).toEqual([paidFirst, { yearsExp: "desc" }]);
     // relevance + nearest (no city) fall back to the rating proxy.
-    expect(sqlOrderBy("relevance")).toEqual([{ rating: "desc" }]);
-    expect(sqlOrderBy("nearest")).toEqual([{ rating: "desc" }]);
+    expect(sqlOrderBy("relevance")).toEqual([paidFirst, { rating: "desc" }]);
+    expect(sqlOrderBy("nearest")).toEqual([paidFirst, { rating: "desc" }]);
   });
 });
 

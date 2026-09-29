@@ -1,4 +1,5 @@
 import { workerById, workerBySlug } from "./workers";
+import { feePlanOf } from "./fee-rules";
 import {
   bookingNotification,
   type BookingNotificationOptions,
@@ -910,7 +911,7 @@ export async function demoAcceptChatQuote(
     quoteId: message.id,
     workerId: booking.workerId,
     customerId: booking.customerId,
-    plan: chatWorker?.subscription.plan,
+    plan: feePlanOf(chatWorker?.subscription),
     subtotalMinor: message.quote,
     context: { categorySlug: chatWorker?.categorySlug, emergency: booking.isEmergency },
   });
@@ -1922,7 +1923,7 @@ export async function demoRespondToBooking(
         quoteId: booking.id,
         workerId: booking.workerId,
         customerId: booking.customerId,
-        plan: acceptWorker?.subscription.plan,
+        plan: feePlanOf(acceptWorker?.subscription),
         subtotalMinor: quote,
         context: { categorySlug: acceptWorker?.categorySlug, emergency: booking.isEmergency },
       });
