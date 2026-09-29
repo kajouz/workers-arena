@@ -20,6 +20,7 @@ import {
   whatsappShareHref,
 } from "@/lib/data/booking-entry";
 import { WhatsAppRequestButton } from "@/components/shared/whatsapp-request-button";
+import { GUARANTEE_TERMS } from "@/lib/data/guarantee-terms";
 import { BookingDialog } from "./booking-dialog";
 import { QuoteRequestDialog } from "./quote-request-dialog";
 
@@ -209,6 +210,16 @@ export function ContactCard({
         <p className="flex items-start gap-2 text-xs text-ink-500 dark:text-ink-400">
           <Lock className="mt-0.5 size-3.5 shrink-0" />
           {t("worker.contactAfterBooking").replace("{name}", name)}
+        </p>
+        {/* WorkersArena Guarantee — the reason to book and pay here. */}
+        <p className="flex items-start gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5 text-xs text-ink-600 dark:text-ink-300">
+          <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <span>
+            <span className="font-bold text-ink-900 dark:text-ink-50">{t("guarantee.name")}</span>{" "}
+            {t("guarantee.terms")
+              .replace("{days}", String(GUARANTEE_TERMS.windowDays))
+              .replace("{cap}", String(GUARANTEE_TERMS.capMinor / 100))}
+          </span>
         </p>
 
         {/* badges */}

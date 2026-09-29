@@ -25,6 +25,8 @@ import { EmailPreviewDialog } from "@/components/admin/email-preview-dialog";
 import { BOOKING_CANCEL_REFUND_WINDOW_MS } from "@/lib/data/types";
 import { settlementFor, settlementNeedsCollection } from "@/lib/data/booking-settlement";
 import { BookingSettlementNote } from "./booking-settlement-note";
+import { GuaranteePanel } from "./guarantee-panel";
+import { completedAtOf, guaranteeCover } from "@/lib/data/guarantee-terms";
 import { BookingSlaCountdown } from "./booking-sla-countdown";
 import { PaymentMethodPicker, type ExternalCheckoutMethod } from "@/components/payments/payment-method-picker";
 import type { CustomerBookingRow } from "@/app/[locale]/(app)/bookings/page";
@@ -220,6 +222,22 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
                 outstandingMinor={settlement.outstandingMinor}
                 currency={booking.currency}
                 workerNetMinor={settlement.workerNetTargetMinor + rebateMinor}
+              />
+            )}
+
+            {/* WorkersArena Guarantee — completed jobs paid through the platform
+                (src/lib/data/guarantee.ts). */}
+            {booking.status === "completed" && (
+              <GuaranteePanel
+                bookingId={booking.id}
+                currency={booking.currency}
+                claim={row.guaranteeClaim}
+                cover={guaranteeCover({
+                  status: booking.status,
+                  completedAt: completedAtOf(booking.events),
+                  settlement,
+                  nowMs: nowSeed,
+                })}
               />
             )}
 

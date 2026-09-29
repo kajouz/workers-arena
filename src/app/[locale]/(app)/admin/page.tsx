@@ -25,6 +25,8 @@ import type { ChannelPayload } from "@/lib/notifications/types";
 import type { ActivityEntry, Campaign, CampaignPayment, LedgerEntry, Worker } from "@/lib/data/types";
 import { timeAgo } from "@/lib/utils";
 import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
+import { GuaranteeClaimsCard } from "@/components/admin/guarantee-claims-card";
+import { listGuaranteeClaims } from "@/lib/data/guarantee";
 import { localeRedirect } from "@/lib/i18n/redirect";
 
 export const metadata = { title: "Admin" };
@@ -161,7 +163,17 @@ export default async function AdminPage({
     workerName: locale === "ar" ? worker.nameAr : worker.nameEn,
   }));
 
+  // WorkersArena Guarantee — open claims surface here so none waits unseen;
+  // the full queue (with recent decisions) is /admin/guarantee.
+  const openClaims = (await listGuaranteeClaims()).filter((c) => c.status === "open");
+
   return (
+    <>
+    {openClaims.length > 0 && (
+      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+        <GuaranteeClaimsCard claims={openClaims} />
+      </div>
+    )}
     <AdminDashboard
       session={session}
       analytics={analytics}
@@ -182,5 +194,6 @@ export default async function AdminPage({
       reviewModerationStats={reviewModerationStats}
       settlementJobs={settlementJobs}
     />
+    </>
   );
 }
