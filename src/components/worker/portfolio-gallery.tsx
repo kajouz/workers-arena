@@ -277,13 +277,11 @@ export function PortfolioGallery({
 
                   {/* Labels */}
                   {/* eslint-disable-next-line no-restricted-syntax -- the before/after split is physical (left: n%) */}
-                  {/* eslint-disable-next-line no-restricted-syntax -- the before/after split is physical (left: n%) */}
-      <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
+                  <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
                     Before
                   </div>
                   {/* eslint-disable-next-line no-restricted-syntax -- the before/after split is physical (left: n%) */}
-                  {/* eslint-disable-next-line no-restricted-syntax -- the before/after split is physical (left: n%) */}
-      <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
+                  <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
                     After
                   </div>
                 </div>
