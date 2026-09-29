@@ -331,6 +331,7 @@ export function RevenueSettingsDashboard() {
                         ) : typeof value === "number" ? (
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={value}
                             onChange={(e) => handleUpdateSettings(stream.id, {
                               ...stream.settings,

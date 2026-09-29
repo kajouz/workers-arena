@@ -88,6 +88,7 @@ export function ReferralConfigPanel({ ruleSet }: { ruleSet: FeeRuleSet }) {
             </span>
             <Input
               type="number"
+              inputMode="decimal"
               min={0}
               value={config.referrerBonus}
               onChange={(e) => setConfig((c) => ({ ...c, referrerBonus: Number(e.target.value) }))}
@@ -103,6 +104,7 @@ export function ReferralConfigPanel({ ruleSet }: { ruleSet: FeeRuleSet }) {
             </span>
             <Input
               type="number"
+              inputMode="decimal"
               min={0}
               value={config.inviteeBonus}
               onChange={(e) => setConfig((c) => ({ ...c, inviteeBonus: Number(e.target.value) }))}
@@ -122,6 +124,7 @@ export function ReferralConfigPanel({ ruleSet }: { ruleSet: FeeRuleSet }) {
             </span>
             <Input
               type="number"
+              inputMode="decimal"
               min={0}
               value={config.monthlyCap}
               onChange={(e) => setConfig((c) => ({ ...c, monthlyCap: Number(e.target.value) }))}
@@ -137,6 +140,7 @@ export function ReferralConfigPanel({ ruleSet }: { ruleSet: FeeRuleSet }) {
             </span>
             <Input
               type="number"
+              inputMode="decimal"
               min={0}
               value={config.lifetimeCap}
               onChange={(e) => setConfig((c) => ({ ...c, lifetimeCap: Number(e.target.value) }))}

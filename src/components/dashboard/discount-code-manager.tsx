@@ -463,6 +463,7 @@ export function DiscountCodeManager() {
                   <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Value</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={newCode.value}
                     onChange={(e) => setNewCode({ ...newCode, value: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -474,6 +475,7 @@ export function DiscountCodeManager() {
                   <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Min Booking Amount</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={newCode.minBookingAmount}
                     onChange={(e) => setNewCode({ ...newCode, minBookingAmount: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -483,6 +485,7 @@ export function DiscountCodeManager() {
                   <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Max Discount</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={newCode.maxDiscount}
                     onChange={(e) => setNewCode({ ...newCode, maxDiscount: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -494,6 +497,7 @@ export function DiscountCodeManager() {
                   <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Total Usage Limit</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={newCode.usageLimit}
                     onChange={(e) => setNewCode({ ...newCode, usageLimit: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -503,6 +507,7 @@ export function DiscountCodeManager() {
                   <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Per User Limit</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={newCode.userLimit}
                     onChange={(e) => setNewCode({ ...newCode, userLimit: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

@@ -804,6 +804,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                           />
                           <input
                             type="number"
+                            inputMode="decimal"
                             placeholder="Qty"
                             value={li.quantity || ""}
                             onChange={(e) => {
@@ -815,6 +816,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                           />
                           <input
                             type="number"
+                            inputMode="decimal"
                             placeholder="Unit Price"
                             value={li.unitPrice || ""}
                             onChange={(e) => {
@@ -852,6 +854,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                       <label className="mb-1 block text-sm font-medium text-ink-700 dark:text-ink-300">Tax (%)</label>
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={genTax}
                         onChange={(e) => setGenTax(e.target.value)}
                         className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
@@ -1166,6 +1169,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
                       <label className="mb-1 block text-sm font-medium text-ink-700 dark:text-ink-300">Refund Amount</label>
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={revokeRefundAmount}
                         onChange={(e) => setRevokeRefundAmount(e.target.value)}
                         placeholder={String(showRevokeModal.amount / 100)}

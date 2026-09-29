@@ -77,6 +77,7 @@ export function WithdrawDialog({
         </DialogHeader>
         <Input
           type="number"
+          inputMode="decimal"
           min={0.01}
           max={maxMajor}
           step={0.01}

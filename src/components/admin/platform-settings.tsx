@@ -239,6 +239,7 @@ export function PlatformSettings() {
                         {setting.type === "number" && (
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={setting.value as number}
                             onChange={(e) => handleSettingChange(section.id, setting.id, Number(e.target.value))}
                             className="w-32 px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

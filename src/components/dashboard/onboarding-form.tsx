@@ -51,7 +51,7 @@ export function OnboardingForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Name (English)</label>
-          <Input name="nameEn" defaultValue={defaultName} required maxLength={100} />
+          <Input name="nameEn" defaultValue={defaultName} required maxLength={100} autoComplete="name" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Name (Arabic)</label>
@@ -110,7 +110,7 @@ export function OnboardingForm({
 
       <div>
         <label className="block text-sm font-medium mb-1">Phone</label>
-        <Input name="phone" required placeholder={`${dialPrefix()} 70 000 000`} maxLength={30} />
+        <Input name="phone" type="tel" autoComplete="tel" inputMode="tel" dir="ltr" required placeholder={`${dialPrefix()} 70 000 000`} maxLength={30} />
       </div>
 
       {errorLabel && (

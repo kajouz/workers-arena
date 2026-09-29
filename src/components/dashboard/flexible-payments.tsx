@@ -219,6 +219,7 @@ export function FlexiblePaymentsCard() {
                   <div className="mt-3 flex items-center gap-2">
                     <input
                       type="number"
+                      inputMode="decimal"
                       placeholder={`$${method.minAmount} - $${method.maxAmount}`}
                       value={selectedTopUp === method.id ? topUpAmount : ""}
                       onChange={(e) => setTopUpAmount(e.target.value)}

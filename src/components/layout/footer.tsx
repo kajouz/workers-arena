@@ -128,6 +128,8 @@ export function Footer() {
             >
               <Input
                 type="email"
+                autoComplete="email"
+                enterKeyHint="send"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

@@ -78,6 +78,7 @@ export function PlanCatalogPanel({ initial }: { initial: PlanCatalogPayload }) {
   const num = (v: number, onChange: (v: number) => void) => (
     <Input
       type="number"
+      inputMode="decimal"
       step="any"
       value={v}
       onChange={(e) => onChange(Number(e.target.value))}

@@ -245,6 +245,7 @@ export function LeadMarketPanel({
                 <div className="flex items-center gap-1.5">
                   <Input
                     type="number"
+                    inputMode="decimal"
                     min={0}
                     value={draft.prices[grade]}
                     onChange={(e) => setPrice(grade, Number(e.target.value))}
@@ -269,6 +270,7 @@ export function LeadMarketPanel({
               <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("leadMarket.adminMaxWorkers")}</span>
               <Input
                 type="number"
+                inputMode="decimal"
                 min={1}
                 max={20}
                 value={draft.maxWorkersPerLead}
@@ -281,6 +283,7 @@ export function LeadMarketPanel({
               <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("leadMarket.adminTtl")}</span>
               <Input
                 type="number"
+                inputMode="decimal"
                 min={5}
                 max={10080}
                 value={draft.offerTtlMinutes}
@@ -293,6 +296,7 @@ export function LeadMarketPanel({
               <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("leadMarket.adminMinWallet")}</span>
               <Input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 max={1000}
                 value={draft.minWalletCredits}
@@ -358,6 +362,7 @@ export function LeadMarketPanel({
                 <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t(`leadMarket.weight.${key}`)}</span>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   min={0}
                   max={100}
                   value={draft.weights[key]}
@@ -397,6 +402,7 @@ export function LeadMarketPanel({
               <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("leadMarket.adminRebatePct")}</span>
               <Input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 max={100}
                 value={draft.rebate.pctBps / 100}
@@ -408,6 +414,7 @@ export function LeadMarketPanel({
               <span className="text-xs font-medium text-ink-600 dark:text-ink-300">{t("leadMarket.adminRebateCeiling")}</span>
               <Input
                 type="number"
+                inputMode="decimal"
                 min={0}
                 value={draft.rebate.maxMinor === null ? "" : draft.rebate.maxMinor / 100}
                 placeholder={t("leadMarket.adminRebateNoCeiling")}
@@ -759,6 +766,7 @@ export function LeadMarketPanel({
                       <div className="grid gap-2 sm:grid-cols-[8rem_1fr_auto_auto]">
                         <Input
                           type="number"
+                          inputMode="decimal"
                           min={0}
                           max={request.requestedCredits}
                           aria-label={t("leadMarket.refundPartialCredits")}
@@ -817,6 +825,7 @@ export function LeadMarketPanel({
               />
               <Input
                 type="number"
+                inputMode="decimal"
                 placeholder={t("leadMarket.adminGrantAmount")}
                 value={grant.amount}
                 onChange={(e) => setGrant((g) => ({ ...g, amount: e.target.value }))}

@@ -591,6 +591,7 @@ export function SmartAlerts() {
                   <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Threshold</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={newRule.threshold}
                     onChange={(e) => setNewRule({ ...newRule, threshold: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

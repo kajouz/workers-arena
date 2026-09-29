@@ -444,6 +444,7 @@ export function DisputeResolution() {
                 <div className="flex gap-2">
                   <input
                     type="number"
+                    inputMode="decimal"
                     placeholder="Refund amount"
                     className="w-32 px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg"
                   />

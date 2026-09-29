@@ -346,6 +346,7 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
                   <input
                     name="name"
                     type="text"
+                    autoComplete="off"
                     required
                     minLength={2}
                     placeholder="Ahmed Ali"
@@ -358,6 +359,7 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
                   <input
                     name="email"
                     type="email"
+                    autoComplete="off"
                     required
                     placeholder="ahmed@example.com"
                     className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
@@ -369,6 +371,7 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
                   <input
                     name="password"
                     type="password"
+                    autoComplete="new-password"
                     required
                     minLength={8}
                     placeholder="••••••••"
@@ -381,6 +384,8 @@ export function CustomerManagement({ locale = "en" }: { locale?: string } = {}) 
                   <input
                     name="phone"
                     type="tel"
+                    autoComplete="off"
+                    dir="ltr"
                     placeholder={`${dialPrefix()} 71 123 456`}
                     className="h-10 w-full rounded-xl border border-ink-200 bg-white px-3 text-sm dark:border-ink-700 dark:bg-ink-800"
                   />

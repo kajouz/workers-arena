@@ -98,6 +98,7 @@ export function CampaignBuilder() {
             <Label>{t("company.budgetLabel")}</Label>
             <Input
               type="number"
+              inputMode="decimal"
               min={50}
               value={form.budget}
               onChange={(e) => setForm({ ...form, budget: Number(e.target.value) })}

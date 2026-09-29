@@ -166,6 +166,10 @@ export function BookingsClient({
           <form method="get" className="mt-6 flex w-full max-w-sm gap-2">
             <Input
               name="phone"
+              type="tel"
+              autoComplete="tel"
+              inputMode="tel"
+              enterKeyHint="search"
               placeholder={`${dialPrefix()} ${t("booking.guestLookupPlaceholder")}`}
               required
               dir="ltr"
