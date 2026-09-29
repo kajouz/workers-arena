@@ -49,12 +49,30 @@ they render honestly and are `noindex`ed if empty, so an internal link never 404
 - `FAQPage` structured data for the three questions this page answers (how to find,
   what it costs, what makes them trustworthy) — this is what gives a low-supply page
   something to rank with.
-- Area chips linking to `?category=…&city=…&area=…` filtered **search**, deliberately
-  not separate area pages: 5 areas × 21 trades is 105 thin pages for a page whose
-  content is one filtered list.
+- Area chips linking to the **trade × area pages** (below), served areas first with
+  their worker count.
 - Matrix links in both directions: other trades in this city, this trade elsewhere.
   Ordered by supply (`rankPairsBySupply`) with a deterministic tie-break, so a page
   cannot reshuffle its own internal links between renders and waste the crawl.
+
+## Trade × area pages (revenue plan Step 5)
+
+`/{locale}/trades/{trade}/{city}/{area}` — "plumber in Achrafieh". These were
+originally left as filtered searches to avoid thin pages; they are pages now
+because neighbourhood queries are how people in Lebanon search, and the honesty
+rule already keeps the thin ones out:
+
+- Same view (`src/components/seo/cross-landing-view.tsx`) and copy engine; the copy
+  names the area, with the city in the address line.
+- An area with nobody listed is `noindex`, left out of the sitemap, and shows the
+  trade elsewhere in the city ("{trade} elsewhere in {city}") instead of a dead end.
+- An area its city does not list is a 404.
+- Only served triples are prerendered and submitted in the sitemap.
+
+Supply everywhere comes from the full worker list (`servedLandings` over
+`getAllWorkers`) or a search's `total` — never the length of one search page,
+which is capped at nine. (Before this, the sitemap listed only nine worker
+profiles and the pairs those nine covered.)
 
 ## Verified
 

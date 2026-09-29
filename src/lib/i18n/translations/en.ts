@@ -145,6 +145,8 @@ export const en = {
     point4: "Up to three quotes for one job, then you pick",
     ctaBody: "Verified professionals, transparent pricing, and bookings you can track.",
     listServices: "List your services",
+    nearbyIn: "{trade} elsewhere in {city}",
+    tradeAcrossCity: "{trade} across {city}",
   },
   featured: {
     title: "Featured professionals",

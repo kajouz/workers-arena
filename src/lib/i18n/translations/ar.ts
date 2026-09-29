@@ -141,6 +141,8 @@ export const ar: Dictionary = {
     point4: "حتى ثلاثة عروض أسعار للوظيفة الواحدة، ثم تختار",
     ctaBody: "محترفون موثّقون، أسعار واضحة، وحجوزات يمكنك متابعتها.",
     listServices: "أضف خدماتك",
+    nearbyIn: "{trade} في مناطق أخرى من {city}",
+    tradeAcrossCity: "{trade} في كل {city}",
   },
   featured: {
     title: "محترفون مختارون",
