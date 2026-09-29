@@ -351,7 +351,10 @@ export const en = {
     serviceAreasTitle: "Areas we serve",
     showOnMap: "Open in map",
     directions: "Get directions",
-    phoneNote: "Tap to call",
+    phoneNote: "Confirm the price in your booking",
+    whatsappRequest: "Request on WhatsApp",
+    contactAfterBooking:
+      "{name}'s phone and WhatsApp are shared once your booking is confirmed, so the job, the price and the review stay on record.",
     whatsappNote: "Chat on WhatsApp",
     copyPhone: "Copy number",
     priceRange: "Price range",

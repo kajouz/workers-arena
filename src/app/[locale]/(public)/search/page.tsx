@@ -9,6 +9,7 @@ import { getCategories, getCities, getWorkers } from "@/lib/data/repo";
 import { pickAd } from "@/lib/data/ad-rotation";
 import { getI18n } from "@/lib/i18n/server";
 import { searchParamsToFilters } from "@/lib/data/search-params";
+import { publicWorkers } from "@/lib/data/contact-guard";
 
 /**
  * hreflang + canonical for this page. Both languages are advertised so a
@@ -50,7 +51,7 @@ export default async function SearchPage({
   const [categories, cities, initial, initialAd] = await Promise.all([
     getCategories(),
     getCities(),
-    getWorkers(initialFilters),
+    getWorkers(initialFilters).then((r) => ({ ...r, items: publicWorkers(r.items) })),
     pickAd("search", { category: initialFilters.category, city: initialFilters.city }).catch(() => null),
   ]);
 

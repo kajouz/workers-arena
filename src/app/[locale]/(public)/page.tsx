@@ -18,6 +18,7 @@ import { monthlyAllowanceCredits } from "@/lib/data/lead-allowance";
 import { DEFAULT_COUNTRY } from "@/lib/tenant/countries";
 import { PushOnboarding } from "@/components/notifications/push-onboarding";
 import { MobileAppPromo } from "@/components/home/mobile-app-promo";
+import { publicWorkers } from "@/lib/data/contact-guard";
 
 /**
  * hreflang + canonical for this page. Both languages are advertised so a
@@ -46,7 +47,7 @@ export const revalidate = 3600;
 export default async function HomePage() {
   const [categories, featured, popular, ruleSet] = await Promise.all([
     getCategories(),
-    getFeaturedWorkersList(4),
+    getFeaturedWorkersList(4).then(publicWorkers),
     getPopularSearches(),
     loadActiveFeeRuleSet(),
   ]);

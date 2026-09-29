@@ -94,6 +94,7 @@ Multi-stage Dockerfile: deps → build (`prisma generate`, `next build`) → sli
 | `DEMO_MODE` | dev | `"true"` = embedded dataset, no DB. **The live deployment deliberately runs `true`** — it is a demo showcase serving the embedded dataset, not the seeded Postgres rows. See “Demo-mode deployments” below before changing it. |
 | `AUTH_SECRET` | prod | long random string |
 | `NEXT_PUBLIC_APP_URL` | both | canonical URL for SEO/manifest |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | production | WorkersArena business WhatsApp (e.g. `+96170000000`); every "Request on WhatsApp" button goes here. Build-time: redeploy after changing. Unset = buttons hidden |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | prod push | Generate once with `npx web-push generate-vapid-keys`; store both keys and the subject in the deployment secret manager. Never commit the private key. |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | prod WhatsApp | Meta WhatsApp Cloud API credentials (system-user token + phone number id). With `NOTIFY_WHATSAPP_PROVIDER=whatsapp-cloud`, every automated send lands in the delivery ledger (`WhatsAppDelivery` table) shown on `/admin`. |
 | `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_APP_SECRET` | prod WhatsApp webhook | Webhook handshake token and app secret for `https://<domain>/api/webhooks/whatsapp` (subscribe to the `messages` field in Meta's webhook config; the app verifies `X-Hub-Signature-256` when the app secret is set). |

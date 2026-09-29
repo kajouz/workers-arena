@@ -7,7 +7,7 @@ import { CATEGORIES } from "@/lib/data/categories";
 import { CITY_COORDINATES } from "@/lib/geolocation/geo-service";
 import { notFound } from "next/navigation";
 import { CategoryIcon } from "@/components/shared/category-icon";
-import { getWorkers } from "@/lib/data/repo";
+import { getAllWorkers } from "@/lib/data/repo";
 
 interface TradePageProps {
   params: Promise<{ locale: string; trade: string }>;
@@ -137,7 +137,8 @@ export default async function TradePage({ params }: TradePageProps) {
    */
   const servedCities = await (async () => {
     try {
-      const { items } = await getWorkers({ category: trade });
+      // Every worker, not one search page (capped at nine).
+      const items = (await getAllWorkers()).filter((w) => w.categorySlug === trade);
       return [...new Set(items.map((w) => w.citySlug))];
     } catch {
       return [];

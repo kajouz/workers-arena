@@ -5,6 +5,7 @@ import { CITIES } from "@/lib/data/cities";
 import type { CountryConfig } from "@/lib/tenant/countries";
 import { CategoryIcon } from "@/components/shared/category-icon";
 import { WorkerCard } from "@/components/shared/worker-card";
+import { WhatsAppRequestButton } from "@/components/shared/whatsapp-request-button";
 import { getI18n } from "@/lib/i18n/server";
 import type { Area, Category, City, Worker } from "@/lib/data/types";
 import {
@@ -68,6 +69,12 @@ export async function CrossLandingView({
   const name = (x: { nameEn: string; nameAr: string }) => (locale === "ar" ? x.nameAr : x.nameEn);
   const cityName = name(city);
   const placeLabel = area ? name(area) : cityName;
+  // WhatsApp-first (revenue plan Step 5): "I need a plumber in Achrafieh", to
+  // WorkersArena's number — the team books it on the platform.
+  const whatsappRequest = {
+    trade: locale === "ar" ? category.professionAr : category.professionEn,
+    place: area ? `${name(area)}, ${cityName}` : cityName,
+  };
 
   /**
    * Internal links, both directions of the matrix: other trades in this city,
@@ -191,6 +198,7 @@ export async function CrossLandingView({
           </h1>
           <p className="mt-4 max-w-3xl text-lg text-ink-500 dark:text-ink-400">{copy.intro}</p>
           <div className="mt-6 flex flex-wrap gap-3">
+            <WhatsAppRequestButton request={whatsappRequest} className="h-auto px-6 py-3 text-sm font-bold" />
             <Link
               href={searchHref}
               className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-brand-600"
@@ -219,6 +227,7 @@ export async function CrossLandingView({
           ) : (
             <div className="rounded-2xl border border-dashed border-ink-200 p-8 text-center dark:border-ink-800">
               <p className="text-ink-600 dark:text-ink-300">{t("crossLanding.emptyBody")}</p>
+              <WhatsAppRequestButton request={whatsappRequest} className="mt-4 me-3" />
               <Link
                 href={area ? `/trades/${trade}/${city.slug}` : `/search?category=${trade}`}
                 className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-brand-600"

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { FavoritesClient } from "@/components/favorites/favorites-client";
 import { getAllWorkers } from "@/lib/data/repo";
 import { getI18n } from "@/lib/i18n/server";
+import { publicWorkers } from "@/lib/data/contact-guard";
 
 export const metadata: Metadata = {
   title: "Favorites",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function FavoritesPage() {
   const { t } = await getI18n();
-  const workers = await getAllWorkers();
+  const workers = publicWorkers(await getAllWorkers());
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">

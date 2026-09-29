@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 import { getAllWorkers, getWorkers } from "@/lib/data/repo";
 import { crossLandingCopy, crossLandingPath, indexVerdict, servedLandings } from "@/lib/data/cross-landing";
 import { CrossLandingView } from "@/components/seo/cross-landing-view";
+import { publicWorkers } from "@/lib/data/contact-guard";
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -105,9 +106,9 @@ export default async function AreaLandingPage({ params }: AreaLandingProps) {
       city={found.cityData}
       area={found.areaData}
       country={found.country}
-      workers={workers}
+      workers={publicWorkers(workers)}
       supply={total}
-      nearby={nearby}
+      nearby={publicWorkers(nearby)}
       served={servedLandings(all)}
     />
   );
