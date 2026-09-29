@@ -22,11 +22,19 @@ export function WorkerCard({
   worker,
   index = 0,
   nowSeed,
+  compact = false,
 }: {
   worker: Worker;
   index?: number;
   /** Server render time, when the parent has one — see useSsrSafeNow. */
   nowSeed?: number;
+  /**
+   * FINDING 8: on phones, a short row (avatar · name · rating · price)
+   * instead of the tall cover card, so a results list shows 5–6 workers per
+   * screen instead of ~2.5. From `sm` up the card is unchanged. Used by the
+   * search results; carousels and landing grids keep the full card.
+   */
+  compact?: boolean;
 }) {
   const { locale, t } = useLocale();
   const cat = categoryBySlug(worker.categorySlug);
@@ -52,6 +60,48 @@ export function WorkerCard({
   const now = useSsrSafeNow(nowSeed ?? 0);
   const openNow = now > 0 && isOpenNow(worker, new Date(now));
 
+  const favoriteButton = (className: string) => (
+    <button
+      type="button"
+      aria-label={isFav ? t("common.remove") : t("common.favorite")}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggle(worker);
+      }}
+      className={cn(
+        "flex size-10 shrink-0 items-center justify-center rounded-full bg-white/85 shadow-soft backdrop-blur-sm transition-all hover:scale-110 dark:bg-ink-900/80",
+        className
+      )}
+    >
+      <motion.div
+        animate={isFav ? { scale: [1, 1.35, 1] } : { scale: 1 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+      >
+        <Heart className={cn("size-4 transition-colors", isFav ? "fill-red-500 text-red-500" : "text-ink-600 dark:text-ink-200")} />
+      </motion.div>
+      {/* Burst particles on favoriting */}
+      {isFav && (
+        <>
+          {[0, 60, 120, 180, 240, 300].map((deg) => (
+            <motion.span
+              key={deg}
+              className="absolute size-1.5 rounded-full bg-red-400"
+              initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
+              animate={{
+                scale: [0, 1, 0],
+                x: Math.cos((deg * Math.PI) / 180) * 18,
+                y: Math.sin((deg * Math.PI) / 180) * 18,
+                opacity: [1, 1, 0],
+              }}
+              transition={{ duration: 0.45, ease: "easeOut" }}
+            />
+          ))}
+        </>
+      )}
+    </button>
+  );
+
   return (
     <motion.div
       // No mount animation: search results are the search page's LCP, and
@@ -68,7 +118,7 @@ export function WorkerCard({
         {/* FINDING 8: the 160px cover made a card ~390px tall — barely 1.5
             results per phone screen. Shorter cover on phones (≈2.5 cards per
             screen) so customers scan more of the list without scrolling. */}
-        <WorkerCover hue={worker.hue} icon={cat?.icon} className="h-28 w-full sm:h-40">
+        <WorkerCover hue={worker.hue} icon={cat?.icon} className={cn("h-28 w-full sm:h-40", compact && "hidden sm:block")}>
           <div className="absolute inset-x-3 top-3 flex items-start justify-between">
             <div className="flex flex-wrap gap-1.5">
               {worker.emergency && <EmergencyBadge compact />}
@@ -89,58 +139,37 @@ export function WorkerCard({
               {t("search.open")}
             </span>
           )}
-          <button
-            type="button"
-            aria-label={isFav ? t("common.remove") : t("common.favorite")}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              toggle(worker);
-            }}
-            className="absolute bottom-3 end-3 flex size-10 items-center justify-center rounded-full bg-white/85 shadow-soft backdrop-blur-sm transition-all hover:scale-110 dark:bg-ink-900/80"
-          >
-            <motion.div
-              animate={isFav ? { scale: [1, 1.35, 1] } : { scale: 1 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            >
-              <Heart className={cn("size-4 transition-colors", isFav ? "fill-red-500 text-red-500" : "text-ink-600 dark:text-ink-200")} />
-            </motion.div>
-            {/* Burst particles on favoriting */}
-            {isFav && (
-              <>
-                {[0, 60, 120, 180, 240, 300].map((deg) => (
-                  <motion.span
-                    key={deg}
-                    className="absolute size-1.5 rounded-full bg-red-400"
-                    initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
-                    animate={{
-                      scale: [0, 1, 0],
-                      x: Math.cos((deg * Math.PI) / 180) * 18,
-                      y: Math.sin((deg * Math.PI) / 180) * 18,
-                      opacity: [1, 1, 0],
-                    }}
-                    transition={{ duration: 0.45, ease: "easeOut" }}
-                  />
-                ))}
-              </>
-            )}
-          </button>
+          {favoriteButton("absolute bottom-3 end-3")}
         </WorkerCover>
 
-        <div className="flex flex-1 flex-col p-4">
-          <div className="flex items-start gap-3">
-            <GradientAvatar name={worker.nameEn} hue={worker.hue} className="-mt-8 size-12 ring-4 ring-white dark:ring-ink-900" />
-            <div className="min-w-0 flex-1 pt-1">
-              <h3 className="clamp-1 text-base font-bold text-ink-900 dark:text-ink-50">{name}</h3>
+        <div className={cn("flex flex-1 flex-col p-4", compact && "p-3 sm:p-4")}>
+          <div className={cn("flex items-start gap-3", compact && "items-center sm:items-start")}>
+            <GradientAvatar
+              name={worker.nameEn}
+              hue={worker.hue}
+              className={cn("-mt-8 size-12 ring-4 ring-white dark:ring-ink-900", compact && "mt-0 ring-0 sm:-mt-8 sm:ring-4")}
+            />
+            <div className={cn("min-w-0 flex-1 pt-1", compact && "pt-0 sm:pt-1")}>
+              <h3 className="clamp-1 text-base font-bold text-ink-900 dark:text-ink-50">
+                {compact && openNow && (
+                  <span
+                    aria-label={t("search.open")}
+                    title={t("search.open")}
+                    className="me-1.5 inline-block size-2 rounded-full bg-emerald-500 align-middle sm:hidden"
+                  />
+                )}
+                {name}
+              </h3>
               {/* Phone body copy is 16px (audit finding: the tagline and bio
                   were 12-14px); `sm:` restores the denser desktop scale. */}
-              <p className="clamp-1 text-base font-medium text-ink-500 sm:text-xs dark:text-ink-400">
+              <p className={cn("clamp-1 text-base font-medium text-ink-500 sm:text-xs dark:text-ink-400", compact && "text-sm")}>
                 {locale === "ar" ? cat?.nameAr : cat?.nameEn} · {locale === "ar" ? cat?.taglineAr : cat?.taglineEn}
               </p>
             </div>
+            {compact && favoriteButton("relative sm:hidden")}
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
+          <div className={cn("mt-3 flex items-center gap-2", compact && "mt-2 sm:mt-3")}>
             <Rating value={worker.rating} showValue />
             <span className="text-xs text-ink-400 dark:text-ink-500">
               ({formatNumber(worker.reviewCount)} {t("common.reviews")})
@@ -154,7 +183,7 @@ export function WorkerCard({
               perk at the listing level, before the profile or the booking
               dialog (docs/booking-take-rate.md §5). */}
           {(worker.responseRate != null || worker.availableThisWeek || isPlanFeeExempt(worker.subscription.plan)) && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <div className={cn("mt-2 flex flex-wrap items-center gap-1.5", compact && "hidden sm:flex")}>
               {worker.availableThisWeek && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                   <CalendarCheck2 className="size-3" />
@@ -179,11 +208,15 @@ export function WorkerCard({
             </div>
           )}
 
-          <p className="clamp-2 mt-2.5 text-base leading-relaxed text-ink-600 sm:text-sm dark:text-ink-300">
-            {locale === "ar" ? worker.bioAr : worker.bioEn}
-          </p>
+          {/* The wrapper hides the bio: `.clamp-2` sets its own display, which
+              would win over a `hidden` utility on the paragraph itself. */}
+          <div className={cn(compact && "hidden sm:block")}>
+            <p className="clamp-2 mt-2.5 text-base leading-relaxed text-ink-600 sm:text-sm dark:text-ink-300">
+              {locale === "ar" ? worker.bioAr : worker.bioEn}
+            </p>
+          </div>
 
-          <div className="mt-auto flex items-center justify-between gap-2 pt-4">
+          <div className={cn("mt-auto flex items-center justify-between gap-2 pt-4", compact && "pt-2 sm:pt-4")}>
             <div className="flex items-center gap-1.5 text-xs text-ink-500 dark:text-ink-400">
               <MapPin className="size-3.5" />
               <span className="font-medium">{worker.citySlug}</span>
@@ -202,12 +235,13 @@ export function WorkerCard({
   );
 }
 
-/** Skeleton placeholder while loading grids. */
-export function WorkerCardSkeleton() {
+/** Skeleton placeholder while loading grids. `compact` matches the phone row
+ * of a compact WorkerCard, so results replace it without a layout shift. */
+export function WorkerCardSkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-ink-200/80 bg-white dark:border-ink-800 dark:bg-ink-900">
-      <div className="skeleton h-40 w-full" />
-      <div className="space-y-3 p-4">
+      <div className={cn("skeleton h-40 w-full", compact && "hidden sm:block")} />
+      <div className={cn("space-y-3 p-4", compact && "space-y-2 p-3 sm:space-y-3 sm:p-4")}>
         <div className="flex items-center gap-3">
           <div className="skeleton size-12 rounded-full" />
           <div className="flex-1 space-y-2">
@@ -215,8 +249,8 @@ export function WorkerCardSkeleton() {
             <div className="skeleton h-3 w-1/2 rounded" />
           </div>
         </div>
-        <div className="skeleton h-3 w-full rounded" />
-        <div className="skeleton h-3 w-4/5 rounded" />
+        <div className={cn("skeleton h-3 w-full rounded", compact && "hidden sm:block")} />
+        <div className={cn("skeleton h-3 w-4/5 rounded", compact && "hidden sm:block")} />
         <div className="skeleton h-3 w-1/3 rounded" />
       </div>
     </div>
