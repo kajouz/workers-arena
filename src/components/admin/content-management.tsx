@@ -46,7 +46,7 @@ export function ContentManagement() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
           <input type="text" placeholder="Search pages..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full ps-10 pe-4 py-2 border border-ink-200 dark:border-ink-800 rounded-lg" />
         </div>
         <button onClick={() => setEditingPage({ id: "", slug: "", titleEn: "", titleAr: "", contentEn: "", contentAr: "", metaTitleEn: "", metaTitleAr: "", metaDescriptionEn: "", metaDescriptionAr: "", status: "draft", updatedAt: new Date().toISOString() })} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">

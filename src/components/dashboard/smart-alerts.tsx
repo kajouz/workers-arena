@@ -366,7 +366,7 @@ export function SmartAlerts() {
           {/* Search and Filter */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
+              <Search className="absolute start-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-ink-400 dark:text-ink-500" />
               <input
                 type="text"
                 placeholder="Search rules..."
@@ -478,7 +478,7 @@ export function SmartAlerts() {
           {history.map((alert) => (
             <div key={alert.id} className={cn(
               "bg-white dark:bg-ink-900 rounded-xl border p-4",
-              !alert.acknowledged && "border-l-4 border-l-orange-500"
+              !alert.acknowledged && "border-s-4 border-s-orange-500"
             )}>
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -591,6 +591,7 @@ export function SmartAlerts() {
                   <label className="block text-sm font-medium text-ink-700 dark:text-ink-200 mb-1">Threshold</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={newRule.threshold}
                     onChange={(e) => setNewRule({ ...newRule, threshold: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

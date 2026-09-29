@@ -41,8 +41,30 @@ for (const block of nextVitals) {
   }
 }
 
+// ── Arabic (RTL) layout ─────────────────────────────────────────────────────
+// Physical Tailwind classes (ml-/mr-/pl-/pr-, left-/right-, text-left/right,
+// rounded-l/r, border-l/r) stay on the same side when the page is in Arabic.
+// Use the logical ones (ms-/me-/ps-/pe-, start-/end-, text-start/end,
+// rounded-s/e, border-s/e, inset-x-) instead. Centring (`left-1/2`) is
+// symmetric and allowed. Something that really is physical (a map overlay, a
+// before/after split) takes an eslint-disable comment saying why.
+const PHYSICAL_CLASS =
+  "/(^|[\\s:])(-?[mp][lr]-|text-(left|right)($|\\s)|rounded-([lr]|[tb][lr])(-|$|\\s)|border-[lr](-|$|\\s)|-?(left|right)-([0-9.]+|px|auto|full|\\[[^\\]]*\\])($|\\s))/";
+const RTL_MESSAGE =
+  "Physical left/right class — it won't flip in Arabic. Use the logical form (ms-/me-, ps-/pe-, start-/end-, text-start/end, rounded-s/e, border-s/e, inset-x-).";
+
 const eslintConfig = [
   ...nextVitals,
+  {
+    files: ["src/**/*.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        { selector: `Literal[value=${PHYSICAL_CLASS}]`, message: RTL_MESSAGE },
+        { selector: `TemplateElement[value.raw=${PHYSICAL_CLASS}]`, message: RTL_MESSAGE },
+      ],
+    },
+  },
   {
     ignores: [
       "node_modules/**",

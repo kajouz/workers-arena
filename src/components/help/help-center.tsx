@@ -302,7 +302,7 @@ function SupportTicketForm() {
         <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">
           {locale === "ar" ? "البريد الإلكتروني" : "Email"}
         </label>
-        <Input required type="email" placeholder="you@example.com" dir="ltr" />
+        <Input required type="email" autoComplete="email" placeholder="you@example.com" dir="ltr" />
       </div>
       <div>
         <label className="mb-1.5 block text-xs font-bold text-ink-600 dark:text-ink-300">

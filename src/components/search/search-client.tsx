@@ -524,9 +524,9 @@ export function SearchClient({
         {/* results */}
         <div className="mt-6">
           {debouncedLoading && results.items.length === 0 ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <WorkerCardSkeleton key={i} />
+                <WorkerCardSkeleton key={i} compact />
               ))}
             </div>
           ) : results.items.length === 0 ? (
@@ -542,17 +542,17 @@ export function SearchClient({
             </div>
           ) : (
             <>
-              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
                 <AnimatePresence mode="popLayout">
                   {results.items.map((w, i) => (
-                    <WorkerCard key={w.id} worker={w} index={i} />
+                    <WorkerCard key={w.id} worker={w} index={i} compact />
                   ))}
                 </AnimatePresence>
               </div>
               {loading && (
-                <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-3 grid gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <WorkerCardSkeleton key={`s-${i}`} />
+                    <WorkerCardSkeleton key={`s-${i}`} compact />
                   ))}
                 </div>
               )}

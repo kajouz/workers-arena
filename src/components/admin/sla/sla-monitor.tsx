@@ -250,7 +250,7 @@ export function SLAMonitor({ className }: SLAMonitorProps) {
               <div
                 key={breach.id}
                 className={cn(
-                  "flex items-center gap-4 px-4 py-3 border-l-4",
+                  "flex items-center gap-4 px-4 py-3 border-s-4",
                   getSeverityColor(breach.severity)
                 )}
               >

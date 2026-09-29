@@ -18,7 +18,13 @@ export default async function CompanyPage({
   const params = await searchParams;
   const view = params.view ?? "dashboard";
 
-  const [analytics, campaigns, invoices] = await Promise.all([getAnalyticsOverview(), getCampaigns(), getInvoices()]);
+  // A company sees its own campaigns and invoices; an admin sees all of them.
+  const owner = session.role === "company" ? session.id : undefined;
+  const [analytics, campaigns, invoices] = await Promise.all([
+    getAnalyticsOverview(),
+    getCampaigns(owner),
+    getInvoices(owner),
+  ]);
   const adInvoices = invoices.filter((i) => i.scope === "advertising");
 
   if (view === "analytics") {

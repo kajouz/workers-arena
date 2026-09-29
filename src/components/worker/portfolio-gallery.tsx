@@ -139,14 +139,14 @@ export function PortfolioGallery({
 
               {/* Before/After indicator */}
               {showBeforeAfter && image.beforeUrl && image.afterUrl && (
-                <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
+                <div className="absolute top-2 start-2 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
                   Before/After
                 </div>
               )}
 
               {/* Rating badge */}
               {image.rating && (
-                <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-yellow-500 text-white text-xs rounded-full">
+                <div className="absolute top-2 end-2 flex items-center gap-1 px-2 py-1 bg-yellow-500 text-white text-xs rounded-full">
                   <Star className="w-3 h-3 fill-current" />
                   {image.rating}
                 </div>
@@ -158,7 +158,7 @@ export function PortfolioGallery({
               </div>
 
               {/* Title */}
-              <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
+              <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
                 <p className="text-white text-sm font-medium truncate">
                   {locale === "ar" ? image.titleAr || image.title : image.title}
                 </p>
@@ -226,7 +226,7 @@ export function PortfolioGallery({
           {/* Close button */}
           <button
             onClick={() => setSelectedImage(null)}
-            className="absolute top-4 right-4 text-white hover:text-ink-300 dark:hover:text-ink-600 z-10"
+            className="absolute top-4 end-4 text-white hover:text-ink-300 dark:hover:text-ink-600 z-10"
           >
             <X className="w-8 h-8" />
           </button>
@@ -234,15 +234,15 @@ export function PortfolioGallery({
           {/* Navigation */}
           <button
             onClick={() => navigateImage("prev")}
-            className="absolute left-4 text-white hover:text-ink-300 dark:hover:text-ink-600 z-10"
+            className="absolute start-4 text-white hover:text-ink-300 dark:hover:text-ink-600 z-10"
           >
-            <ChevronLeft className="w-12 h-12" />
+            <ChevronLeft className="w-12 h-12 rtl:rotate-180" />
           </button>
           <button
             onClick={() => navigateImage("next")}
-            className="absolute right-4 text-white hover:text-ink-300 dark:hover:text-ink-600 z-10"
+            className="absolute end-4 text-white hover:text-ink-300 dark:hover:text-ink-600 z-10"
           >
-            <ChevronRight className="w-12 h-12" />
+            <ChevronRight className="w-12 h-12 rtl:rotate-180" />
           </button>
 
           {/* Image content */}
@@ -276,9 +276,11 @@ export function PortfolioGallery({
                   </div>
 
                   {/* Labels */}
+                  {/* eslint-disable-next-line no-restricted-syntax -- the before/after split is physical (left: n%) */}
                   <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
                     Before
                   </div>
+                  {/* eslint-disable-next-line no-restricted-syntax -- the before/after split is physical (left: n%) */}
                   <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
                     After
                   </div>
@@ -291,6 +293,8 @@ export function PortfolioGallery({
                   max="100"
                   value={sliderPosition}
                   onChange={handleSliderChange}
+                  // The image split is physical (left: n%), so the thumb must run left→right in Arabic too.
+                  dir="ltr"
                   className="w-full mt-4"
                 />
               </div>
@@ -374,9 +378,11 @@ export function BeforeAfterSlider({
       </div>
 
       {/* Labels */}
+      {/* eslint-disable-next-line no-restricted-syntax -- the before/after split is physical (left: n%) */}
       <div className="absolute top-4 left-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
         {beforeLabel}
       </div>
+      {/* eslint-disable-next-line no-restricted-syntax -- the before/after split is physical (left: n%) */}
       <div className="absolute top-4 right-4 px-3 py-1 bg-black/60 text-white text-sm rounded-full">
         {afterLabel}
       </div>
@@ -388,7 +394,9 @@ export function BeforeAfterSlider({
         max="100"
         value={position}
         onChange={(e) => setPosition(Number(e.target.value))}
-        className="absolute bottom-4 left-4 right-4 z-20"
+        // The image split is physical (left: n%), so the thumb must run left→right in Arabic too.
+        dir="ltr"
+        className="absolute inset-x-4 bottom-4 z-20"
       />
     </div>
   );

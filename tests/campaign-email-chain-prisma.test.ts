@@ -483,4 +483,31 @@ describeLive("prisma campaign refund chain (live DB → prisma adapter → dispa
     // Newest first (createdAt pinned to each campaign's start in the seed).
     expect(seeded.map((i) => i.number)).toEqual(["INV-1047", "INV-1046", "INV-1045"]);
   });
+
+  it("scopes campaigns and invoices to the owning company user", async () => {
+    // A second company sees none of the seeded company's campaigns or
+    // invoices; the seeded company still sees its own.
+    const { userId: otherUserId } = await seedCompany();
+    const buildCo = await getPrisma().user.findUnique({ where: { email: "ads@buildco.lb" }, select: { id: true } });
+    expect(buildCo).not.toBeNull();
+
+    expect(await prismaGetCampaigns(otherUserId)).toEqual([]);
+    expect(await prismaGetInvoices(otherUserId)).toEqual([]);
+
+    const own = await prismaGetInvoices(buildCo!.id);
+    expect(own.map((i) => i.number)).toEqual(expect.arrayContaining(["INV-1045", "INV-1046", "INV-1047"]));
+    expect((await prismaGetCampaigns(buildCo!.id)).some((c) => c.id === "seed-c1")).toBe(true);
+  });
+
+  it("does not put a company without a Company row on the seeded company's account", async () => {
+    const created = await prismaCreateCampaign({
+      nameEn: "Orphan ads",
+      nameAr: "إعلانات يتيمة",
+      placement: "homepage",
+      adType: "banner",
+      budget: 100,
+      companyId: "user-with-no-company-row",
+    });
+    expect(created).toBeNull();
+  });
 });

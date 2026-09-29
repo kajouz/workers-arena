@@ -97,7 +97,7 @@ export function TodaySummary({
                 {item.label}
               </p>
               {item.urgent && (
-                <span className="absolute right-2 top-2 size-2 animate-pulse rounded-full bg-amber-500" />
+                <span className="absolute end-2 top-2 size-2 animate-pulse rounded-full bg-amber-500" />
               )}
             </motion.div>
           ))}

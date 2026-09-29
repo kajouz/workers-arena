@@ -56,7 +56,7 @@ export function LiveMetricsPanel({ locale = "en" }: { locale?: string }) {
   return (
     <Card className="relative overflow-hidden">
       {/* Pulsing indicator */}
-      <div className="absolute right-4 top-4">
+      <div className="absolute end-4 top-4">
         <AnimatePresence>
           {isConnected ? (
             <motion.div

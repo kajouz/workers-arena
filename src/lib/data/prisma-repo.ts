@@ -1686,11 +1686,17 @@ export async function prismaGetCustomerBookings(
  * §2.4 admin export — every booking's full event trail (the CSV/PDF trails
  * export on /admin), same include set as the per-booking read (events,
  * service item, M3 receipt) so the combined document matches the dispute
- * view. Production TODO: paginate for very large stores.
+ * view. `activeSince` narrows the read to bookings created or touched (any
+ * event) on or after that time — the recurring digests only look at recent
+ * weeks and should not load the whole table each run.
  */
-export async function prismaGetAllBookings(): Promise<Booking[]> {
+export async function prismaGetAllBookings(opts: { activeSince?: Date } = {}): Promise<Booking[]> {
   const prisma = getPrisma();
+  const since = opts.activeSince;
   const rows = await prisma.booking.findMany({
+    where: since
+      ? { OR: [{ createdAt: { gte: since } }, { events: { some: { createdAt: { gte: since } } } }] }
+      : undefined,
     orderBy: { startAt: "asc" },
     include: {
       events: { orderBy: { createdAt: "asc" as const } },
@@ -4440,9 +4446,11 @@ export function toDomainCampaignPayment(row: PrismaPaymentRow): CampaignPayment 
 }
 
 /** All campaigns, newest first (mirrors demoGetCampaigns). */
-export async function prismaGetCampaigns(): Promise<Campaign[]> {
+export async function prismaGetCampaigns(ownerUserId?: string): Promise<Campaign[]> {
   const prisma = getPrisma();
   const rows = await prisma.adCampaign.findMany({
+    // A company sees only its own campaigns; no owner (admin views) sees all.
+    where: ownerUserId ? { company: { userId: ownerUserId } } : undefined,
     include: { ads: { orderBy: { createdAt: "asc" as const } } },
     orderBy: { createdAt: "desc" },
   });
@@ -4623,18 +4631,22 @@ export async function prismaCreateCampaign(
 ): Promise<{ campaign: Campaign; checkoutUrl: string } | null> {
   const prisma = getPrisma();
   try {
-    // Resolve the owning Company by the acting company's USER id. When it
-    // doesn't resolve (e.g. an admin creating on behalf of the platform's
-    // single company — the demo company in real mode), fall back to the
+    // Resolve the owning Company by the acting company's USER id. With no
+    // acting company (an admin creating on behalf of the platform's single
+    // company — the demo company in real mode), fall back to the
     // seeded company account, mirroring how prismaOwnerId falls back to the
     // seeded admin for notifications. The demo adapter always uses its fixed
     // company, so this keeps the company AND admin roles working in real mode
     // exactly as they do in demo mode.
-    let company = await prisma.company.findUnique({
-      where: { userId: input.companyId ?? "" },
-      include: { user: { select: { email: true } } },
-    });
-    if (!company) {
+    let company = input.companyId
+      ? await prisma.company.findUnique({
+          where: { userId: input.companyId },
+          include: { user: { select: { email: true } } },
+        })
+      : null;
+    // Only an admin (no acting company) falls back: a company user without a
+    // Company row must not buy ads on the seeded company's account.
+    if (!company && !input.companyId) {
       const fallback = await prisma.user.findUnique({
         where: { email: "ads@buildco.lb" },
         select: { id: true },
@@ -4955,9 +4967,8 @@ export async function prismaConfirmCampaignPayment(
  *     path mints WA-YYYY-NNNNN receipts; the refund's VOID flip reads back as
  *     the credit note), newest first, mapped to the domain Invoice (minor →
  *     major, PAID/VOID → paid/refunded, EN + AR descriptions from the items
- *     + the campaign's Arabic name). Production TODO: scope by the acting
- *     company's user id once real auth lands — the demo seam is single-company,
- *     so the seeded company (ads@buildco.lb) is the anchor.
+ *     + the campaign's Arabic name), scoped to the signed-in user's own
+ *     invoices (an admin view passes no owner and sees all).
  * ──────────────────────────────────────────────────────────────────────────── */
 
 const INVOICE_STATUS_DB_TO_APP: Record<string, Invoice["status"]> = {
@@ -5013,22 +5024,18 @@ export function toDomainInvoice(row: PrismaInvoiceRow): Invoice {
 /**
  * The company's invoices (advertising + subscription), newest first — mirrors
  * demoGetInvoices (the /company invoices card + the worker dashboard read
- * this seam). Real mode anchors on the seeded company (ads@buildco.lb — the
- * same fallback prismaCreateCampaign resolves), so self-serve ad purchases
- * show up end-to-end: the WA-YYYY-NNNNN receipt the webhook mints reads back
+ * this seam). Real mode lists the invoices of `ownerUserId` (the signed-in
+ * user — Invoice.userId), or every invoice for an admin view, so self-serve
+ * ad purchases show up end-to-end: the WA-YYYY-NNNNN receipt the webhook mints reads back
  * as a paid advertising invoice, and a refund's VOID flip as the credit note.
  * One extra query batches the campaigns behind advertising invoices for the
  * Arabic description line.
  */
-export async function prismaGetInvoices(): Promise<Invoice[]> {
+export async function prismaGetInvoices(ownerUserId?: string): Promise<Invoice[]> {
   const prisma = getPrisma();
-  const companyUser = await prisma.user.findUnique({
-    where: { email: "ads@buildco.lb" },
-    select: { id: true },
-  });
-  if (!companyUser) return [];
   const rows = await prisma.invoice.findMany({
-    where: { userId: companyUser.id },
+    // The signed-in user's own invoices; no owner (admin views) sees all.
+    where: ownerUserId ? { userId: ownerUserId } : undefined,
     orderBy: { createdAt: "desc" },
     include: { payment: { select: { advertisementId: true } } },
   });

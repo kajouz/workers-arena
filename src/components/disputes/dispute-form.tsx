@@ -278,7 +278,7 @@ export function DisputeTimeline({ dispute }: { dispute: Dispute }) {
                 {msg.sender}
               </Badge>
               <span className="text-xs text-ink-400">{msg.senderName}</span>
-              <span className="ml-auto text-xs text-ink-400">
+              <span className="ms-auto text-xs text-ink-400">
                 {new Date(msg.timestamp).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",

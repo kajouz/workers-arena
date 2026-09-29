@@ -19,6 +19,7 @@ import {
   getReferralStats,
   recordReferral,
   findWorkerByReferralCode,
+  getReferrerOf,
 } from "@/lib/data/referral-store";
 import {
   referrerBonusFor,
@@ -26,8 +27,11 @@ import {
   referralConfig,
   referralLink,
   referralShareMessage,
+  countRewardedReferrals,
+  referrerBonusKey,
+  inviteeBonusKey,
 } from "@/lib/data/referral";
-import { grantCredits } from "@/lib/data/credit-ledger";
+import { grantCredits, listCreditLedger } from "@/lib/data/credit-ledger";
 import { logAdminActivity, ACTION_CODES } from "@/lib/data/activity";
 import { loadActiveFeeRuleSet } from "@/lib/data/fee-rules-store";
 
@@ -184,34 +188,55 @@ export async function applyReferralBonusAction(input: {
     return { ok: false, error: "Only admins can apply referral bonuses." };
   }
 
+  // The pair must be a recorded referral: without this an admin typo (or a
+  // crafted call) pays a "referral" between two unrelated workers.
+  if (!input.inviteeWorkerId || !input.referrerWorkerId) {
+    return { ok: false, error: "Unknown referral." };
+  }
+  const referrerOfInvitee = await getReferrerOf(input.inviteeWorkerId);
+  if (referrerOfInvitee !== input.referrerWorkerId) {
+    return { ok: false, error: "This worker was not referred by that referrer." };
+  }
+
   try {
     const ruleSet = await loadActiveFeeRuleSet();
     const config = referralConfig(ruleSet);
 
-    // Compute bonuses
-    const referrerResult = referrerBonusFor(config, 0, 0); // TODO: pass real counts
+    // Caps are checked against the bonuses the referrer has already been paid.
+    const referrerKey = referrerBonusKey(input.inviteeWorkerId);
+    const referrerLedger = await listCreditLedger(10_000, input.referrerWorkerId);
+    const alreadyPaidReferrer = referrerLedger.some((e) => e.promotionId === referrerKey);
+    const counts = countRewardedReferrals(referrerLedger);
+    const referrerResult = referrerBonusFor(config, counts.monthly, counts.lifetime);
     const inviteeResult = inviteeBonusFor(config);
 
     let referrerGranted = 0;
     let inviteeGranted = 0;
 
-    // Grant referrer bonus
-    if (referrerResult.granted && referrerResult.amount > 0) {
+    // Grant referrer bonus — once per invitee (the ledger key makes a repeat
+    // a no-op, and a repeat must not be refused by a cap it filled itself).
+    if (!alreadyPaidReferrer && referrerResult.granted && referrerResult.amount > 0) {
       await grantCredits({
         workerId: input.referrerWorkerId,
         amount: referrerResult.amount,
         reason: `Referral bonus — referred worker completed qualifying action`,
+        promotionId: referrerKey,
         createdBy: "referral-system",
       });
       referrerGranted = referrerResult.amount;
     }
 
-    // Grant invitee bonus
-    if (inviteeResult.granted && inviteeResult.amount > 0) {
+    // Grant invitee bonus — once ever.
+    const inviteeKey = inviteeBonusKey(input.inviteeWorkerId);
+    const alreadyPaidInvitee = (await listCreditLedger(10_000, input.inviteeWorkerId)).some(
+      (e) => e.promotionId === inviteeKey
+    );
+    if (!alreadyPaidInvitee && inviteeResult.granted && inviteeResult.amount > 0) {
       await grantCredits({
         workerId: input.inviteeWorkerId,
         amount: inviteeResult.amount,
         reason: `Welcome bonus — signed up via referral`,
+        promotionId: inviteeKey,
         createdBy: "referral-system",
       });
       inviteeGranted = inviteeResult.amount;

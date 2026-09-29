@@ -287,8 +287,8 @@ export function RevenueSettingsDashboard() {
                   >
                     <span
                       className={cn(
-                        "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow",
-                        stream.enabled && "translate-x-6"
+                        "absolute top-0.5 start-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow",
+                        stream.enabled && "translate-x-6 rtl:-translate-x-6"
                       )}
                     />
                   </button>
@@ -323,14 +323,15 @@ export function RevenueSettingsDashboard() {
                           >
                             <span
                               className={cn(
-                                "absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform",
-                                value && "translate-x-5"
+                                "absolute top-0.5 start-0.5 w-4 h-4 bg-white rounded-full transition-transform",
+                                value && "translate-x-5 rtl:-translate-x-5"
                               )}
                             />
                           </button>
                         ) : typeof value === "number" ? (
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={value}
                             onChange={(e) => handleUpdateSettings(stream.id, {
                               ...stream.settings,

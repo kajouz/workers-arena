@@ -223,8 +223,8 @@ export function PlatformSettings() {
                             )}
                           >
                             <span className={cn(
-                              "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform",
-                              Boolean(setting.value) && "translate-x-5"
+                              "absolute top-0.5 start-0.5 w-5 h-5 bg-white rounded-full transition-transform",
+                              Boolean(setting.value) && "translate-x-5 rtl:-translate-x-5"
                             )} />
                           </button>
                         )}
@@ -239,6 +239,7 @@ export function PlatformSettings() {
                         {setting.type === "number" && (
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={setting.value as number}
                             onChange={(e) => handleSettingChange(section.id, setting.id, Number(e.target.value))}
                             className="w-32 px-3 py-2 border border-ink-200 dark:border-ink-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

@@ -120,6 +120,7 @@ function OpenClaim({ claim }: { claim: GuaranteeClaim }) {
         <div className="flex items-center gap-1">
           <Input
             type="number"
+            inputMode="decimal"
             min={1}
             max={claim.coverMinor / 100}
             step="0.01"

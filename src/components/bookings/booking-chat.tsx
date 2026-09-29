@@ -283,8 +283,8 @@ export function BookingChat({
                     className={cn(
                       "max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed",
                       mine
-                        ? "rounded-br-md bg-brand-600 text-white dark:bg-brand-500"
-                        : "rounded-bl-md bg-ink-100 text-ink-800 dark:bg-ink-800 dark:text-ink-100"
+                        ? "rounded-ee-md bg-brand-600 text-white dark:bg-brand-500"
+                        : "rounded-es-md bg-ink-100 text-ink-800 dark:bg-ink-800 dark:text-ink-100"
                     )}
                   >
                     <p className="whitespace-pre-wrap break-words">{m.text}</p>

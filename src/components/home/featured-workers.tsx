@@ -24,9 +24,11 @@ export function FeaturedWorkers({ workers }: { workers: Worker[] }) {
           actionHref="/search"
           dir={dir}
         />
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Compact rows on phones: the full cards stacked one per row made
+            this section two phone screens tall on its own. */}
+        <div className="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
           {workers.map((w, i) => (
-            <WorkerCard key={w.id} worker={w} index={i} />
+            <WorkerCard key={w.id} worker={w} index={i} compact />
           ))}
         </div>
 

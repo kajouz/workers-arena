@@ -115,6 +115,47 @@ export function referrerBonusFor(
 }
 
 /**
+ * Ledger keys for referral grants. Each goes in the credit ledger's
+ * `promotionId`, whose (worker, promotionId) uniqueness makes a grant
+ * once-only: applying the same referral twice pays nobody twice.
+ * The referrer's key names the invitee (one bonus per person referred), and
+ * the invitee's key is theirs alone (a worker can only be referred once).
+ */
+export const REFERRER_BONUS_PREFIX = "referral:";
+export const INVITEE_BONUS_PREFIX = "referral-welcome:";
+
+export function referrerBonusKey(inviteeWorkerId: string): string {
+  return `${REFERRER_BONUS_PREFIX}${inviteeWorkerId}`;
+}
+
+export function inviteeBonusKey(inviteeWorkerId: string): string {
+  return `${INVITEE_BONUS_PREFIX}${inviteeWorkerId}`;
+}
+
+/**
+ * Count the referral bonuses a referrer has already been paid — the numbers
+ * the monthly and lifetime caps are checked against. Pure. Counted from the
+ * ledger rather than from signups: a cap limits what is paid out, and a
+ * referral that never qualified has cost nothing. The month is the UTC
+ * calendar month of `now`.
+ */
+export function countRewardedReferrals(
+  entries: ReadonlyArray<{ kind: string; amount: number; promotionId?: string; createdAt: string }>,
+  now: Date = new Date()
+): { monthly: number; lifetime: number } {
+  const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+  let monthly = 0;
+  let lifetime = 0;
+  for (const e of entries) {
+    if (e.kind !== "grant" || e.amount <= 0) continue;
+    if (!e.promotionId?.startsWith(REFERRER_BONUS_PREFIX)) continue;
+    lifetime += 1;
+    if (Date.parse(e.createdAt) >= monthStart) monthly += 1;
+  }
+  return { monthly, lifetime };
+}
+
+/**
  * Compute the invitee's welcome bonus. Pure.
  */
 export function inviteeBonusFor(config: ReferralProgramConfig): ReferralGrantResult {

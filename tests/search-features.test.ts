@@ -190,7 +190,7 @@ describe("Results grid (virtual scrolling removed — see 2cf9d22)", () => {
     // The broken virtualizer was removed; results render in a plain grid.
     expect(content).not.toContain("@tanstack/react-virtual");
     expect(content).not.toContain("useVirtualizer");
-    expect(content).toContain("sm:grid-cols-2 xl:grid-cols-3");
+    expect(content).toMatch(/grid [^"]*sm:grid-cols-2 [^"]*xl:grid-cols-3/);
   });
 
   it("search-client keeps infinite scroll (sentinel + useInfiniteScroll)", async () => {

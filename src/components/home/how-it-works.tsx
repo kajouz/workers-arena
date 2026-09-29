@@ -15,7 +15,7 @@ export function HowItWorks() {
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:px-8">
       <SectionHeading eyebrow="✦" title={t("how.title")} subtitle={t("how.subtitle")} dir={dir} />
-      <div className="relative grid gap-6 md:grid-cols-3">
+      <div className="relative grid gap-4 md:grid-cols-3 md:gap-6">
         <div className="absolute inset-x-16 top-10 hidden h-px bg-gradient-to-r from-transparent via-brand-400/50 to-transparent md:block" aria-hidden />
         {[0, 1, 2].map((i) => {
           const Icon = icons[i];
@@ -26,22 +26,23 @@ export function HowItWorks() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-60px" }}
               transition={{ duration: 0.5, delay: i * 0.12 }}
-              className="relative rounded-3xl border border-ink-200/80 bg-white p-7 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-lift dark:border-ink-800 dark:bg-ink-900"
+              // Phones: icon beside the text in a shorter card; md: up, stacked.
+              className="relative grid grid-cols-[auto_1fr] gap-x-4 rounded-3xl border border-ink-200/80 bg-white p-5 shadow-soft md:block md:p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-lift dark:border-ink-800 dark:bg-ink-900"
             >
               <span
-                className="relative z-10 flex size-14 items-center justify-center rounded-2xl text-white shadow-soft"
+                className="relative z-10 row-span-2 flex size-12 items-center justify-center rounded-2xl text-white shadow-soft md:size-14"
                 style={{ background: `linear-gradient(135deg, hsl(${hues[i]} 70% 55%), hsl(${(hues[i] + 35) % 360} 72% 42%))` }}
               >
                 <Icon className="size-6" />
               </span>
-              <span className="absolute end-5 top-5 text-5xl font-black text-ink-100 dark:text-ink-800">
+              <span className="absolute end-5 top-5 hidden text-5xl font-black md:block text-ink-100 dark:text-ink-800">
                 0{i + 1}
               </span>
-              <h3 className="mt-5 text-lg font-bold text-ink-900 dark:text-ink-50">
+              <h3 className="text-lg font-bold md:mt-5 text-ink-900 dark:text-ink-50">
                 {t(`how.${STEPS[i * 2]}`)}
               </h3>
               {/* 16px on phones, denser from sm: up (audit finding). */}
-              <p className="mt-2 text-base leading-relaxed text-ink-500 sm:text-sm dark:text-ink-400">
+              <p className="mt-1 text-base leading-relaxed md:mt-2 text-ink-500 sm:text-sm dark:text-ink-400">
                 {t(`how.${STEPS[i * 2 + 1]}`)}
               </p>
             </motion.div>

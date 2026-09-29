@@ -10,7 +10,12 @@
  * whom, counting referrals, and recording credit grants.
  */
 
-import { generateReferralCode, type ReferralStats, computeReferralStats } from "./referral";
+import {
+  generateReferralCode,
+  type ReferralStats,
+  computeReferralStats,
+  REFERRER_BONUS_PREFIX,
+} from "./referral";
 
 /* ──────────────────────────────── Demo Store ──────────────────────────────── */
 
@@ -164,6 +169,33 @@ export async function recordReferral(input: {
 }
 
 /**
+ * The worker who referred `inviteeWorkerId`, or null when nobody did.
+ */
+export async function getReferrerOf(inviteeWorkerId: string): Promise<string | null> {
+  const isReal = process.env.DEMO_MODE === "false" && Boolean(process.env.DATABASE_URL);
+
+  if (isReal) {
+    const { getPrisma } = await import("@/lib/server/prisma");
+    const prisma = getPrisma();
+    const invitee = await (prisma as any).worker.findUnique({
+      where: { id: inviteeWorkerId },
+      select: { referredByWorkerId: true },
+    });
+    return invitee?.referredByWorkerId ?? null;
+  }
+
+  // Demo mode
+  const row = demoReferrals.find((r) => r.inviteeWorkerId === inviteeWorkerId);
+  return row?.referrerWorkerId ?? null;
+}
+
+/** Reset the demo referral store (tests). */
+export function resetReferralStore(): void {
+  demoReferrals.length = 0;
+  demoNextId = 1;
+}
+
+/**
  * Get referral stats for a worker.
  */
 export async function getReferralStats(workerId: string): Promise<ReferralStats> {
@@ -196,7 +228,7 @@ export async function getReferralStats(workerId: string): Promise<ReferralStats>
     const referralGrants = await (prisma as any).workerCreditEntry.findMany({
       where: {
         workerId,
-        reason: { contains: "referral" },
+        promotionId: { startsWith: REFERRER_BONUS_PREFIX },
         kind: "grant",
       },
     });

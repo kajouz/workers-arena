@@ -175,7 +175,7 @@ export function DateRangePicker({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-80 bg-white dark:bg-ink-900 rounded-xl shadow-xl border border-ink-200 dark:border-ink-800 z-50">
+        <div className="absolute top-full start-0 mt-2 w-80 bg-white dark:bg-ink-900 rounded-xl shadow-xl border border-ink-200 dark:border-ink-800 z-50">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b">
             <div className="flex items-center gap-2">
@@ -259,8 +259,8 @@ export function DateRangePicker({
                   onClick={() => handleDayClick(day)}
                   className={cn(
                     "h-8 w-8 text-sm rounded-full flex items-center justify-center",
-                    isStart(day) && "bg-blue-600 text-white rounded-r-none",
-                    isEnd(day) && "bg-blue-600 text-white rounded-l-none",
+                    isStart(day) && "bg-blue-600 text-white rounded-e-none",
+                    isEnd(day) && "bg-blue-600 text-white rounded-s-none",
                     isInRange(day) && !isStart(day) && !isEnd(day) && "bg-blue-100",
                     !isInRange(day) && !isStart(day) && !isEnd(day) && "hover:bg-ink-100 dark:hover:bg-ink-800"
                   )}

@@ -84,6 +84,7 @@ function MapVisualization({
         {[...Array(10)].map((_, i) => (
           <div
             key={`v-${i}`}
+            // eslint-disable-next-line no-restricted-syntax -- map grid line, placed by a physical left: n%
             className="absolute h-full border-l border-blue-300"
             style={{ left: `${(i + 1) * 10}%` }}
           />
@@ -91,7 +92,7 @@ function MapVisualization({
       </div>
 
       {/* Map label */}
-      <div className="absolute left-3 top-3 z-10 rounded-lg bg-white/80 px-2 py-1 text-[10px] font-semibold text-ink-600 backdrop-blur-sm dark:bg-ink-900/80 dark:text-ink-300">
+      <div className="absolute start-3 top-3 z-10 rounded-lg bg-white/80 px-2 py-1 text-[10px] font-semibold text-ink-600 backdrop-blur-sm dark:bg-ink-900/80 dark:text-ink-300">
         🌍 MENA Region Overview
       </div>
 
@@ -134,7 +135,7 @@ function MapVisualization({
       ))}
 
       {/* Legend */}
-      <div className="absolute bottom-3 right-3 z-10 rounded-lg bg-white/80 p-2 backdrop-blur-sm dark:bg-ink-900/80">
+      <div className="absolute bottom-3 end-3 z-10 rounded-lg bg-white/80 p-2 backdrop-blur-sm dark:bg-ink-900/80">
         <p className="mb-1 text-[9px] font-semibold text-ink-500">Worker Density</p>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
@@ -223,7 +224,7 @@ export function GeoHeatmap({
           <div className="flex rounded-lg border border-ink-200 dark:border-ink-700">
             <button
               onClick={() => setViewMode("map")}
-              className={`rounded-l-lg px-2 py-1 text-[10px] transition-colors ${
+              className={`rounded-s-lg px-2 py-1 text-[10px] transition-colors ${
                 viewMode === "map"
                   ? "bg-brand-700 text-white"
                   : "text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-800"
@@ -233,7 +234,7 @@ export function GeoHeatmap({
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`rounded-r-lg px-2 py-1 text-[10px] transition-colors ${
+              className={`rounded-e-lg px-2 py-1 text-[10px] transition-colors ${
                 viewMode === "list"
                   ? "bg-brand-700 text-white"
                   : "text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-800"

@@ -396,6 +396,7 @@ export default function ChatBox({
             <span className="text-xs text-ink-500">{t("chat.quote")}:</span>
             <input
               type="number"
+              inputMode="decimal"
               value={quoteAmount}
               onChange={(e) => setQuoteAmount(e.target.value)}
               placeholder="0.00"

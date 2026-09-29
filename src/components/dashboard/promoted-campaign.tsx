@@ -192,6 +192,7 @@ export function PromotedCampaignCard() {
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 value={campaign.maxCpc}
                 onChange={(e) => setCampaign({
                   ...campaign,
@@ -210,6 +211,7 @@ export function PromotedCampaignCard() {
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 value={campaign.dailyBudget}
                 onChange={(e) => setCampaign({
                   ...campaign,
