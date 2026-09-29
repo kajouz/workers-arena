@@ -162,7 +162,7 @@ export function WorkerCard({
               </h3>
               {/* Phone body copy is 16px (audit finding: the tagline and bio
                   were 12-14px); `sm:` restores the denser desktop scale. */}
-              <p className={cn("clamp-1 text-base font-medium text-ink-500 sm:text-xs dark:text-ink-400", compact && "text-sm")}>
+              <p className="clamp-1 text-base font-medium text-ink-500 sm:text-xs dark:text-ink-400">
                 {locale === "ar" ? cat?.nameAr : cat?.nameEn} · {locale === "ar" ? cat?.taglineAr : cat?.taglineEn}
               </p>
             </div>
