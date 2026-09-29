@@ -6,6 +6,7 @@ import {
   crossLandingSearchHref,
   indexVerdict,
   rankPairsBySupply,
+  servedLandings,
   type CrossLandingInput,
 } from "../src/lib/data/cross-landing";
 
@@ -137,5 +138,49 @@ describe("crossLandingSearchHref", () => {
     expect(
       crossLandingSearchHref({ categorySlug: "plumbing", citySlug: "beirut", areaSlug: "achrafieh" })
     ).toBe("/search?category=plumbing&city=beirut&area=achrafieh");
+  });
+});
+
+describe("trade × area pages", () => {
+  const area = { slug: "achrafieh", nameEn: "Achrafieh", nameAr: "الأشرفية" };
+
+  it("adds the area to the path", () => {
+    expect(crossLandingPath("en", "plumbing", "beirut", "achrafieh")).toBe("/en/trades/plumbing/beirut/achrafieh");
+  });
+
+  it("names the area in the heading and keeps the city in the address line", () => {
+    const en = crossLandingCopy(input({ area }));
+    expect(en.heading).toBe("plumber in Achrafieh");
+    expect(en.intro).toContain("3 plumbers available in Achrafieh");
+    expect(en.description).toContain("Achrafieh, Beirut, Lebanon");
+    expect(en.areasHeading).toBe("Other areas of Beirut");
+
+    const ar = crossLandingCopy(input({ area, locale: "ar" }));
+    expect(ar.heading).toBe("سباك في الأشرفية");
+    expect(ar.description).toContain("الأشرفية، بيروت، لبنان");
+  });
+
+  it("leaves the city page's copy unchanged", () => {
+    const copy = crossLandingCopy(input());
+    expect(copy.description).toContain("Beirut, Lebanon");
+    expect(copy.areasHeading).toBe("Areas of Beirut we cover");
+  });
+});
+
+describe("servedLandings", () => {
+  it("counts every worker per pair and per area, not one search page", () => {
+    const workers = Array.from({ length: 12 }, (_, i) => ({
+      categorySlug: "plumbing",
+      citySlug: "beirut",
+      areaSlug: i < 10 ? "achrafieh" : "hamra",
+    }));
+    workers.push({ categorySlug: "electrical", citySlug: "tripoli", areaSlug: "" });
+    const { pairs, triples } = servedLandings(workers);
+    expect(pairs.get("plumbing/beirut")).toBe(12);
+    expect(pairs.get("electrical/tripoli")).toBe(1);
+    expect(triples.get("plumbing/beirut/achrafieh")).toBe(10);
+    expect(triples.get("plumbing/beirut/hamra")).toBe(2);
+    // A worker with no area counts for the city page only.
+    expect([...triples.keys()].some((k) => k.startsWith("electrical/"))).toBe(false);
   });
 });

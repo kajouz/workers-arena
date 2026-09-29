@@ -1,5 +1,14 @@
 import type { MetadataRoute } from "next";
-import { getWorkers, getCategories, getCities } from "@/lib/data/repo";
+import { getAllWorkers, getCategories, getCities } from "@/lib/data/repo";
+import { servedLandings } from "@/lib/data/cross-landing";
+import type { Worker } from "@/lib/data/types";
+import { cityBySlug } from "@/lib/data/cities";
+
+/** `trade/city/area` names an area its city lists (the area page 404s otherwise). */
+function isKnownArea(triple: string): boolean {
+  const [, city, area] = triple.split("/");
+  return Boolean(cityBySlug(city)?.areas.some((a) => a.slug === area));
+}
 import { locales, defaultLocale } from "@/lib/i18n/config";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://workers-arena.vercel.app";
@@ -45,10 +54,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...forEachLocale("/faq", { lastModified: now, changeFrequency: "monthly", priority: 0.6 }),
   ];
 
+  // Every listed worker, read once. (This used to be a search read, which is one
+  // page of nine — every profile after the ninth was missing from the sitemap.)
+  let workers: Worker[] = [];
+  try {
+    workers = await getAllWorkers();
+  } catch (error) {
+    console.error("Failed to read workers for the sitemap:", error);
+  }
+
   let workerPages: MetadataRoute.Sitemap = [];
   try {
-    const workers = await getWorkers({});
-    workerPages = workers.items.flatMap((worker) =>
+    workerPages = workers.flatMap((worker) =>
       forEachLocale(`/workers/${worker.slug}`, {
         lastModified: now,
         changeFrequency: "weekly",
@@ -96,7 +113,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   /**
-   * Trade × city landing pages — submitted only for the pairs that have supply
+   * Trade × city and trade × area landing pages — submitted only for the ones that have supply
    * (docs/seo-cross-landing.md). A sitemap is a promise that a URL answers the
    * query it is named after; listing an empty pair is exactly the thin content
    * its own `noindex` refuses to publish. The pairs are derived from the workers
@@ -104,16 +121,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
    */
   let crossPages: MetadataRoute.Sitemap = [];
   try {
-    const workers = await getWorkers({});
-    const served = new Set(workers.items.map((w) => `${w.categorySlug}/${w.citySlug}`));
-    crossPages = [...served].sort().flatMap((pair) => {
-      const [trade, city] = pair.split("/");
-      return forEachLocale(`/trades/${trade}/${city}`, {
-        lastModified: now,
-        changeFrequency: "weekly",
-        priority: 0.7,
-      });
-    });
+    const { pairs, triples } = servedLandings(workers);
+    crossPages = [
+      ...[...pairs.keys()].sort().flatMap((pair) =>
+        forEachLocale(`/trades/${pair}`, { lastModified: now, changeFrequency: "weekly", priority: 0.7 })
+      ),
+      // Only areas the city actually lists — anything else is a 404 route.
+      ...[...triples.keys()].filter(isKnownArea).sort().flatMap((triple) =>
+        forEachLocale(`/trades/${triple}`, { lastModified: now, changeFrequency: "weekly", priority: 0.6 })
+      ),
+    ];
   } catch (error) {
     console.error("Failed to generate trade-city sitemap:", error);
   }
