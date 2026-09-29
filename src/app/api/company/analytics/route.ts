@@ -8,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const campaigns = await getCampaigns();
+  const campaigns = await getCampaigns(session.role === "company" ? session.id : undefined);
   
   // Calculate ROI metrics
   const totalImpressions = campaigns.reduce((s, c) => s + c.impressions, 0);

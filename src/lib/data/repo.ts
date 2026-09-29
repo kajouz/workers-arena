@@ -511,8 +511,10 @@ export async function getActiveWorkersCount(): Promise<number> {
  * All campaigns, newest first — demo store or the prisma AdCampaign rows in
  * real mode (placement/type/impressions derive from the campaign's ads).
  */
-export async function getCampaigns(): Promise<Campaign[]> {
-  if (realDataEnabled) return (await prismaRepo()).prismaGetCampaigns();
+/** `ownerUserId` scopes real mode to one company's campaigns (the session
+ * user); omit it for admin views. Demo mode is single-company and ignores it. */
+export async function getCampaigns(ownerUserId?: string): Promise<Campaign[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetCampaigns(ownerUserId);
   return demoGetCampaigns();
 }
 
@@ -634,8 +636,10 @@ export async function recordClick(campaignId: string): Promise<Campaign | null> 
  * (prismaGetInvoices — the self-serve purchase receipts + their credit-note
  * VOIDs read back here). The /company page filters to advertising.
  */
-export async function getInvoices(): Promise<Invoice[]> {
-  if (realDataEnabled) return (await prismaRepo()).prismaGetInvoices();
+/** `ownerUserId` scopes real mode to one user's invoices (the session user);
+ * omit it for admin views. Demo mode ignores it. */
+export async function getInvoices(ownerUserId?: string): Promise<Invoice[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetInvoices(ownerUserId);
   return demoGetInvoices();
 }
 

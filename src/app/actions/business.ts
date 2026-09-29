@@ -30,7 +30,7 @@ import { sanitizeText } from "@/lib/security";
 import type { Campaign } from "@/lib/data/types";
 import { dispatchWhatsApp } from "@/lib/notifications/dispatcher";
 import { appBaseUrl } from "@/lib/notifications/config";
-import { getWorkerById, getWorkerByUserId } from "@/lib/data/repo";
+import { getCampaigns, getWorkerById, getWorkerByUserId } from "@/lib/data/repo";
 import { getSessionWorker } from "@/lib/data/authz";
 import { payPurchaseFromWallet } from "@/lib/data/wallet-payments";
 import { recordSubscriptionEvent } from "@/lib/data/subscription-lifecycle-store";
@@ -75,7 +75,9 @@ export async function createCampaignAction(
   // is redirected to the hosted checkout — it only goes live once the payment
   // webhook confirms (confirmCampaignPayment flips it to ACTIVE). In real mode
   // session.id resolves the Company row (Company.userId); demo mode ignores it.
-  const created = await createCampaign({ ...cleanCampaign, companyId: session.id });
+  // An admin has no Company row of its own and buys on the platform company.
+  const companyId = session.role === "company" ? session.id : undefined;
+  const created = await createCampaign({ ...cleanCampaign, companyId });
   if (!created) return { error: "checkout" };
   revalidatePath("/company");
   revalidatePath("/");
@@ -100,6 +102,10 @@ export async function payCampaignAction(
   const session = await getSession();
   if (!session || (session.role !== "company" && session.role !== "admin")) {
     return { ok: false, error: "invalid" };
+  }
+  // A company can only pay for its own campaign.
+  if (session.role === "company" && !(await getCampaigns(session.id)).some((c) => c.id === campaignId)) {
+    return { ok: false, error: "not-found" };
   }
   const provider = parsed.data === "omt" ? "OMT" : parsed.data === "whish" ? "WHISH" : "STRIPE";
   const checkout = await createCampaignCheckout(campaignId, provider);

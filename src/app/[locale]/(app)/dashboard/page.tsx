@@ -49,7 +49,7 @@ export default async function DashboardPage() {
   const worker = await getSessionWorker(session);
   if (!worker) return await localeRedirect("/dashboard/onboarding");
 
-  const [analytics, invoices] = await Promise.all([getAnalyticsOverview(), getInvoices()]);
+  const [analytics, invoices] = await Promise.all([getAnalyticsOverview(), getInvoices(session.id)]);
 
   const demoWorker = worker;
   // Worker-facing invoices: subscription renewals only (advertising invoices
