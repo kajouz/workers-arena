@@ -47,7 +47,8 @@ async function handlePost(request: Request) {
   const [offers, refunds, bookings, pendingPayments, whatsappHealth, failedDeliveries, workers] = await Promise.all([
     listLeadOffers(2000),
     listLeadRefunds(),
-    getAllBookings(),
+    // Only this week's bookings are counted below.
+    getAllBookings({ activeSince: new Date(nowMs - 7 * 86_400_000) }),
     getPendingManualPayments(),
     getWhatsAppDeliveryHealth(),
     getWhatsAppDeliveries({ status: "failed", limit: 10 }),

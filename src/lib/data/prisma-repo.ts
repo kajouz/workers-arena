@@ -1686,11 +1686,17 @@ export async function prismaGetCustomerBookings(
  * §2.4 admin export — every booking's full event trail (the CSV/PDF trails
  * export on /admin), same include set as the per-booking read (events,
  * service item, M3 receipt) so the combined document matches the dispute
- * view. Production TODO: paginate for very large stores.
+ * view. `activeSince` narrows the read to bookings created or touched (any
+ * event) on or after that time — the recurring digests only look at recent
+ * weeks and should not load the whole table each run.
  */
-export async function prismaGetAllBookings(): Promise<Booking[]> {
+export async function prismaGetAllBookings(opts: { activeSince?: Date } = {}): Promise<Booking[]> {
   const prisma = getPrisma();
+  const since = opts.activeSince;
   const rows = await prisma.booking.findMany({
+    where: since
+      ? { OR: [{ createdAt: { gte: since } }, { events: { some: { createdAt: { gte: since } } } }] }
+      : undefined,
     orderBy: { startAt: "asc" },
     include: {
       events: { orderBy: { createdAt: "asc" as const } },

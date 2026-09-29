@@ -1092,11 +1092,15 @@ export async function getChatPresence(bookingId: string): Promise<ChatPresenceSn
  * export on /admin). Demo reads the whole in-memory store; prisma reads all
  * Booking rows with the same include set as the per-booking read (events,
  * service item, M3 receipt) so the combined document matches the dispute
- * view. For very large stores (>10k bookings) callers should paginate upstream.
+ * view. Pass `activeSince` when only recent activity matters: the read is then
+ * limited to bookings created or with any event on or after that time.
  */
-export async function getAllBookings(): Promise<Booking[]> {
-  if (realDataEnabled) return (await prismaRepo()).prismaGetAllBookings();
-  return demoGetAllBookings();
+export async function getAllBookings(opts: { activeSince?: Date } = {}): Promise<Booking[]> {
+  if (realDataEnabled) return (await prismaRepo()).prismaGetAllBookings(opts);
+  const all = demoGetAllBookings();
+  if (!opts.activeSince) return all;
+  const sinceMs = opts.activeSince.getTime();
+  return all.filter((b) => b.events.some((e) => Date.parse(e.time) >= sinceMs));
 }
 
 /**
@@ -1304,7 +1308,7 @@ export async function getWeeklyNumbers(weeks = 8, now = Date.now()): Promise<Wee
     getSettlementReconciliation(days),
     listSubscriptionEvents({ since: new Date(now - days * 86_400_000), limit: 5000 }),
     getAllWorkers(),
-    getAllBookings(),
+    getAllBookings({ activeSince: new Date(now - days * 86_400_000) }),
   ]);
   return weeklyNumbers({ payments, jobs, subscriptionEvents, workers, bookings }, now, weeks);
 }

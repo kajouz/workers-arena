@@ -35,6 +35,7 @@ import {
   prismaConfirmBookingPayment,
   prismaCreateBookingCheckout,
   prismaCreateBookingRequest,
+  prismaGetAllBookings,
   prismaRespondToBooking,
 } from "../src/lib/data/prisma-repo";
 import { getPrisma } from "../src/lib/server/prisma";
@@ -446,5 +447,16 @@ describeLive("prisma booking email chain (live DB → prisma adapter → dispatc
     expect(email.html).toContain("Booking cancelled");
     expect(email.html).toContain("$80"); // quote 8000 minor → 80 major
     expect(email.html).toContain(`/admin/bookings/${created.number}`);
+  });
+});
+
+describeLive("prismaGetAllBookings activeSince window", () => {
+  it("reads everything without a window, nothing for a future one, and a subset for a recent one", async () => {
+    const all = await prismaGetAllBookings();
+    expect(all.length).toBeGreaterThan(0);
+    expect(await prismaGetAllBookings({ activeSince: new Date(0) })).toHaveLength(all.length);
+    expect(await prismaGetAllBookings({ activeSince: new Date(Date.now() + 86_400_000) })).toEqual([]);
+    const recent = await prismaGetAllBookings({ activeSince: new Date(Date.now() - 7 * 86_400_000) });
+    expect(recent.length).toBeLessThanOrEqual(all.length);
   });
 });
