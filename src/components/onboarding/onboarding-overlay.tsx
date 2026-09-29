@@ -205,9 +205,12 @@ function getTooltipPosition(position?: "top" | "bottom" | "left" | "right") {
       return "left-1/2 top-24 -translate-x-1/2";
     case "bottom":
       return "left-1/2 bottom-24 -translate-x-1/2";
+    // "left"/"right" name the screen side the step points at, not reading order.
     case "left":
+      // eslint-disable-next-line no-restricted-syntax
       return "left-8 top-1/2 -translate-y-1/2";
     case "right":
+      // eslint-disable-next-line no-restricted-syntax
       return "right-8 top-1/2 -translate-y-1/2";
     default:
       return "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2";

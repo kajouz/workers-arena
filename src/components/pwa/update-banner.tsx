@@ -124,7 +124,7 @@ export function UpdateBanner({ className }: UpdateBannerProps) {
                 {/* Close button */}
                 <button
                   onClick={handleDismiss}
-                  className="absolute right-2 top-2 rounded-full p-1 text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-600 dark:hover:bg-ink-800 dark:hover:text-ink-300"
+                  className="absolute end-2 top-2 rounded-full p-1 text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-600 dark:hover:bg-ink-800 dark:hover:text-ink-300"
                   aria-label={t("common.close")}
                 >
                   <X className="size-3.5" />

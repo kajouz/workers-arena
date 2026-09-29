@@ -223,8 +223,8 @@ export function PlatformSettings() {
                             )}
                           >
                             <span className={cn(
-                              "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform",
-                              Boolean(setting.value) && "translate-x-5"
+                              "absolute top-0.5 start-0.5 w-5 h-5 bg-white rounded-full transition-transform",
+                              Boolean(setting.value) && "translate-x-5 rtl:-translate-x-5"
                             )} />
                           </button>
                         )}

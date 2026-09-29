@@ -40,7 +40,7 @@ export function WorkerSponsor({ workerCategory, workerCity }: WorkerSponsorProps
   return (
     <Card className="relative overflow-hidden border-2 border-dashed border-orange-400/50 bg-gradient-to-br from-orange-50/50 to-amber-50/50 dark:from-orange-950/30 dark:to-amber-950/30">
       {/* Sponsored Badge */}
-      <div className="absolute top-3 right-3 z-10">
+      <div className="absolute top-3 end-3 z-10">
         <Badge className="bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-lg">
           <Sparkles className="me-1 size-3" />
           {locale === "ar" ? "إعلان ممول" : "Sponsored"}

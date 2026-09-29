@@ -206,7 +206,7 @@ export function VerificationPanel({ userId }: { userId: string }) {
               <ch.icon className="size-4" />
               <span className="hidden sm:inline">{ch.label}</span>
               {verified && (
-                <CheckCircle2 className="ml-auto size-4 text-emerald-500" />
+                <CheckCircle2 className="ms-auto size-4 text-emerald-500" />
               )}
             </button>
           );

@@ -165,7 +165,7 @@ export function TooltipTour({
             {/* Close */}
             <button
               onClick={complete}
-              className="absolute right-3 top-3 rounded-md p-1 text-ink-400 hover:text-ink-600 dark:hover:text-ink-200"
+              className="absolute end-3 top-3 rounded-md p-1 text-ink-400 hover:text-ink-600 dark:hover:text-ink-200"
               aria-label="Dismiss tour"
             >
               <X className="size-4" />

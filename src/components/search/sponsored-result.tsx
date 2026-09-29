@@ -57,7 +57,7 @@ export function SponsoredSearchResult({
       borderClass
     )}>
       {/* Sponsored Badge */}
-      <div className="absolute top-3 right-3 z-10">
+      <div className="absolute top-3 end-3 z-10">
         <Badge className="bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white shadow-lg">
           <Sparkles className="me-1 size-3" />
           {t("featured.sponsored")}

@@ -550,7 +550,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
               </div>
               <button
                 onClick={() => setSelectedInvoices(new Set())}
-                className="ml-auto text-ink-400 hover:text-ink-600"
+                className="ms-auto text-ink-400 hover:text-ink-600"
               >
                 <X className="size-4" />
               </button>
@@ -562,7 +562,7 @@ export function InvoiceManagement({ locale = "en" }: { locale?: string }) {
       {/* Filters */}
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 sm:w-64">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" />
           <input
             type="text"
             placeholder="Search invoices..."

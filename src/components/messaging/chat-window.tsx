@@ -184,8 +184,8 @@ export function ChatWindow({
                       className={cn(
                         "max-w-[70%] rounded-2xl px-4 py-2.5",
                         isOwn
-                          ? "bg-brand-700 text-white rounded-br-md"
-                          : "bg-ink-100 text-ink-900 rounded-bl-md dark:bg-ink-800 dark:text-ink-50"
+                          ? "bg-brand-700 text-white rounded-ee-md"
+                          : "bg-ink-100 text-ink-900 rounded-es-md dark:bg-ink-800 dark:text-ink-50"
                       )}
                     >
                       <p className="text-sm whitespace-pre-wrap">{message.text}</p>

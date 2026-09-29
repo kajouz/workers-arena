@@ -383,8 +383,8 @@ export function BrandingPackage() {
                 >
                   <span
                     className={cn(
-                      "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-                      feature.enabled && "translate-x-5"
+                      "absolute start-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                      feature.enabled && "translate-x-5 rtl:-translate-x-5"
                     )}
                   />
                 </button>
@@ -608,7 +608,7 @@ export function BrandingPackage() {
             </button>
           </div>
           <div className="relative rounded-lg border-2 border-brand-500 bg-white dark:bg-ink-900 p-4">
-            <span className="absolute -top-2.5 left-4 rounded-full bg-brand-500 px-2 py-0.5 text-xs font-bold text-white">
+            <span className="absolute -top-2.5 start-4 rounded-full bg-brand-500 px-2 py-0.5 text-xs font-bold text-white">
               Popular
             </span>
             <h4 className="font-semibold text-ink-900 dark:text-ink-50">Social Pro</h4>
