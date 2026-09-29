@@ -46,15 +46,18 @@ export function Testimonials() {
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20 lg:px-8">
       <SectionHeading eyebrow="★★★★★" title={t("testimonials.title")} subtitle={t("testimonials.subtitle")} dir={dir} />
-      <div className="grid gap-6 md:grid-cols-3">
+      {/* Phones: a swipeable row (one quote and the edge of the next) instead
+          of three stacked cards; from md: the three-column grid. */}
+      <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:px-0 md:pb-0">
         {TESTIMONIALS.map((item, i) => (
           <motion.figure
             key={item.name}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
+            // Vertical margin only: the next quote peeks ~50px in from the edge on phones, and must show.
+            viewport={{ once: true, margin: "-60px 0px" }}
             transition={{ duration: 0.45, delay: i * 0.1 }}
-            className="relative flex flex-col rounded-3xl border border-ink-200/80 bg-white p-7 shadow-soft transition-shadow hover:shadow-lift dark:border-ink-800 dark:bg-ink-900"
+            className="relative flex w-[85%] shrink-0 snap-center flex-col rounded-3xl border border-ink-200/80 bg-white p-6 shadow-soft md:w-auto md:p-7 transition-shadow hover:shadow-lift dark:border-ink-800 dark:bg-ink-900"
           >
             <Quote className="absolute end-6 top-6 size-10 text-brand-500/15" />
             <Rating value={item.rating} />
