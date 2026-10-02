@@ -22,9 +22,12 @@ export const dynamic = "force-dynamic";
  *          decides). The handler ALWAYS answers 200 for recognized payloads so
  *          Meta doesn't redrive a dead letter forever.
  *
- * Security: when WHATSAPP_APP_SECRET is configured, the `X-Hub-Signature-256`
- * header is verified (HMAC-SHA256 over the raw body, constant-time compare)
- * and mismatches are rejected with 401 before parsing.
+ * Security: the `X-Hub-Signature-256` header is verified against
+ * WHATSAPP_APP_SECRET (HMAC-SHA256 over the raw body, constant-time compare)
+ * and mismatches are rejected with 401 before parsing. FAIL-CLOSED: in
+ * production a missing secret rejects every POST with 503 — an unsigned
+ * endpoint would let anyone forge delivery statuses into the ledger. Outside
+ * production (dev, tests) an unset secret skips the check.
  *
  * Environment (docs/DEPLOYMENT.md):
  *   WHATSAPP_VERIFY_TOKEN — the value pasted into Meta's webhook config
@@ -77,8 +80,12 @@ export async function GET(req: Request): Promise<Response> {
 export async function POST(req: Request): Promise<Response> {
   const raw = await req.text();
 
-  // Signature check — only enforced when the app secret is configured.
+  // Signature check — fail-closed in production: no secret, no ingestion.
   const secret = process.env.WHATSAPP_APP_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    console.error("[whatsapp-webhook] WHATSAPP_APP_SECRET is not set — refusing unsigned status callbacks");
+    return NextResponse.json({ error: "webhook not configured" }, { status: 503 });
+  }
   if (secret && !verifySignature(raw, req.headers.get("x-hub-signature-256"), secret)) {
     return NextResponse.json({ error: "invalid signature" }, { status: 401 });
   }

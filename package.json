@@ -36,7 +36,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "db:smoke": "tsx scripts/smoke-prisma.ts",
+    "db:smoke": "tsx scripts/smoke-prisma.ts && tsx scripts/smoke-payment-workflow.ts",
     "db:seed-surge": "tsx scripts/seed-surge-report.ts",
     "test:e2e:playwright": "npx playwright test",
     "smoke:preview": "node scripts/smoke-preview.mjs",

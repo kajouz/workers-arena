@@ -99,6 +99,7 @@ function origin(): string {
   return process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
 }
 import { distanceKm, isOpenNow, type CurrencyCode } from "@/lib/utils";
+import { claimInvoiceNumber } from "./invoice-numbering";
 import { normalize as searchNormalize, distanceBoostKm, freeListingRank, radiusCenter, scoreWorkerQuery } from "./search";
 import {
   BOOKING_COMPLETION_CONFIRM_GRACE_HOURS,
@@ -112,6 +113,7 @@ import {
   QUOTE_SLA_MS,
   bookingCancelRefundDue,
   formatInvoiceNumber,
+  PURCHASE_SCOPES,
   formatQuoteNumber,
   emptyBookingFunnelCounts,
   bookingConversionRate,
@@ -1785,10 +1787,10 @@ function toDomainLedgerEntry(row: {
 
 /**
  * Credit a completed booking's net earnings (quote − platform fee, PLUS any
- * §11 lead rebate) inside the transition tx. Idempotent via
- * @@unique([bookingId]): a concurrent or redelivered completion's insert hits
- * P2002 and is swallowed — the tx still commits, the worker is never
- * double-credited.
+ * §11 lead rebate) inside the transition tx. Idempotent via the ledger's
+ * unique creditKey (`earning:<bookingId>` / `topup:<bookingId>:<target>`),
+ * inserted with ON CONFLICT DO NOTHING: a concurrent or redelivered completion
+ * inserts nothing, the tx still commits, the worker is never double-credited.
  *
  * The rebate is resolved INSIDE the transaction, from the purchased offer read
  * with the same client: attribution and money move together, so a job can never
@@ -1865,18 +1867,24 @@ async function creditEarningsInTx(
   const target = settlement.workerNetTargetMinor + (rebate?.creditMinor ?? 0);
   const amount = target - already;
   if (amount <= 0) return; // nothing collected yet, or already fully credited
-  try {
-    const sum = await tx.workerLedgerEntry.aggregate({
-      where: { workerId: row.workerId, status: { in: ["POSTED", "PROCESSED"] } },
-      _sum: { amount: true },
-    });
-    const balance = sum._sum.amount ?? 0;
-    await tx.workerLedgerEntry.create({
-      data: {
+  const sum = await tx.workerLedgerEntry.aggregate({
+    where: { workerId: row.workerId, status: { in: ["POSTED", "PROCESSED"] } },
+    _sum: { amount: true },
+  });
+  const balance = sum._sum.amount ?? 0;
+  // Idempotency rides the credit key, and the insert is ON CONFLICT DO NOTHING
+  // (createMany + skipDuplicates): a duplicate never raises inside the
+  // interactive transaction, so it can never abort the surrounding confirm.
+  // One EARNING per booking; a settlement balance tops it up as an ADJUSTMENT
+  // keyed on the target it reaches (a concurrent/redelivered top-up to the
+  // same target is the same key).
+  const inserted = await tx.workerLedgerEntry.createMany({
+    skipDuplicates: true,
+    data: [
+      {
         workerId: row.workerId,
         bookingId: row.id,
-        // One EARNING per booking (@@unique([bookingId])); a later settlement
-        // balance tops it up as an ADJUSTMENT.
+        creditKey: firstCredit ? `earning:${row.id}` : `topup:${row.id}:${target}`,
         kind: firstCredit ? "EARNING" : "ADJUSTMENT",
         status: "POSTED",
         amount,
@@ -1886,11 +1894,9 @@ async function creditEarningsInTx(
           settlement.reason +
           (rebate ? ` Lead rebate −$${(rebate.rebate.rebateMinor / 100).toFixed(2)} included.` : ""),
       },
-    });
-  } catch (err) {
-    if ((err as { code?: string })?.code !== "P2002") throw err; // idempotency: already credited
-    return; // already credited → the rebate row already exists too
-  }
+    ],
+  });
+  if (inserted.count === 0) return; // already credited → the rebate row already exists too
 
   if (rebate && firstCredit) {
     await tx.leadRebate.create({
@@ -3297,8 +3303,7 @@ export async function prismaCreateBookingSettlementCheckout(
  * double-credit: only the call that won the flip proceeds to credit), then the
  * booking's earnings are recomputed against what is now collected.
  *
- * For a guest booking (`customerId` null) no invoice row is minted, matching
- * the deposit path.
+ * The balance gets its own WA- invoice (bill-to snapshot for a guest).
  */
 export async function prismaConfirmBookingSettlement(
   bookingId: string,
@@ -3325,10 +3330,24 @@ export async function prismaConfirmBookingSettlement(
           reason: `Job balance collected — $${(((amount ?? 0) as number) / 100).toFixed(2)}`,
         },
       });
-      // No invoice row for the balance: the job's receipt is the deposit's
-      // (WA-*), and minting a second one here would need its own numbering
-      // sequence (Invoice.number is the customer-facing identity). The Payment
-      // row IS the money record and carries the amount, method and reference.
+      // Workflow v2 — the balance is a cash event too: it gets its own
+      // WA-YYYY-NNNNN invoice from the atomic counter (the old reason for
+      // skipping it — no race-free numbering — is gone).
+      await tx.invoice.create({
+        data: {
+          number: await claimInvoiceNumber(tx),
+          userId: booking.customerId ?? null,
+          billToName: booking.customerName,
+          billToPhone: booking.customerPhone,
+          billToEmail: booking.customerEmail ?? null,
+          paymentId: booking.settlementPaymentId,
+          amount: amount ?? 0,
+          currency: booking.currency || "USD",
+          status: "PAID",
+          paidAt: new Date(),
+          items: [{ description: `${booking.number} — job balance (${booking.jobTitle})`, qty: 1, unitPrice: amount ?? 0 }],
+        },
+      });
       await creditEarningsInTx(tx, booking);
       return tx.booking.findUnique({
         where: { id: bookingId },
@@ -3457,19 +3476,19 @@ export async function prismaConfirmBookingPayment(
         });
         await tx.bookingEvent.create({ data: { bookingId, status: "CONFIRMED", actorType: "system" } });
 
-        // M3 — signed-in customers get a WA-YYYY-NNNNN Invoice row linked to
-        // the payment. The per-year sequence derives from the row count (the
-        // number is the only uniqueness constraint; subscription renewals
-        // don't mint invoices yet). Guest bookings (customerId null) skip it.
-        if (booking.customerId) {
-          const year = new Date().getFullYear();
-          const count = await tx.invoice.count({
-            where: { number: { startsWith: `WA-${year}-` } },
-          });
+        // M3 + workflow v2 — every confirmed deposit gets a WA-YYYY-NNNNN
+        // Invoice row linked to the payment, numbered from the atomic per-year
+        // counter (invoice-numbering.ts). A signed-in customer's is owned by
+        // their account; a guest's (customerId null) carries the bill-to
+        // snapshot instead, so every cash event has an invoice.
+        {
           await tx.invoice.create({
             data: {
-              number: formatInvoiceNumber(year, count + 1),
-              userId: booking.customerId,
+              number: await claimInvoiceNumber(tx),
+              userId: booking.customerId ?? null,
+              billToName: booking.customerName,
+              billToPhone: booking.customerPhone,
+              billToEmail: booking.customerEmail ?? null,
               paymentId: booking.payment.id,
               amount: booking.payment.amount,
               currency: booking.payment.currency || "USD",
@@ -4882,11 +4901,9 @@ export async function prismaConfirmCampaignPayment(
         // (the count shares the namespace; the P2002 retry above handles a
         // concurrent mint colliding on the number). The invoice's owner is
         // the company's user row (Invoice.userId is a required FK).
-        const year = new Date().getFullYear();
-        const count = await tx.invoice.count({ where: { number: { startsWith: `WA-${year}-` } } });
         await tx.invoice.create({
           data: {
-            number: formatInvoiceNumber(year, count + 1),
+            number: await claimInvoiceNumber(tx),
             userId: campaign.company.userId,
             paymentId: payment.id,
             amount: payment.amount,
@@ -5983,7 +6000,7 @@ export async function prismaGetManualPaymentReconciliation(): Promise<Reconcilia
     }
     if (row.workerId) {
       const scope = typeof meta.scope === "string" ? meta.scope : "subscription";
-      if (!["subscription", "verification", "featured", "emergency", "credit"].includes(scope)) continue;
+      if (!(PURCHASE_SCOPES as readonly string[]).includes(scope)) continue;
       const worker = await prisma.worker.findUnique({ where: { id: row.workerId }, select: { nameEn: true, nameAr: true } });
       if (!worker) continue;
       const label = purchaseLabel(scope as PurchaseScope, worker.nameEn, worker.nameAr, meta);
@@ -6094,10 +6111,13 @@ export async function prismaGetPendingManualPayments(): Promise<PendingManualPay
     }
 
     // Paid upgrade (subscription renewal / verification / featured / emergency)
-    // — the Payment carries the worker link + metadata.scope.
+    // or an OMT/Whish credit-pack top-up — the Payment carries the worker link
+    // + metadata.scope. Every purchase scope MUST be listed here: a scope left
+    // out can never be confirmed (confirmManualPaymentAction only confirms rows
+    // this queue returns), which is how credit top-ups were once stranded.
     if (row.workerId) {
       const scope = typeof meta.scope === "string" ? meta.scope : "subscription";
-      if (!["subscription", "verification", "featured", "emergency"].includes(scope)) continue;
+      if (!(PURCHASE_SCOPES as readonly string[]).includes(scope)) continue;
       const worker = await prisma.worker.findUnique({
         where: { id: row.workerId },
         select: { nameEn: true, nameAr: true, slug: true },
@@ -6290,11 +6310,24 @@ function purchaseAmountMinor(
 /**
  * Admin confirm — the manual twin of a provider webhook for a paid upgrade:
  * the customer paid offline with the reference, the admin's confirm flips the
- * payment PAID (CAS, idempotent) and activates the purchased capability on
- * the worker's row (subscription renewal / verified badge / featured slot /
- * emergency marker), minting the renewal invoice for subscriptions. Notifies
- * the worker after the flip. Returns false when the payment is unknown or
- * the flip lost the CAS and the payment isn't already PAID.
+ * payment PAID and activates the purchased capability on the worker's row
+ * (subscription renewal / verified badge / featured slot / emergency marker /
+ * credit top-up).
+ *
+ * D4 (docs/PAYMENT-COMMS-ACCOUNTING-PLAN.md §1): the CAS flip, the capability
+ * activation and the invoice are ONE transaction, so a plan can never be
+ * active without its invoice (or the reverse). The invoice number comes from
+ * the atomic counter (invoice-numbering.ts). Every cash purchase (OMT/Whish)
+ * gets a WA- invoice; a wallet-paid purchase keeps the legacy rule (only a
+ * subscription renewal gets one — the wallet top-up was the cash event).
+ *
+ * The follow-ups that live outside the database transaction (subscription
+ * event, promotion bonus, lead allowance, credit grants, notification) are all
+ * idempotent and are tracked with `metadata.fulfilledAt`: a confirm that finds
+ * the payment PAID but not yet fulfilled (a crash between commit and
+ * follow-ups) re-runs them instead of returning early.
+ *
+ * Returns false when the payment is unknown or neither PENDING nor PAID.
  */
 export async function prismaConfirmPurchase(
   paymentId: string,
@@ -6302,47 +6335,121 @@ export async function prismaConfirmPurchase(
   opts: { by?: string; byId?: string } = {}
 ): Promise<boolean> {
   const prisma = getPrisma();
-  const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
-    include: { subscription: { include: { worker: { include: { user: true } } } } },
-  });
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
   if (!payment) return false;
-  if (payment.status === "PAID") return true; // idempotent
-  if (payment.status !== "PENDING") return false;
+  const meta0 = (payment.metadata ?? {}) as Record<string, unknown>;
+  if (payment.status === "PAID" && typeof meta0.fulfilledAt === "string") return true; // idempotent
+  if (payment.status !== "PENDING" && payment.status !== "PAID") return false;
 
-  const meta = (payment.metadata ?? {}) as Record<string, unknown>;
-  const scope = (typeof meta.scope === "string" ? meta.scope : "subscription") as PurchaseScope;
-  const plan = meta.plan as SubscriptionPlan | undefined;
-  const period = (meta.period as BillingPeriod | undefined) ?? "monthly";
+  const scope = (typeof meta0.scope === "string" ? meta0.scope : "subscription") as PurchaseScope;
+  const plan = meta0.plan as SubscriptionPlan | undefined;
+  const period = (meta0.period as BillingPeriod | undefined) ?? "monthly";
+  const actor = opts.by ?? "Platform Admin";
 
-  const flipped = await prisma.payment.updateMany({
-    where: { id: paymentId, status: "PENDING" },
-    data: { status: "PAID", providerRef, paidAt: new Date() },
-  });
-  if (flipped.count === 0) {
-    const fresh = await prisma.payment.findUnique({ where: { id: paymentId }, select: { status: true } });
-    return fresh?.status === "PAID";
+  type Activation = { flipped: boolean; plan?: SubscriptionPlan; expiresAt?: string };
+  let activation: Activation;
+  try {
+    activation = await prisma.$transaction(async (tx): Promise<Activation> => {
+      const flipped = await tx.payment.updateMany({
+        where: { id: paymentId, status: "PENDING" },
+        data: { status: "PAID", providerRef, paidAt: new Date() },
+      });
+      if (flipped.count === 0) {
+        const fresh = await tx.payment.findUnique({ where: { id: paymentId }, select: { status: true } });
+        if (fresh?.status !== "PAID") throw new Error("not-confirmable");
+        return { flipped: false }; // PAID but unfulfilled — re-run the follow-ups only
+      }
+      if (!payment.workerId) return { flipped: true };
+      const worker = await tx.worker.findUnique({
+        where: { id: payment.workerId },
+        include: { subscription: true, category: { select: { slug: true } } },
+      });
+      const out: Activation = { flipped: true };
+      switch (scope) {
+        case "subscription": {
+          if (!worker?.subscription) break;
+          const p: SubscriptionPlan = plan ?? (PLAN_MAP[worker.subscription.plan] ?? "professional");
+          const now = new Date();
+          const base = worker.subscription.expiresAt > now ? worker.subscription.expiresAt : now;
+          const expiresAt = addMonths(base.toISOString(), period === "annual" ? 12 : 1);
+          const catalog = await (await import("./fee-rules-store")).loadPlanCatalog();
+          const monthly = effectiveMonthlyPriceWithOverrides(catalog, p, worker.category?.slug);
+          await tx.subscription.update({
+            where: { id: worker.subscription.id },
+            data: {
+              plan: p.toUpperCase() as $Enums.SubscriptionPlan,
+              status: "ACTIVE",
+              price: Math.round(monthly * 100 * (period === "annual" ? 9 : 1)),
+              periodDays: period === "annual" ? 365 : 30,
+              expiresAt: new Date(expiresAt),
+            },
+          });
+          out.plan = p;
+          out.expiresAt = expiresAt;
+          break;
+        }
+        case "verification":
+          if (worker) await tx.worker.update({ where: { id: worker.id }, data: { verified: true, verifiedAt: new Date() } });
+          break;
+        case "featured":
+          if (worker) await tx.worker.update({ where: { id: worker.id }, data: { isFeatured: true } });
+          break;
+        case "emergency":
+          if (worker) await tx.worker.update({ where: { id: worker.id }, data: { emergency: true } });
+          break;
+        case "credit":
+          break; // credits are granted after commit (idempotent, keyed on the payment)
+      }
+      // The receipt: every cash purchase, and a wallet-paid renewal (legacy).
+      const cash = payment.method !== "WALLET";
+      if (worker && (cash || scope === "subscription")) {
+        await tx.invoice.create({
+          data: {
+            number: await claimInvoiceNumber(tx),
+            // The worker's account when linked; the bill-to snapshot always,
+            // so a worker without a login still gets a proper receipt.
+            userId: worker.userId ?? null,
+            billToName: worker.nameEn,
+            billToPhone: worker.phone,
+            billToEmail: worker.email ?? null,
+            paymentId: payment.id,
+            amount: payment.amount,
+            currency: payment.currency || "USD",
+            status: "PAID",
+            paidAt: new Date(),
+            items: [{ description: purchaseLabel(scope, worker.nameEn, worker.nameAr, meta0).en, qty: 1, unitPrice: payment.amount }],
+          },
+        });
+      }
+      return out;
+    });
+  } catch (err) {
+    if ((err as Error)?.message !== "not-confirmable") console.error("[prisma-repo] confirmPurchase failed:", err);
+    return false;
   }
 
-  if (!payment.workerId) return true;
+  if (!payment.workerId) {
+    await markPurchaseFulfilled(paymentId);
+    return true;
+  }
   const worker = await prisma.worker.findUnique({
     where: { id: payment.workerId },
-    include: { subscription: true, category: { select: { slug: true } }, user: { select: { email: true, locale: true } } },
+    include: { subscription: true, user: { select: { email: true, locale: true } } },
   });
 
   // §Lebanon — audit the manual (OMT/Whish) upgrade confirm with the ACTING
   // ADMIN as actor (threaded via opts.by), the real-mode twin of the demo
-  // PURCHASE_CONFIRMED entry so verification / featured / emergency purchases
-  // appear in the feed (demo/prisma parity).
-  const actor = opts.by ?? "Platform Admin";
-  await logAdminActivity({
-    code: ACTION_CODES.PURCHASE_CONFIRMED,
-    actionEn: `${actor} confirmed ${scope} purchase for ${worker?.nameEn ?? "Worker"} (${payment.id})`,
-    actionAr: `${actor} أكّد شراء ${scope} للعامل ${worker?.nameAr ?? "العامل"} (${payment.id})`,
-    actor,
-    ...(opts.byId ? { actorId: opts.byId } : {}),
-    type: "payment",
-  });
+  // PURCHASE_CONFIRMED entry (demo/prisma parity). Logged once, on the flip.
+  if (activation.flipped) {
+    await logAdminActivity({
+      code: ACTION_CODES.PURCHASE_CONFIRMED,
+      actionEn: `${actor} confirmed ${scope} purchase for ${worker?.nameEn ?? "Worker"} (${payment.id})`,
+      actionAr: `${actor} أكّد شراء ${scope} للعامل ${worker?.nameAr ?? "العامل"} (${payment.id})`,
+      actor,
+      ...(opts.byId ? { actorId: opts.byId } : {}),
+      type: "payment",
+    });
+  }
 
   const notify = (type: "subscription" | "verification" | "system", titleEn: string, titleAr: string, bodyEn: string, bodyAr: string) =>
     pushNotification(
@@ -6355,49 +6462,21 @@ export async function prismaConfirmPurchase(
   switch (scope) {
     case "subscription": {
       if (!worker?.subscription) break;
-      const p: SubscriptionPlan = plan ?? (PLAN_MAP[worker.subscription.plan] ?? "professional");
-      const planDb = p.toUpperCase() as $Enums.SubscriptionPlan;
-      const now = new Date();
-      const base = worker.subscription.expiresAt > now ? worker.subscription.expiresAt : now;
-      const expiresAt = addMonths(base.toISOString(), period === "annual" ? 12 : 1);
-      const catalog = await (await import("./fee-rules-store")).loadPlanCatalog();
-      const monthly = effectiveMonthlyPriceWithOverrides(catalog, p, worker.category?.slug);
-      await prisma.subscription.update({
-        where: { id: worker.subscription.id },
-        data: { plan: planDb, status: "ACTIVE", price: Math.round(monthly * 100 * (period === "annual" ? 9 : 1)), periodDays: period === "annual" ? 365 : 30, expiresAt: new Date(expiresAt) },
-      });
-      await recordSubscriptionEvent({
-        workerId: worker.id,
-        subscriptionId: worker.subscription.id,
-        type: "renewed",
-        toPlan: p,
-        periodDays: period === "annual" ? 365 : 30,
-        amount: payment.amount,
-        source: "manual_payment",
-      });
-      // Mint the renewal invoice (WA-YYYY-NNNNN — the same sequence as booking
-      // receipts: per-year count + formatInvoiceNumber) so the purchase has a
-      // receipt row.
-      if (worker.userId) {
-        const year = new Date().getFullYear();
-        const count = await prisma.invoice.count({
-          where: { number: { startsWith: `WA-${year}-` } },
-        });
-        await prisma.invoice.create({
-          data: {
-            number: formatInvoiceNumber(year, count + 1),
-            userId: worker.userId,
-            paymentId: payment.id,
-            amount: payment.amount,
-            currency: "USD",
-            status: "PAID",
-            paidAt: new Date(),
-          },
+      const p: SubscriptionPlan = activation.plan ?? plan ?? (PLAN_MAP[worker.subscription.plan] ?? "professional");
+      const expiresAt = activation.expiresAt ?? worker.subscription.expiresAt.toISOString();
+      if (activation.flipped) {
+        await recordSubscriptionEvent({
+          workerId: worker.id,
+          subscriptionId: worker.subscription.id,
+          type: "renewed",
+          toPlan: p,
+          periodDays: period === "annual" ? 365 : 30,
+          amount: payment.amount,
+          source: "manual_payment",
         });
       }
       // §24 — a live campaign promising a credit bonus pays out here, once per
-      // worker per promotion (enforced by the ledger's unique index), the
-      // real-mode twin of demoConfirmPurchase's grant.
+      // worker per promotion (enforced by the ledger's unique index).
       await applyPromotionCreditGrant({ workerId: worker.id, plan: p, createdBy: actor });
       // The plan's monthly lead credits land now (same ledger key as the cron).
       await grantLeadAllowanceNow({ id: worker.id, subscription: { plan: p, status: "active", expiresAt } });
@@ -6410,10 +6489,7 @@ export async function prismaConfirmPurchase(
       );
       break;
     }
-    case "verification": {
-      if (worker) {
-        await prisma.worker.update({ where: { id: worker.id }, data: { verified: true, verifiedAt: new Date() } });
-      }
+    case "verification":
       await notify(
         "verification",
         "Profile verified ✓",
@@ -6422,9 +6498,7 @@ export async function prismaConfirmPurchase(
         `${worker?.nameAr ?? "ملفك"} يعرض الآن شارة التوثيق.`
       );
       break;
-    }
-    case "featured": {
-      if (worker) await prisma.worker.update({ where: { id: worker.id }, data: { isFeatured: true } });
+    case "featured":
       await notify(
         "system",
         "Featured slot active",
@@ -6433,9 +6507,7 @@ export async function prismaConfirmPurchase(
         `${worker?.nameAr ?? "ملفك"} مميز في الصفحة الرئيسية لمدة 30 يومًا.`
       );
       break;
-    }
-    case "emergency": {
-      if (worker) await prisma.worker.update({ where: { id: worker.id }, data: { emergency: true } });
+    case "emergency":
       await notify(
         "system",
         "Emergency marker active",
@@ -6444,7 +6516,6 @@ export async function prismaConfirmPurchase(
         `${worker?.nameAr ?? "ملفك"} متاح الآن لحجوزات الطوارئ على مدار الساعة.`
       );
       break;
-    }
     case "credit": {
       // The pack's credits land in the wallet (PAID pot), its bonus in the
       // FREE pot — keyed on this payment (the ledger's unique index), so a
@@ -6454,8 +6525,8 @@ export async function prismaConfirmPurchase(
             workerId: worker.id,
             paymentId: payment.id,
             amountMinor: payment.amount,
-            credits: typeof meta.credits === "number" ? meta.credits : undefined,
-            bonusCredits: typeof meta.bonusCredits === "number" ? meta.bonusCredits : undefined,
+            credits: typeof meta0.credits === "number" ? meta0.credits : undefined,
+            bonusCredits: typeof meta0.bonusCredits === "number" ? meta0.bonusCredits : undefined,
             method: payment.method ?? "manual",
             ...(actor ? { createdBy: actor } : {}),
           })
@@ -6472,5 +6543,17 @@ export async function prismaConfirmPurchase(
       break;
     }
   }
+  await markPurchaseFulfilled(paymentId);
   return true;
+}
+
+/** Stamp a purchase's post-commit follow-ups as done (see prismaConfirmPurchase). */
+async function markPurchaseFulfilled(paymentId: string): Promise<void> {
+  const prisma = getPrisma();
+  const row = await prisma.payment.findUnique({ where: { id: paymentId }, select: { metadata: true } });
+  const meta = (row?.metadata ?? {}) as Record<string, unknown>;
+  await prisma.payment.update({
+    where: { id: paymentId },
+    data: { metadata: { ...meta, fulfilledAt: new Date().toISOString() } as Prisma.InputJsonValue },
+  });
 }

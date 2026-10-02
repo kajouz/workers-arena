@@ -231,6 +231,7 @@ async function main() {
       data: {
         workerId,
         bookingId: booking.id,
+        creditKey: `earning:${booking.id}`,
         kind: "EARNING",
         status: "POSTED",
         amount: earnings,

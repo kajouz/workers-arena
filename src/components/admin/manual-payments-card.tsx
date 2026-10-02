@@ -13,6 +13,11 @@
  * Step 3 (faster confirmation): oldest first, each row shows how long it has
  * waited against the 2-hour target, and the payer's receipt photo (uploaded on
  * the instructions page) is shown in the confirm dialog.
+ *
+ * Workflow v2 (docs/PAYMENTS.md §Confirming): the dialog records EVIDENCE —
+ * the amount actually received and the OMT/Whish transaction number — and the
+ * server decides the outcome (confirmed / partial / waiting for a second
+ * admin / unmatched). Rows show money already received on a partial payment.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -29,6 +34,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { formatPrice } from "@/lib/utils";
+import {
+  emptyEvidence,
+  evidenceReady,
+  evidenceResultKey,
+  PaymentEvidenceFields,
+  type PaymentEvidence,
+} from "@/components/admin/payment-evidence-fields";
 
 const METHOD_STYLE: Record<"omt" | "whish", string> = {
   omt: "bg-teal-500/10 text-teal-700 dark:text-teal-400",
@@ -55,20 +67,30 @@ export function ManualPaymentsCard({ payments: unsorted, nowSeed }: { payments: 
   const waitOf = (p: PendingManualPayment) => now - Date.parse(p.createdAt);
   const overTarget = payments.filter((p) => waitOf(p) > TARGET_MS).length;
   const router = useRouter();
-  const [confirming, setConfirming] = useState<PendingManualPayment | null>(null);
+  const [confirming, setConfirmingRaw] = useState<PendingManualPayment | null>(null);
+  const [evidence, setEvidence] = useState<PaymentEvidence>(emptyEvidence(0));
   const [busy, setBusy] = useState(false);
+  const outstanding = (p: PendingManualPayment) => Math.max(0, p.amount - (p.receivedMinor ?? 0));
+  const setConfirming = (p: PendingManualPayment | null) => {
+    setConfirmingRaw(p);
+    if (p) setEvidence(emptyEvidence(outstanding(p)));
+  };
 
   const confirm = async () => {
-    if (!confirming || busy) return;
+    if (!confirming || busy || !evidenceReady(evidence)) return;
     setBusy(true);
-    const res = await confirmManualPaymentAction(confirming.id);
+    const res = await confirmManualPaymentAction(confirming.id, evidence);
     setBusy(false);
+    const message = t(evidenceResultKey(res)).replace(
+      "{remaining}",
+      formatPrice((res.remainingMinor ?? 0) / 100, "USD", locale)
+    );
     if (res.ok) {
-      toast("success", t("payments.adminPendingDone"));
+      toast(res.outcome === "confirmed" ? "success" : "info", message);
       setConfirming(null);
       router.refresh();
     } else {
-      toast("error", t("payments.adminPendingError"));
+      toast("error", message);
     }
   };
 
@@ -124,6 +146,16 @@ export function ManualPaymentsCard({ payments: unsorted, nowSeed }: { payments: 
                         <ImageIcon className="size-3" /> {t("payments.adminPendingReceipt")}
                       </Badge>
                     )}
+                    {(p.receivedMinor ?? 0) > 0 && (
+                      <Badge variant="secondary">
+                        {t("payments.adminPendingReceivedSoFar")
+                          .replace("{received}", formatPrice((p.receivedMinor ?? 0) / 100, "USD", locale))
+                          .replace("{total}", formatPrice(p.amount / 100, "USD", locale))}
+                      </Badge>
+                    )}
+                    {(p.awaitingApprovalMinor ?? 0) > 0 && (
+                      <Badge variant="outline">{t("payments.adminPendingAwaitingApproval")}</Badge>
+                    )}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -159,6 +191,7 @@ export function ManualPaymentsCard({ payments: unsorted, nowSeed }: { payments: 
               {t("payments.adminPendingRef").replace("{ref}", confirming.reference)}
             </p>
           )}
+          {confirming && <PaymentEvidenceFields value={evidence} onChange={setEvidence} disabled={busy} />}
           {confirming &&
             (confirming.receiptUploadedAt ? (
               <a
@@ -181,7 +214,7 @@ export function ManualPaymentsCard({ payments: unsorted, nowSeed }: { payments: 
             <Button variant="outline" onClick={() => setConfirming(null)} disabled={busy}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={confirm} disabled={busy}>
+            <Button onClick={confirm} disabled={busy || !evidenceReady(evidence)}>
               {busy ? t("common.loading") : t("payments.adminPendingConfirmCommit")}
             </Button>
           </DialogFooter>

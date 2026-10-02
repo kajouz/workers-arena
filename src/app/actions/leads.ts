@@ -19,6 +19,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth-demo";
 import { buyLeadOffer, getWorkerById, getWorkerBySlug, submitLeadRating } from "@/lib/data/repo";
 import { getSessionWorker } from "@/lib/data/authz";
+import { feeClaimBlock } from "@/lib/data/payment-workflow-engine";
 import { saveFeeRuleSet } from "@/lib/data/fee-rules-store";
 import { grantCredits } from "@/lib/data/credit-ledger";
 import { requestLeadRefund, decideLeadRefund } from "@/lib/data/lead-refund-store";
@@ -31,7 +32,7 @@ import {
 
 export type LeadActionResult =
   | { ok: true; reveal?: ContactReveal; balanceAfter?: number }
-  | { ok: false; error: "unauthorized" | "invalid" | "failed" | LeadPurchaseFailure };
+  | { ok: false; error: "unauthorized" | "invalid" | "failed" | "fee-claim-overdue" | LeadPurchaseFailure };
 
 type LeadPurchaseFailure = "not-found" | "not-live" | "already-owned" | "insufficient-credits" | "already-charged";
 
@@ -47,6 +48,9 @@ export async function buyLeadOfferAction(offerId: string): Promise<LeadActionRes
 
   const workerId = await sessionWorkerId();
   if (!workerId) return { ok: false, error: "unauthorized" };
+  // Workflow v2 — an outside-platform fee claim left unpaid past the grace
+  // period blocks new lead purchases until it is settled (docs/PAYMENTS.md).
+  if ((await feeClaimBlock(workerId)).blocked) return { ok: false, error: "fee-claim-overdue" };
 
   try {
     const result = await buyLeadOffer(parsed.data, workerId);

@@ -13,7 +13,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { toast } from "@/components/ui/toast";
 import { durationParts, fillDuration, formatDate, formatNumber, formatPrice } from "@/lib/utils";
 import { Price } from "@/components/shared/price";
-import { confirmCompletionAction, payBookingAction } from "@/app/actions/bookings";
+import { answerSettledOutsideAction, confirmCompletionAction, payBookingAction } from "@/app/actions/bookings";
 import { RescheduleDialog } from "./reschedule-dialog";
 import { useGuestProof } from "./guest-proof";
 import { BookingTimeline } from "./booking-timeline";
@@ -72,6 +72,22 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
   const owesBalance =
     settlementNeedsCollection(settlement) &&
     (booking.status === "completed" || booking.status === "completionPending");
+
+  const [answering, setAnswering] = useState(false);
+  const answerOutside = (confirmed: boolean) => {
+    if (answering) return;
+    setAnswering(true);
+    startTransition(async () => {
+      const res = await answerSettledOutsideAction(booking.id, confirmed, withGuestProof(new FormData()));
+      setAnswering(false);
+      if (res.ok) {
+        toast("success", t("booking.settledOutsideThanks"));
+        router.refresh();
+      } else {
+        toast("error", t("booking.paymentFailed"));
+      }
+    });
+  };
 
   const startCheckout = () => {
     if (paying) return;
@@ -225,6 +241,22 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
               />
             )}
 
+            {/* Payment workflow v2 — the worker declared the job settled in cash;
+                the customer confirms or denies it (a denial goes to admin review). */}
+            {row.settledOutsideQuestion && (
+              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-sky-500/25 bg-sky-500/5 p-3">
+                <p className="min-w-0 flex-1 text-sm font-bold text-ink-900 dark:text-ink-50">{t("booking.settledOutsideAsk")}</p>
+                <div className="flex gap-2">
+                  <Button size="sm" disabled={answering} onClick={() => answerOutside(true)}>
+                    {t("booking.settledOutsideYes")}
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={answering} onClick={() => answerOutside(false)}>
+                    {t("booking.settledOutsideNo")}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* WorkersArena Guarantee — completed jobs paid through the platform
                 (src/lib/data/guarantee.ts). */}
             {booking.status === "completed" && (
@@ -289,6 +321,11 @@ export function BookingRow({ row, nowSeed }: { row: CustomerBookingRow; nowSeed:
                       `${formatNumber(booking.deposit! / 100)} ${booking.currency}`
                     )}
                   </p>
+                  {row.depositDeadline && (
+                    <p className="mt-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                      {t("booking.depositDeadline").replace("{time}", `${row.depositDeadline.slice(0, 16).replace("T", " ")} UTC`)}
+                    </p>
+                  )}
                 </div>
                 <div className="w-full sm:w-64">
                   <PaymentMethodPicker value={payMethod} onChange={setPayMethod} disabled={paying} compact />

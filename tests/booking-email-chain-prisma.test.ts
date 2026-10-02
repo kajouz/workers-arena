@@ -71,6 +71,11 @@ afterEach(async () => {
     await prisma.bookingEvent.deleteMany({ where: { bookingId } }).catch(() => {});
     // M3 deposit bookings mint a Payment row linked via metadata.bookingId
     // (no FK — booking delete can't cascade it; same cleanup as the smoke).
+    // Every confirmed deposit is invoiced (guests too) — drop the invoice
+    // first, or deleting the payment would orphan it.
+    await prisma.invoice
+      .deleteMany({ where: { payment: { is: { metadata: { path: ["bookingId"], equals: bookingId } } } } })
+      .catch(() => {});
     await prisma.payment
       .deleteMany({ where: { metadata: { path: ["bookingId"], equals: bookingId } } })
       .catch(() => {});

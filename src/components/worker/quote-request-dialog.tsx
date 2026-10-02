@@ -98,6 +98,8 @@ export function QuoteRequestDialog({
         ? t("booking.otpRequired")
         : res.error === "otp-invalid"
           ? t("booking.otpInvalid")
+          : res.error === "payment-blocked"
+            ? t("booking.paymentBlocked")
           : res.error === "too-many"
             ? t("booking.quotesMaxError").replace("{max}", String(MAX_QUOTE_WORKERS))
             : t("booking.quotesError")

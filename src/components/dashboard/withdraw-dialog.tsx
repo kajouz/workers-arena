@@ -55,7 +55,14 @@ export function WithdrawDialog({
       setOpen(false);
       setAmount("");
     } else {
-      toast("error", res.error === "insufficient" ? t("dashboard.payoutsInsufficient") : t("common.noResults"));
+      toast(
+        "error",
+        res.error === "insufficient"
+          ? t("dashboard.payoutsInsufficient")
+          : res.error === "fee-claim-overdue"
+            ? t("dashboard.feeClaimOverdue")
+            : t("common.noResults")
+      );
     }
     router.refresh();
   };

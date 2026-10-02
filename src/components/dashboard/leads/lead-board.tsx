@@ -85,7 +85,7 @@ export function LeadBoard({
       router.refresh();
       return;
     }
-    const key = `leadMarket.errors.${result.error === "insufficient-credits" ? "insufficient" : result.error === "not-live" ? "notLive" : result.error === "not-found" ? "notFound" : result.error === "already-owned" ? "alreadyOwned" : result.error === "already-charged" ? "alreadyCharged" : result.error}`;
+    const key = `leadMarket.errors.${result.error === "insufficient-credits" ? "insufficient" : result.error === "not-live" ? "notLive" : result.error === "not-found" ? "notFound" : result.error === "already-owned" ? "alreadyOwned" : result.error === "already-charged" ? "alreadyCharged" : result.error === "fee-claim-overdue" ? "feeClaimOverdue" : result.error}`;
     toast("error", t(key));
   };
 

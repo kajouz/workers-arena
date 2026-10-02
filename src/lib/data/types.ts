@@ -30,7 +30,9 @@ export function toDomainPaymentMethod(method?: string | null): PaymentMethod | u
 /** The paid-upgrade scopes a manual payment can confirm (docs/BUSINESS-MODEL.md
  * §5.1 — the revenue-first levers that need no Stripe): a worker pays via
  * OMT/Whish and the admin's confirm flips the purchased capability live. */
-export type PurchaseScope = "subscription" | "verification" | "featured" | "emergency" | "credit";
+/** Every paid-upgrade scope. The admin manual-payment queue filters on this list. */
+export const PURCHASE_SCOPES = ["subscription", "verification", "featured", "emergency", "credit"] as const;
+export type PurchaseScope = (typeof PURCHASE_SCOPES)[number];
 
 /**
  * Booking reminder window (M4): a CONFIRMED booking whose start is within the
@@ -1309,6 +1311,10 @@ export interface PendingManualPayment {
   checkoutUrl?: string;
   /** Step 3 — when the payer uploaded a photo of their receipt, if they did. */
   receiptUploadedAt?: string;
+  /** Workflow v2 — money already received and approved (a partial payment). */
+  receivedMinor?: number;
+  /** Workflow v2 — money recorded but waiting for a second admin's approval. */
+  awaitingApprovalMinor?: number;
   createdAt: string;
 }
 

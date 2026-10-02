@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { cronRoute } from "@/lib/cron-route";
 import { runCompletionAutoConfirmEngine } from "@/lib/data/completion-auto-confirm";
+import { runSettlementDunning } from "@/lib/data/payment-workflow-engine";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -17,14 +18,20 @@ export const dynamic = "force-dynamic";
  *   curl -H "x-cron-secret: $CRON_SECRET" https://app.example.com/api/cron/completions
  *
  * Idempotent: each confirm is a CAS on the COMPLETION_PENDING status.
- * Response: `{ ok, autoConfirmed }`.
+ *
+ * Payment workflow v2 (docs/PAYMENTS.md §Balance collection): the same pass
+ * mints the balance reference for completed jobs still owed money and runs
+ * the dunning ladder (D+1/3/7/14/30 after the balance falls due; each stage
+ * once, CAS on Booking.dunningStage).
+ * Response: `{ ok, autoConfirmed, dunning }`.
  */
 async function handleGet(req: Request) {
   const authError = verifyCronAuth(req);
   if (authError) return authError;
 
   const run = await runCompletionAutoConfirmEngine();
-  return NextResponse.json({ ok: true, ...run });
+  const dunning = await runSettlementDunning();
+  return NextResponse.json({ ok: true, ...run, dunning });
 }
 
 export const GET = cronRoute("completions", handleGet);

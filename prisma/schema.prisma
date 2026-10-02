@@ -688,8 +688,17 @@ model Payment {
   paidAt          DateTime?
   refundedAt      DateTime?
   createdAt       DateTime      @default(now())
+  /// Refund cash-out tracking for manual rails (docs/PAYMENTS.md §Refunds):
+  /// "due" when a refund is decided (or an overpayment is owed back), "sent"
+  /// once finance records the OMT/Whish transfer that returned the money.
+  refundState     String?
+  refundAmount    Int? // minor units owed back (a full refund, or an overpayment's excess)
+  refundTxnId     String?       @unique
+  refundSentAt    DateTime?
+  refundSentBy    String?
 
   invoice           Invoice?
+  tranches          PaymentTranche[]
   booking           Booking? @relation("BookingDeposit") // deposit/quote payment for a booking
   settlementBooking Booking? @relation("BookingSettlement") // the balance collected after the job
 
@@ -701,8 +710,13 @@ model Payment {
 model Invoice {
   id        String        @id @default(cuid())
   number    String        @unique
-  userId    String
-  user      User          @relation(fields: [userId], references: [id])
+  /// The account billed. Null for a guest (phone-keyed) booking — the bill-to
+  /// snapshot below then carries the identity.
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id])
+  billToName  String?
+  billToPhone String?
+  billToEmail String?
   paymentId String?       @unique
   payment   Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   amount    Int // minor units
@@ -1196,6 +1210,18 @@ model Booking {
   // most recent collection.
   feeClaimCollectedMinor Int       @default(0)
   feeClaimCollectedAt    DateTime?
+  // Workflow v2 (docs/PAYMENTS.md §Balance collection): the customer must
+  // confirm a worker's "settled directly" declaration; a denial reopens the
+  // balance and flags the booking for admin review.
+  settledOutsideConfirmedAt DateTime?
+  settledOutsideDisputedAt  DateTime?
+  // Balance dunning: when the balance became due, the last reminder stage sent
+  // (1 = D+1, 2 = D+3, 3 = D+7, 4 = D+14 restriction, 5 = D+30 write-off
+  // review) and when an admin wrote the remainder off.
+  settlementDueAt        DateTime?
+  dunningStage           Int       @default(0)
+  dunningAt              DateTime?
+  settlementWrittenOffAt DateTime?
 
   cancelReason   String?
   cancelledBy    String? // "customer" | "worker" | "system"
@@ -1374,8 +1400,13 @@ model WorkerLedgerEntry {
   reviewedBy   String?
   reviewedAt   DateTime?
   createdAt    DateTime     @default(now())
+  /// Idempotency key for booking credits: `earning:<bookingId>` for the one
+  /// EARNING row, `topup:<bookingId>:<targetMinor>` for a settlement top-up
+  /// ADJUSTMENT. Withdrawals leave it null. (Replaces the old
+  /// @@unique([bookingId]), which also blocked the settlement top-up row.)
+  creditKey    String?      @unique
 
-  @@unique([bookingId]) // EARNING rows only — one credit per completed booking
+  @@index([bookingId])
   @@index([workerId, createdAt])
   @@index([status])
 }
@@ -1671,13 +1702,71 @@ model WhatsAppDelivery {
 /// payment reference (Payment.providerRef, the OMT-/WHISH- code); re-uploading
 /// replaces it. The image is a compressed data URL (src/lib/data/payment-receipts.ts).
 model PaymentReceipt {
-  id         String   @id @default(cuid())
-  reference  String   @unique
+  id         String    @id @default(cuid())
+  reference  String    @unique
   provider   String // "OMT" | "WHISH"
   mimeType   String
   sizeBytes  Int
-  dataUrl    String   @db.Text
-  uploadedAt DateTime @default(now())
+  dataUrl    String    @db.Text
+  uploadedAt DateTime  @default(now())
+  /// Set when the payment is confirmed: the evidence is frozen and a
+  /// re-upload is refused (src/lib/data/payment-receipts.ts).
+  lockedAt   DateTime?
+}
+
+/// Per-year invoice sequence (WA-YYYY-NNNNN). Claimed with one atomic
+/// INSERT … ON CONFLICT DO UPDATE … RETURNING, so concurrent confirms can never
+/// mint the same number (src/lib/data/invoice-numbering.ts).
+model InvoiceCounter {
+  year Int @id
+  last Int
+}
+
+/// Append-only money audit trail (docs/PAYMENTS.md §Audit). Every confirm,
+/// tranche, approval, refund and expiry writes one row. Unlike ActivityLog it
+/// is never pruned.
+model PaymentAuditEvent {
+  id          String   @id @default(cuid())
+  paymentId   String?
+  reference   String?
+  action      String // e.g. tranche.recorded, tranche.approved, payment.confirmed, refund.sent, payment.expired
+  actorId     String?
+  actorName   String?
+  amountMinor Int?
+  detail      Json?
+  createdAt   DateTime @default(now())
+
+  @@index([paymentId, createdAt])
+  @@index([createdAt])
+}
+
+/// One amount actually received against a manual (OMT/Whish) payment
+/// (docs/PAYMENTS.md §Confirming). Finance records the amount and the
+/// OMT/Whish transaction number; the number is unique, so one receipt can
+/// never confirm two payments. Above the four-eyes threshold (or without a
+/// receipt photo) a tranche waits in "pending-approval" until a DIFFERENT admin
+/// approves it. The payment activates once approved tranches cover its amount;
+/// a short payment stays pending with the remainder shown to the payer, an
+/// overpayment's excess is booked as a refund due.
+model PaymentTranche {
+  id            String    @id @default(cuid())
+  paymentId     String
+  payment       Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  reference     String
+  amountMinor   Int
+  externalTxnId String    @unique
+  status        String // pending-approval | approved | rejected
+  hadReceipt    Boolean   @default(false)
+  enteredById   String?
+  enteredBy     String?
+  approvedById  String?
+  approvedBy    String?
+  note          String?
+  createdAt     DateTime  @default(now())
+  decidedAt     DateTime?
+
+  @@index([paymentId])
+  @@index([status, createdAt])
 }
 
 /// WorkersArena Guarantee claims (revenue plan Step 5). One per booking.

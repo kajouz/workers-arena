@@ -149,7 +149,7 @@ describe("M3 demo adapter — deposit checkout", () => {
   });
 });
 
-describe("M3 invoice row (signed-in customers only)", () => {
+describe("M3 invoice row (every confirmed deposit)", () => {
   // The seeded bk-1001 is Sara's (demo user u-customer / sara@example.com), so
   // accept-with-deposit → confirm must mint her receipt; guest bookings (no
   // customerId) must not.
@@ -163,10 +163,11 @@ describe("M3 invoice row (signed-in customers only)", () => {
     expect(booking.invoice?.status).toBe("paid");
   });
 
-  it("skips the invoice for guest (phone-keyed) bookings", async () => {
+  it("mints a bill-to invoice for guest (phone-keyed) bookings too — every cash event is invoiced", async () => {
     const far = () => new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
     const booking = await paidBookingOnSlot(far()); // no customerId
-    expect(booking.invoice).toBeUndefined();
+    expect(booking.invoice?.number).toMatch(/^WA-\d{4}-\d{5}$/);
+    expect(booking.invoice?.status).toBe("paid");
   });
 
   it("a redelivered webhook doesn't create a second invoice", async () => {

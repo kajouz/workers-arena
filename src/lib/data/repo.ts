@@ -1,4 +1,6 @@
 import { formatDate } from "@/lib/utils";
+import { moneyMayMove } from "@/lib/payments/money-mode";
+import { getPaymentRefund, markRefundDue, recordPaymentAudit } from "./payment-workflow-store";
 import {
   categoriesWithCounts,
   demoSetWorkerInstantBook,
@@ -543,6 +545,7 @@ export async function createCampaignCheckout(
   campaignId: string,
   method: "STRIPE" | "OMT" | "WHISH" = "STRIPE"
 ): Promise<{ url: string } | null> {
+  if (!moneyMayMove()) return null; // D3 — never move money into demo memory
   if (realDataEnabled) return (await prismaRepo()).prismaCreateCampaignCheckout(campaignId, method);
   return demoCreateCampaignCheckout(campaignId, method);
 }
@@ -560,6 +563,7 @@ export async function confirmCampaignPayment(
   providerRef: string,
   opts: { by?: string; byId?: string } = {}
 ): Promise<Campaign | null> {
+  if (!moneyMayMove()) return null; // D3 — never move money into demo memory
   if (realDataEnabled) return (await prismaRepo()).prismaConfirmCampaignPayment(campaignId, providerRef, opts);
   return demoConfirmCampaignPayment(campaignId, providerRef, opts);
 }
@@ -598,8 +602,23 @@ export async function refundCampaignPayment(
   by?: string,
   reason?: string
 ): Promise<CampaignPayment | null> {
-  if (realDataEnabled) return (await prismaRepo()).prismaRefundCampaignPayment(campaignId, { by, reason });
-  return demoRefundCampaignPayment(campaignId, { by, reason });
+  const result = realDataEnabled
+    ? await (await prismaRepo()).prismaRefundCampaignPayment(campaignId, { by, reason })
+    : await demoRefundCampaignPayment(campaignId, { by, reason });
+  // Workflow v2 — an OMT/Whish campaign refund is "due" until finance sends it.
+  if (result?.status === "refunded" && (result.method === "omt" || result.method === "whish") && !(await getPaymentRefund(result.id))) {
+    const booked = await markRefundDue({
+      paymentId: result.id,
+      amountMinor: result.amount,
+      label: `Campaign ${campaignId} — refund`,
+      method: result.method,
+      ...(result.providerRef ? { reference: result.providerRef } : {}),
+    });
+    if (booked) {
+      await recordPaymentAudit({ paymentId: result.id, action: "refund.due", ...(by ? { actorName: by } : {}), amountMinor: result.amount, detail: { campaignId } });
+    }
+  }
+  return result;
 }
 
 /**
@@ -1230,6 +1249,7 @@ export async function createBookingSettlementCheckout(
   bookingId: string,
   method: "STRIPE" | "OMT" | "WHISH" = "OMT"
 ): Promise<{ url: string } | null> {
+  if (!moneyMayMove()) return null; // D3 — never move money into demo memory
   if (realDataEnabled) return (await prismaRepo()).prismaCreateBookingSettlementCheckout(bookingId, method);
   return demoCreateBookingSettlementCheckout(bookingId, method);
 }
@@ -1241,10 +1261,28 @@ export async function createBookingSettlementCheckout(
  */
 export async function confirmBookingSettlement(
   bookingId: string,
-  providerRef: string
+  providerRef: string,
+  opts: { by?: string; byId?: string } = {}
 ): Promise<Booking | null> {
-  if (realDataEnabled) return (await prismaRepo()).prismaConfirmBookingSettlement(bookingId, providerRef);
-  return demoConfirmBookingSettlement(bookingId, providerRef);
+  if (!moneyMayMove()) return null; // D3 — never move money into demo memory
+  const result = realDataEnabled
+    ? await (await prismaRepo()).prismaConfirmBookingSettlement(bookingId, providerRef)
+    : await demoConfirmBookingSettlement(bookingId, providerRef);
+  // The balance releases a payout, so its confirm is audited with the acting
+  // admin exactly like a deposit confirm (it used to leave no admin trail).
+  if (result) {
+    const actor = opts.by ?? "Platform Admin";
+    await logAdminActivity({
+      code: ACTION_CODES.BOOKING_CONFIRMED,
+      actionEn: `${actor} confirmed the job balance for ${result.number}`,
+      actionAr: `${actor} أكّد رصيد العمل للحجز ${result.number}`,
+      actor,
+      ...(opts.byId ? { actorId: opts.byId } : {}),
+      type: "payment",
+      bookingNo: result.number,
+    });
+  }
+  return result;
 }
 
 /**
@@ -2012,8 +2050,41 @@ export async function cancelBooking(
       { en: `${name} cancelled ${result.number}${reason}`, ar: `${name} ألغى الحجز ${result.number}${reason}` },
       name
     );
+    await bookManualRefundDueFor(result, name);
   }
   return result;
+}
+
+/**
+ * Workflow v2 — an OMT/Whish refund is DECIDED by the cancel/refund, but the
+ * money only leaves when finance sends the transfer. Book it as "due" so it
+ * lands in the finance refunds queue (docs/PAYMENTS.md §Refunds). Card
+ * refunds are executed by the provider and need no queue. Idempotent: a
+ * payment already carrying a refund record is left alone.
+ */
+async function bookManualRefundDueFor(result: Booking, actorName?: string): Promise<void> {
+  // Re-read: an adapter's mutation result does not always carry the payment
+  // decoration (paymentStatus / paymentMethod) the read path attaches.
+  const booking = (await getBookingById(result.id)) ?? result;
+  if (booking.paymentStatus !== "refunded" || !booking.paymentId) return;
+  if (booking.paymentMethod !== "omt" && booking.paymentMethod !== "whish") return;
+  if (await getPaymentRefund(booking.paymentId)) return;
+  const amount = booking.deposit ?? 0;
+  const booked = await markRefundDue({
+    paymentId: booking.paymentId,
+    amountMinor: amount,
+    label: `${booking.number} — deposit refund (${booking.customerName}, ${booking.customerPhone})`,
+    method: booking.paymentMethod,
+  });
+  if (booked) {
+    await recordPaymentAudit({
+      paymentId: booking.paymentId,
+      action: "refund.due",
+      ...(actorName ? { actorName } : {}),
+      amountMinor: amount,
+      detail: { bookingId: booking.id, number: booking.number },
+    });
+  }
 }
 
 /**
@@ -2031,6 +2102,7 @@ export async function refundBookingDeposit(
     ? await (await prismaRepo()).prismaRefundBookingDeposit(bookingId, input)
     : await demoRefundBookingDeposit(bookingId, input);
   if (result) {
+    await bookManualRefundDueFor(result, input.adminName);
     const admin = input.adminName ?? "Platform Admin";
     const reason = input.reason ? ` — ${input.reason}` : "";
     await logBookingLifecycle(
@@ -2106,6 +2178,7 @@ export async function createBookingCheckout(
   bookingId: string,
   method: "STRIPE" | "OMT" | "WHISH" = "STRIPE"
 ): Promise<{ url: string } | null> {
+  if (!moneyMayMove()) return null; // D3 — never move money into demo memory
   if (realDataEnabled) return (await prismaRepo()).prismaCreateBookingCheckout(bookingId, method);
   return demoCreateBookingCheckout(bookingId, method);
 }
@@ -2127,6 +2200,7 @@ export async function confirmBookingPayment(
   providerRef: string,
   opts: { by?: string; byId?: string } = {}
 ): Promise<Booking | null> {
+  if (!moneyMayMove()) return null; // D3 — never move money into demo memory
   if (realDataEnabled) return (await prismaRepo()).prismaConfirmBookingPayment(bookingId, providerRef, opts);
   return demoConfirmBookingPayment(bookingId, providerRef, opts);
 }
@@ -2185,6 +2259,7 @@ export async function createPurchaseCheckout(input: {
   creditPackage?: { id: string; credits: number; bonusCredits: number; priceUsd: number };
   method: "OMT" | "WHISH" | "WALLET";
 }): Promise<{ url: string; paymentId: string; amountMinor: number } | null> {
+  if (!moneyMayMove()) return null; // D3 — never move money into demo memory
   if (realDataEnabled) return (await prismaRepo()).prismaCreatePurchaseCheckout(input);
   return demoCreatePurchaseCheckout(input);
 }
@@ -2206,6 +2281,7 @@ export async function confirmPurchase(
   providerRef: string,
   opts: { by?: string; byId?: string } = {}
 ): Promise<boolean> {
+  if (!moneyMayMove()) return false; // D3 — never move money into demo memory
   if (realDataEnabled) return (await prismaRepo()).prismaConfirmPurchase(paymentId, providerRef, opts);
   return demoConfirmPurchase(paymentId, providerRef, opts);
 }

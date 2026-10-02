@@ -59,12 +59,55 @@ describe("ManualPaymentsCard — confirm receipt (manual webhook twin)", () => {
     expect(dialog).toHaveTextContent("$50");
 
     expect(confirmManualPaymentActionMock).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm receipt" }));
+    // Workflow v2 — evidence first: the commit stays disabled until the
+    // OMT/Whish transaction number is entered; the amount is prefilled.
+    const commit = within(dialog).getByRole("button", { name: "Confirm receipt" });
+    expect(commit).toBeDisabled();
+    expect(within(dialog).getByLabelText("Amount received (USD)")).toHaveValue(50);
+    fireEvent.change(within(dialog).getByLabelText(/OMT \/ Whish transaction number/), { target: { value: "OMT 1234 5678" } });
+    expect(commit).not.toBeDisabled();
+    fireEvent.click(commit);
     await waitFor(() =>
-      expect(confirmManualPaymentActionMock).toHaveBeenCalledWith("pay-omt-1")
+      expect(confirmManualPaymentActionMock).toHaveBeenCalledWith("pay-omt-1", { amount: "50.00", txnId: "OMT 1234 5678", note: "" })
     );
     await waitFor(() =>
       expect(useToastStore.getState().toasts.some((t) => t.title === "Payment confirmed")).toBe(true)
+    );
+  });
+
+  it("reports a partial payment with the amount still owed, and shows money already received", async () => {
+    confirmManualPaymentActionMock.mockResolvedValue({ ok: true, outcome: "partial", remainingMinor: 2000 });
+    render(
+      <LocaleProvider locale="en" dir="ltr">
+        <ManualPaymentsCard payments={[{ ...payment, receivedMinor: 1000 }]} nowSeed={Date.now()} />
+      </LocaleProvider>
+    );
+    expect(screen.getByText("Received $10 of $50")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm payment" }));
+    const dialog = await screen.findByRole("dialog");
+    // Prefilled with what is still owed, not the full amount.
+    expect(within(dialog).getByLabelText("Amount received (USD)")).toHaveValue(40);
+    fireEvent.change(within(dialog).getByLabelText("Amount received (USD)"), { target: { value: "20" } });
+    fireEvent.change(within(dialog).getByLabelText(/OMT \/ Whish transaction number/), { target: { value: "OMT99887766" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm receipt" }));
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.some((t) => t.title.includes("$20") && t.title.includes("still owed"))).toBe(true)
+    );
+  });
+
+  it("names a duplicate transaction number", async () => {
+    confirmManualPaymentActionMock.mockResolvedValue({ ok: false, error: "duplicate-txn" });
+    render(
+      <LocaleProvider locale="en" dir="ltr">
+        <ManualPaymentsCard payments={[payment]} nowSeed={Date.now()} />
+      </LocaleProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Confirm payment" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText(/OMT \/ Whish transaction number/), { target: { value: "OMT-USED-1" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm receipt" }));
+    await waitFor(() =>
+      expect(useToastStore.getState().toasts.some((t) => t.title === "This transaction number has already been used.")).toBe(true)
     );
   });
 

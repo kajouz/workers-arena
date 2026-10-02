@@ -10,8 +10,10 @@
  * One receipt per payment REFERENCE (the unique OMT-/WHISH- code the payer
  * was told to quote — Payment.providerRef), so deposits, job balances,
  * campaigns and worker purchases all work the same way. Re-uploading replaces
- * it. Who may upload is decided by the caller (the signed instructions link);
- * this module only validates and stores.
+ * it UNTIL the payment is confirmed: the confirm locks the receipt
+ * (`lockPaymentReceipt`), so the evidence finance approved can never be
+ * swapped afterwards. Who may upload is decided by the caller (the signed
+ * instructions link); this module only validates and stores.
  *
  * The image is kept as a compressed data URL (the browser shrinks it before
  * upload). Only JPEG / PNG / WebP, capped at MAX_RECEIPT_BYTES, and the bytes
@@ -32,6 +34,7 @@ export interface PaymentReceipt {
 }
 
 export type ReceiptImageError = "not-an-image" | "unsupported-type" | "too-large" | "empty";
+export type ReceiptSaveError = ReceiptImageError | "locked";
 
 /** Leading bytes of each accepted format (WebP: "RIFF" … "WEBP"). */
 function signatureMatches(mime: ReceiptMimeType, bytes: Uint8Array): boolean {
@@ -76,10 +79,49 @@ const GLOBAL_KEY = "__workersArenaPaymentReceipts";
 const g = globalThis as Record<string, unknown>;
 const STORE: Map<string, PaymentReceipt> =
   (g[GLOBAL_KEY] as Map<string, PaymentReceipt> | undefined) ?? (g[GLOBAL_KEY] = new Map<string, PaymentReceipt>());
+const LOCKED_KEY = "__workersArenaPaymentReceiptLocks";
+const LOCKED: Set<string> = (g[LOCKED_KEY] as Set<string> | undefined) ?? (g[LOCKED_KEY] = new Set<string>());
 
 /** Reset the demo store (tests). */
 export function resetPaymentReceiptStore(): void {
   STORE.clear();
+  LOCKED.clear();
+}
+
+/**
+ * Freeze the evidence for a reference once its payment is confirmed. A
+ * reference with no receipt is locked too, so a photo cannot be added after
+ * the fact. Idempotent.
+ */
+export async function lockPaymentReceipt(reference: string): Promise<void> {
+  if (!reference) return;
+  if (realReceiptsEnabled()) {
+    const prisma_ = await prisma();
+    const updated = await prisma_.paymentReceipt.updateMany({
+      where: { reference, lockedAt: null },
+      data: { lockedAt: new Date() },
+    });
+    if (updated.count === 0) {
+      // No receipt row yet: store an empty locked marker so later uploads are refused.
+      await prisma_.paymentReceipt.upsert({
+        where: { reference },
+        create: { reference, provider: reference.startsWith("WHISH-") ? "WHISH" : "OMT", mimeType: "none", sizeBytes: 0, dataUrl: "", lockedAt: new Date() },
+        update: {},
+      });
+    }
+    return;
+  }
+  LOCKED.add(reference);
+}
+
+/** Has this reference's evidence been frozen? */
+export async function isPaymentReceiptLocked(reference: string): Promise<boolean> {
+  if (!reference) return false;
+  if (realReceiptsEnabled()) {
+    const row = await (await prisma()).paymentReceipt.findUnique({ where: { reference }, select: { lockedAt: true } });
+    return Boolean(row?.lockedAt);
+  }
+  return LOCKED.has(reference);
 }
 
 /* ─────────────────────────────── Public API ─────────────────────────────── */
@@ -90,9 +132,10 @@ export async function savePaymentReceipt(input: {
   provider: "OMT" | "WHISH";
   dataUrl: string;
   at?: string;
-}): Promise<{ ok: true; receipt: PaymentReceipt } | { ok: false; error: ReceiptImageError }> {
+}): Promise<{ ok: true; receipt: PaymentReceipt } | { ok: false; error: ReceiptSaveError }> {
   const parsed = parseReceiptImage(input.dataUrl);
   if (!parsed.ok) return parsed;
+  if (await isPaymentReceiptLocked(input.reference)) return { ok: false, error: "locked" };
   const receipt: PaymentReceipt = {
     reference: input.reference,
     provider: input.provider,
@@ -109,11 +152,21 @@ export async function savePaymentReceipt(input: {
       dataUrl: receipt.dataUrl,
       uploadedAt: new Date(receipt.uploadedAt),
     };
-    await (await prisma()).paymentReceipt.upsert({
-      where: { reference: receipt.reference },
-      create: { reference: receipt.reference, ...data },
-      update: data,
+    // Replace only an UNLOCKED row (CAS on lockedAt), else create; a lock that
+    // lands between the check above and this write still wins.
+    const prisma_ = await prisma();
+    const replaced = await prisma_.paymentReceipt.updateMany({
+      where: { reference: receipt.reference, lockedAt: null },
+      data,
     });
+    if (replaced.count === 0) {
+      try {
+        await prisma_.paymentReceipt.create({ data: { reference: receipt.reference, ...data } });
+      } catch (err) {
+        if ((err as { code?: string })?.code === "P2002") return { ok: false, error: "locked" };
+        throw err;
+      }
+    }
   } else {
     STORE.set(receipt.reference, receipt);
   }
@@ -125,7 +178,7 @@ export async function getPaymentReceipt(reference: string): Promise<PaymentRecei
   if (!reference) return null;
   if (realReceiptsEnabled()) {
     const row = await (await prisma()).paymentReceipt.findUnique({ where: { reference } });
-    return row
+    return row && row.sizeBytes > 0
       ? {
           reference: row.reference,
           provider: row.provider as PaymentReceipt["provider"],
@@ -156,7 +209,7 @@ export async function receiptUploadTimes(references: string[]): Promise<Map<stri
   if (refs.length === 0) return new Map();
   if (realReceiptsEnabled()) {
     const rows = await (await prisma()).paymentReceipt.findMany({
-      where: { reference: { in: refs } },
+      where: { reference: { in: refs }, sizeBytes: { gt: 0 } },
       select: { reference: true, uploadedAt: true },
     });
     return new Map(rows.map((r) => [r.reference, r.uploadedAt.toISOString()]));

@@ -349,6 +349,7 @@ async function main() {
       select: { id: true },
     });
     await prisma.invoice.deleteMany({ where: { paymentId: { in: payIds.map((p) => p.id) } } });
+    await prisma.invoice.deleteMany({ where: { payment: { is: { metadata: { path: ["bookingId"], equals: b.id } } } } });
     await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: b.id } } });
     await prisma.bookingSlot.updateMany({ where: { bookingId: b.id }, data: { status: "AVAILABLE", bookingId: null } });
     await prisma.bookingEvent.deleteMany({ where: { bookingId: b.id } });
@@ -1556,13 +1557,19 @@ async function main() {
     include: { payment: true },
   });
   assert(m3Paid?.payment?.status === "PAID" && m3Paid!.payment!.paidAt !== null, "payment → PAID with paidAt");
-  // Guest bookings (no customerId) get NO invoice on confirm — the receipt is
-  // for signed-in customers only.
+  // Payment workflow v2 — every confirmed deposit is invoiced. A guest booking
+  // (no customerId) gets a WA- invoice with no account owner and the bill-to
+  // snapshot (name/phone) instead.
   const m3GuestInvoice = await prisma.booking.findUnique({
     where: { id: m3Created.id },
     include: { payment: { include: { invoice: true } } },
   });
-  assert(m3GuestInvoice?.payment?.invoice === null, "guest booking gets NO Invoice row on confirm");
+  assert(
+    m3GuestInvoice?.payment?.invoice?.userId === null &&
+      m3GuestInvoice.payment.invoice.billToPhone === m3GuestInvoice.customerPhone &&
+      /^WA-\d{4}-\d{5}$/.test(m3GuestInvoice.payment.invoice.number),
+    "guest booking gets a bill-to WA- Invoice on confirm"
+  );
   const m3SlotAfter = await prisma.bookingSlot.findUnique({ where: { id: m3Slot.id } });
   assert(m3SlotAfter?.status === "BOOKED", "slot stays BOOKED through payment confirm");
   const m3Again = await prismaConfirmBookingPayment(m3Created.id, m3RowWithRef!.payment!.providerRef!);
@@ -1857,6 +1864,7 @@ async function main() {
   // Cleanup — restore the seed: drop the smoke's ledger rows + booking + slot.
   await prisma.workerLedgerEntry.deleteMany({ where: { bookingId: poCreated.id } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: poCreated.id } });
+  await prisma.invoice.deleteMany({ where: { payment: { is: { metadata: { path: ["bookingId"], equals: poCreated.id } } } } });
   await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: poCreated.id } } });
   await prisma.booking.delete({ where: { id: poCreated.id } }).catch(() => {});
   await prisma.bookingSlot.delete({ where: { id: poSlot.id } }).catch(() => {});
@@ -2996,6 +3004,7 @@ async function main() {
   // M4 §2.3 — the auto-confirm booking's ledger row (no cascade) + booking + slot.
   // §Settlement — its balance Payment row (booking delete would SetNull the
   // link and orphan it), same sweep as the M3 deposit payments.
+  await prisma.invoice.deleteMany({ where: { payment: { is: { metadata: { path: ["bookingId"], equals: ccCreated.id } } } } });
   await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: ccCreated.id } } });
   await prisma.workerLedgerEntry.deleteMany({ where: { bookingId: ccCreated.id } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: ccCreated.id } });
@@ -3011,10 +3020,12 @@ async function main() {
   await prisma.quoteRequest.delete({ where: { id: qExpired.id } });
   await prisma.bookingSlot.delete({ where: { id: qSlot.id } });
   // M3 — the deposit bookings' Payment rows (booking delete SetNulls the links).
+  await prisma.invoice.deleteMany({ where: { payment: { is: { metadata: { path: ["bookingId"], equals: m3Created.id } } } } });
   await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: m3Created.id } } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: m3Created.id } });
   await prisma.booking.delete({ where: { id: m3Created.id } });
   await prisma.bookingSlot.delete({ where: { id: m3Slot.id } });
+  await prisma.invoice.deleteMany({ where: { payment: { is: { metadata: { path: ["bookingId"], equals: m3bCreated.id } } } } });
   await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: m3bCreated.id } } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: m3bCreated.id } });
   await prisma.booking.delete({ where: { id: m3bCreated.id } });
@@ -3022,6 +3033,7 @@ async function main() {
   // M3 invoice — drop the receipt (invoice first: deleting the payment
   // SetNulls Invoice.paymentId and would orphan the row).
   await prisma.invoice.deleteMany({ where: { paymentId: m3cRow!.payment!.id } });
+  await prisma.invoice.deleteMany({ where: { payment: { is: { metadata: { path: ["bookingId"], equals: m3cCreated.id } } } } });
   await prisma.payment.deleteMany({ where: { metadata: { path: ["bookingId"], equals: m3cCreated.id } } });
   await prisma.bookingEvent.deleteMany({ where: { bookingId: m3cCreated.id } });
   await prisma.booking.delete({ where: { id: m3cCreated.id } });

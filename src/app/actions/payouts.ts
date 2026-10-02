@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth-demo";
 import { decidePayout, requestPayout } from "@/lib/data/repo";
+import { getSessionWorker } from "@/lib/data/authz";
+import { feeClaimBlock } from "@/lib/data/payment-workflow-engine";
 
 /**
  * Worker withdraws part of their available earnings (docs/payouts.md). The
@@ -14,10 +16,16 @@ export async function requestPayoutAction(
   workerId: string,
   amountMajor: number,
   reason?: string
-): Promise<{ ok: boolean; error?: "unauthorized" | "invalid" | "insufficient" }> {
+): Promise<{ ok: boolean; error?: "unauthorized" | "invalid" | "insufficient" | "fee-claim-overdue" }> {
   const session = await getSession();
   if (!session || session.role !== "worker") return { ok: false, error: "unauthorized" };
   if (!workerId) return { ok: false, error: "invalid" };
+  // The worker may only withdraw from their OWN balance (the role check alone
+  // let any worker file a payout against another worker's earnings).
+  const own = await getSessionWorker(session);
+  if (!own || own.id !== workerId) return { ok: false, error: "unauthorized" };
+  // Workflow v2 — an overdue outside-platform fee claim blocks withdrawals.
+  if ((await feeClaimBlock(workerId)).blocked) return { ok: false, error: "fee-claim-overdue" };
   const minor = Math.round(Number(amountMajor) * 100);
   if (!Number.isFinite(minor) || minor <= 0) return { ok: false, error: "invalid" };
   const result = await requestPayout(workerId, minor, reason?.trim() || undefined);

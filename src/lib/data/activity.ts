@@ -186,7 +186,7 @@ async function filePrune(olderThanDays: number): Promise<{ removed: number; rema
   const run = chain.then(async () => {
     const feed = await readFeed();
     const before = feed.length;
-    const kept = feed.filter((e) => Date.parse(e.time) >= cutoff);
+    const kept = feed.filter((e) => Date.parse(e.time) >= cutoff || (e.code !== undefined && RETAINED_ACTIVITY_CODES.includes(e.code)));
     const persisted = await writeFeed(kept);
     return { removed: before - kept.length, remaining: kept.length, persisted };
   });
@@ -312,6 +312,16 @@ export const ACTION_CODES = {
   // Admin platform settings (/admin/settings) — which keys an admin changed.
   // The current values live in the `Setting` row; this is the who/when trail.
   PLATFORM_SETTINGS_UPDATED: "PLATFORM_SETTINGS_UPDATED",
+  // Payment workflow v2 (docs/PAYMENTS.md §Workflow v2) — the feed's view of
+  // the money workflow. The full, never-pruned trail is PaymentAuditEvent.
+  PAYMENT_RECORDED: "PAYMENT_RECORDED",
+  PAYMENT_APPROVED: "PAYMENT_APPROVED",
+  PAYMENT_REJECTED: "PAYMENT_REJECTED",
+  PAYMENT_UNMATCHED: "PAYMENT_UNMATCHED",
+  REFUND_SENT: "REFUND_SENT",
+  BALANCE_OVERDUE: "BALANCE_OVERDUE",
+  BALANCE_WRITTEN_OFF: "BALANCE_WRITTEN_OFF",
+  SETTLED_OUTSIDE_DISPUTED: "SETTLED_OUTSIDE_DISPUTED",
   // Generic fallbacks for callers that don't pass an explicit code (kept for
   // backward compatibility with legacy rows / untyped call sites).
   SYSTEM: "SYSTEM",
@@ -319,6 +329,27 @@ export const ACTION_CODES = {
 } as const;
 
 export type ActivityCode = (typeof ACTION_CODES)[keyof typeof ACTION_CODES];
+
+/**
+ * Money entries are kept forever: the retention prune skips them, so the feed
+ * never loses who confirmed, refunded or wrote off money (the full trail is
+ * also in the never-pruned PaymentAuditEvent table).
+ */
+export const RETAINED_ACTIVITY_CODES: readonly string[] = [
+  ACTION_CODES.BOOKING_CONFIRMED,
+  ACTION_CODES.BOOKING_REFUNDED,
+  ACTION_CODES.CAMPAIGN_PAID,
+  ACTION_CODES.CAMPAIGN_REFUNDED,
+  ACTION_CODES.PURCHASE_CONFIRMED,
+  ACTION_CODES.PAYMENT_RECORDED,
+  ACTION_CODES.PAYMENT_APPROVED,
+  ACTION_CODES.PAYMENT_REJECTED,
+  ACTION_CODES.PAYMENT_UNMATCHED,
+  ACTION_CODES.REFUND_SENT,
+  ACTION_CODES.BALANCE_OVERDUE,
+  ACTION_CODES.BALANCE_WRITTEN_OFF,
+  ACTION_CODES.SETTLED_OUTSIDE_DISPUTED,
+];
 
 /**
  * Resolve the machine code for a logged entry: an explicit `code` wins;
@@ -430,7 +461,9 @@ async function prismaReset(): Promise<void> {
 async function prismaPrune(olderThanDays: number): Promise<{ removed: number; remaining: number }> {
   return withPrisma(async (db) => {
     const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
-    const removed = await db.activityLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+    const removed = await db.activityLog.deleteMany({
+      where: { createdAt: { lt: cutoff }, action: { notIn: [...RETAINED_ACTIVITY_CODES] } },
+    });
     const remaining = await db.activityLog.count();
     return { removed: removed.count, remaining };
   });

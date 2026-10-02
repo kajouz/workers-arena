@@ -1,5 +1,8 @@
 import { getSession } from "@/lib/auth-demo";
 import { withReceiptTimes } from "@/lib/data/payment-receipts";
+import { getFinanceQueues, overdueBalances, settledOutsideNeedingReview, withPaymentProgress } from "@/lib/data/payment-workflow-engine";
+import { listRefundsDue } from "@/lib/data/payment-workflow-store";
+import { FinanceQueuesCard } from "@/components/admin/finance-queues-card";
 import { getI18n } from "@/lib/i18n/server";
 import {
   getAnalyticsOverview,
@@ -167,11 +170,49 @@ export default async function AdminPage({
   // the full queue (with recent decisions) is /admin/guarantee.
   const openClaims = (await listGuaranteeClaims()).filter((c) => c.status === "open");
 
+  // Payment workflow v2 — the finance queues: amounts waiting for a second
+  // approver, unmatched (late/orphan) receipts, refunds owed, overdue job
+  // balances and unanswered / denied "settled directly" declarations.
+  const [financeQueues, refundsDue, overdue, outsideReview] = await Promise.all([
+    getFinanceQueues(),
+    listRefundsDue(),
+    overdueBalances(),
+    settledOutsideNeedingReview(),
+  ]);
+  const finance = {
+    awaitingApproval: financeQueues.awaitingApproval.map((t) => ({
+      id: t.id,
+      label: locale === "ar" ? t.labelAr : t.labelEn,
+      amountMinor: t.amountMinor,
+      txnId: t.externalTxnId,
+      enteredBy: t.enteredBy ?? "",
+      enteredByMe: t.enteredById === session.id,
+      createdAt: t.createdAt,
+    })),
+    unmatched: financeQueues.unmatched.map((t) => ({
+      id: t.id,
+      label: locale === "ar" ? t.labelAr : t.labelEn,
+      amountMinor: t.amountMinor,
+      txnId: t.externalTxnId,
+      createdAt: t.createdAt,
+    })),
+    refunds: refundsDue.map((r) => ({ paymentId: r.paymentId, label: r.label, amountMinor: r.amountMinor, method: r.method ?? "", createdAt: r.createdAt })),
+    overdue: overdue.map((o) => ({ bookingId: o.booking.id, number: o.booking.number, customer: o.booking.customerName, outstandingMinor: o.outstandingMinor, stage: o.stage })),
+    outsideReview: outsideReview.map((o) => ({ bookingId: o.booking.id, number: o.booking.number, customer: o.booking.customerName, disputed: o.disputed })),
+  };
+  const financeCount =
+    finance.awaitingApproval.length + finance.unmatched.length + finance.refunds.length + finance.overdue.length + finance.outsideReview.length;
+
   return (
     <>
     {openClaims.length > 0 && (
       <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
         <GuaranteeClaimsCard claims={openClaims} />
+      </div>
+    )}
+    {financeCount > 0 && (
+      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+        <FinanceQueuesCard queues={finance} />
       </div>
     )}
     <AdminDashboard
@@ -183,7 +224,7 @@ export default async function AdminPage({
       verificationQueue={verificationQueue}
       platformFeeStats={platformFeeStats}
       pendingPayouts={pendingPayouts}
-      pendingManualPayments={await withReceiptTimes(await getPendingManualPayments())}
+      pendingManualPayments={await withPaymentProgress(await withReceiptTimes(await getPendingManualPayments()))}
       nowSeed={Date.now()}
       workers={await getAllWorkers()}
       workerManagementInit={workerManagementInit}

@@ -24,7 +24,7 @@ import {
   createBookingCheckout,
   getBookingSlot,
   createBookingSettlementCheckout,
-  markBookingSettledOutside,
+  getBookingSettlementPayment,
   createBookingRequest,
   createQuoteRequest,
   createRecurringRequest,
@@ -51,6 +51,8 @@ import {
   getBookingSettlement,
 } from "@/lib/data/repo";
 import { collectFeeClaims } from "@/lib/data/wallet-payments";
+import { answerSettledOutside, customerReliability, declareSettledOutside } from "@/lib/data/payment-workflow-engine";
+import { paymentWorkflowConfig, requiredDepositMinor } from "@/lib/data/payment-workflow";
 import { MAX_QUOTE_WORKERS } from "@/lib/data/types";
 import type { BookingTransitionTarget, RecurringFrequency, Worker } from "@/lib/data/types";
 import { renderBookingAuditPrint, renderBookingTrailsPrint } from "@/lib/data/booking-print";
@@ -74,8 +76,17 @@ import { instantBookDecision } from "@/lib/data/instant-book";
 
 export type BookingActionResult = {
   ok: boolean;
-  error?: "slot-taken" | "invalid" | "not-found" | "unauthorized" | "otp-required" | "otp-invalid";
+  error?: "slot-taken" | "invalid" | "not-found" | "unauthorized" | "otp-required" | "otp-invalid" | "payment-blocked";
 };
+
+/**
+ * Workflow v2 — a customer whose payment record is "blocked" (repeated lapsed
+ * deposits, overdue or written-off balances) cannot open new bookings until an
+ * admin reviews them (docs/PAYMENTS.md §Reliability).
+ */
+async function customerBlocked(identity: { customerId?: string; phone?: string }): Promise<boolean> {
+  return (await customerReliability(identity)).tier === "blocked";
+}
 
 /**
  * The credential a signed-out guest carries on /bookings?phone=… — the same
@@ -138,6 +149,9 @@ export async function requestBookingAction(
   // requester must present a code the send endpoint delivered to this handset.
   const otp = await gateGuestWrite(session, parsed.data.customerPhone, guestOtpFieldsFrom(formData));
   if (!otp.ok) return { ok: false, error: otp.error };
+  if (await customerBlocked({ customerId: session?.id, phone: parsed.data.customerPhone })) {
+    return { ok: false, error: "payment-blocked" };
+  }
 
   const result = await createBookingRequest({
     workerId: worker.id,
@@ -219,6 +233,9 @@ export async function instantBookAction(
   // verified before the slot is claimed (same gate as the request path).
   const otp = await gateGuestWrite(session, parsed.data.customerPhone, guestOtpFieldsFrom(formData));
   if (!otp.ok) return { ok: false, error: otp.error };
+  if (await customerBlocked({ customerId: session?.id, phone: parsed.data.customerPhone })) {
+    return { ok: false, error: "payment-blocked" };
+  }
 
   const created = await createBookingRequest({
     workerId: worker.id,
@@ -291,6 +308,9 @@ export async function requestRecurringBookingAction(
   // Guest phone OTP — same gate as the one-shot request (see above).
   const otp = await gateGuestWrite(session, parsed.data.customerPhone, guestOtpFieldsFrom(formData));
   if (!otp.ok) return { ok: false, error: otp.error };
+  if (await customerBlocked({ customerId: session?.id, phone: parsed.data.customerPhone })) {
+    return { ok: false, error: "payment-blocked" };
+  }
 
   const result = await createRecurringRequest({
     workerId: worker.id,
@@ -359,10 +379,28 @@ export async function respondBookingAction(
 
   const cleanDeclineReason = parsed.data.declineReason ? sanitizeText(parsed.data.declineReason, 500) : undefined;
 
+  // Workflow v2 — the platform decides the minimum deposit: the configured
+  // share of the quote (BOOKING_MIN_DEPOSIT_BPS), or the whole quote from a
+  // customer whose payment record requires prepayment.
+  const quoteMinor = toMinor(parsed.data.quote);
+  let depositMinor = toMinor(parsed.data.deposit);
+  if (accept && quoteMinor) {
+    const current = await getBookingById(bookingId);
+    const reliability = current
+      ? await customerReliability({ customerId: current.customerId, phone: current.customerPhone })
+      : { tier: "normal" as const };
+    if (reliability.tier === "blocked") return { ok: false, error: "payment-blocked" };
+    const required = requiredDepositMinor(
+      { quoteMinor, requestedDepositMinor: depositMinor, tier: reliability.tier },
+      paymentWorkflowConfig()
+    );
+    if (required > 0) depositMinor = required;
+  }
+
   const booking = await respondToBooking(bookingId, {
     accept,
-    quote: toMinor(parsed.data.quote),
-    deposit: toMinor(parsed.data.deposit),
+    quote: quoteMinor,
+    deposit: depositMinor,
     declineReason: cleanDeclineReason,
   });
   if (!booking) return { ok: false, error: "not-found" };
@@ -781,7 +819,7 @@ export async function payBookingBalanceAction(
 export async function markBookingSettledOutsideAction(
   bookingId: string,
   reason?: string
-): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" | "payment-in-flight" }> {
   if (!bookingId) return { ok: false, error: "invalid" };
   // Party gate: the booking's WORKER or an admin (`requireBookingWorker`
   // resolves the admin too and rejects a customer — a customer must not be able
@@ -789,11 +827,15 @@ export async function markBookingSettledOutsideAction(
   const party = await requireBookingWorker(bookingId);
   if (!party.ok) return party;
 
-  const updated = await markBookingSettledOutside(bookingId, {
+  // Workflow v2 — refused while the customer's balance payment is in flight
+  // (a receipt uploaded or finance recording it), and the customer is asked to
+  // confirm the declaration (declareSettledOutside).
+  const declared = await declareSettledOutside(bookingId, {
     by: party.actor === "admin" ? "admin" : "worker",
     ...(reason ? { reason: sanitizeText(reason, 200) } : {}),
   });
-  if (!updated) return { ok: false, error: "not-found" };
+  if (!declared.ok) return { ok: false, error: declared.error === "payment-in-flight" ? "payment-in-flight" : "not-found" };
+  const updated = declared.booking;
   // The platform's commission on a cash job is a claim: collect what the
   // worker's wallet covers right away (the daily wallet run retries the rest).
   const settlement = await getBookingSettlement(bookingId);
@@ -802,6 +844,27 @@ export async function markBookingSettledOutsideAction(
   }
   revalidatePath("/bookings");
   revalidatePath("/dashboard");
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/**
+ * Workflow v2 — the customer answers the worker's "settled directly"
+ * declaration: yes, I paid the worker in cash (closes it), or no, I did not
+ * (flags it for admin review). Same party gate as paying the balance: the
+ * booking's customer, a guest proving their phone, or an admin.
+ */
+export async function answerSettledOutsideAction(
+  bookingId: string,
+  confirmed: boolean,
+  formData: FormData = new FormData()
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+  if (!bookingId) return { ok: false, error: "invalid" };
+  const party = await requireBookingCustomer(bookingId, guestProofFrom(formData));
+  if (!party.ok) return party;
+  const answered = await answerSettledOutside(bookingId, confirmed === true);
+  if (!answered) return { ok: false, error: "not-found" };
+  revalidatePath("/bookings");
   revalidatePath("/admin");
   return { ok: true };
 }
@@ -816,10 +879,14 @@ export async function markBookingSettledOutsideAction(
 export async function confirmBookingSettlementAction(
   bookingId: string,
   providerRef: string
-): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" | "evidence-required" }> {
   const auth = await requireRole("admin");
   if (!auth.ok) return auth;
   if (!bookingId || !providerRef) return { ok: false, error: "invalid" };
+  // Workflow v2 — an OMT/Whish balance is confirmed only through the payments
+  // inbox with its evidence (amount received + transaction number).
+  const leg = await getBookingSettlementPayment(bookingId);
+  if (leg && (leg.method === "omt" || leg.method === "whish")) return { ok: false, error: "evidence-required" };
   const booking = await confirmBookingSettlement(bookingId, providerRef);
   if (!booking) return { ok: false, error: "not-found" };
   revalidatePath("/bookings");
@@ -847,10 +914,14 @@ export async function confirmBookingSettlementAction(
 export async function confirmPaymentAction(
   bookingId: string,
   providerRef: string
-): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" | "evidence-required" }> {
   const auth = await requireRole("admin");
   if (!auth.ok) return auth;
   if (!bookingId || !providerRef) return { ok: false, error: "invalid" };
+  // Workflow v2 — an OMT/Whish deposit is confirmed only through the payments
+  // inbox with its evidence (amount received + transaction number).
+  const current = await getBookingById(bookingId);
+  if (current?.paymentMethod === "omt" || current?.paymentMethod === "whish") return { ok: false, error: "evidence-required" };
   const booking = await confirmBookingPayment(bookingId, providerRef);
   if (!booking) return { ok: false, error: "not-found" };
   revalidatePath("/bookings");
@@ -863,7 +934,7 @@ export async function confirmPaymentAction(
 /** Result shape for the quote-request action (rule 1 errors included). */
 export type QuoteActionResult = {
   ok: boolean;
-  error?: "invalid" | "too-many" | "duplicate" | "unknown-worker" | "otp-required" | "otp-invalid";
+  error?: "invalid" | "too-many" | "duplicate" | "unknown-worker" | "otp-required" | "otp-invalid" | "payment-blocked";
 };
 
 const quoteRequestSchema = z.object({
@@ -923,6 +994,9 @@ export async function createQuoteRequestAction(
   // SMS/WhatsApp invites fire on creation, so the gate sits before the write.
   const otp = await gateGuestWrite(session, parsed.data.customerPhone, guestOtpFieldsFrom(formData));
   if (!otp.ok) return { ok: false, error: otp.error };
+  if (await customerBlocked({ customerId: session?.id, phone: parsed.data.customerPhone })) {
+    return { ok: false, error: "payment-blocked" };
+  }
 
   const result = await createQuoteRequest(
     {

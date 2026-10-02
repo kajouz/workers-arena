@@ -51,7 +51,7 @@ export function SettleOutsideButton({ bookingId, className }: { bookingId: strin
       setOpen(false);
       router.refresh();
     } else {
-      toast("error", t("booking.settlementOutsideFailed"));
+      toast("error", res.error === "payment-in-flight" ? t("booking.settlementOutsideInFlight") : t("booking.settlementOutsideFailed"));
     }
   };
 

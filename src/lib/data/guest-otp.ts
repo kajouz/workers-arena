@@ -233,9 +233,17 @@ export async function verifyGuestOtp(phone: string, code: string): Promise<OtpVe
  * production flips it when a real SMS provider is configured. When off, the
  * feature is dormant everywhere (the send endpoint still works and the demo
  * bypass still functions, so tests and dev keep exercising the machinery).
+ *
+ * Payment workflow v2: a deployment that declares real money
+ * (`PAYMENTS_LIVE=true`, src/lib/payments/money-mode.ts) enforces it by
+ * default — a guest who books and pays must prove the handset the booking,
+ * the receipts and any refund are keyed on. `GUEST_OTP_ENFORCED=false` is the
+ * explicit opt-out.
  */
 export function guestOtpEnforced(): boolean {
-  return process.env.GUEST_OTP_ENFORCED === "true";
+  if (process.env.GUEST_OTP_ENFORCED === "true") return true;
+  if (process.env.GUEST_OTP_ENFORCED === "false") return false;
+  return process.env.PAYMENTS_LIVE === "true";
 }
 
 /**

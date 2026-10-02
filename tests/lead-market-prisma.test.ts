@@ -206,7 +206,7 @@ describeLive("lead marketplace — prisma adapter (live DB)", () => {
       expect(row!.ruleVersion).toBeGreaterThanOrEqual(1);
 
       // The rebate rides the ONE earnings row: net (quote − fee) + the rebate.
-      const earning = await prisma.workerLedgerEntry.findUnique({ where: { bookingId: booking.id } });
+      const earning = await prisma.workerLedgerEntry.findUnique({ where: { creditKey: `earning:${booking.id}` } });
       expect(earning?.amount).toBe(30_000 - 2_100 + leadCostMinor);
       expect(earning?.reason).toContain("Lead rebate");
 

@@ -15,6 +15,8 @@ import { BookingsClient } from "@/components/bookings/bookings-client";
 import { ReviewSolicitation } from "@/components/bookings/review-solicitation";
 import { pendingSolicitations } from "@/lib/data/review-solicitation";
 import { guaranteeClaimsForBookings } from "@/lib/data/guarantee";
+import { getBookingWorkflows } from "@/lib/data/payment-workflow-store";
+import { depositDeadline } from "@/lib/data/payment-workflow";
 import type { GuaranteeClaim } from "@/lib/data/guarantee-terms";
 import type { QuoteWorker } from "@/components/bookings/quote-request-card";
 import type { Booking, BookingMessage, QuoteRequest, RecurringBooking, Notification } from "@/lib/data/types";
@@ -53,6 +55,12 @@ export interface CustomerBookingRow {
   } | null;
   /** WorkersArena Guarantee — the claim filed on this booking, if any. */
   guaranteeClaim?: GuaranteeClaim | null;
+  /** Payment workflow v2 — when an unpaid deposit lapses (ISO), for
+   * PENDING_PAYMENT bookings. */
+  depositDeadline?: string;
+  /** Payment workflow v2 — the worker declared "settled directly" and the
+   * customer has not answered yet (the row asks them to confirm or deny). */
+  settledOutsideQuestion?: boolean;
 }
 
 /** A recurring contract plus its worker display data (M1 §7 #1). */
@@ -117,13 +125,24 @@ export default async function BookingsPage({
   const claims = await guaranteeClaimsForBookings(
     bookings.filter((b) => b.status === "completed").map((b) => b.id)
   );
-  const rows: CustomerBookingRow[] = bookings.map((booking, i) => ({
-    booking,
-    worker: workers[i] ?? null,
-    messages: messageLists[i] ?? [],
-    emailPreview: bookingEmailPreviewFor(booking),
-    guaranteeClaim: claims.get(booking.id) ?? null,
-  }));
+  const workflows = await getBookingWorkflows(bookings.filter((b) => b.settledOutside).map((b) => b.id));
+  const rows: CustomerBookingRow[] = bookings.map((booking, i) => {
+    const asked = booking.events.filter((e) => e.status === "pendingPayment").at(-1)?.time;
+    const wf = workflows.get(booking.id);
+    return {
+      booking,
+      worker: workers[i] ?? null,
+      messages: messageLists[i] ?? [],
+      emailPreview: bookingEmailPreviewFor(booking),
+      guaranteeClaim: claims.get(booking.id) ?? null,
+      ...(booking.status === "pendingPayment" && asked
+        ? { depositDeadline: depositDeadline({ requestedAt: asked, startAt: booking.startAt ?? null }).toISOString() }
+        : {}),
+      ...(booking.settledOutside && wf && !wf.settledOutsideConfirmedAt && !wf.settledOutsideDisputedAt
+        ? { settledOutsideQuestion: true }
+        : {}),
+    };
+  });
 
   // M1 recurring contracts (§7 #1) — same identifier as the bookings lookup.
   const identifier = email

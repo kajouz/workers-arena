@@ -48,7 +48,13 @@ export function ReceiptUpload({ link, uploadedAt }: { link: ManualLinkParams; up
             ? t("payments.receiptErrorLink")
             : res.error === "too-large"
               ? t("payments.receiptErrorLarge")
-              : t("payments.receiptErrorImage")
+              : res.error === "locked"
+                ? t("payments.receiptErrorLocked")
+                : res.error === "closed"
+                  ? t("payments.receiptErrorClosed")
+                  : res.error === "rate-limited"
+                    ? t("payments.receiptErrorRateLimited")
+                    : t("payments.receiptErrorImage")
         );
       }
     } catch {

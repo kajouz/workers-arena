@@ -36,6 +36,8 @@ import { omtProvider } from "../src/lib/payments/omt";
 import { whishProvider } from "../src/lib/payments/whish";
 import { toDomainPaymentMethod, type Booking } from "../src/lib/data/types";
 import { workerBySlug } from "../src/lib/data/workers";
+import { resetPaymentReceiptStore, savePaymentReceipt } from "../src/lib/data/payment-receipts";
+import { resetPaymentWorkflowStore } from "../src/lib/data/payment-workflow-store";
 
 const DEMO_WORKER = "khaled-al-harbi-plumbing";
 
@@ -52,8 +54,42 @@ function bookingOf(r: Booking | { error: string }): Booking {
 const ADMIN = { id: "a1", name: "Amina Admin", email: "admin@workersarena.com", role: "admin", hue: 280 };
 const WORKER = { id: "w-khaled", name: "Khaled Al-Harbi", email: "khaled@plumbfix.lb", role: "worker", hue: 25 };
 const CUSTOMER = { id: "u-sara", name: "Sara", email: "sara@example.com", role: "customer", hue: 200 };
+const ADMIN_2 = { id: "a2", name: "Bassel Finance", email: "finance@workersarena.com", role: "admin", hue: 120 };
+
+/** A 1×1 JPEG — the payer's receipt photo. */
+const RECEIPT =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP////////////////////////////////////////////////////////////////////////////////////8AAAsIAAEAAQEBEQD/xAAUAAEAAAAAAAAAAAAAAAAAAAAD/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAAPwBH/9k=";
+let txnSeq = 0;
+
+/**
+ * Workflow v2 — the real manual-confirm flow: the payer uploads a receipt on
+ * the instructions page, an admin records the amount received with a unique
+ * OMT/Whish transaction number, and (at/above the four-eyes threshold) a
+ * second admin approves it. Returns the first admin's result.
+ */
+async function confirmWithEvidence(paymentId: string) {
+  const payment = (await getPendingManualPayments()).find((p) => p.id === paymentId);
+  if (payment) await savePaymentReceipt({ reference: payment.reference, provider: payment.method === "omt" ? "OMT" : "WHISH", dataUrl: RECEIPT });
+  txnSeq += 1;
+  getSessionMock.mockResolvedValue(ADMIN);
+  const res = await confirmManualPaymentAction(paymentId, {
+    amount: payment ? (payment.amount / 100).toFixed(2) : "1",
+    txnId: `TXN${String(txnSeq).padStart(6, "0")}`,
+  });
+  if (res.ok && res.outcome === "awaiting-approval") {
+    const { listTranches } = await import("../src/lib/data/payment-workflow-store");
+    const waiting = (await listTranches({ paymentId, status: "pending-approval" }))[0];
+    getSessionMock.mockResolvedValue(ADMIN_2);
+    const { approveManualTrancheAction } = await import("../src/app/actions/business");
+    await approveManualTrancheAction(waiting!.id);
+    getSessionMock.mockResolvedValue(ADMIN);
+  }
+  return res;
+}
 
 beforeEach(() => {
+  resetPaymentReceiptStore();
+  resetPaymentWorkflowStore();
   resetBookingsStore();
   resetCampaignStore();
   resetPurchaseStore();
@@ -212,17 +248,20 @@ describe("§Lebanon — booking deposits via OMT/Whish", () => {
     expect(bookingPayment!.labelAr).not.toContain("Leaking kitchen sink repair");
 
     getSessionMock.mockResolvedValue(ADMIN);
-    const res = await confirmManualPaymentAction(bookingPayment!.id);
-    expect(res.ok).toBe(true);
+    const res = await confirmWithEvidence(bookingPayment!.id);
+    expect(res).toEqual({ ok: true, outcome: "confirmed" });
 
     const booking = bookingOf(
       (await getCustomerBookings({ email: "sara@example.com" })).find((b) => b.id === "bk-1001") ?? { error: "not-found" }
     );
     expect(booking.status).toBe("confirmed");
     // The pending queue is now empty for this payment — idempotent no-op next.
+    // Recording the SAME transaction again is refused — one receipt can never
+    // confirm two payments; and with no evidence nothing is recorded at all.
     getSessionMock.mockResolvedValue(ADMIN);
-    const again = await confirmManualPaymentAction(bookingPayment!.id);
-    expect(again).toEqual({ ok: false, error: "not-found" });
+    expect(await confirmManualPaymentAction(bookingPayment!.id)).toEqual({ ok: false, error: "evidence-required" });
+    const again = await confirmManualPaymentAction(bookingPayment!.id, { amount: "50", txnId: `TXN${String(txnSeq).padStart(6, "0")}` });
+    expect(again).toEqual({ ok: false, error: "duplicate-txn" });
 
     // The admin confirm is audited with the ACTING ADMIN's identity, not the
     // worker's — the feed entry credits who actually confirmed receipt.
@@ -266,18 +305,23 @@ describe("§Lebanon — campaign purchases via Whish", () => {
     expect(campaignPayment!.reference).toMatch(/^WHISH-/);
 
     getSessionMock.mockResolvedValue(ADMIN);
-    const confirm = await confirmManualPaymentAction(campaignPayment!.id);
+    const confirm = await confirmWithEvidence(campaignPayment!.id);
     expect(confirm.ok).toBe(true);
+    // At or above the four-eyes threshold the first admin's entry only RECORDS
+    // the money; the campaign goes live when a different admin approves it.
+    const fourEyes = campaignPayment!.amount >= 20_000;
+    expect(confirm).toEqual({ ok: true, outcome: fourEyes ? "awaiting-approval" : "confirmed" });
 
     const campaigns = await (await import("../src/lib/data/repo")).getCampaigns();
     expect(campaigns.find((c) => c.id === campaignId)?.status).toBe("active");
 
-    // CAMPAIGN_PAID lands in the feed with the acting admin as actor.
+    // CAMPAIGN_PAID lands in the feed with the admin who completed the confirm
+    // as actor — the approver when four-eyes applied.
     const feed = await getAdminActivityFeed();
     const entry = feed.find((e) => e.code === "CAMPAIGN_PAID" && e.actionEn.includes("Beirut plumbing ads"));
     expect(entry).toBeDefined();
-    expect(entry!.actor).toBe("Amina Admin");
-    expect(entry!.actorId).toBe("a1");
+    expect(entry!.actor).toBe(fourEyes ? "Bassel Finance" : "Amina Admin");
+    expect(entry!.actorId).toBe(fourEyes ? "a2" : "a1");
   });
 });
 
@@ -316,8 +360,13 @@ describe("§Lebanon — subscription renewal via OMT/Whish (manual)", () => {
     expect(await cancelPendingRenewalAction(payment!.id)).toEqual({ ok: true });
     expect((await getPendingManualPayments()).some((item) => item.id === payment!.id)).toBe(false);
 
+    // Money that arrives for a cancelled reference is never lost: it lands in
+    // the unmatched queue for a refund decision instead of activating anything.
     getSessionMock.mockResolvedValue(ADMIN);
-    expect(await confirmManualPaymentAction(payment!.id)).toEqual({ ok: false, error: "not-found" });
+    expect(await confirmManualPaymentAction(payment!.id, { amount: "15", txnId: "OMT-LATE-0001" })).toEqual({
+      ok: true,
+      outcome: "unmatched",
+    });
   });
 
   it("mints a manual checkout instead of the instant extension", async () => {
@@ -342,7 +391,7 @@ describe("§Lebanon — subscription renewal via OMT/Whish (manual)", () => {
     expect(subPayment).toBeDefined();
 
     getSessionMock.mockResolvedValue(ADMIN);
-    const confirm = await confirmManualPaymentAction(subPayment!.id);
+    const confirm = await confirmWithEvidence(subPayment!.id);
     expect(confirm.ok).toBe(true);
 
     const khaled = workerBySlug(DEMO_WORKER)!;
@@ -379,7 +428,8 @@ describe("§Lebanon — subscription renewal via OMT/Whish (manual)", () => {
     expect(payment?.amount).toBe(27 * 9 * 100);
 
     getSessionMock.mockResolvedValue(ADMIN);
-    expect(await confirmManualPaymentAction(payment!.id)).toEqual({ ok: true });
+    // 27 × 9 = $243 — over the four-eyes threshold, so a second admin approves.
+    expect(await confirmWithEvidence(payment!.id)).toEqual({ ok: true, outcome: "awaiting-approval" });
     const worker = workerBySlug(DEMO_WORKER)!;
     expect(worker.subscription.price).toBe(27 * 9);
   });
@@ -403,7 +453,7 @@ describe("§Lebanon — paid upgrades (BUSINESS-MODEL §5.1, no Stripe)", () => 
     expect(payment!.amount).toBe(1900); // Professional $19
 
     getSessionMock.mockResolvedValue(ADMIN);
-    await confirmManualPaymentAction(payment!.id);
+    await confirmWithEvidence(payment!.id);
     expect(workerBySlug(DEMO_WORKER)!.verified).toBe(true);
     expect(workerBySlug(DEMO_WORKER)!.verification).toBe("verified");
 
@@ -429,7 +479,7 @@ describe("§Lebanon — paid upgrades (BUSINESS-MODEL §5.1, no Stripe)", () => 
       const payment = pending.find((p) => p.scope === scope);
       expect(payment).toBeDefined();
       getSessionMock.mockResolvedValue(ADMIN);
-      const confirm = await confirmManualPaymentAction(payment!.id);
+      const confirm = await confirmWithEvidence(payment!.id);
       expect(confirm.ok).toBe(true);
     }
     const khaled = workerBySlug(DEMO_WORKER)!;
@@ -467,7 +517,7 @@ describe("§Lebanon — the pending-manual queue is the manual twin of a webhook
     const pending = await getPendingManualPayments();
     const bookingPayment = pending.find((p) => p.scope === "booking");
     getSessionMock.mockResolvedValue(ADMIN);
-    await confirmManualPaymentAction(bookingPayment!.id);
+    await confirmWithEvidence(bookingPayment!.id);
 
     const refundSpy = vi.spyOn(omtProvider, "refund");
     const cancelled = await cancelBooking("bk-1001", { by: "customer", reason: "Change of plans" });

@@ -33,6 +33,15 @@ import { appBaseUrl } from "@/lib/notifications/config";
 import { getCampaigns, getWorkerById, getWorkerByUserId } from "@/lib/data/repo";
 import { getSessionWorker } from "@/lib/data/authz";
 import { payPurchaseFromWallet } from "@/lib/data/wallet-payments";
+import { ACTION_CODES, logAdminActivity } from "@/lib/data/activity";
+import {
+  approveTranche,
+  recordManualPayment,
+  rejectTranche,
+  resolveUnmatched,
+  sendRefund,
+  writeOffBalance,
+} from "@/lib/data/payment-workflow-engine";
 import { recordSubscriptionEvent } from "@/lib/data/subscription-lifecycle-store";
 
 const AD_TYPES = ["banner", "slider", "featuredCard", "sponsoredSearch", "sponsoredCategory", "popup", "native", "video"] as const;
@@ -398,52 +407,156 @@ export async function markAllReadAction(): Promise<void> {
 }
 
 /**
- * §Lebanon — admin confirms receipt of a PENDING manual (OMT/Whish) payment.
- * The customer paid offline with the reference the /payments/manual page
- * showed; this runs the SAME confirm path a provider webhook would have run:
- * booking deposit → confirmBookingPayment, campaign purchase →
- * confirmCampaignPayment, paid upgrade → confirmPurchase. Admin-only;
- * idempotent (a second confirm no-ops).
+ * §Lebanon + workflow v2 — admin records money received against a PENDING
+ * manual (OMT/Whish) payment (docs/PAYMENTS.md §Confirming).
+ *
+ * Evidence is mandatory: the amount actually received and the OMT/Whish
+ * transaction number (unique across every payment and refund, so one receipt
+ * can never confirm two payments). The engine then decides:
+ *  - covered → the SAME confirm path a provider webhook runs (booking deposit,
+ *    job balance, campaign, paid upgrade), the receipt is frozen, and any
+ *    excess is booked as a refund due;
+ *  - short → the payment stays pending and the payer sees the remainder;
+ *  - at/above the four-eyes threshold, or without a receipt photo → it waits
+ *    for a DIFFERENT admin to approve (approveManualTrancheAction);
+ *  - the payment already closed (expired/cancelled/paid) → unmatched queue.
+ * Admin-only; the acting admin is recorded on every step.
  */
 export async function confirmManualPaymentAction(
-  paymentId: string
-): Promise<{ ok: boolean; error?: "invalid" | "not-found" | "unauthorized" }> {
+  paymentId: string,
+  evidence?: { amount?: number | string; txnId?: string; note?: string }
+): Promise<{
+  ok: boolean;
+  outcome?: "confirmed" | "partial" | "awaiting-approval" | "unmatched";
+  remainingMinor?: number;
+  error?:
+    | "invalid"
+    | "not-found"
+    | "unauthorized"
+    | "evidence-required"
+    | "invalid-txn"
+    | "invalid-amount"
+    | "duplicate-txn"
+    | "same-admin"
+    | "confirm-failed";
+}> {
   if (!paymentId) return { ok: false, error: "invalid" };
   const session = await getSession();
   if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
-
-  const pending = await getPendingManualPayments();
-  const payment = pending.find((p) => p.id === paymentId);
-  if (!payment) return { ok: false, error: "not-found" };
-
-  // Thread the ACTING ADMIN's identity into the confirm so the audited
-  // activity-feed entry credits who actually confirmed receipt — the
-  // BOOKING_CONFIRMED / CAMPAIGN_PAID / PURCHASE_CONFIRMED entries all carry
-  // `actor: session.name` (and the admin FK as actorId) instead of a generic
-  // worker or "Platform Admin" fallback.
-  const by = session.name ?? "Platform Admin";
-  const byId = session.id;
-
-  let ok = false;
-  if (payment.scope === "booking") {
-    // §Settlement — a booking can have TWO manual payments waiting at once
-    // (the deposit before the job, the balance after). Confirming the balance
-    // must run the settlement path, not the deposit path: they flip different
-    // Payment rows and only the settlement leg can release the worker's pay.
-    ok =
-      payment.leg === "settlement"
-        ? (await confirmBookingSettlement(payment.entityId, payment.reference)) !== null
-        : (await confirmBookingPayment(payment.entityId, payment.reference, { by, byId })) !== null;
-  } else if (payment.scope === "campaign") {
-    ok = (await confirmCampaignPayment(payment.entityId, payment.reference, { by, byId })) !== null;
-  } else {
-    ok = await confirmPurchase(payment.entityId, payment.reference, { by, byId });
+  if (!evidence?.txnId || evidence.amount === undefined || evidence.amount === "") {
+    return { ok: false, error: "evidence-required" };
   }
+  // The amount arrives in MAJOR units from the admin form.
+  const amountMinor = Math.round(Number(evidence.amount) * 100);
+  const result = await recordManualPayment({
+    paymentId,
+    amountMinor,
+    txnId: String(evidence.txnId),
+    ...(evidence.note ? { note: sanitizeText(String(evidence.note), 300) } : {}),
+    actor: { id: session.id, name: session.name ?? "Platform Admin" },
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+  await logAdminActivity({
+    code: result.outcome === "unmatched" ? ACTION_CODES.PAYMENT_UNMATCHED : ACTION_CODES.PAYMENT_RECORDED,
+    actionEn: `${session.name ?? "Admin"} recorded $${(amountMinor / 100).toFixed(2)} received on payment ${paymentId} (${result.outcome})`,
+    actionAr: `${session.name ?? "المشرف"} سجّل استلام $${(amountMinor / 100).toFixed(2)} على الدفعة ${paymentId} (${result.outcome})`,
+    actor: session.name ?? "Platform Admin",
+    actorId: session.id,
+    type: "payment",
+  });
+  revalidateMoneyPaths();
+  return {
+    ok: true,
+    outcome: result.outcome,
+    ...(result.outcome === "partial" ? { remainingMinor: result.remainingMinor } : {}),
+  };
+}
+
+/** A second, DIFFERENT admin approves an amount waiting for four-eyes. */
+export async function approveManualTrancheAction(
+  trancheId: string
+): Promise<{ ok: boolean; outcome?: string; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
+  if (!trancheId) return { ok: false, error: "invalid" };
+  const result = await approveTranche(trancheId, { id: session.id, name: session.name ?? "Platform Admin" });
+  if (!result.ok) return { ok: false, error: result.error };
+  await logAdminActivity({
+    code: ACTION_CODES.PAYMENT_APPROVED,
+    actionEn: `${session.name ?? "Admin"} approved received amount ${trancheId} (${result.outcome})`,
+    actionAr: `${session.name ?? "المشرف"} وافق على المبلغ المستلم ${trancheId} (${result.outcome})`,
+    actor: session.name ?? "Platform Admin",
+    actorId: session.id,
+    type: "payment",
+  });
+  revalidateMoneyPaths();
+  return { ok: true, outcome: result.outcome };
+}
+
+/** Reject an amount waiting for approval (it is not on the statement). */
+export async function rejectManualTrancheAction(trancheId: string, note?: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
+  if (!trancheId) return { ok: false, error: "invalid" };
+  const ok = await rejectTranche(trancheId, { id: session.id, name: session.name ?? "Platform Admin" }, note ? sanitizeText(note, 300) : undefined);
+  if (!ok) return { ok: false, error: "not-found" };
+  await logAdminActivity({
+    code: ACTION_CODES.PAYMENT_REJECTED,
+    actionEn: `${session.name ?? "Admin"} rejected received amount ${trancheId}`,
+    actionAr: `${session.name ?? "المشرف"} رفض المبلغ المستلم ${trancheId}`,
+    actor: session.name ?? "Platform Admin",
+    actorId: session.id,
+    type: "payment",
+  });
+  revalidateMoneyPaths();
+  return { ok: true };
+}
+
+/** Book an unmatched (late / orphan) receipt as a refund due. */
+export async function resolveUnmatchedPaymentAction(trancheId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
+  const ok = await resolveUnmatched(trancheId, { id: session.id, name: session.name ?? "Platform Admin" });
+  if (!ok) return { ok: false, error: "not-found" };
+  revalidateMoneyPaths();
+  return { ok: true };
+}
+
+/** Finance records the OMT/Whish transfer that returned a refund. */
+export async function markRefundSentAction(
+  paymentId: string,
+  txnId: string
+): Promise<{ ok: boolean; error?: "unauthorized" | "invalid-txn" | "not-due" | "duplicate-txn" }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
+  const result = await sendRefund({ paymentId, txnId, actor: { id: session.id, name: session.name ?? "Platform Admin" } });
+  if (!result.ok) return { ok: false, error: result.error };
+  await logAdminActivity({
+    code: ACTION_CODES.REFUND_SENT,
+    actionEn: `${session.name ?? "Admin"} sent a $${(result.amountMinor / 100).toFixed(2)} refund on payment ${paymentId}`,
+    actionAr: `${session.name ?? "المشرف"} أرسل استردادًا بقيمة $${(result.amountMinor / 100).toFixed(2)} على الدفعة ${paymentId}`,
+    actor: session.name ?? "Platform Admin",
+    actorId: session.id,
+    type: "payment",
+  });
+  revalidateMoneyPaths();
+  return { ok: true };
+}
+
+/** Write off a long-overdue job balance (the D+30 decision). */
+export async function writeOffBalanceAction(bookingId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
+  const ok = await writeOffBalance(bookingId, { id: session.id, name: session.name ?? "Platform Admin" });
+  if (!ok) return { ok: false, error: "not-found" };
+  revalidateMoneyPaths();
+  return { ok: true };
+}
+
+function revalidateMoneyPaths(): void {
   revalidatePath("/admin");
   revalidatePath("/dashboard");
-  revalidatePath("/dashboard");
   revalidatePath("/bookings");
-  return { ok };
 }
 
 /**

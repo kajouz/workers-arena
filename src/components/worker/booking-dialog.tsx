@@ -329,6 +329,10 @@ export function BookingDialog({
       toast("error", t("booking.otpInvalid"));
       return;
     }
+    if (res.error === "payment-blocked") {
+      toast("error", t("booking.paymentBlocked"));
+      return;
+    }
     toast("error", t("booking.instantFailed"));
   };
 
@@ -384,6 +388,10 @@ export function BookingDialog({
     }
     if (res.error === "otp-invalid") {
       toast("error", t("booking.otpInvalid"));
+      return;
+    }
+    if (res.error === "payment-blocked") {
+      toast("error", t("booking.paymentBlocked"));
       return;
     }
     toast("error", t("booking.conflict"));

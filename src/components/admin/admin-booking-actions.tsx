@@ -22,6 +22,13 @@ import { Banknote, Loader2 } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
 import { adminCancelBookingAction, refundBookingDepositAction } from "@/app/actions/bookings";
 import { confirmManualPaymentAction } from "@/app/actions/business";
+import {
+  emptyEvidence,
+  evidenceReady,
+  evidenceResultKey,
+  PaymentEvidenceFields,
+  type PaymentEvidence,
+} from "@/components/admin/payment-evidence-fields";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,16 +85,21 @@ export function AdminBookingActions({ booking }: { booking: Booking }) {
     router.refresh();
   };
 
+  const [evidence, setEvidence] = useState<PaymentEvidence>(emptyEvidence(booking.deposit ?? 0));
   const confirmManual = async () => {
-    if (!booking.paymentId || manualBusy) return;
+    if (!booking.paymentId || manualBusy || !evidenceReady(evidence)) return;
     setManualBusy(true);
-    const res = await confirmManualPaymentAction(booking.paymentId);
+    const res = await confirmManualPaymentAction(booking.paymentId, evidence);
     setManualBusy(false);
+    const message = t(evidenceResultKey(res)).replace(
+      "{remaining}",
+      formatPrice((res.remainingMinor ?? 0) / 100, booking.currency, locale)
+    );
     if (res.ok) {
-      toast("success", t("payments.adminPendingDone"));
+      toast(res.outcome === "confirmed" ? "success" : "info", message);
       setManualOpen(false);
     } else {
-      toast("error", t("payments.adminPendingError"));
+      toast("error", message);
     }
     router.refresh();
   };
@@ -149,11 +161,12 @@ export function AdminBookingActions({ booking }: { booking: Booking }) {
                 )}
             </DialogDescription>
           </DialogHeader>
+          <PaymentEvidenceFields value={evidence} onChange={setEvidence} disabled={manualBusy} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setManualOpen(false)} disabled={manualBusy}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={() => void confirmManual()} disabled={manualBusy}>
+            <Button onClick={() => void confirmManual()} disabled={manualBusy || !evidenceReady(evidence)}>
               {manualBusy ? <Loader2 className="size-3.5 animate-spin" /> : t("payments.adminPendingConfirmCommit")}
             </Button>
           </DialogFooter>

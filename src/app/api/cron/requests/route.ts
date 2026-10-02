@@ -4,6 +4,7 @@ import { cronRoute } from "@/lib/cron-route";
 import { runRequestSlaEngine } from "@/lib/data/request-sla";
 import { expireQuoteRequests } from "@/lib/data/repo";
 import { sweepExpiredOtpChallenges } from "@/lib/data/guest-otp";
+import { runPaymentExpirySweep } from "@/lib/data/payment-workflow-engine";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -24,8 +25,14 @@ export const dynamic = "force-dynamic";
  * expired quote jobs flip to EXPIRED once. The same pass deletes expired
  * guest-OTP challenges (a dead challenge must not linger with its hash in the
  * table — verification reads `expiresAt`, so this is hygiene, not correctness).
+ *
+ * Payment workflow v2 (docs/PAYMENTS.md §Deadlines): the same pass lapses
+ * unpaid booking deposits at their deadline (the booking is cancelled by the
+ * system and its slot released), lapses unpaid upgrade / credit references,
+ * and reminds deposit payers at half-time. A payer with a receipt uploaded, or
+ * whose money finance has started recording, is never lapsed.
  * Response:
- * `{ ok, nudged, expired, scanned, expiredNumbers, quotesExpired, otpChallengesDeleted }`.
+ * `{ ok, nudged, expired, scanned, expiredNumbers, quotesExpired, otpChallengesDeleted, payments }`.
  */
 async function handleGet(req: Request) {
   const authError = verifyCronAuth(req);
@@ -34,7 +41,8 @@ async function handleGet(req: Request) {
   const run = await runRequestSlaEngine();
   const quotesExpired = await expireQuoteRequests();
   const otpChallengesDeleted = await sweepExpiredOtpChallenges();
-  return NextResponse.json({ ok: true, ...run, quotesExpired, otpChallengesDeleted });
+  const payments = await runPaymentExpirySweep();
+  return NextResponse.json({ ok: true, ...run, quotesExpired, otpChallengesDeleted, payments });
 }
 
 export const GET = cronRoute("requests", handleGet);

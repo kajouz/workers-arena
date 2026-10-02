@@ -72,7 +72,7 @@ export function RespondDialog({
       setOpen(false);
       router.refresh();
     } else {
-      toast("error", t("booking.respondError"));
+      toast("error", res.error === "payment-blocked" ? t("booking.customerPaymentBlocked") : t("booking.respondError"));
     }
   };
 

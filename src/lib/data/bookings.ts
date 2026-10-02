@@ -1560,11 +1560,11 @@ export async function demoConfirmBookingPayment(
     bookingNo: booking.number,
   });
 
-  // M3 — signed-in customers get a receipt (WA-YYYY-NNNNN) at confirm time;
-  // guest (phone-keyed) bookings have no account to attach it to and skip it
-  // (parity with prismaConfirmBookingPayment, which writes an Invoice row
-  // only when Booking.customerId is set).
-  if (booking.customerId) {
+  // M3 + workflow v2 — every confirmed deposit gets a receipt (WA-YYYY-NNNNN):
+  // a signed-in customer's is attached to their account, a guest's carries the
+  // bill-to snapshot (name/phone) instead (parity with
+  // prismaConfirmBookingPayment). Every cash event has an invoice.
+  {
     booking.invoice = {
       number: nextDemoInvoiceNumber(),
       amount: payment.amount, // minor units, as-is
