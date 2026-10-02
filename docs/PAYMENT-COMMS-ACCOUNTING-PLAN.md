@@ -2,7 +2,7 @@
 
 > **Authors' lens:** business strategy (marketplace monetisation, risk) + senior engineering review of the current code.
 > **Inputs:** `SIMPLIFICATION-AND-RISK-PLAN.md`, the QA audit (2026-09-29), a read-only code study of `src/lib/payments`, `src/lib/data/prisma-repo.ts`, `booking-settlement.ts`, `src/lib/notifications`, `prisma/schema.prisma`, and a review of the OpenWA and ERPNext repositories (2026-10-02).
-> **Status:** proposal for decision. Nothing here is implemented yet. Items marked **[verify]** could not be confirmed and must be checked before build.
+> **Status (2026-10-02):** §1 defects and the §3–§4 payment workflow are **implemented** — see §10 for what shipped, where, and the deliberate deviations. §5 (OpenWA) and §6 (ERPNext) remain **studies only — not implemented**, by decision. Items marked **[verify]** could not be confirmed and must be checked before build.
 > Date: 2026-10-02
 
 ---
@@ -282,3 +282,40 @@ Pending-payment age (p50/p95) · deposit expiry rate · deposit-to-confirmed con
 5. OpenWA pilot: approve a dedicated number and the restricted message scope.
 6. ERPNext: Frappe Cloud vs self-host; base currency; accountant to design the chart of accounts and the agent-model treatment of customer funds.
 7. Contact OMT and Whish for merchant accounts / statement exports / APIs.
+
+---
+
+## 10. Implementation status (2026-10-02)
+
+Implemented on branch `claude/beautiful-cray-57eacm`. Technical reference: [PAYMENTS.md §Workflow v2](PAYMENTS.md#workflow-v2--controlled-manual-payments).
+
+| Item | Status | Where |
+|---|---|---|
+| D1 ledger index blocks the balance top-up | ✅ Fixed — `WorkerLedgerEntry.creditKey` replaces `@@unique([bookingId])`; insert is ON CONFLICT DO NOTHING (no error inside the transaction). Proven live: EARNING + ADJUSTMENT = exactly the net | migration `20261002100000_payment_integrity`, `prisma-repo.ts` `creditEarningsInTx`, `scripts/smoke-payment-workflow.ts` |
+| D2 credit top-ups missing from the admin queue | ✅ Fixed — the queue filters on the shared `PURCHASE_SCOPES` list | `types.ts`, `prisma-repo.ts` |
+| D3 demo memory in production | ✅ Guarded — money flows refuse to run on an incoherent config (`DEMO_MODE` unset in prod, `DEMO_MODE=false` without a DB, `PAYMENTS_LIVE=true` with demo data); the showcase keeps working with a "do not send real money" banner. A boot crash was **not** used because the live showcase deliberately runs `DEMO_MODE=true` | `src/lib/payments/money-mode.ts`, `repo.ts`, DEPLOYMENT.md |
+| D4 subscription confirm not transactional / invoice clash | ✅ Fixed — one transaction; atomic `InvoiceCounter` for every invoice; post-commit follow-ups re-run if interrupted (`metadata.fulfilledAt`) | `invoice-numbering.ts`, `prismaConfirmPurchase` |
+| Status-aware instructions page, demo banner, deadline, partial remainder | ✅ | `/payments/manual` page |
+| Receipt lock + upload rate limit + closed-payment refusal | ✅ | `payment-receipts.ts`, `actions/payment-receipts.ts` |
+| WhatsApp webhook fail-closed in production | ✅ | `api/webhooks/whatsapp/route.ts` |
+| Never-pruned money audit + money entries kept by the activity prune + settlement confirms audited | ✅ | `PaymentAuditEvent`, `RETAINED_ACTIVITY_CODES`, `repo.confirmBookingSettlement` |
+| Evidence (amount + unique transaction number) on every manual confirm; evidence-free doors closed for OMT/Whish | ✅ | `confirmManualPaymentAction`, `payment-workflow-engine.ts` |
+| Who enters the transaction number | **Deviation from §3.2 step 3:** the payer uploads the receipt photo; **finance** enters the OMT/Whish transaction number from the receipt/statement (one trusted entry point, uniqueness enforced there) | admin confirm dialog |
+| Four-eyes above threshold / without receipt | ✅ — a **different admin** must approve. **Deviation:** no separate FINANCE role was added (it would touch every admin guard); the control is "two distinct admin accounts". Add the role when the finance team exists | `approveManualTrancheAction` |
+| Short / over / late (unmatched) money | ✅ | engine + finance card |
+| Refund states due → sent with transfer number | ✅ (cancellations, deposit refunds, campaign refunds, overpayments, unmatched receipts). Refund *decisions* are audited; a second approver on refund *sending* was not added | `payment-workflow-store.ts`, finance card |
+| Deposit deadline, auto-cancel, slot release, half-time reminder | ✅ (15-minute `requests` cron). **Deviation:** campaign references are not lapsed — an unpaid campaign holds no inventory | `runPaymentExpirySweep` |
+| Auto balance reference + dunning D+1/3/7/14/30 + write-off | ✅ (hourly `completions` cron) | `runSettlementDunning`, `writeOffBalanceAction` |
+| Payment-reliability score → prepay / blocked | ✅ (request, instant, recurring, quote and accept paths) | `customerReliability`, `actions/bookings.ts` |
+| Minimum deposit policy | ✅ as a setting, **off by default** (`BOOKING_MIN_DEPOSIT_BPS=0`) — it changes how every worker accepts jobs, so it is the business's decision (§9 #1) | `requiredDepositMinor` |
+| Cash settlement: refuse while payment in flight, customer confirmation, admin review, fee-claim gate on leads and payouts | ✅ | engine, `actions/bookings.ts`, `actions/leads.ts`, `actions/payouts.ts` |
+| Invoices for every cash event incl. guests (bill-to) and job balances | ✅ (lead purchases are paid in credits — the credit top-up is the invoiced cash event) | `prisma-repo.ts`, demo `bookings.ts` |
+| Guest OTP on by default with real money | ✅ follows `PAYMENTS_LIVE` | `guest-otp.ts` |
+| Payout ownership check (found during the work) | ✅ a worker could file a payout against another worker's id | `actions/payouts.ts` |
+| Redis-required rate limiting | ⏸ Not changed — the limiter still falls back to per-instance memory; set `UPSTASH_REDIS_REST_URL` in production | `src/lib/rate-limit.ts` |
+| OMT/Whish merchant API / statement import | ⏸ Depends on the providers (§3.10) | — |
+| OpenWA, ERPNext | ⏸ Not implemented, by decision | §5, §6 |
+
+**Known residual issue (pre-existing):** in the Prisma deposit/campaign confirms, the activity-feed write runs after the money transaction inside the same `try`; if that write fails, the adapter reports failure although the payment committed. With real admin accounts this does not occur; a follow-up should make post-commit logging non-fatal.
+
+**Verification:** `npm run typecheck` · `npm run lint:ci` (0 errors, warning budget unchanged) · `npm test` (new: `payment-workflow`, `payment-workflow-engine`, `payment-hardening`) · `npm run db:smoke` (now also runs `scripts/smoke-payment-workflow.ts` against live PostgreSQL).

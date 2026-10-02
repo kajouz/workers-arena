@@ -36,7 +36,8 @@ model WorkerLedgerEntry {
   reviewedAt   DateTime?
   createdAt    DateTime @default(now())
 
-  @@unique([bookingId]) // EARNING rows only — one credit per completed booking
+  creditKey    String?      @unique // "earning:<bookingId>" | "topup:<bookingId>:<target>"
+  @@index([bookingId])
   @@index([workerId, createdAt])
   @@index([status])
 }
@@ -57,7 +58,7 @@ interface WorkerBalance { availableMinor; pendingMinor; currency }
 
 The amount is decided by the settlement engine (`settlementFor` in `src/lib/data/booking-settlement.ts` — see [booking-settlement.md](booking-settlement.md)): it reads both payment legs, takes the fee **out of the money collected** (`feeCollected = min(fee, collected)`), and returns `workerNetTargetMinor = collected − feeCollected`. `ledgerDeltaFor(settlement, alreadyCredited)` then returns what to post: `0` for nothing, `earning` for the first credit, `adjustment` for a settlement top-up. The credit is created **inside the same transaction/step as the COMPLETED flip, or as the collection** — whichever happens last:
 
-- **prisma** — inside `prismaTransitionBooking`'s `$transaction` and inside `prismaConfirmBookingSettlement`'s: read the booking + its two payment legs on the same client, compute the running balance, `create` the ledger row with `balanceAfter`. The `@@unique([bookingId])` makes the credit **idempotent**: a concurrent or redelivered completion (or a redelivered webhook / double admin confirm — the settlement flip is a CAS on `PENDING`) can never double-credit.
+- **prisma** — inside `prismaTransitionBooking`'s `$transaction` and inside `prismaConfirmBookingSettlement`'s: read the booking + its two payment legs on the same client, compute the running balance, `create` the ledger row with `balanceAfter`. The unique `creditKey` (`earning:<bookingId>`, or `topup:<bookingId>:<target>` for a settlement top-up), inserted with ON CONFLICT DO NOTHING, makes the credit **idempotent**: a concurrent or redelivered completion (or a redelivered webhook / double admin confirm — the settlement flip is a CAS on `PENDING`) can never double-credit.
 - **demo** — `demoTransitionBooking` / `demoConfirmBookingSettlement` perform the identical credit synchronously in the in-memory store.
 
 Quote-less accepts (`quote = null`) → net 0 → no entry. An unfunded job → `workerNetTargetMinor` 0 → no entry, and the platform's fee stays a claim. Explicitly exempt rules (fee 0) → the whole collected amount is credited; Business/Enterprise are reduced-rate by default.
@@ -72,6 +73,7 @@ admin:  decidePayout(id, approve)      → PROCESSED (now counts as debit) / REJ
 - `requestPayout` rejects with `"insufficient"` when `amount > available − pending` (pending reserves its amount), `"invalid"` for bad input.
 - `decidePayout` requires the entry be `PENDING` (CAS — two admins can't both decide), stamps `reviewedBy`/`reviewedAt` + reason, and recomputes `balanceAfter` inside the tx.
 - The worker dashboard shows **available** (spendable) and **pending** (in review) separately; a withdraw dialog caps the amount at `available − pending`.
+- `requestPayoutAction` only accepts the signed-in worker's **own** worker id (it used to check the role only, so any worker could file a payout against another's balance), and refuses with `"fee-claim-overdue"` while an outside-platform fee claim is unpaid past `FEE_CLAIM_GRACE_DAYS` (docs/PAYMENTS.md §Workflow v2).
 
 ## 5. Admin queue
 

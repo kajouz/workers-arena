@@ -1,7 +1,7 @@
 # WorkersArena — Business Simplification, Revenue Growth & Bug/Risk Elimination Plan
 
 > Source: *WorkersArena QA Audit v1.0 (2026-09-29)* cross-read with `BUSINESS-MODEL.md`, `REVENUE-STREAMS.md`, `fee-rules.md`.
-> Status: **proposal for decision** — nothing here is implemented yet. Numbers marked *(assumption)* must be validated with real data before they are locked.
+> Status: **proposal for decision** for the business-model parts (Part A/B). The payment-risk items of Part C (money integrity, admin bottleneck/fraud controls, refunds, deposit expiry, balance collection, take-rate bypass controls, webhook fail-closed, never-pruned money audit) were **implemented on 2026-10-02** — see [PAYMENT-COMMS-ACCOUNTING-PLAN.md §10](PAYMENT-COMMS-ACCOUNTING-PLAN.md#10-implementation-status-2026-10-02). Numbers marked *(assumption)* must be validated with real data before they are locked.
 > Date: 2026-10-01
 
 ---

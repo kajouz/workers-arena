@@ -205,7 +205,7 @@ and the fee is only ever taken out of money actually received.
 
 A booking's deposit and its settlement are **different payments**, so `Booking.paymentId` and `Booking.settlementPaymentId` are separate unique FKs and the admin's pending-payments queue carries a `leg` (`"deposit"` | `"settlement"`) so confirming the balance can never be mistaken for confirming the deposit.
 
-`creditEarnings` runs at whichever comes **last** — completion or collection — and is idempotent either way: one `EARNING` per booking (`@@unique([bookingId])`), settlement top-ups as `ADJUSTMENT` rows, and a redelivered webhook or a second admin confirmation is a no-op (the settlement flip is a CAS on `PENDING`).
+`creditEarnings` runs at whichever comes **last** — completion or collection — and is idempotent either way: one `EARNING` per booking (unique `creditKey` = `earning:<bookingId>`), settlement top-ups as `ADJUSTMENT` rows keyed `topup:<bookingId>:<target>`, and a redelivered webhook or a second admin confirmation is a no-op (the settlement flip is a CAS on `PENDING`).
 
 | Path | Who pays what | Fee collected |
 |---|---|---|

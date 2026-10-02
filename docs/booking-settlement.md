@@ -52,7 +52,11 @@ Each verdict also carries a `reason` string that is stored on the ledger row, so
 
 - **`Booking.settlementPaymentId`** — the *second* payment leg. The deposit and the balance are different payments with different amounts, so they are separate unique FKs; `PendingManualPayment` carries a `leg` (`"deposit" | "settlement"`) so confirming the balance can never be mistaken for confirming the deposit.
 - **`BookingStatus.SETTLED`** — audit-event only. It records *how* a job was settled (the balance collected, or the parties settling directly) without inventing a funnel bucket.
-- **The credit** runs at whichever comes **last** — completion or collection — and is idempotent either way: one `EARNING` per booking (`@@unique([bookingId])`), top-ups as `ADJUSTMENT` rows, and a redelivered webhook or a second admin confirmation is a no-op (the flip is a CAS on `PENDING`).
+- **The credit** runs at whichever comes **last** — completion or collection — and is idempotent either way: one `EARNING` per booking (unique `creditKey` = `earning:<bookingId>`), top-ups as `ADJUSTMENT` rows keyed `topup:<bookingId>:<target>` and inserted with ON CONFLICT DO NOTHING, and a redelivered webhook or a second admin confirmation is a no-op (the flip is a CAS on `PENDING`).
+
+> **D1 fix (2026-10-02).** The ledger used to carry `@@unique([bookingId])` on *every* row, so the balance top-up `ADJUSTMENT` collided with the deposit's `EARNING`: a job paid deposit + balance never credited the worker the balance (and the duplicate-key error was caught inside the transaction). Idempotency now rides `WorkerLedgerEntry.creditKey` (migration `20261002100000_payment_integrity`), proven live by `scripts/smoke-payment-workflow.ts` (EARNING + ADJUSTMENT = exactly the net).
+>
+> **Workflow v2.** The balance reference is now minted automatically when a job completes unpaid and chased by the dunning ladder; the balance gets its own WA- invoice; a "settled directly" declaration is refused while the customer's balance payment is in flight and must be confirmed by the customer. See [PAYMENTS.md §Workflow v2](PAYMENTS.md#workflow-v2--controlled-manual-payments).
 
 ## 6. The surfaces
 

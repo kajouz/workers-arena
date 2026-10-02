@@ -9,7 +9,9 @@ vercel link
 vercel env add DATABASE_URL            # production
 vercel env add AUTH_SECRET
 vercel env add NEXT_PUBLIC_APP_URL
-# DEMO_MODE stays unset (production = Prisma)
+vercel env add DEMO_MODE               # "false" = real data (Prisma) · "true" = showcase. NEVER leave it unset:
+                                       # unset silently serves DEMO data, and money flows refuse to run (money-mode guard)
+vercel env add PAYMENTS_LIVE           # "true" only on a deployment that takes real money (requires DEMO_MODE=false)
 vercel --prod
 ```
 
@@ -97,7 +99,9 @@ Multi-stage Dockerfile: deps → build (`prisma generate`, `next build`) → sli
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | production | WorkersArena business WhatsApp (e.g. `+96170000000`); every "Request on WhatsApp" button goes here. Build-time: redeploy after changing. Unset = buttons hidden |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | prod push | Generate once with `npx web-push generate-vapid-keys`; store both keys and the subject in the deployment secret manager. Never commit the private key. |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | prod WhatsApp | Meta WhatsApp Cloud API credentials (system-user token + phone number id). With `NOTIFY_WHATSAPP_PROVIDER=whatsapp-cloud`, every automated send lands in the delivery ledger (`WhatsAppDelivery` table) shown on `/admin`. |
-| `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_APP_SECRET` | prod WhatsApp webhook | Webhook handshake token and app secret for `https://<domain>/api/webhooks/whatsapp` (subscribe to the `messages` field in Meta's webhook config; the app verifies `X-Hub-Signature-256` when the app secret is set). |
+| `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_APP_SECRET` | prod WhatsApp webhook | Webhook handshake token and app secret for `https://<domain>/api/webhooks/whatsapp` (subscribe to the `messages` field in Meta's webhook config). The app verifies `X-Hub-Signature-256`; **in production a missing app secret rejects every status callback with 503** (fail-closed — an unsigned endpoint would accept forged delivery statuses). |
+| `PAYMENTS_LIVE` | real-money prod | `"true"` declares real money: requires `DEMO_MODE=false` + `DATABASE_URL` (otherwise checkout minting and confirmations refuse to run), and turns guest phone OTP on by default. See docs/PAYMENTS.md §Workflow v2. |
+| `PAYMENT_FOUR_EYES_MINOR` · `PAYMENT_DEPOSIT_HOLD_HOURS` · `PAYMENT_DEPOSIT_BEFORE_START_HOURS` · `PAYMENT_PURCHASE_HOLD_HOURS` · `BOOKING_MIN_DEPOSIT_BPS` · `FEE_CLAIM_GRACE_DAYS` · `SETTLED_OUTSIDE_CONFIRM_HOURS` | optional | Payment workflow v2 tunables — defaults $200 / 24h / 2h / 72h / 0 (off) / 14 days / 72h. Table in docs/PAYMENTS.md §Workflow v2 → Environment. |
 | `ADMIN_WHATSAPP_NUMBERS` | prod admin digest | Comma-separated E.164 admin phones (e.g. `+9613123456,+9617654321`) that receive the weekly admin WhatsApp digest (`POST /api/cron/admin-digest`, cron-gated via `x-cron-secret`). Each digest carries the 30-day emergency-surge verdict and its tuning line so the Phase-2 decision stays visible during the measurement window; unset leaves the endpoint returning `recipients: 0` without paging the scheduler. |
 | `ADMIN_EMAILS` | prod admin digest | Comma-separated admin addresses that receive the same weekly digest as HTML email (via `EMAIL_PROVIDER`). Suffix an address with `#ar` (e.g. `admin@workersarena.com#ar`) to receive the Arabic body; plain addresses get English with the full text part. Sections: failed WhatsApp deliveries (24h + dead letters), the pending lead-refund review queue, and at-risk renewals (expiring ≤30 days). Unset → no email leg; the WhatsApp leg runs independently. |
 | `STRIPE_SECRET_KEY` / `PAYPAL_CLIENT_ID` / `MYFATOORAH_API_TOKEN` / `TAP_SECRET_KEY` | prod | payments |

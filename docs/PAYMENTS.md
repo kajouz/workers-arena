@@ -3,6 +3,8 @@
 [← Back to docs index](README.md)
 
 > **Phase 1 boundary:** payment automation is intentionally deferred. Subscriptions, lead-credit top-ups, verification, advertising, and booking deposits continue through the existing OMT/Whish manual confirmation flow. Lead-quality refunds return platform credits after admin review; they are not automatic cash refunds. Stripe/card automation remains a later phase.
+>
+> **Workflow v2 (2026-10-02):** the manual flow is now evidence-based and time-boxed — every confirmation records the amount received and the OMT/Whish transaction number, large or receipt-less amounts need a second admin, short / over / late payments have defined outcomes, refunds are tracked until the money leaves, unpaid deposits lapse and release their slot, job balances are chased automatically. See [§Workflow v2](#workflow-v2--controlled-manual-payments) below and [PAYMENT-COMMS-ACCOUNTING-PLAN.md](PAYMENT-COMMS-ACCOUNTING-PLAN.md).
 
 WorkersArena supports **eight payment methods** through a modular gateway abstraction, so adding a provider is a single-file change. The Lebanon launch uses **OMT and Whish Money** as the live payment rails — no gateway keys required.
 
@@ -241,18 +243,74 @@ All OMT/Whish payments appear in the `/admin` pending-payments card while pendin
 | **Paid/refunded** | Settlement timestamps and invoice number when available |
 | **Action** | Confirm button (admin-only) for pending rows |
 
-**Confirm flow:**
-1. Admin reviews the pending payment details
-2. Worker/company confirms they paid (shows reference at OMT agent / Whish app)
-3. Admin clicks "Confirm" → `confirmManualPaymentAction`
-4. Payment flips PAID, capability activates (subscription/credits/verification/etc.)
-5. Worker/company notified
+**Confirm flow (workflow v2 — evidence required):**
+1. The payer pays at an OMT agent / in the Whish app with the reference, and uploads a photo of the receipt on the instructions page
+2. Admin opens the payment's confirm dialog, checks the OMT/Whish statement, and enters the **amount received** and the **transaction number** → `confirmManualPaymentAction(paymentId, { amount, txnId, note })`
+3. The engine decides: covered → the payment flips PAID and the capability activates (subscription/credits/verification/etc.), the receipt is frozen; short → stays pending with the remainder shown to the payer; at/above the four-eyes threshold or without a receipt → waits for a **different** admin; reference already closed → unmatched queue
+4. Worker/company/customer notified
+A confirm with no evidence is refused (`evidence-required`). Every credit-pack top-up is in the queue too (it was filtered out before — D2).
 
 **Receipt photos and the 2-hour target (Step 3):** the instructions page lets the payer attach a photo of their OMT/Whish receipt (`uploadPaymentReceiptAction`). The browser shrinks it; the server accepts JPEG/PNG/WebP up to 600 KB whose bytes match the type, and stores it per payment reference in `PaymentReceipt` (migration `20260928140000_payment_receipts`). Authorization is the signed link itself, re-verified by the action, so a guest with no account can send one too. The `/admin` card lists payments **oldest first**, shows how long each has waited (amber past 1h, red past the 2-hour target, with an "over 2 hours" count), marks rows with a receipt, and shows the photo in the confirm dialog (`GET /api/admin/payments/receipt?ref=…`, admin only).
 
 **Signed link hardening:** the `ref` on a manual link was not covered by the HMAC, so a genuine link could be shown with another payment's reference. `verifyManualBody` now also requires the reference derived from the signed fields (`manualReference`), and the link's provider must match the reference prefix. Links already issued stay valid.
 
-**Reconciliation:** `GET /api/admin/revenue/reconciliation` returns JSON for the admin ledger; append `?format=csv` for an accounting export. The export is read-only and includes payment status, provider reference, paid/refunded timestamps, and the linked invoice number. The reminder cron also cancels unpaid subscription renewal payments older than seven days and records a `cancelled` subscription lifecycle event; workers can still cancel their own pending renewal immediately from the dashboard.
+**Reconciliation:** `GET /api/admin/revenue/reconciliation` returns JSON for the admin ledger; append `?format=csv` for an accounting export. The export is read-only and includes payment status, provider reference, paid/refunded timestamps, and the linked invoice number. The reminder cron also cancels unpaid subscription renewal payments older than seven days and records a `cancelled` subscription lifecycle event; workers can still cancel their own pending renewal immediately from the dashboard. Since workflow v2 the 15-minute `requests` cron lapses every unpaid upgrade / credit / renewal reference earlier, after `PAYMENT_PURCHASE_HOLD_HOURS` (72h), unless a receipt was uploaded or money was recorded against it.
+
+## Workflow v2 — controlled manual payments
+
+Source: `src/lib/data/payment-workflow.ts` (pure rules), `payment-workflow-store.ts` (persistence), `payment-workflow-engine.ts` (orchestration over the repo seams — both adapters), actions in `src/app/actions/business.ts` and `bookings.ts`. Migrations `20261002100000_payment_integrity` and `20261002110000_payment_workflow_v2`. Tests: `tests/payment-workflow.test.ts`, `tests/payment-workflow-engine.test.ts`, `tests/payment-hardening.test.ts`, and the live-Postgres `scripts/smoke-payment-workflow.ts` (part of `npm run db:smoke`).
+
+### Money mode (D3)
+The data layer serves demo data unless `DEMO_MODE=false` **and** `DATABASE_URL` is set. `src/lib/payments/money-mode.ts` refuses to move money (checkout minting and confirmations return null, logged once) when the configuration is incoherent: `DEMO_MODE` unset in production, `DEMO_MODE=false` without a database, or `PAYMENTS_LIVE=true` with demo data. The public showcase (`DEMO_MODE=true`) keeps working, and its `/payments/manual` page shows a **"do not send real money"** banner. Set `PAYMENTS_LIVE=true` on a deployment that takes real money.
+
+### Confirming — evidence, tranches and four-eyes
+Each amount finance records is a **tranche** (`PaymentTranche`): amount, OMT/Whish transaction number (normalised, **unique across all tranches and refunds** — one receipt can never confirm two payments), whether a receipt photo existed, who entered it, who approved it.
+- A tranche needs a **second, different admin** (`approveManualTrancheAction`) when the payment is at/above `PAYMENT_FOUR_EYES_MINOR` (default 20000 = $200) or there is no receipt photo. The recording admin cannot approve their own entry. `rejectManualTrancheAction` rejects one that is not on the statement.
+- The payment activates only when **approved** tranches cover it: short → stays pending (the instructions page shows "already received X of Y" and the remainder); exact → confirmed; over → confirmed, the excess booked as a **refund due**.
+- Money recorded against a reference that is no longer pending (expired, cancelled, already paid) becomes an **unmatched** tranche; finance resolves it by booking a refund (`resolveUnmatchedPaymentAction`). Money is never silently lost.
+- On confirm the receipt is **locked** (`PaymentReceipt.lockedAt`): re-uploads are refused, so the evidence finance approved cannot be swapped. Uploads are also refused once the payment is closed, and rate-limited (10/reference/hour, 30/client/hour).
+- The OMT/Whish deposit and balance can no longer be confirmed through the evidence-free admin doors (`confirmPaymentAction`, `confirmBookingSettlementAction` return `evidence-required` for manual methods; they remain for card/simulated reconciliation).
+
+### Refunds — due → sent
+A cancellation or deposit refund on an OMT/Whish payment (and an overpayment's excess, and a resolved unmatched receipt) books the refund as **due** (`Payment.refundState = "due"`, `refundAmount`). The `/admin` finance card lists them; finance closes each one with the transfer number of the OMT/Whish payment that returned the money (`markRefundSentAction` → `refundState = "sent"`, `refundTxnId` unique). Card refunds are executed by the provider and need no queue.
+
+### Deadlines and expiry
+- A booking deposit must be paid within `PAYMENT_DEPOSIT_HOLD_HOURS` (24h) of the accept and never later than `PAYMENT_DEPOSIT_BEFORE_START_HOURS` (2h) before the job. The 15-minute `requests` cron (`runPaymentExpirySweep`) cancels a lapsed booking (`cancelledBy: system`, reason "Deposit not paid in time"), releasing the slot, and reminds the payer once at half-time. The deadline shows on the customer's booking row and the instructions page.
+- Unpaid upgrade / credit / renewal references lapse after `PAYMENT_PURCHASE_HOLD_HOURS` (72h). Campaign references are not lapsed (an unpaid campaign holds no inventory).
+- A payer who uploaded a receipt, or whose money finance has started recording, is never lapsed by the clock.
+
+### Balance collection and dunning
+The hourly `completions` cron (`runSettlementDunning`) stamps `Booking.settlementDueAt` (48h after completion), **mints the balance reference automatically** on the deposit's rail (OMT by default) and notifies the customer, then runs the ladder once per stage (CAS on `Booking.dunningStage`): D+1 and D+3 reminders (the worker is told at D+3), D+7 admin follow-up, D+14 customer restricted, D+30 write-off review (`writeOffBalanceAction` → `settlementWrittenOffAt`).
+
+### Payment reliability
+`customerReliability` scores a customer (by account and phone): +1 per lapsed deposit, +3 per balance that reached D+7, +10 per write-off, −1 per fully paid job (floor 0). 0–2 normal; 3–9 **prepay** — the deposit at accept is forced to the whole quote; ≥10 **blocked** — new booking requests, instant bookings, recurring requests and quote requests are refused (`payment-blocked`) and a worker cannot accept them. `BOOKING_MIN_DEPOSIT_BPS` (default 0 = off) sets a platform-wide minimum deposit share for everyone.
+
+### Cash settlement controls
+- "We settled this directly" is refused while the customer's balance payment is in flight (receipt uploaded or money recorded) — it used to cancel a payment the customer had actually made.
+- The customer is asked to confirm (`answerSettledOutsideAction`); a denial, or no answer within `SETTLED_OUTSIDE_CONFIRM_HOURS` (72h), puts the booking on the admin review list.
+- An outside-platform fee claim still unpaid after `FEE_CLAIM_GRACE_DAYS` (14) blocks the worker's lead purchases and payout requests (`fee-claim-overdue`).
+
+### Invoices
+Every cash event now has a WA- invoice: deposits (guests included — `Invoice.userId` is nullable and the bill-to snapshot `billToName/Phone/Email` carries the identity), job balances, campaigns, and every OMT/Whish purchase (subscription, verification, featured, emergency, credit top-up). Numbers come from the atomic per-year `InvoiceCounter` (`src/lib/data/invoice-numbering.ts`), so concurrent confirms never collide (D4). The subscription confirm — payment flip, plan activation and invoice — is one transaction.
+
+### Audit
+`PaymentAuditEvent` is an append-only, **never-pruned** trail of every tranche, approval, rejection, confirmation, partial/over payment, expiry, reminder, refund, dunning stage, write-off and settled-directly answer. The activity-log prune also keeps money entries (`RETAINED_ACTIVITY_CODES`). Settlement-balance confirms are now audited with the acting admin.
+
+### The `/admin` finance card
+Renders when any queue is non-empty: amounts waiting for a second approval, unmatched receipts, refunds to send, overdue balances (with write-off at D+30) and settled-directly declarations to review.
+
+### Environment
+| Variable | Default | Meaning |
+|---|---|---|
+| `PAYMENTS_LIVE` | unset | Declares real money: requires `DEMO_MODE=false` + `DATABASE_URL`, and turns guest OTP on by default |
+| `PAYMENT_FOUR_EYES_MINOR` | `20000` | Second-admin threshold in minor units (0 = only the no-receipt rule) |
+| `PAYMENT_DEPOSIT_HOLD_HOURS` | `24` | Deposit hold after the accept |
+| `PAYMENT_DEPOSIT_BEFORE_START_HOURS` | `2` | Latest deposit time before the job |
+| `PAYMENT_PURCHASE_HOLD_HOURS` | `72` | Upgrade / credit / renewal reference hold |
+| `BOOKING_MIN_DEPOSIT_BPS` | `0` | Minimum deposit share of the quote (3000 = 30%) |
+| `FEE_CLAIM_GRACE_DAYS` | `14` | Unpaid cash-job fee claim age that blocks leads and payouts |
+| `SETTLED_OUTSIDE_CONFIRM_HOURS` | `72` | Customer answer window for a settled-directly declaration |
+| `GUEST_OTP_ENFORCED` | follows `PAYMENTS_LIVE` | `true`/`false` overrides |
 
 ## Platform fee (take rate)
 
@@ -294,7 +352,7 @@ rebate = min(fee × pctBps/10000, lead cost, ceiling)
 
 - `refund()` delegates to the provider; a `Refunded` payment logs to `ActivityLog`.
 - Admin can void invoices (`InvoiceStatus.VOID`).
-- Booking deposits: refund via the paying provider (OMT → OMT refund, Whish → Whish refund).
+- Booking deposits: refund via the paying provider (OMT → OMT refund, Whish → Whish refund). For OMT/Whish the provider call only records the decision — the refund is then **due** in the `/admin` finance card until finance records the transfer that returned the money (§Workflow v2 → Refunds).
 - Campaign purchases: refund → campaign ENDED, invoice VOID (credit note).
 - Paid upgrades: admin can claw back credits with an adjustment row.
 
