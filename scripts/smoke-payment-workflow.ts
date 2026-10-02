@@ -147,6 +147,7 @@ async function main() {
     await receipts.savePaymentReceipt({ reference: r2.reference, provider: "OMT", dataUrl: RECEIPT });
     const dup = await engine.recordManualPayment({ paymentId: r2.id, amountMinor: 25_000, txnId: t1, actor: ADMIN });
     assert(!dup.ok && dup.error === "duplicate-txn", "a transaction number already used is refused");
+    process.env.PAYMENT_APPROVAL_MODE = "four-eyes"; // opt-in mode for this section
     const big = await engine.recordManualPayment({ paymentId: r2.id, amountMinor: 25_000, txnId: nextTxn(), actor: ADMIN });
     assert(big.ok && big.outcome === "awaiting-approval", "$250 waits for a second admin");
     assert((await prisma.booking.findUnique({ where: { id: b2.id } }))?.status === "PENDING_PAYMENT", "nothing activates before approval");
@@ -155,6 +156,15 @@ async function main() {
     assert(!self.ok && self.error === "same-admin", "the recording admin cannot approve their own entry");
     const approved = await engine.approveTranche(waiting.id, ADMIN_2);
     assert(approved.ok && approved.outcome === "confirmed", "a different admin approves → confirmed");
+    delete process.env.PAYMENT_APPROVAL_MODE; // back to the single-admin default
+
+    console.log("Single-admin mode (default): no receipt, one admin, flagged for review");
+    const b5 = await depositBooking(30_000, 25_000, "+961 70 999 004");
+    const r5 = await openReference(b5.id);
+    const solo = await engine.recordManualPayment({ paymentId: r5.id, amountMinor: 25_000, txnId: nextTxn(), actor: ADMIN });
+    assert(solo.ok && solo.outcome === "confirmed", "one admin confirms $250 without a receipt");
+    const flagged = (await store.listPaymentAudit({ paymentId: r5.id })).find((e) => e.action === "tranche.recorded");
+    assert(flagged?.detail?.hadReceipt === false, "the entry is flagged 'no receipt' in the audit trail");
 
     console.log("Refund due → sent");
     const cancelled = await repo.prismaCancelBooking(b2.id, { by: "customer", reason: "smoke" });

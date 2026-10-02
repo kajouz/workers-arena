@@ -19,6 +19,7 @@ import { POST as whatsappWebhook } from "../src/app/api/webhooks/whatsapp/route"
 import { requestPayoutAction } from "../src/app/actions/payouts";
 import { getAdminActivityFeed, pruneActivityLog, resetAdminActivityFeed } from "../src/lib/data/activity";
 import { getWorkerByUserId } from "../src/lib/data/repo";
+import { paymentAuditCsv } from "../src/lib/data/payment-audit-export";
 
 describe("WhatsApp status webhook — fail-closed", () => {
   const env = { ...process.env };
@@ -88,5 +89,27 @@ describe("activity-log retention keeps money entries", () => {
     const result = await pruneActivityLog(90);
     expect(result.removed).toBe(1);
     expect((await getAdminActivityFeed()).map((e) => e.id).sort()).toEqual(["money-1", "money-2"]);
+  });
+});
+
+describe("payment audit CSV", () => {
+  it("quotes every cell, neutralises formulas and flags entries made without a receipt", () => {
+    const csv = paymentAuditCsv([
+      {
+        id: "1",
+        action: "tranche.recorded",
+        paymentId: "pay-1",
+        reference: "OMT-pay-1-000",
+        amountMinor: 25_000,
+        actorName: "=HYPERLINK(\"http://evil\")",
+        detail: { txn: "OMT1234", hadReceipt: false },
+        createdAt: "2026-10-02T10:00:00.000Z",
+      },
+    ]);
+    const [header, row] = csv.trim().split("\r\n");
+    expect(header).toBe("time,action,payment,reference,amount_usd,actor,receipt,txn,detail");
+    expect(row).toContain('"250.00"');
+    expect(row).toContain('"NO"');
+    expect(row).toContain('"\'=HYPERLINK(""http://evil"")"');
   });
 });

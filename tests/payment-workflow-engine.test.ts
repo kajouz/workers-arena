@@ -25,6 +25,7 @@ import {
   rejectManualTrancheAction,
   resolveUnmatchedPaymentAction,
   writeOffBalanceAction,
+  resolveSettledOutsideReviewAction,
 } from "../src/app/actions/business";
 import {
   cancelBooking,
@@ -129,6 +130,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   delete process.env.ADMIN_ACTIVITY_FILE;
   await rm(activityFile, { force: true });
@@ -176,7 +178,19 @@ describe("confirming with evidence", () => {
     expect((await getBookingById(b.id))?.status).toBe("pendingPayment");
   });
 
-  it("without a receipt photo a second, DIFFERENT admin must approve", async () => {
+  it("single-admin mode: a confirm without a receipt photo goes through, flagged in the audit", async () => {
+    const booking = await pendingDepositBooking();
+    const ref = await openOmtReference(booking);
+    expect(await asAdmin(ADMIN, () => confirmManualPaymentAction(ref.id, { amount: "50", txnId: "OMT40001" }))).toEqual({
+      ok: true,
+      outcome: "confirmed",
+    });
+    const recorded = (await listPaymentAudit({ paymentId: ref.id })).find((e) => e.action === "tranche.recorded");
+    expect(recorded?.detail).toMatchObject({ hadReceipt: false, needsSecondApproval: false });
+  });
+
+  it("four-eyes mode: without a receipt photo a second, DIFFERENT admin must approve", async () => {
+    vi.stubEnv("PAYMENT_APPROVAL_MODE", "four-eyes");
     const booking = await pendingDepositBooking();
     const ref = await openOmtReference(booking);
     const res = await asAdmin(ADMIN, () => confirmManualPaymentAction(ref.id, { amount: "50", txnId: "OMT90001" }));
@@ -189,7 +203,8 @@ describe("confirming with evidence", () => {
     expect((await getBookingById(booking.id))?.status).toBe("confirmed");
   });
 
-  it("a rejected amount activates nothing", async () => {
+  it("four-eyes mode: a rejected amount activates nothing", async () => {
+    vi.stubEnv("PAYMENT_APPROVAL_MODE", "four-eyes");
     const booking = await pendingDepositBooking();
     const ref = await openOmtReference(booking);
     await asAdmin(ADMIN, () => confirmManualPaymentAction(ref.id, { amount: "50", txnId: "OMT90002" }));
@@ -403,6 +418,21 @@ describe("cash settlement controls", () => {
     expect((await settledOutsideNeedingReview()).find((r) => r.booking.id === job.id)?.disputed).toBe(true);
     // One answer only.
     expect((await answerSettledOutsideAction(job.id, true, form)).ok).toBe(false);
+  });
+
+  it("an admin closes a disputed declaration after checking with both parties", async () => {
+    const job = await finishedJobOwingBalance("+961 70 555 405");
+    getSessionMock.mockResolvedValue(WORKER);
+    await markBookingSettledOutsideAction(job.id);
+    getSessionMock.mockResolvedValue(null);
+    const form = new FormData();
+    form.set("guestPhone", job.customerPhone);
+    await answerSettledOutsideAction(job.id, false, form);
+    getSessionMock.mockResolvedValue(WORKER);
+    expect((await resolveSettledOutsideReviewAction(job.id)).error).toBe("unauthorized");
+    expect(await asAdmin(ADMIN, () => resolveSettledOutsideReviewAction(job.id))).toEqual({ ok: true });
+    expect((await settledOutsideNeedingReview()).some((r) => r.booking.id === job.id)).toBe(false);
+    expect((await listPaymentAudit()).some((e) => e.action === "settlement.outside-confirmed" && e.detail?.byAdmin === true)).toBe(true);
   });
 
   it("an unanswered declaration surfaces for review after 72 hours", async () => {

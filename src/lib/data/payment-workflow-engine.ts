@@ -38,9 +38,10 @@ import {
   getManualPaymentReconciliation,
   getPendingManualPayments,
   getWorkerBookings,
+  getWorkerBySlug,
   markBookingSettledOutside,
 } from "./repo";
-import { ACTION_CODES, logAdminActivity } from "./activity";
+import { ACTION_CODES, logAdminActivity, logAdminActivitySafe } from "./activity";
 import { lockPaymentReceipt, receiptUploadTimes } from "./payment-receipts";
 import { settlementNeedsCollection } from "./booking-settlement";
 import {
@@ -364,6 +365,7 @@ async function applyReceived(paymentId: string, actor: Actor): Promise<RecordOut
       amountMinor: alloc.receivedMinor,
       detail: { remainingMinor: alloc.remainingMinor },
     });
+    await notifyPartialPayment(view, alloc.receivedMinor, alloc.remainingMinor);
     return { ok: true, outcome: "partial", remainingMinor: alloc.remainingMinor };
   }
 
@@ -409,6 +411,40 @@ async function applyReceived(paymentId: string, actor: Actor): Promise<RecordOut
     });
   }
   return { ok: true, outcome: "confirmed", excessMinor: alloc.excessMinor };
+}
+
+/**
+ * Tell the payer exactly what is still owed after a short payment — on the
+ * same reference, so they do not start a new payment. Booking payers are the
+ * booking's customer; upgrade / credit payers are the worker. (A campaign's
+ * company sees the remainder on the instructions page.)
+ */
+async function notifyPartialPayment(view: ManualPaymentView, receivedMinor: number, remainingMinor: number): Promise<void> {
+  const money = (m: number) => `$${(m / 100).toFixed(2)}`;
+  const n = {
+    type: "system" as const,
+    titleEn: `Payment partly received — ${money(remainingMinor)} still to pay`,
+    titleAr: `تم استلام جزء من الدفعة — يتبقى ${money(remainingMinor)}`,
+    bodyEn: `We received ${money(receivedMinor)} of ${money(view.amountMinor)} for ${view.labelEn}. Please send the remaining ${money(remainingMinor)} with the same reference ${view.reference}.`,
+    bodyAr: `استلمنا ${money(receivedMinor)} من ${money(view.amountMinor)} عن ${view.labelAr}. يرجى إرسال المبلغ المتبقي ${money(remainingMinor)} بالمرجع نفسه ${view.reference}.`,
+  };
+  try {
+    if (view.scope === "booking") {
+      const booking = await getBookingById(view.entityId);
+      if (!booking) return;
+      await pushNotification(
+        { ...n, href: "/bookings" },
+        { name: booking.customerName, email: booking.customerEmail, phone: booking.customerPhone, locale: booking.customerLocale ?? "en" }
+      );
+    } else if (isPurchaseScope(view.scope)) {
+      const pending = (await getPendingManualPayments()).find((p) => p.id === view.paymentId);
+      const worker = pending?.workerSlug ? await getWorkerBySlug(pending.workerSlug) : null;
+      if (!worker) return;
+      await pushNotification({ ...n, href: "/dashboard" }, { name: worker.nameEn, email: worker.email, phone: worker.phone });
+    }
+  } catch (err) {
+    console.error("[payment-workflow] partial-payment notice failed:", err);
+  }
 }
 
 /* ─────────────────────────────── Refunds ─────────────────────────────── */
@@ -531,7 +567,7 @@ export async function runPaymentExpirySweep(now: Date = new Date()): Promise<Exp
 
   // Deposits — every PENDING_PAYMENT booking, whether or not the customer ever
   // opened the pay page (no reference yet still holds the slot).
-  const bookings = (await getAllBookings()).filter((b) => b.status === "pendingPayment");
+  const bookings = await getAllBookings({ statuses: ["pendingPayment"] });
   for (const booking of bookings) {
     const ref = pending.find((p) => p.scope === "booking" && p.leg !== "settlement" && p.entityId === booking.id);
     const requestedAt = depositRequestedAt(booking);
@@ -611,7 +647,7 @@ function completedAtOf(booking: Booking): string | null {
  */
 export async function runSettlementDunning(now: Date = new Date()): Promise<DunningRunResult> {
   const out: DunningRunResult = { referencesMinted: 0, remindersSent: 0, escalated: 0 };
-  const completed = (await getAllBookings()).filter((b) => b.status === "completed" && !b.settledOutside);
+  const completed = (await getAllBookings({ statuses: ["completed"] })).filter((b) => !b.settledOutside);
   const workflows = await getBookingWorkflows(completed.map((b) => b.id));
   for (const booking of completed) {
     const wf = workflows.get(booking.id) ?? { dunningStage: 0 };
@@ -690,7 +726,7 @@ export async function runSettlementDunning(now: Date = new Date()): Promise<Dunn
     }
     if (stage >= 3) {
       out.escalated += 1;
-      await logAdminActivity({
+      await logAdminActivitySafe({
         code: ACTION_CODES.BALANCE_OVERDUE,
         actionEn:
           stage === 3
@@ -716,7 +752,7 @@ export async function runSettlementDunning(now: Date = new Date()): Promise<Dunn
 /** Balances at the D+14 stage or later, not yet written off — the admin's
  * follow-up / write-off list. */
 export async function overdueBalances(): Promise<Array<{ booking: Booking; outstandingMinor: number; stage: number }>> {
-  const completed = (await getAllBookings()).filter((b) => b.status === "completed" && !b.settledOutside);
+  const completed = (await getAllBookings({ statuses: ["completed"] })).filter((b) => !b.settledOutside);
   const workflows = await getBookingWorkflows(completed.map((b) => b.id));
   const out: Array<{ booking: Booking; outstandingMinor: number; stage: number }> = [];
   for (const b of completed) {
@@ -737,7 +773,7 @@ export async function writeOffBalance(bookingId: string, actor: Actor): Promise<
   if (!settlement || !settlementNeedsCollection(settlement)) return false;
   const ok = await patchBookingWorkflow(bookingId, { settlementWrittenOffAt: new Date().toISOString() });
   if (ok) {
-    await logAdminActivity({
+    await logAdminActivitySafe({
       code: ACTION_CODES.BALANCE_WRITTEN_OFF,
       actionEn: `${actor.name ?? "Admin"} wrote off $${(settlement.outstandingMinor / 100).toFixed(2)} on booking ${bookingId}`,
       actionAr: `${actor.name ?? "المشرف"} شطب $${(settlement.outstandingMinor / 100).toFixed(2)} على الحجز ${bookingId}`,
@@ -861,7 +897,7 @@ export async function answerSettledOutside(bookingId: string, confirmed: boolean
     detail: { bookingId, number: booking.number },
   });
   if (!confirmed) {
-    await logAdminActivity({
+    await logAdminActivitySafe({
       code: ACTION_CODES.SETTLED_OUTSIDE_DISPUTED,
       actionEn: `Customer DENIES paying ${booking.number} directly — review the worker's cash declaration`,
       actionAr: `العميل ينفي الدفع المباشر لـ ${booking.number} — راجع تصريح العامل`,
@@ -873,11 +909,35 @@ export async function answerSettledOutside(bookingId: string, confirmed: boolean
   return true;
 }
 
+/**
+ * An admin closes a "settled directly" review after checking with both
+ * parties: `accept` keeps the declaration (the fee stays a claim on the
+ * worker); otherwise it stays flagged as disputed for follow-up. Either way the
+ * decision is audited. Reopening the balance stays a manual decision because
+ * any fee already collected from the worker's credits would have to be
+ * returned with it.
+ */
+export async function resolveSettledOutsideReview(bookingId: string, actor: Actor): Promise<boolean> {
+  const booking = await getBookingById(bookingId);
+  if (!booking?.settledOutside) return false;
+  const wf = await getBookingWorkflow(bookingId);
+  if (wf.settledOutsideConfirmedAt) return false;
+  const ok = await patchBookingWorkflow(bookingId, { settledOutsideConfirmedAt: new Date().toISOString() });
+  if (!ok) return false;
+  await recordPaymentAudit({
+    action: "settlement.outside-confirmed",
+    actorId: actor.id,
+    actorName: actor.name,
+    detail: { bookingId, number: booking.number, byAdmin: true, wasDisputed: Boolean(wf.settledOutsideDisputedAt) },
+  });
+  return true;
+}
+
 /** "Settled directly" declarations the customer has not answered in time, or
  * has denied — the admin review list. */
 export async function settledOutsideNeedingReview(now: Date = new Date()): Promise<Array<{ booking: Booking; disputed: boolean }>> {
   const cfg = paymentWorkflowConfig();
-  const declared = (await getAllBookings()).filter((b) => b.settledOutside);
+  const declared = (await getAllBookings({ statuses: ["completed", "completionPending"] })).filter((b) => b.settledOutside);
   const workflows = await getBookingWorkflows(declared.map((b) => b.id));
   const out: Array<{ booking: Booking; disputed: boolean }> = [];
   for (const b of declared) {

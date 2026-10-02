@@ -30,6 +30,8 @@ import { DEFAULT_LEAD_MARKET_CONFIG, type LeadCandidate } from "../src/lib/data/
 function candidate(workerId: string, overrides: Partial<LeadCandidate> = {}): LeadCandidate {
   return {
     workerId,
+    // Free listing (Step 4): only workers with an active plan are offered paid leads.
+    plan: "professional",
     categorySlug: "plumbing",
     citySlug: "beirut",
     rating: 4.5,

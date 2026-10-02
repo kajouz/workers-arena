@@ -23,7 +23,7 @@ import {
   markNotificationRead,
   pushNotification,
 } from "./notifications";
-import { ACTION_CODES, getVerificationFunnel, logAdminActivity, type ActivityCode } from "./activity";
+import { ACTION_CODES, getVerificationFunnel, logAdminActivity, logAdminActivitySafe, type ActivityCode } from "./activity";
 import { payoutGuard, type Settlement, type SettlementJob } from "./booking-settlement";
 import { weeklyNumbers, type WeeklySheet } from "./weekly-numbers";
 import { benchmarkFor, computePriceBenchmarks, type PriceBenchmark } from "./price-benchmarks";
@@ -1114,9 +1114,11 @@ export async function getChatPresence(bookingId: string): Promise<ChatPresenceSn
  * view. Pass `activeSince` when only recent activity matters: the read is then
  * limited to bookings created or with any event on or after that time.
  */
-export async function getAllBookings(opts: { activeSince?: Date } = {}): Promise<Booking[]> {
+export async function getAllBookings(
+  opts: { activeSince?: Date; statuses?: Booking["status"][] } = {}
+): Promise<Booking[]> {
   if (realDataEnabled) return (await prismaRepo()).prismaGetAllBookings(opts);
-  const all = demoGetAllBookings();
+  const all = opts.statuses ? demoGetAllBookings().filter((b) => opts.statuses!.includes(b.status)) : demoGetAllBookings();
   if (!opts.activeSince) return all;
   const sinceMs = opts.activeSince.getTime();
   return all.filter((b) => b.events.some((e) => Date.parse(e.time) >= sinceMs));
@@ -1272,7 +1274,7 @@ export async function confirmBookingSettlement(
   // admin exactly like a deposit confirm (it used to leave no admin trail).
   if (result) {
     const actor = opts.by ?? "Platform Admin";
-    await logAdminActivity({
+    await logAdminActivitySafe({
       code: ACTION_CODES.BOOKING_CONFIRMED,
       actionEn: `${actor} confirmed the job balance for ${result.number}`,
       actionAr: `${actor} أكّد رصيد العمل للحجز ${result.number}`,

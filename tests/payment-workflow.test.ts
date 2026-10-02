@@ -73,12 +73,18 @@ describe("evidence and maker–checker", () => {
     expect(normalizeTxnId(undefined)).toBeNull();
   });
 
-  it("needs a second admin at/above the threshold or without a receipt", () => {
-    expect(needsSecondApproval({ paymentAmountMinor: 5_000, hasReceipt: true }, cfg)).toBe(false);
-    expect(needsSecondApproval({ paymentAmountMinor: 20_000, hasReceipt: true }, cfg)).toBe(true);
-    expect(needsSecondApproval({ paymentAmountMinor: 500, hasReceipt: false }, cfg)).toBe(true);
+  it("single-admin mode (the default) never asks for a second approver", () => {
+    expect(cfg.approvalMode).toBe("single");
+    expect(needsSecondApproval({ paymentAmountMinor: 1_000_000, hasReceipt: false }, cfg)).toBe(false);
+  });
+
+  it("four-eyes mode needs a second admin at/above the threshold or without a receipt", () => {
+    const four = paymentWorkflowConfig({ PAYMENT_APPROVAL_MODE: "four-eyes" });
+    expect(needsSecondApproval({ paymentAmountMinor: 5_000, hasReceipt: true }, four)).toBe(false);
+    expect(needsSecondApproval({ paymentAmountMinor: 20_000, hasReceipt: true }, four)).toBe(true);
+    expect(needsSecondApproval({ paymentAmountMinor: 500, hasReceipt: false }, four)).toBe(true);
     // Threshold 0 switches the amount rule off; the receipt rule stays.
-    const off = paymentWorkflowConfig({ PAYMENT_FOUR_EYES_MINOR: "0" });
+    const off = paymentWorkflowConfig({ PAYMENT_APPROVAL_MODE: "four-eyes", PAYMENT_FOUR_EYES_MINOR: "0" });
     expect(needsSecondApproval({ paymentAmountMinor: 1_000_000, hasReceipt: true }, off)).toBe(false);
     expect(needsSecondApproval({ paymentAmountMinor: 1_000_000, hasReceipt: false }, off)).toBe(true);
   });

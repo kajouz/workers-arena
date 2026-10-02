@@ -246,7 +246,7 @@ All OMT/Whish payments appear in the `/admin` pending-payments card while pendin
 **Confirm flow (workflow v2 — evidence required):**
 1. The payer pays at an OMT agent / in the Whish app with the reference, and uploads a photo of the receipt on the instructions page
 2. Admin opens the payment's confirm dialog, checks the OMT/Whish statement, and enters the **amount received** and the **transaction number** → `confirmManualPaymentAction(paymentId, { amount, txnId, note })`
-3. The engine decides: covered → the payment flips PAID and the capability activates (subscription/credits/verification/etc.), the receipt is frozen; short → stays pending with the remainder shown to the payer; at/above the four-eyes threshold or without a receipt → waits for a **different** admin; reference already closed → unmatched queue
+3. The engine decides: covered → the payment flips PAID and the capability activates (subscription/credits/verification/etc.), the receipt is frozen; short → stays pending, the remainder is shown on the instructions page and the payer is notified; in the optional four-eyes mode, at/above the threshold or without a receipt → waits for a **different** admin; reference already closed → unmatched queue
 4. Worker/company/customer notified
 A confirm with no evidence is refused (`evidence-required`). Every credit-pack top-up is in the queue too (it was filtered out before — D2).
 
@@ -263,10 +263,10 @@ Source: `src/lib/data/payment-workflow.ts` (pure rules), `payment-workflow-store
 ### Money mode (D3)
 The data layer serves demo data unless `DEMO_MODE=false` **and** `DATABASE_URL` is set. `src/lib/payments/money-mode.ts` refuses to move money (checkout minting and confirmations return null, logged once) when the configuration is incoherent: `DEMO_MODE` unset in production, `DEMO_MODE=false` without a database, or `PAYMENTS_LIVE=true` with demo data. The public showcase (`DEMO_MODE=true`) keeps working, and its `/payments/manual` page shows a **"do not send real money"** banner. Set `PAYMENTS_LIVE=true` on a deployment that takes real money.
 
-### Confirming — evidence, tranches and four-eyes
+### Confirming — evidence, tranches and approval mode
 Each amount finance records is a **tranche** (`PaymentTranche`): amount, OMT/Whish transaction number (normalised, **unique across all tranches and refunds** — one receipt can never confirm two payments), whether a receipt photo existed, who entered it, who approved it.
-- A tranche needs a **second, different admin** (`approveManualTrancheAction`) when the payment is at/above `PAYMENT_FOUR_EYES_MINOR` (default 20000 = $200) or there is no receipt photo. The recording admin cannot approve their own entry. `rejectManualTrancheAction` rejects one that is not on the statement.
-- The payment activates only when **approved** tranches cover it: short → stays pending (the instructions page shows "already received X of Y" and the remainder); exact → confirmed; over → confirmed, the excess booked as a **refund due**.
+- **Approval mode — `PAYMENT_APPROVAL_MODE`.** `single` (the default, while the business has one admin): the admin who records the amount confirms it alone. Evidence is still mandatory, and every entry recorded **without a receipt photo** is flagged (`hadReceipt: false`) in the audit trail — the "Confirmed without a receipt" CSV on the finance card is the owner's periodic review list that compensates for having one person. `four-eyes` (switch on once a second admin exists): a tranche needs a **second, different admin** (`approveManualTrancheAction`) when the payment is at/above `PAYMENT_FOUR_EYES_MINOR` (default 20000 = $200) or there is no receipt photo; the recording admin cannot approve their own entry. `rejectManualTrancheAction` rejects one that is not on the statement.
+- The payment activates only when **approved** tranches cover it: short → stays pending (the instructions page shows "already received X of Y", and the payer — the booking's customer or the worker for an upgrade — is notified of the exact remainder and told to reuse the same reference); exact → confirmed; over → confirmed, the excess booked as a **refund due**.
 - Money recorded against a reference that is no longer pending (expired, cancelled, already paid) becomes an **unmatched** tranche; finance resolves it by booking a refund (`resolveUnmatchedPaymentAction`). Money is never silently lost.
 - On confirm the receipt is **locked** (`PaymentReceipt.lockedAt`): re-uploads are refused, so the evidence finance approved cannot be swapped. Uploads are also refused once the payment is closed, and rate-limited (10/reference/hour, 30/client/hour).
 - The OMT/Whish deposit and balance can no longer be confirmed through the evidence-free admin doors (`confirmPaymentAction`, `confirmBookingSettlementAction` return `evidence-required` for manual methods; they remain for card/simulated reconciliation).
@@ -287,7 +287,7 @@ The hourly `completions` cron (`runSettlementDunning`) stamps `Booking.settlemen
 
 ### Cash settlement controls
 - "We settled this directly" is refused while the customer's balance payment is in flight (receipt uploaded or money recorded) — it used to cancel a payment the customer had actually made.
-- The customer is asked to confirm (`answerSettledOutsideAction`); a denial, or no answer within `SETTLED_OUTSIDE_CONFIRM_HOURS` (72h), puts the booking on the admin review list.
+- The customer is asked to confirm (`answerSettledOutsideAction`); a denial, or no answer within `SETTLED_OUTSIDE_CONFIRM_HOURS` (72h), puts the booking on the admin review list. After checking with both parties the admin closes it with **Accept declaration** (`resolveSettledOutsideReviewAction`, audited). Reopening the balance after a denial stays a manual decision (any fee already collected from the worker's credits would have to be returned with it).
 - An outside-platform fee claim still unpaid after `FEE_CLAIM_GRACE_DAYS` (14) blocks the worker's lead purchases and payout requests (`fee-claim-overdue`).
 
 ### Invoices
@@ -296,14 +296,17 @@ Every cash event now has a WA- invoice: deposits (guests included — `Invoice.u
 ### Audit
 `PaymentAuditEvent` is an append-only, **never-pruned** trail of every tranche, approval, rejection, confirmation, partial/over payment, expiry, reminder, refund, dunning stage, write-off and settled-directly answer. The activity-log prune also keeps money entries (`RETAINED_ACTIVITY_CODES`). Settlement-balance confirms are now audited with the acting admin.
 
+**Export:** `GET /api/admin/payments/audit` (admin only) returns the trail as JSON; `?format=csv` downloads it (every cell quoted, spreadsheet formulas neutralised); `?unreceipted=1` keeps only amounts recorded without a receipt photo. Both CSVs are linked from the finance card. Feed writes that follow a committed money move are non-fatal (`logAdminActivitySafe` / `logAfterCommit`): a failed feed write can no longer make a durable confirm or refund report failure.
+
 ### The `/admin` finance card
-Renders when any queue is non-empty: amounts waiting for a second approval, unmatched receipts, refunds to send, overdue balances (with write-off at D+30) and settled-directly declarations to review.
+Always shown at the top of `/admin`: amounts waiting for a second approval (four-eyes mode only), unmatched receipts, refunds to send, overdue balances (with write-off at D+30), settled-directly declarations to review (with **Accept declaration**), and the two audit CSV downloads. When everything is clear it says so in one line.
 
 ### Environment
 | Variable | Default | Meaning |
 |---|---|---|
 | `PAYMENTS_LIVE` | unset | Declares real money: requires `DEMO_MODE=false` + `DATABASE_URL`, and turns guest OTP on by default |
-| `PAYMENT_FOUR_EYES_MINOR` | `20000` | Second-admin threshold in minor units (0 = only the no-receipt rule) |
+| `PAYMENT_APPROVAL_MODE` | `single` | `single` = one admin confirms (entries without a receipt are flagged for review); `four-eyes` = a second, different admin approves large / receipt-less amounts |
+| `PAYMENT_FOUR_EYES_MINOR` | `20000` | Four-eyes mode only: second-admin threshold in minor units (0 = only the no-receipt rule) |
 | `PAYMENT_DEPOSIT_HOLD_HOURS` | `24` | Deposit hold after the accept |
 | `PAYMENT_DEPOSIT_BEFORE_START_HOURS` | `2` | Latest deposit time before the job |
 | `PAYMENT_PURCHASE_HOLD_HOURS` | `72` | Upgrade / credit / renewal reference hold |

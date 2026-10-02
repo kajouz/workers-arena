@@ -33,11 +33,12 @@ import { appBaseUrl } from "@/lib/notifications/config";
 import { getCampaigns, getWorkerById, getWorkerByUserId } from "@/lib/data/repo";
 import { getSessionWorker } from "@/lib/data/authz";
 import { payPurchaseFromWallet } from "@/lib/data/wallet-payments";
-import { ACTION_CODES, logAdminActivity } from "@/lib/data/activity";
+import { ACTION_CODES, logAdminActivity, logAdminActivitySafe } from "@/lib/data/activity";
 import {
   approveTranche,
   recordManualPayment,
   rejectTranche,
+  resolveSettledOutsideReview,
   resolveUnmatched,
   sendRefund,
   writeOffBalance,
@@ -456,7 +457,7 @@ export async function confirmManualPaymentAction(
     actor: { id: session.id, name: session.name ?? "Platform Admin" },
   });
   if (!result.ok) return { ok: false, error: result.error };
-  await logAdminActivity({
+  await logAdminActivitySafe({
     code: result.outcome === "unmatched" ? ACTION_CODES.PAYMENT_UNMATCHED : ACTION_CODES.PAYMENT_RECORDED,
     actionEn: `${session.name ?? "Admin"} recorded $${(amountMinor / 100).toFixed(2)} received on payment ${paymentId} (${result.outcome})`,
     actionAr: `${session.name ?? "المشرف"} سجّل استلام $${(amountMinor / 100).toFixed(2)} على الدفعة ${paymentId} (${result.outcome})`,
@@ -481,7 +482,7 @@ export async function approveManualTrancheAction(
   if (!trancheId) return { ok: false, error: "invalid" };
   const result = await approveTranche(trancheId, { id: session.id, name: session.name ?? "Platform Admin" });
   if (!result.ok) return { ok: false, error: result.error };
-  await logAdminActivity({
+  await logAdminActivitySafe({
     code: ACTION_CODES.PAYMENT_APPROVED,
     actionEn: `${session.name ?? "Admin"} approved received amount ${trancheId} (${result.outcome})`,
     actionAr: `${session.name ?? "المشرف"} وافق على المبلغ المستلم ${trancheId} (${result.outcome})`,
@@ -500,7 +501,7 @@ export async function rejectManualTrancheAction(trancheId: string, note?: string
   if (!trancheId) return { ok: false, error: "invalid" };
   const ok = await rejectTranche(trancheId, { id: session.id, name: session.name ?? "Platform Admin" }, note ? sanitizeText(note, 300) : undefined);
   if (!ok) return { ok: false, error: "not-found" };
-  await logAdminActivity({
+  await logAdminActivitySafe({
     code: ACTION_CODES.PAYMENT_REJECTED,
     actionEn: `${session.name ?? "Admin"} rejected received amount ${trancheId}`,
     actionAr: `${session.name ?? "المشرف"} رفض المبلغ المستلم ${trancheId}`,
@@ -531,7 +532,7 @@ export async function markRefundSentAction(
   if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
   const result = await sendRefund({ paymentId, txnId, actor: { id: session.id, name: session.name ?? "Platform Admin" } });
   if (!result.ok) return { ok: false, error: result.error };
-  await logAdminActivity({
+  await logAdminActivitySafe({
     code: ACTION_CODES.REFUND_SENT,
     actionEn: `${session.name ?? "Admin"} sent a $${(result.amountMinor / 100).toFixed(2)} refund on payment ${paymentId}`,
     actionAr: `${session.name ?? "المشرف"} أرسل استردادًا بقيمة $${(result.amountMinor / 100).toFixed(2)} على الدفعة ${paymentId}`,
@@ -548,6 +549,16 @@ export async function writeOffBalanceAction(bookingId: string): Promise<{ ok: bo
   const session = await getSession();
   if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
   const ok = await writeOffBalance(bookingId, { id: session.id, name: session.name ?? "Platform Admin" });
+  if (!ok) return { ok: false, error: "not-found" };
+  revalidateMoneyPaths();
+  return { ok: true };
+}
+
+/** Close a "settled directly" review after checking with both parties. */
+export async function resolveSettledOutsideReviewAction(bookingId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return { ok: false, error: "unauthorized" };
+  const ok = await resolveSettledOutsideReview(bookingId, { id: session.id, name: session.name ?? "Platform Admin" });
   if (!ok) return { ok: false, error: "not-found" };
   revalidateMoneyPaths();
   return { ok: true };

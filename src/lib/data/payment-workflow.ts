@@ -30,7 +30,16 @@ export function paymentWorkflowConfig(env: Env = process.env) {
     depositBeforeStartHours: intEnv(env, "PAYMENT_DEPOSIT_BEFORE_START_HOURS", 2),
     /** An unpaid upgrade / credit / campaign reference lapses after this. */
     purchaseHoldHours: intEnv(env, "PAYMENT_PURCHASE_HOLD_HOURS", 72),
-    /** At or above this amount (minor units) a second admin must approve. */
+    /**
+     * Who must approve a recorded amount. "single" (the default while the
+     * business has one admin): the recording admin confirms alone — evidence
+     * (amount + unique transaction number) is still mandatory and every entry
+     * made without a receipt photo is flagged in the audit export for the
+     * owner's review. "four-eyes": a second, different admin approves amounts
+     * at/above the threshold and any entry without a receipt photo.
+     */
+    approvalMode: (env.PAYMENT_APPROVAL_MODE === "four-eyes" ? "four-eyes" : "single") as "single" | "four-eyes",
+    /** In four-eyes mode: at or above this amount (minor units) a second admin must approve. */
     fourEyesThresholdMinor: intEnv(env, "PAYMENT_FOUR_EYES_MINOR", 20_000),
     /** Minimum deposit as a share of the quote, in basis points (0 = off). */
     minDepositBps: Math.min(10_000, intEnv(env, "BOOKING_MIN_DEPOSIT_BPS", 0)),
@@ -110,14 +119,16 @@ export function normalizeTxnId(raw: string | null | undefined): string | null {
 }
 
 /**
- * Does recording this amount need a second, different admin? Yes when the
- * payment is at or above the four-eyes threshold, or when there is no receipt
- * photo to back the entry.
+ * Does recording this amount need a second, different admin? Only in
+ * "four-eyes" mode (PAYMENT_APPROVAL_MODE=four-eyes): yes when the payment is
+ * at or above the threshold, or when there is no receipt photo to back the
+ * entry. In "single" mode (the default) never.
  */
 export function needsSecondApproval(
   input: { paymentAmountMinor: number; hasReceipt: boolean },
   cfg: PaymentWorkflowConfig = paymentWorkflowConfig()
 ): boolean {
+  if (cfg.approvalMode !== "four-eyes") return false; // single-admin mode
   if (!input.hasReceipt) return true;
   return cfg.fourEyesThresholdMinor > 0 && input.paymentAmountMinor >= cfg.fourEyesThresholdMinor;
 }

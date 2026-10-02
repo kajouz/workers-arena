@@ -64,8 +64,8 @@ let txnSeq = 0;
 /**
  * Workflow v2 — the real manual-confirm flow: the payer uploads a receipt on
  * the instructions page, an admin records the amount received with a unique
- * OMT/Whish transaction number, and (at/above the four-eyes threshold) a
- * second admin approves it. Returns the first admin's result.
+ * OMT/Whish transaction number, and (only in four-eyes mode) a second admin
+ * approves it. Returns the first admin's result.
  */
 async function confirmWithEvidence(paymentId: string) {
   const payment = (await getPendingManualPayments()).find((p) => p.id === paymentId);
@@ -307,9 +307,9 @@ describe("§Lebanon — campaign purchases via Whish", () => {
     getSessionMock.mockResolvedValue(ADMIN);
     const confirm = await confirmWithEvidence(campaignPayment!.id);
     expect(confirm.ok).toBe(true);
-    // At or above the four-eyes threshold the first admin's entry only RECORDS
-    // the money; the campaign goes live when a different admin approves it.
-    const fourEyes = campaignPayment!.amount >= 20_000;
+    // Single-admin mode (the default): the recording admin confirms alone.
+    // (Four-eyes mode is covered in tests/payment-workflow-engine.test.ts.)
+    const fourEyes = false;
     expect(confirm).toEqual({ ok: true, outcome: fourEyes ? "awaiting-approval" : "confirmed" });
 
     const campaigns = await (await import("../src/lib/data/repo")).getCampaigns();
@@ -428,8 +428,8 @@ describe("§Lebanon — subscription renewal via OMT/Whish (manual)", () => {
     expect(payment?.amount).toBe(27 * 9 * 100);
 
     getSessionMock.mockResolvedValue(ADMIN);
-    // 27 × 9 = $243 — over the four-eyes threshold, so a second admin approves.
-    expect(await confirmWithEvidence(payment!.id)).toEqual({ ok: true, outcome: "awaiting-approval" });
+    // $243 — single-admin mode confirms it at once (four-eyes would wait).
+    expect(await confirmWithEvidence(payment!.id)).toEqual({ ok: true, outcome: "confirmed" });
     const worker = workerBySlug(DEMO_WORKER)!;
     expect(worker.subscription.price).toBe(27 * 9);
   });

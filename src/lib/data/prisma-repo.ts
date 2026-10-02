@@ -1692,13 +1692,18 @@ export async function prismaGetCustomerBookings(
  * event) on or after that time — the recurring digests only look at recent
  * weeks and should not load the whole table each run.
  */
-export async function prismaGetAllBookings(opts: { activeSince?: Date } = {}): Promise<Booking[]> {
+export async function prismaGetAllBookings(
+  opts: { activeSince?: Date; statuses?: Booking["status"][] } = {}
+): Promise<Booking[]> {
   const prisma = getPrisma();
   const since = opts.activeSince;
+  // Domain camelCase → DB enum (pendingPayment → PENDING_PAYMENT).
+  const dbStatuses = opts.statuses?.map((st) => st.replace(/([A-Z])/g, "_$1").toUpperCase() as $Enums.BookingStatus);
   const rows = await prisma.booking.findMany({
-    where: since
-      ? { OR: [{ createdAt: { gte: since } }, { events: { some: { createdAt: { gte: since } } } }] }
-      : undefined,
+    where: {
+      ...(since ? { OR: [{ createdAt: { gte: since } }, { events: { some: { createdAt: { gte: since } } } }] } : {}),
+      ...(dbStatuses ? { status: { in: dbStatuses } } : {}),
+    },
     orderBy: { startAt: "asc" },
     include: {
       events: { orderBy: { createdAt: "asc" as const } },
@@ -3524,7 +3529,7 @@ export async function prismaConfirmBookingPayment(
       // ACTOR is whoever confirmed receipt — the /admin pending-payments
       // confirm threads the acting admin (opts.by), webhook-simulated
       // confirms keep the worker name (demo/prisma parity).
-      await logAdminActivity({
+      await logAfterCommit({
         code: ACTION_CODES.BOOKING_CONFIRMED,
         actionEn: `${name} confirmed ${result.number}`,
         actionAr: `${name} أكّد الحجز ${result.number}`,
@@ -3555,6 +3560,20 @@ export async function prismaConfirmBookingPayment(
     }
   }
   return null;
+}
+
+/**
+ * Write a feed entry AFTER a money transaction has committed. The money move
+ * is already durable (and recorded in the never-pruned PaymentAuditEvent
+ * trail), so a failed feed write must not turn a successful confirm or refund
+ * into a reported failure — it is logged instead.
+ */
+async function logAfterCommit(entry: Parameters<typeof logAdminActivity>[0]): Promise<void> {
+  try {
+    await logAdminActivity(entry);
+  } catch (err) {
+    console.error("[prisma-repo] activity feed write failed after commit (money move is durable):", err);
+  }
 }
 
 /** Resolve the display name of the worker on a booking (activity feed copy). */
@@ -4598,7 +4617,7 @@ export async function prismaRefundCampaignPayment(
     const reasonSuffix = reason ? ` — ${reason}` : "";
     // Audit — the refund lands in the admin activity feed with the reason
     // riding the entry text (same story as the /admin campaign-payments card).
-    await logAdminActivity({
+    await logAfterCommit({
       code: ACTION_CODES.CAMPAIGN_REFUNDED,
       actionEn: `${actor} refunded ${campaign.nameEn} (${payment.id})${reasonSuffix}`,
       actionAr: `${actor} استردّ مبلغ حملة ${campaign.nameAr} (${payment.id})${reasonSuffix}`,
@@ -4942,7 +4961,7 @@ export async function prismaConfirmCampaignPayment(
         // the demo CAMPAIGN_PAID entry so all three manual scopes appear in
         // the feed (demo/prisma parity).
         const actor = opts.by ?? "Platform Admin";
-        await logAdminActivity({
+        await logAfterCommit({
           code: ACTION_CODES.CAMPAIGN_PAID,
           actionEn: `${actor} confirmed campaign ${result.nameEn} (${campaignId})`,
           actionAr: `${actor} أكّد دفع حملة ${result.nameAr} (${campaignId})`,
@@ -6441,7 +6460,7 @@ export async function prismaConfirmPurchase(
   // ADMIN as actor (threaded via opts.by), the real-mode twin of the demo
   // PURCHASE_CONFIRMED entry (demo/prisma parity). Logged once, on the flip.
   if (activation.flipped) {
-    await logAdminActivity({
+    await logAfterCommit({
       code: ACTION_CODES.PURCHASE_CONFIRMED,
       actionEn: `${actor} confirmed ${scope} purchase for ${worker?.nameEn ?? "Worker"} (${payment.id})`,
       actionAr: `${actor} أكّد شراء ${scope} للعامل ${worker?.nameAr ?? "العامل"} (${payment.id})`,

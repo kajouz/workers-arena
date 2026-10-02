@@ -13,9 +13,12 @@
  *  - overdue job balances (D+7 and later), with the write-off decision;
  *  - "settled directly" declarations the customer denied or left unanswered.
  *
- * The card renders only when at least one queue is non-empty.
+ * Always rendered (it carries the audit-trail CSV exports — in single-admin
+ * mode the "recorded without a receipt" export is the owner's review list);
+ * empty queues collapse to one line.
  */
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { useLocale } from "@/components/providers/locale-provider";
@@ -23,6 +26,7 @@ import {
   approveManualTrancheAction,
   markRefundSentAction,
   rejectManualTrancheAction,
+  resolveSettledOutsideReviewAction,
   resolveUnmatchedPaymentAction,
   writeOffBalanceAction,
 } from "@/app/actions/business";
@@ -80,8 +84,26 @@ export function FinanceQueuesCard({ queues }: { queues: FinanceQueues }) {
       <CardHeader className="flex-row items-center gap-2">
         <ShieldCheck className="size-4 shrink-0 text-brand-500" />
         <CardTitle className="text-base">{t("payments.financeTitle")}</CardTitle>
+        <span className="ms-auto flex flex-wrap gap-3 text-xs font-semibold">
+          <Link className="text-brand-600 hover:underline dark:text-brand-400" href="/api/admin/payments/audit?format=csv" prefetch={false}>
+            {t("payments.financeAuditCsv")}
+          </Link>
+          <Link
+            className="text-brand-600 hover:underline dark:text-brand-400"
+            href="/api/admin/payments/audit?format=csv&unreceipted=1"
+            prefetch={false}
+          >
+            {t("payments.financeAuditUnreceipted")}
+          </Link>
+        </span>
       </CardHeader>
       <CardContent className="space-y-5">
+        {queues.awaitingApproval.length +
+          queues.unmatched.length +
+          queues.refunds.length +
+          queues.overdue.length +
+          queues.outsideReview.length ===
+          0 && <p className="text-sm text-ink-400">{t("payments.financeEmpty")}</p>}
         <Section title={t("payments.financeApprovals")} count={queues.awaitingApproval.length}>
           {queues.awaitingApproval.map((a) => (
             <div key={a.id} className={ROW}>
@@ -182,9 +204,19 @@ export function FinanceQueuesCard({ queues }: { queues: FinanceQueues }) {
               <p className="truncate text-sm font-bold text-ink-900 dark:text-ink-50">
                 {o.number} — {o.customer}
               </p>
-              <Badge variant={o.disputed ? "danger" : "outline"}>
-                {o.disputed ? t("payments.financeOutsideDenied") : t("payments.financeOutsideUnanswered")}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={o.disputed ? "danger" : "outline"}>
+                  {o.disputed ? t("payments.financeOutsideDenied") : t("payments.financeOutsideUnanswered")}
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy !== null}
+                  onClick={() => void run(`o-${o.bookingId}`, () => resolveSettledOutsideReviewAction(o.bookingId))}
+                >
+                  {t("payments.financeOutsideAccept")}
+                </Button>
+              </div>
             </div>
           ))}
         </Section>

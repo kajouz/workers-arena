@@ -200,8 +200,6 @@ export default async function AdminPage({
     overdue: overdue.map((o) => ({ bookingId: o.booking.id, number: o.booking.number, customer: o.booking.customerName, outstandingMinor: o.outstandingMinor, stage: o.stage })),
     outsideReview: outsideReview.map((o) => ({ bookingId: o.booking.id, number: o.booking.number, customer: o.booking.customerName, disputed: o.disputed })),
   };
-  const financeCount =
-    finance.awaitingApproval.length + finance.unmatched.length + finance.refunds.length + finance.overdue.length + finance.outsideReview.length;
 
   return (
     <>
@@ -210,11 +208,11 @@ export default async function AdminPage({
         <GuaranteeClaimsCard claims={openClaims} />
       </div>
     )}
-    {financeCount > 0 && (
-      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-        <FinanceQueuesCard queues={finance} />
-      </div>
-    )}
+    {/* Always shown: it also carries the audit-trail exports (the owner's
+        review list in single-admin mode). Collapsed to one line when empty. */}
+    <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
+      <FinanceQueuesCard queues={finance} />
+    </div>
     <AdminDashboard
       session={session}
       analytics={analytics}

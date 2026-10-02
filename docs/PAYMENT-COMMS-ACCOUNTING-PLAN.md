@@ -301,7 +301,7 @@ Implemented on branch `claude/beautiful-cray-57eacm`. Technical reference: [PAYM
 | Never-pruned money audit + money entries kept by the activity prune + settlement confirms audited | ✅ | `PaymentAuditEvent`, `RETAINED_ACTIVITY_CODES`, `repo.confirmBookingSettlement` |
 | Evidence (amount + unique transaction number) on every manual confirm; evidence-free doors closed for OMT/Whish | ✅ | `confirmManualPaymentAction`, `payment-workflow-engine.ts` |
 | Who enters the transaction number | **Deviation from §3.2 step 3:** the payer uploads the receipt photo; **finance** enters the OMT/Whish transaction number from the receipt/statement (one trusted entry point, uniqueness enforced there) | admin confirm dialog |
-| Four-eyes above threshold / without receipt | ✅ — a **different admin** must approve. **Deviation:** no separate FINANCE role was added (it would touch every admin guard); the control is "two distinct admin accounts". Add the role when the finance team exists | `approveManualTrancheAction` |
+| Four-eyes above threshold / without receipt | ✅ built, **switched off by default** (`PAYMENT_APPROVAL_MODE=single`) because the business has one admin today (decision 2026-10-02). In single mode one admin confirms; evidence stays mandatory and receipt-less entries are flagged in the audit CSV for the owner's review. Turn on with `PAYMENT_APPROVAL_MODE=four-eyes` once a second admin exists. No separate FINANCE role | `payment-workflow.ts`, `approveManualTrancheAction`, `/api/admin/payments/audit` |
 | Short / over / late (unmatched) money | ✅ | engine + finance card |
 | Refund states due → sent with transfer number | ✅ (cancellations, deposit refunds, campaign refunds, overpayments, unmatched receipts). Refund *decisions* are audited; a second approver on refund *sending* was not added | `payment-workflow-store.ts`, finance card |
 | Deposit deadline, auto-cancel, slot release, half-time reminder | ✅ (15-minute `requests` cron). **Deviation:** campaign references are not lapsed — an unpaid campaign holds no inventory | `runPaymentExpirySweep` |
@@ -316,6 +316,32 @@ Implemented on branch `claude/beautiful-cray-57eacm`. Technical reference: [PAYM
 | OMT/Whish merchant API / statement import | ⏸ Depends on the providers (§3.10) | — |
 | OpenWA, ERPNext | ⏸ Not implemented, by decision | §5, §6 |
 
-**Known residual issue (pre-existing):** in the Prisma deposit/campaign confirms, the activity-feed write runs after the money transaction inside the same `try`; if that write fails, the adapter reports failure although the payment committed. With real admin accounts this does not occur; a follow-up should make post-commit logging non-fatal.
+**Second round (2026-10-02, after the single-admin decision):**
+- Single-admin mode is the default (above).
+- Post-commit activity-feed writes are non-fatal (`logAfterCommit`, `logAdminActivitySafe`): a failed feed write can no longer report a committed payment as failed.
+- The payer is notified of the exact remainder after a short payment (booking customer / worker).
+- The admin can close a "settled directly" review (**Accept declaration**, audited).
+- Audit trail export: `/api/admin/payments/audit?format=csv` and the "confirmed without a receipt" review list, linked from the always-visible finance card.
+- The expiry and dunning sweeps read only the booking statuses they need (status filter in the database query), instead of every booking.
+- The pre-existing failing live test (`tests/lead-market-prisma.test.ts`) was a stale fixture (candidates without a plan, excluded since the 2026-09-28 free-listing rule); fixed — it now also proves the lead-rebate credit path on the new ledger key.
 
-**Verification:** `npm run typecheck` · `npm run lint:ci` (0 errors, warning budget unchanged) · `npm test` (new: `payment-workflow`, `payment-workflow-engine`, `payment-hardening`) · `npm run db:smoke` (now also runs `scripts/smoke-payment-workflow.ts` against live PostgreSQL).
+### 10.1 Remaining gaps (audit, 2026-10-02)
+
+Not implemented — each needs a business decision, an outside party, or carries more risk than this round allowed:
+
+| Gap | Why it is still open | Risk while open | Suggested next step |
+|---|---|---|---|
+| One person can record and confirm money (single-admin mode) | Business has one admin | Error or misuse goes unchecked until the owner reviews the "confirmed without a receipt" CSV | Owner reviews the CSV weekly; switch to `four-eyes` when a second admin joins |
+| No automatic confirmation from OMT/Whish | Needs merchant accounts / statement export or API from the providers | Admin workload; confirmation speed depends on the admin | Ask OMT and Whish for merchant accounts and statement exports (§3.10) |
+| No card payments | No gateway chosen (Stripe not available to Lebanese merchants) | Customers abroad cannot pay | Choose Tap / MyFatoorah / regional PSP (§9) |
+| Refunds are sent by hand | OMT/Whish have no refund API | A due refund can sit unsent | The finance card lists every refund due; review it daily |
+| Customer is not notified when a refund is SENT | Refund records keep a label, not the payer's contact | Customer may ask support | Store the payer contact on the refund and notify on "sent" |
+| Reopening a balance after the customer denies a cash settlement | Fee already collected from the worker's credits would have to be returned — money-bearing | Admin handles it manually | Add an admin "reopen balance" action that also reverses the fee collection |
+| Reconciliation CSV covers OMT/Whish only | Wallet and card payments are separate stores | Accounting export incomplete for wallet/card | Extend the export (prerequisite for ERPNext) |
+| Rate limiting is per-server without Redis | Infrastructure setting | Limits are weaker on multi-server deployments | Set `UPSTASH_REDIS_REST_URL` / token in production |
+| Minimum deposit for everyone is off | Business decision (§9 #1) | Small deposits leave large balances to chase | Set `BOOKING_MIN_DEPOSIT_BPS` (e.g. 3000 = 30%) |
+| LBP payments | Exchange-rate policy not decided (§9 #4) | Admin must convert by hand | Decide the rate source and who bears the difference |
+| Campaign references never lapse | They hold no inventory — deliberate | Stale pending rows in the queue | Optional: lapse after 72h like upgrades |
+| Accounting system (ERPNext), WhatsApp gateway (OpenWA) | Not implemented by decision | — | §5, §6 |
+
+**Verification:** `npm run typecheck` · `npm run lint:ci` (0 errors, warning budget unchanged) · `npm test` (all suites pass; new: `payment-workflow`, `payment-workflow-engine`, `payment-hardening`) · `npm run db:smoke` (now also runs `scripts/smoke-payment-workflow.ts` against live PostgreSQL, covering single-admin and four-eyes modes) · `npm run test:e2e:quick`.

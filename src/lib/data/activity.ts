@@ -166,6 +166,19 @@ async function fileLog(entry: Omit<ActivityEntry, "id" | "time">): Promise<Activ
   }))!;
 }
 
+/**
+ * Feed write that never throws — for entries written AFTER a money move has
+ * committed (the never-pruned PaymentAuditEvent trail is the record of
+ * truth; a failed feed write must not report a durable payment as failed).
+ */
+export async function logAdminActivitySafe(entry: Omit<ActivityEntry, "id" | "time">): Promise<void> {
+  try {
+    await logAdminActivity(entry);
+  } catch (err) {
+    console.error("[activity] feed write failed after a committed action:", err);
+  }
+}
+
 /** Newest-first runtime events (raw ISO times — format with timeAgo at render). */
 async function fileGetFeed(): Promise<ActivityEntry[]> {
   return readFeed();
